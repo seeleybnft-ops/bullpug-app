@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { Menu, X, MessageCircle } from "lucide-react";
+import { Menu, X, MessageCircle, MessageSquare } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
+import NotificationBell from "./NotificationBell";
 
 const LOGO = "https://bullpug.com/wp-content/uploads/2024/10/04.10.2024_13.24.29_rec-1.png";
+
+// Check if wallet is admin
+const ADMIN_WALLETS = [
+  "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
+  "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"
+];
 
 const NAV_LINKS = [
   { name: "Home", path: "/" },
@@ -20,6 +28,9 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { publicKey, connected } = useWallet();
+  
+  const isAdmin = connected && publicKey && ADMIN_WALLETS.includes(publicKey.toBase58());
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-xl border-b border-white/5" data-testid="navbar">
