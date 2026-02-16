@@ -177,6 +177,8 @@ export default function SpeedRunGame() {
             setTotalMooncakes(newTotal);
             localStorage.setItem("bullpugMooncakes", String(newTotal));
             if (g.score > highScore) { setHighScore(g.score); localStorage.setItem("bullpugHighScore", String(g.score)); }
+            // Submit to leaderboard
+            submitScore(g.score, g.mooncakes);
             return;
           }
         }
