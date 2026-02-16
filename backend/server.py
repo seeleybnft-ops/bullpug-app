@@ -13,9 +13,13 @@ import numpy as np
 import json as jsonlib
 import csv
 import io
+import base64
+import base58
+from nacl.signing import VerifyKey
+from nacl.exceptions import BadSignatureError
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 from emergentintegrations.payments.stripe.checkout import (
@@ -35,11 +39,50 @@ stripe_api_key = os.environ.get('STRIPE_API_KEY')
 RAKE_PERCENT = 2.5
 DISTRIBUTION_WALLET = "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT"
 
+# Admin wallets
+ADMIN_WALLETS = [
+    "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",  # Fee wallet
+    "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"   # Personal wallet
+]
+
+# Escrow wallet (for holding bets)
+ESCROW_WALLET = DISTRIBUTION_WALLET  # Using distribution wallet as escrow for simplicity
+
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# ========== WebSocket Managers ==========
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: str):
+        await websocket.accept()
+        self.active_connections[user_id] = websocket
+
+    def disconnect(self, user_id: str):
+        self.active_connections.pop(user_id, None)
+
+    async def send_personal_message(self, message: dict, user_id: str):
+        if user_id in self.active_connections:
+            try:
+                await self.active_connections[user_id].send_json(message)
+            except:
+                self.disconnect(user_id)
+
+    async def broadcast(self, message: dict):
+        for user_id, connection in list(self.active_connections.items()):
+            try:
+                await connection.send_json(message)
+            except:
+                self.disconnect(user_id)
+
+dm_manager = ConnectionManager()
+notification_manager = ConnectionManager()
 
 
 # ========== Models ==========
