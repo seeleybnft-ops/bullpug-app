@@ -11,6 +11,8 @@ const NAV_LINKS = [
   { name: "Betting", path: "/betting" },
   { name: "Game", path: "/game" },
   { name: "Exit Sim", path: "/exit-simulator" },
+  { name: "Reflections", path: "/reflections" },
+  { name: "Journal", path: "/journal" },
   { name: "Wallet", path: "/wallet" },
 ];
 
