@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,6 +11,8 @@ import httpx
 import asyncio
 import numpy as np
 import json as jsonlib
+import csv
+import io
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -27,6 +30,10 @@ mongo_client = AsyncIOMotorClient(mongo_url)
 db = mongo_client[os.environ['DB_NAME']]
 
 stripe_api_key = os.environ.get('STRIPE_API_KEY')
+
+# P2P Betting Configuration
+RAKE_PERCENT = 2.5
+DISTRIBUTION_WALLET = "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT"
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
