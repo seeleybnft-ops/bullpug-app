@@ -281,6 +281,10 @@ function PotSystem({ walletAddress }) {
           <Badge className={`mt-3 ${pot?.status === "open" ? "bg-[#00FFA3]/10 text-[#00FFA3]" : "bg-red-500/10 text-red-400"}`}>
             {pot?.status || "open"}
           </Badge>
+          <div className="flex items-center gap-1 mt-2 justify-center">
+            <div className={`w-1.5 h-1.5 rounded-full ${wsStatus === "connected" ? "bg-[#00FFA3]" : "bg-amber-400 animate-pulse"}`} />
+            <span className="text-[9px] text-slate-600">{wsStatus === "connected" ? "Live" : "Connecting..."}</span>
+          </div>
         </div>
 
         <div className="glass-card rounded-2xl p-6 space-y-4">
