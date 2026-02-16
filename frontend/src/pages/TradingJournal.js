@@ -162,13 +162,31 @@ export default function TradingJournal() {
             </h1>
             <p className="text-slate-500 text-sm mt-1">Track, analyze, and improve your trading</p>
           </div>
-          <Button
-            onClick={() => { setEditingTrade(null); setShowForm(true); }}
-            data-testid="new-trade-btn"
-            className="bg-[#00FFA3] text-black font-bold rounded-xl px-6 py-5 text-sm uppercase hover:scale-[1.02] transition-transform"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Log Trade
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={exportCSV}
+              variant="outline"
+              data-testid="export-csv-btn"
+              className="border-white/20 text-slate-400 hover:text-white rounded-xl px-4 py-2 text-xs uppercase"
+            >
+              <Download className="w-3 h-3 mr-1" /> CSV
+            </Button>
+            <Button
+              onClick={exportPDF}
+              variant="outline"
+              data-testid="export-pdf-btn"
+              className="border-white/20 text-slate-400 hover:text-white rounded-xl px-4 py-2 text-xs uppercase"
+            >
+              <FileText className="w-3 h-3 mr-1" /> PDF
+            </Button>
+            <Button
+              onClick={() => { setEditingTrade(null); setShowForm(true); }}
+              data-testid="new-trade-btn"
+              className="bg-[#00FFA3] text-black font-bold rounded-xl px-6 py-5 text-sm uppercase hover:scale-[1.02] transition-transform"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Log Trade
+            </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
