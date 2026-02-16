@@ -61,6 +61,11 @@ ADMIN_WALLETS = [
 ESCROW_WALLET = DISTRIBUTION_WALLET  # Using distribution wallet as escrow for simplicity
 
 app = FastAPI()
+
+# Add rate limiter to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
