@@ -1,0 +1,177 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Bullpug",
+      "tagline": "The Cosmic Guardian of the Memecoin Universe",
+      "vibe": "Space, Fun, Neon, Community, Degens",
+      "theme_mode": "dark"
+    },
+    "typography": {
+      "font_family": {
+        "heading": "Orbitron, sans-serif",
+        "body": "Space Grotesk, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "scale": {
+        "h1": "text-6xl md:text-8xl font-black tracking-tighter uppercase",
+        "h2": "text-4xl md:text-5xl font-bold tracking-tight",
+        "h3": "text-2xl md:text-3xl font-bold",
+        "body": "text-base md:text-lg leading-relaxed text-slate-300",
+        "caption": "text-xs uppercase tracking-widest text-slate-500"
+      },
+      "imports": [
+        "https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@300;400;600&display=swap"
+      ]
+    },
+    "colors": {
+      "background": {
+        "default": "#05050A",
+        "paper": "#0F0F16",
+        "card": "#13131F"
+      },
+      "primary": {
+        "DEFAULT": "#00FFA3",
+        "foreground": "#000000",
+        "glow": "0 0 20px rgba(0, 255, 163, 0.5)"
+      },
+      "secondary": {
+        "DEFAULT": "#D946EF",
+        "foreground": "#FFFFFF",
+        "glow": "0 0 20px rgba(217, 70, 239, 0.5)"
+      },
+      "accent": {
+        "DEFAULT": "#F5D300",
+        "foreground": "#000000",
+        "glow": "0 0 15px rgba(245, 211, 0, 0.5)"
+      },
+      "destructive": {
+        "DEFAULT": "#FF3B30",
+        "foreground": "#FFFFFF"
+      },
+      "neutral": {
+        "50": "#F8FAFC",
+        "100": "#F1F5F9",
+        "200": "#E2E8F0",
+        "300": "#CBD5E1",
+        "400": "#94A3B8",
+        "500": "#64748B",
+        "600": "#475569",
+        "700": "#334155",
+        "800": "#1E293B",
+        "900": "#0F172A"
+      },
+      "gradients": {
+        "cosmic": "linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)",
+        "neon": "linear-gradient(90deg, #00FFA3 0%, #00C2FF 100%)",
+        "sunset": "linear-gradient(90deg, #FF00FF 0%, #FF9900 100%)"
+      }
+    },
+    "visual_enhancers": {
+      "glassmorphism": "bg-black/30 backdrop-blur-xl border border-white/10 shadow-xl",
+      "neon_border": "border border-primary/50 shadow-[0_0_10px_rgba(0,255,163,0.3)]",
+      "card_hover": "hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,163,0.2)] hover:-translate-y-1 transition-all duration-300",
+      "text_glow": "drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+    },
+    "layout_strategies": {
+      "container": "max-w-7xl mx-auto px-6 md:px-12",
+      "section_spacing": "py-24 md:py-32",
+      "grid_bento": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "grid_cards": "grid grid-cols-1 md:grid-cols-3 gap-8"
+    }
+  },
+  "components_map": {
+    "buttons": {
+      "primary": "bg-primary text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-4",
+      "secondary": "bg-transparent border-2 border-primary text-primary font-bold uppercase tracking-wider hover:bg-primary/10 transition-colors rounded-full px-8 py-4",
+      "ghost": "text-slate-400 hover:text-white transition-colors font-medium uppercase tracking-wide"
+    },
+    "cards": {
+      "default": "bg-card/50 backdrop-blur-sm border border-white/5 rounded-2xl p-6 overflow-hidden relative group",
+      "highlight": "bg-gradient-to-br from-white/10 to-transparent border border-white/20 rounded-2xl p-8"
+    },
+    "inputs": {
+      "default": "bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_coin": {
+        "url": "https://images.unsplash.com/photo-1652991588468-f3c7e2083ab7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxnb2xkJTIwY3J5cHRvJTIwY29pbiUyMDNkJTIwcmVuZGVyfGVufDB8fHx8MTc3MTI3MzM3M3ww&ixlib=rb-4.1.0&q=85",
+        "alt": "Bullpug Coin Logo",
+        "usage": "Hero section center, floating animation"
+      },
+      "space_bg": {
+        "url": "https://images.unsplash.com/photo-1592093474530-86874167e896?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHwyfHxuZW9uJTIwY29zbWljJTIwc3BhY2UlMjBiYWNrZ3JvdW5kJTIwc3RhcnJ5fGVufDB8fHx8MTc3MTI3MzM3M3ww&ixlib=rb-4.1.0&q=85",
+        "alt": "Cosmic Nebula Background",
+        "usage": "Global page background (parallax)"
+      },
+      "pug_astronaut": {
+        "url": "https://images.unsplash.com/photo-1678392277306-a3f9c2c70eaa?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHw0fHxwdWclMjBpbiUyMHNwYWNlJTIwc3VpdCUyMGNvc21pYyUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzcxMjczMzcyfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Astronaut Guardian",
+        "usage": "Lore section, floating character"
+      },
+      "meme_dog": {
+        "url": "https://images.unsplash.com/photo-1629757257537-62cedbcffbe6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxwdWclMjBkb2clMjBwb3J0cmFpdCUyMGZ1bm55fGVufDB8fHx8MTc3MTI3MzM4Nnww&ixlib=rb-4.1.0&q=85",
+        "alt": "Funny Pug",
+        "usage": "Community/Meme section"
+      },
+      "rocket": {
+        "url": "https://images.unsplash.com/photo-1761947951850-2468e28ffecc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwzfHxyb2NrZXQlMjBsYXVuY2glMjBuaWdodCUyMHNwYWNlfGVufDB8fHx8MTc3MTI3MzM4N3ww&ixlib=rb-4.1.0&q=85",
+        "alt": "Rocket Launch",
+        "usage": "Roadmap or Exit Simulator background"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "preferred_icons": ["Rocket", "Moon", "Zap", "Wallet", "Coins", "Gamepad2", "ShoppingCart", "BarChart3"]
+    }
+  },
+  "implementation_plan": {
+    "phases": [
+      {
+        "name": "Phase 1: Setup & Theme",
+        "tasks": [
+          "Install fonts: Orbitron and Space Grotesk",
+          "Configure tailwind.config.js with neon colors and font families",
+          "Set global body background to dark cosmic theme",
+          "Create 'StarField' background component using canvas or tsparticles"
+        ]
+      },
+      {
+        "name": "Phase 2: Core Components",
+        "tasks": [
+          "Create 'NeonButton' component",
+          "Create 'GlassCard' component",
+          "Create 'Navbar' with floating glass effect and wallet connect button",
+          "Create 'Footer' with big social links"
+        ]
+      },
+      {
+        "name": "Phase 3: Hero & Marketing",
+        "tasks": [
+          "Build Hero section with floating 3D coin animation (Framer Motion)",
+          "Implement 'Lore' section with parallax scrolling",
+          "Build 'Roadmap' using a vertical timeline with rocket icon markers"
+        ]
+      },
+      {
+        "name": "Phase 4: Features (The Fun Stuff)",
+        "tasks": [
+          "Tokenomics: Use Recharts for a 'Supply' donut chart with neon strokes",
+          "Betting Arena: Create a 3D CSS Coin Flip animation component",
+          "Exit Simulator: Build a calculator with sliders and P&L chart",
+          "Shop: Grid layout for Plushies with 'Add to Cart' hover effect"
+        ]
+      }
+    ]
+  },
+  "universal_guidelines": [
+    "Use 'sonner' for all notifications (toasts).",
+    "Avoid generic 'Inter' font. Use 'Orbitron' for headings.",
+    "Do NOT use gradients for text if readability is compromised.",
+    "Ensure all interactive elements have a hover state (glow or lift).",
+    "Mobile Responsiveness is key - stack grids to 1 column on mobile.",
+    "Use 'lucide-react' for icons.",
+    "Add 'data-testid' to all interactive elements."
+  ]
+}
