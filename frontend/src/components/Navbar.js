@@ -97,6 +97,7 @@ export default function Navbar() {
                 </Link>
               )}
               <NotificationBell />
+              <LanguageSwitcher />
             </div>
             <WalletMultiButton
               data-testid="wallet-connect-btn"
