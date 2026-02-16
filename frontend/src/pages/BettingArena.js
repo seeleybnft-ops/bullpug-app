@@ -287,9 +287,46 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
           </button>
         </div>
 
-        {result && (
-          <div className={`glass-card rounded-xl p-5 border-2 ${result.won ? "border-[#00FFA3]" : "border-red-500"}`} data-testid="flip-result">
+        {/* Confetti Effect */}
+        {showConfetti && (
+          <div className="fixed inset-0 pointer-events-none z-50">
+            {[...Array(30)].map((_, i) => (
+              <div
+                key={i}
+                className="confetti-particle"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  backgroundColor: ['#00FFA3', '#D946EF', '#F5D300', '#00C2FF'][Math.floor(Math.random() * 4)],
+                  animationDelay: `${Math.random() * 0.5}s`,
+                  borderRadius: Math.random() > 0.5 ? '50%' : '0',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Flipping Animation */}
+        {isFlipping && (
+          <div className="glass-card rounded-xl p-8 text-center mb-4">
+            <div className="coin-flip-animation inline-block">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#F5D300] to-[#D4AF37] flex items-center justify-center text-3xl border-4 border-[#FFE066] shadow-lg">
+                🪙
+              </div>
+            </div>
+            <p className="text-slate-400 mt-4 text-sm animate-pulse">{t('betting.coinFlip.flipping')}...</p>
+          </div>
+        )}
+
+        {result && !isFlipping && (
+          <div className={`glass-card rounded-xl p-5 border-2 ${result.won ? "border-[#00FFA3] win-pulse" : "border-red-500 lose-pulse"}`} data-testid="flip-result">
             <div className="text-center">
+              <div className={`coin-result-animation inline-block mb-3`}>
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl border-4 ${
+                  result.outcome === 'heads' ? 'bg-amber-500/20 border-amber-500' : 'bg-[#00C2FF]/20 border-[#00C2FF]'
+                }`}>
+                  {result.outcome === 'heads' ? '🪙' : '⭐'}
+                </div>
+              </div>
               <p className={`text-2xl font-black ${result.won ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
                 {result.won ? t('betting.coinFlip.youWon', { amount: result.payout_sol }) : t('betting.coinFlip.youLost')}
               </p>
