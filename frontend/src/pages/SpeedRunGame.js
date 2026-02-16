@@ -28,10 +28,18 @@ export default function SpeedRunGame() {
   const [leaderboardMeta, setLeaderboardMeta] = useState({ days_until_reset: 0 });
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
   const [showNameInput, setShowNameInput] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const gameRef = useRef(null);
   const animRef = useRef(null);
   const spriteRef = useRef(null);
   const mooncakeRef = useRef(null);
+
+  const toggleSound = () => {
+    const newValue = !soundOn;
+    setSoundOn(newValue);
+    setSoundEnabled(newValue);
+    if (newValue) playSoundIfEnabled('click');
+  };
 
   useEffect(() => {
     const img = new Image(); img.crossOrigin = "anonymous"; img.src = GAME_IMG;
