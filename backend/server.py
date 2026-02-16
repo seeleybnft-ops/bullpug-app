@@ -601,7 +601,8 @@ async def get_challenge(challenge_id: str):
 
 
 @api_router.post("/betting/challenge/accept")
-async def accept_challenge(data: AcceptChallengeRequest):
+@limiter.limit("20/minute")
+async def accept_challenge(request: Request, data: AcceptChallengeRequest):
     """Accept a P2P coin flip challenge and execute the flip"""
     challenge = await db.p2p_challenges.find_one({"id": data.challenge_id})
     if not challenge:
