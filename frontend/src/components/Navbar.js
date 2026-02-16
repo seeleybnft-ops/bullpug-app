@@ -8,10 +8,8 @@ const LOGO = "https://bullpug.com/wp-content/uploads/2024/10/04.10.2024_13.24.29
 const NAV_LINKS = [
   { name: "Home", path: "/" },
   { name: "Betting", path: "/betting" },
-  { name: "Shop", path: "/shop" },
   { name: "Game", path: "/game" },
   { name: "Exit Sim", path: "/exit-simulator" },
-  { name: "NFTs", path: "/nft" },
   { name: "Wallet", path: "/wallet" },
 ];
 
