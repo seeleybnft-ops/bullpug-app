@@ -446,11 +446,22 @@ export default function SpeedRunGame() {
                       <img src={MOONCAKE_IMG} alt="Mooncake" className="w-5 h-5 rounded" />
                       <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncake</span>
                     </div>
-                    {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-3">New High Score!</Badge>}
-                    <Button onClick={startGame} data-testid="restart-game-btn"
-                      className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-4 text-sm uppercase hover:scale-105 transition-transform">
-                      <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-                    </Button>
+                    {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-2">New High Score!</Badge>}
+                    <div className="flex items-center gap-2 mt-2">
+                      <Button onClick={startGame} data-testid="restart-game-btn"
+                        className="bg-[#00FFA3] text-black font-bold rounded-full px-6 py-3 text-sm uppercase hover:scale-105 transition-transform">
+                        <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          const text = `I just scored ${score} points in the Bullpug Speed Run game! Can you beat my score? 🚀🐕\n\nPlay now at bullpug.com #Bullpug #Memecoin #Solana`;
+                          window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+                        }}
+                        data-testid="share-x-btn"
+                        className="bg-black text-white border border-white/20 font-bold rounded-full px-4 py-3 text-sm uppercase hover:bg-white/10 transition-colors">
+                        Share on 𝕏
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
