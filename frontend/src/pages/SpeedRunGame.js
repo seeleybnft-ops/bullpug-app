@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User } from "lucide-react";
+import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User, Volume2, VolumeX } from "lucide-react";
+import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled } from "@/utils/sounds";
+import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const GAME_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/kynwxxke_image%20-%202026-02-17T063523.593.jpg";
