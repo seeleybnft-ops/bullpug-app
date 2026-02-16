@@ -54,7 +54,7 @@ export default function Navbar() {
                 className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-[#00FFA3]/50 transition-all">
                 <FaXTwitter size={14} />
               </a>
-              <a href="https://t.me/+b2h3msOIQhowMDg1" target="_blank" rel="noopener noreferrer"
+              <a href="https://t.me/bullpugcoinchat" target="_blank" rel="noopener noreferrer"
                 data-testid="nav-telegram-link"
                 className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-[#00C2FF] hover:border-[#00C2FF]/50 transition-all">
                 <MessageCircle size={14} />

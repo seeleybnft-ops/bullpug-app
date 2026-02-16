@@ -34,7 +34,7 @@ export default function Footer() {
                 className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1">
                 X (Twitter) <ExternalLink size={11} />
               </a>
-              <a href="https://t.me/+b2h3msOIQhowMDg1" target="_blank" rel="noopener noreferrer" data-testid="footer-telegram-link"
+              <a href="https://t.me/bullpugcoinchat" target="_blank" rel="noopener noreferrer" data-testid="footer-telegram-link"
                 className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1">
                 Telegram <ExternalLink size={11} />
               </a>
