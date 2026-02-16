@@ -1,137 +1,166 @@
 # Bullpug.com - PRD & Implementation Tracker
 
-## Problem Statement
-Build a fully functional memecoin website for Bullpug. Features: P2P betting arena with real SOL escrow, admin panel, direct messaging, push notifications, trading journal with cloud backup, community forum, speed-run game with leaderboard, reflections calculator, Monte Carlo exit simulator.
+## Original Problem Statement
+Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com), based on a detailed whitepaper. The website should be space-themed and embody the lore of Bullpug as a cosmic guardian.
 
-## Architecture
-- **Frontend**: React + Tailwind CSS + Shadcn UI + Solana Wallet Adapter + WebSockets
-- **Backend**: FastAPI + MongoDB + WebSockets + NumPy
-- **Blockchain**: Solana Web3.js (mainnet-beta)
-- **Real-time**: WebSockets for DM, notifications, pot updates
+## User Personas
+- **Crypto Traders**: Users who want to bet with SOL and track their trades
+- **Gamers**: Users who enjoy casual games and leaderboards
+- **Community Members**: Users who want to discuss and interact via forum and DMs
+- **Admins**: Wallet-authorized administrators who manage the platform
 
-## P2P Betting Configuration
-- **Rake**: 2.5% on all bets
-- **Distribution Wallet**: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
-- **Escrow**: Backend holds SOL temporarily during P2P matches
-- **Currency**: SOL only
-- **Min/Max Bet**: 0.01 - 10 SOL
+## Core Requirements
+- **Lore Integration:** Immersive storytelling through animations and interactive elements
+- **Tokenomics:** Interactive display of token details, supply distribution, and reflections calculator
+- **Solana Wallet Integration:** Connect to Solana blockchain for staking, balance display, and real SOL betting
+- **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with 2.5% house rake
+- **Speed-Run Game:** Endless runner with weekly leaderboard and "Share to X" feature
+- **Trading Journal:** Comprehensive tool for logging trades with dashboard, CSV/PDF export, and cloud backup
+- **Community Forum:** Section for users to create posts, reply, and filter by category
+- **Direct Messaging:** Real-time chat between users via WebSockets
+- **Admin Panel:** Restricted page for wallet-authorized admins
+- **Multi-Language Support:** Internationalization with i18next (English/Spanish)
+- **Email Notifications:** SendGrid integration for welcome emails and weekly summaries
+- **Security:** Rate limiting and wallet signature verification
 
-## Admin Configuration
-- **Admin Wallet 1 (Fee)**: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
-- **Admin Wallet 2 (Personal)**: `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
+## Tech Stack
+- **Frontend:** React, Tailwind CSS, Solana Web3.js & Wallet-Adapter, react-i18next
+- **Backend:** FastAPI, WebSockets, Pydantic, slowapi (rate limiting)
+- **Database:** MongoDB (pymongo/motor)
+- **Email:** SendGrid (pending API key configuration)
+- **Blockchain:** Solana network integration
 
-## What's Been Implemented (Feb 16, 2026)
+---
 
-### P2P Betting System
-- [x] P2P Coin Flip with challenge system
-- [x] P2P Winner Pot (winner takes all minus rake)
-- [x] Escrow system (backend holds SOL)
-- [x] Transaction recording and verification
-- [x] 2.5% rake to distribution wallet
-- [x] Provably fair verification (SHA-256)
+## What's Been Implemented
 
-### Admin Panel (NEW)
-- [x] Wallet-based authentication
-- [x] Dashboard with stats (bets, challenges, rake, users)
-- [x] Challenge management (view, cancel)
-- [x] Pot management (force draw)
-- [x] Escrow monitoring
-- [x] Bet history view
+### December 2025
 
-### Direct Messaging (NEW)
-- [x] Persistent messages in MongoDB
-- [x] Conversation grouping
-- [x] Real-time WebSocket delivery
-- [x] Unread message tracking
-- [x] New chat by wallet address
+#### P0 Features (Completed)
+1. **Multi-Language Support (i18next)**
+   - ✅ Language switcher in navbar with globe icon
+   - ✅ English and Spanish translations
+   - ✅ BettingArena page fully translated
+   - ✅ SpeedRunGame page fully translated
+   - ✅ Navbar links translated
+   - ✅ LocalStorage persistence (bullpugLang key)
 
-### Push Notifications (NEW)
-- [x] Web Push API integration
-- [x] Real-time WebSocket notifications
-- [x] Notification bell in navbar
-- [x] Mark as read / Mark all read
-- [x] Auto-notifications for challenges, messages, pot wins
+2. **Email Notifications (SendGrid)**
+   - ✅ Email subscription endpoints (subscribe, unsubscribe, status)
+   - ✅ Welcome email template (HTML formatted)
+   - ✅ Weekly summary email template
+   - ⚠️ SENDGRID_API_KEY not configured (endpoints work but emails not sent)
 
-### Trading Journal Cloud Backup (NEW)
-- [x] Create backups (snapshots)
-- [x] List all backups
-- [x] Restore from backup (merge)
-- [x] Delete backups
-- [x] Wallet-linked storage
+#### P1 Features (Completed)
+3. **Backend Rate Limiting**
+   - ✅ slowapi integration
+   - ✅ /api/betting/challenge/create - 10/minute limit
+   - ✅ /api/betting/pot/join - 10/minute limit
 
-### Other Features
-- [x] Community Forum (6 categories)
-- [x] Speed-Run Game with weekly leaderboard
-- [x] Share Score to X
-- [x] Reflections Calculator
-- [x] Monte Carlo Exit Simulator with PDF export
-- [x] Wallet Dashboard with staking/governance
+4. **Wallet Security Enhancement**
+   - ✅ Signature verification utility using nacl
+   - ✅ GET /api/auth/sign-message/{wallet} endpoint
+   - ✅ POST /api/auth/verify-signature endpoint
+   - ✅ Nonce storage with 5-minute expiry
 
-## Test Results (Feb 16, 2026)
-- Backend: 100% (90+ tests passed)
-- Frontend: 100% (All features verified)
+### Earlier Implementations
+- ✅ P2P Betting Arena (Coin Flip & Pot with real SOL logic)
+- ✅ Speed-Run Game with weekly leaderboard
+- ✅ Trading Journal with CSV/PDF export and cloud backup
+- ✅ Community Forum with categories
+- ✅ Direct Messaging via WebSockets
+- ✅ Admin Panel (wallet-restricted)
+- ✅ Push Notifications infrastructure
+- ✅ Reflections Calculator
 
-## Social Links
-- X (Twitter): https://x.com/Bullpugcoin
-- Telegram: https://t.me/bullpugcoinchat
+---
 
 ## API Endpoints
 
-### Admin (requires admin wallet)
-- `/api/admin/check/{wallet}` - Check if wallet is admin
-- `/api/admin/dashboard` - Get statistics
-- `/api/admin/challenges` - List challenges
-- `/api/admin/challenge/cancel` - Cancel challenge
-- `/api/admin/pot/draw` - Force draw pot
-- `/api/admin/bets` - List all bets
-- `/api/admin/escrow` - Escrow statistics
+### Email
+- `POST /api/email/subscribe` - Subscribe wallet to emails
+- `POST /api/email/welcome` - Send welcome email
+- `GET /api/email/subscription/{wallet}` - Get subscription status
+- `DELETE /api/email/unsubscribe/{wallet}` - Unsubscribe
+- `POST /api/email/test` - Check SendGrid configuration
 
-### Escrow
-- `/api/escrow/wallet` - Get escrow wallet address
-- `/api/escrow/deposit` - Record deposit
-- `/api/escrow/balance/{wallet}` - Get user's escrow balance
+### Auth/Security
+- `GET /api/auth/sign-message/{wallet}` - Generate signing message
+- `POST /api/auth/verify-signature` - Verify wallet signature
 
-### Messaging
-- `/api/messages/send` - Send message
-- `/api/messages/conversations/{wallet}` - Get conversations
-- `/api/messages/conversation/{w1}/{w2}` - Get messages
-- `/api/messages/unread/{wallet}` - Get unread count
-- `/ws/dm/{wallet}` - WebSocket for real-time DM
+### Betting (Rate Limited)
+- `GET /api/betting/config` - Get betting configuration
+- `POST /api/betting/challenge/create` - Create P2P challenge (10/min)
+- `POST /api/betting/challenge/accept` - Accept challenge (20/min)
+- `POST /api/betting/pot/join` - Join pot (10/min)
+- `GET /api/betting/challenges` - List open challenges
+- `GET /api/betting/pot` - Get pot status
+- `GET /api/betting/history` - Get bet history
 
-### Notifications
-- `/api/notifications/{wallet}` - Get notifications
-- `/api/notifications/read/{id}` - Mark as read
-- `/api/notifications/read-all/{wallet}` - Mark all read
-- `/api/notifications/subscribe` - Subscribe to push
-- `/ws/notifications/{wallet}` - WebSocket for real-time
-
-### Trading Journal Backup
-- `/api/journal/backup` - Create backup
-- `/api/journal/backups/{wallet}` - List backups
-- `/api/journal/backup/{id}` - Get backup
-- `/api/journal/restore/{id}` - Restore backup
-- `/api/journal/backup/{id}` (DELETE) - Delete backup
-
-## Key Files
-- `backend/server.py` - All API endpoints
-- `frontend/src/pages/AdminPanel.js` - Admin dashboard
-- `frontend/src/pages/Messages.js` - Direct messaging
-- `frontend/src/components/NotificationBell.js` - Notifications
-- `frontend/src/pages/TradingJournal.js` - Journal with backup
-
-## Known Limitations
-- Solana transaction verification is simplified for development
-- Escrow requires trust in backend (no smart contract)
-- Push notifications require browser permission
+---
 
 ## Prioritized Backlog
-### P1
-- Full Solana program/smart contract for trustless escrow
-- Mobile-responsive improvements
-- Rate limiting for API endpoints
 
-### P2
-- Re-enable Plushie Shop
-- Re-enable NFT Gallery
-- Email notifications option
-- Multi-language support
+### P0 - Critical (None remaining)
+All P0 features implemented
+
+### P1 - Important
+- ⬜ UX Improvements - Visual feedback (animations, sound effects) on Betting/Game pages
+
+### P2 - Nice to Have
+- ⬜ Re-enable Plushie Sales (Shop.js placeholder exists)
+- ⬜ Re-enable NFT Gallery (NFTGallery.js placeholder exists)
+- ⬜ Refactor backend/server.py into modular structure (routers/, models/, services/)
+- ⬜ Add global state management (Redux Toolkit or Zustand)
+
+---
+
+## Configuration Required
+
+### SendGrid (Email)
+To enable email notifications, add to `/app/backend/.env`:
+```
+SENDGRID_API_KEY=your_sendgrid_api_key
+SENDER_EMAIL=noreply@bullpug.com
+```
+
+### Admin Wallets
+Configured in Navbar.js and server.py:
+- `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` (Fee Wallet)
+- `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs` (Personal)
+
+---
+
+## File Structure
+```
+/app/
+├── backend/
+│   ├── server.py           # Main FastAPI app (~2400 lines)
+│   ├── requirements.txt    # Python dependencies
+│   ├── .env                # Environment variables
+│   └── tests/              # Pytest tests
+├── frontend/
+│   ├── src/
+│   │   ├── i18n/config.js      # i18next configuration
+│   │   ├── components/
+│   │   │   ├── Navbar.js       # With LanguageSwitcher
+│   │   │   ├── LanguageSwitcher.js  # Language dropdown
+│   │   │   └── ...
+│   │   └── pages/
+│   │       ├── BettingArena.js # With i18n translations
+│   │       ├── SpeedRunGame.js # With i18n translations
+│   │       └── ...
+│   └── package.json
+└── memory/
+    └── PRD.md
+```
+
+---
+
+## Testing Reports
+- `/app/test_reports/iteration_6.json` - Latest (100% pass rate)
+- Previous: iteration_2.json through iteration_5.json
+
+## Known Issues
+- SendGrid API key not configured (emails won't send until configured)
+- Backend server.py is large (~2400 lines) - needs modularization
