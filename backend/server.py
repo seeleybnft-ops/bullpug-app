@@ -134,6 +134,58 @@ class CreateReplyRequest(BaseModel):
     author_wallet: str
     author_name: str = "Anonymous"
 
+# Direct Messaging Models
+class SendMessageRequest(BaseModel):
+    to_wallet: str
+    content: str
+    from_wallet: str
+    from_name: str = "Anonymous"
+
+class ConversationRequest(BaseModel):
+    wallet1: str
+    wallet2: str
+
+# Notification Models
+class PushSubscription(BaseModel):
+    wallet_address: str
+    subscription: dict  # Push subscription object from browser
+
+class NotificationRequest(BaseModel):
+    to_wallet: str
+    title: str
+    body: str
+    type: str = "general"  # general, challenge, message, pot
+
+# Escrow Transaction Models
+class EscrowDepositRequest(BaseModel):
+    wallet_address: str
+    amount_sol: float
+    tx_signature: str
+    purpose: str  # challenge, pot
+    reference_id: str  # challenge_id or pot_id
+
+class EscrowWithdrawRequest(BaseModel):
+    wallet_address: str
+    amount_sol: float
+
+# Admin Models
+class AdminDrawPotRequest(BaseModel):
+    admin_wallet: str
+    pot_id: Optional[str] = None
+
+class AdminManageChallengeRequest(BaseModel):
+    admin_wallet: str
+    challenge_id: str
+    action: str  # cancel, refund
+
+# Journal Backup Models
+class JournalBackupRequest(BaseModel):
+    wallet_address: str
+
+class JournalRestoreRequest(BaseModel):
+    wallet_address: str
+    backup_data: dict
+
 class PotJoinRequest(BaseModel):
     bet_amount: float
     wallet_address: Optional[str] = None
@@ -163,6 +215,30 @@ class MonteCarloRequest(BaseModel):
     days: int = 180
     simulations: int = 1000
     tax_rate: float = 15.0
+
+
+# ========== Helper Functions ==========
+def is_admin(wallet_address: str) -> bool:
+    return wallet_address in ADMIN_WALLETS
+
+async def send_notification(to_wallet: str, title: str, body: str, notif_type: str = "general"):
+    """Store notification and send via WebSocket if user is connected"""
+    notification = {
+        "id": str(uuid.uuid4()),
+        "to_wallet": to_wallet,
+        "title": title,
+        "body": body,
+        "type": notif_type,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification)
+    # Send via WebSocket
+    await notification_manager.send_personal_message({
+        "type": "notification",
+        "data": {k: v for k, v in notification.items() if k != "_id"}
+    }, to_wallet)
+    return notification
 
 
 # ========== WebSocket Manager ==========
