@@ -50,6 +50,8 @@ function App() {
                 <Route path="/reflections" element={<ReflectionsCalculator />} />
                 <Route path="/journal" element={<TradingJournal />} />
                 <Route path="/forum" element={<Forum />} />
+                <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/messages" element={<Messages />} />
               </Routes>
               <Footer />
               <Toaster theme="dark" />
