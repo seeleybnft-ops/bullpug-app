@@ -1,191 +1,324 @@
-import { useState } from "react";
-import { Line } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
+import { useState, useRef } from "react";
+import { Line, Bar } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import axios from "axios";
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Calculator } from "lucide-react";
+import jsPDF from "jspdf";
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, Calculator, Download, Activity, Percent } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, ChartTooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function ExitSimulator() {
   const [tokenAmount, setTokenAmount] = useState("1000000");
   const [entryPrice, setEntryPrice] = useState("0.00042");
-  const [exitPricesStr, setExitPricesStr] = useState("0.0005, 0.001, 0.005, 0.01, 0.05, 0.1");
+  const [volatility, setVolatility] = useState([80]);
+  const [drift, setDrift] = useState([10]);
+  const [days, setDays] = useState([180]);
+  const [simulations, setSimulations] = useState([1000]);
   const [taxRate, setTaxRate] = useState("15");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("paths");
+  const reportRef = useRef(null);
 
   const simulate = async () => {
-    const exitPrices = exitPricesStr.split(",").map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-    if (exitPrices.length === 0) return toast.error("Enter valid exit prices");
     if (!tokenAmount || !entryPrice) return toast.error("Fill all fields");
     setLoading(true);
     try {
-      const { data } = await axios.post(`${API}/exit-simulator`, {
+      const { data } = await axios.post(`${API}/exit-simulator/monte-carlo`, {
         token_amount: parseFloat(tokenAmount),
         entry_price: parseFloat(entryPrice),
-        exit_prices: exitPrices,
+        volatility: volatility[0] / 100,
+        drift: drift[0] / 100,
+        days: days[0],
+        simulations: simulations[0],
         tax_rate: parseFloat(taxRate),
       });
       setResults(data);
+      toast.success(`Monte Carlo complete: ${data.simulations} simulations`);
     } catch (e) {
       toast.error("Simulation failed");
     }
     setLoading(false);
   };
 
-  const chartData = results ? {
-    labels: results.results.map(r => `$${r.exit_price}`),
+  const exportPDF = () => {
+    if (!results) return;
+    const doc = new jsPDF();
+    const r = results;
+
+    doc.setFillColor(5, 5, 10);
+    doc.rect(0, 0, 210, 297, "F");
+    doc.setTextColor(0, 255, 163);
+    doc.setFontSize(22);
+    doc.text("BULLPUG Exit Simulator", 15, 25);
+    doc.setFontSize(10);
+    doc.text("Monte Carlo Simulation Report", 15, 33);
+    doc.setDrawColor(0, 255, 163);
+    doc.line(15, 37, 195, 37);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.text("Parameters", 15, 47);
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    const params = [
+      `Token Amount: ${Number(r.token_amount).toLocaleString()} $BULLPUG`,
+      `Entry Price: $${r.entry_price}`,
+      `Investment: $${r.investment.toLocaleString()}`,
+      `Volatility: ${(r.volatility * 100).toFixed(0)}% | Drift: ${(r.drift * 100).toFixed(0)}%`,
+      `Simulation Period: ${r.days} days | Simulations: ${r.simulations}`,
+      `Tax Rate: ${r.tax_rate}%`,
+    ];
+    params.forEach((p, i) => doc.text(p, 15, 55 + i * 6));
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.text("Probability Analysis", 15, 100);
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    const probs = [
+      `Probability of Profit: ${r.prob_profit}%`,
+      `Probability of 2x: ${r.prob_2x}%`,
+      `Probability of 5x: ${r.prob_5x}%`,
+      `Probability of 10x: ${r.prob_10x}%`,
+      `Probability of >50% Loss: ${r.prob_loss50}%`,
+    ];
+    probs.forEach((p, i) => doc.text(p, 15, 108 + i * 6));
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.text("Price Percentiles (Final Day)", 15, 148);
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    const pp = r.price_percentiles;
+    const pRows = [
+      `5th: $${pp.p5} | 25th: $${pp.p25} | Median: $${pp.p50}`,
+      `75th: $${pp.p75} | 90th: $${pp.p90} | 95th: $${pp.p95}`,
+      `Mean Final Price: $${r.mean_final_price}`,
+    ];
+    pRows.forEach((p, i) => doc.text(p, 15, 156 + i * 6));
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.text("P&L Summary (after tax)", 15, 182);
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    const pnlRows = [
+      `Mean Net P&L: $${r.mean_pnl.toLocaleString()}`,
+      `Median Net P&L: $${r.median_pnl.toLocaleString()}`,
+      `Best Case: $${r.max_pnl.toLocaleString()}`,
+      `Worst Case: $${r.min_pnl.toLocaleString()}`,
+    ];
+    pnlRows.forEach((p, i) => doc.text(p, 15, 190 + i * 6));
+
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(7);
+    doc.text("Generated by Bullpug Exit Simulator - Monte Carlo GBM Model", 15, 280);
+    doc.text("Disclaimer: This is a simulation. Past performance does not guarantee future results.", 15, 285);
+
+    doc.save("bullpug-exit-simulation.pdf");
+    toast.success("PDF exported!");
+  };
+
+  const pathsChart = results ? {
+    labels: results.chart.days.map(d => `D${d}`),
     datasets: [
-      {
-        label: "Net P&L",
-        data: results.results.map(r => r.net_pnl),
-        borderColor: "#00FFA3",
-        backgroundColor: "rgba(0,255,163,0.1)",
-        fill: true,
-        tension: 0.4,
-        pointRadius: 6,
-        pointBackgroundColor: results.results.map(r => r.net_pnl >= 0 ? "#00FFA3" : "#FF3B30"),
-      },
-      {
-        label: "Gross P&L",
-        data: results.results.map(r => r.pnl),
-        borderColor: "#D946EF",
-        backgroundColor: "rgba(217,70,239,0.05)",
-        fill: true,
-        tension: 0.4,
-        borderDash: [5, 5],
-        pointRadius: 4,
-      },
+      { label: "95th %ile", data: results.chart.bands.p95, borderColor: "rgba(0,255,163,0.15)", backgroundColor: "rgba(0,255,163,0.02)", fill: "+1", borderWidth: 1, pointRadius: 0, tension: 0.3 },
+      { label: "75th %ile", data: results.chart.bands.p75, borderColor: "rgba(0,255,163,0.3)", backgroundColor: "rgba(0,255,163,0.05)", fill: "+1", borderWidth: 1, pointRadius: 0, tension: 0.3 },
+      { label: "Median", data: results.chart.bands.p50, borderColor: "#00FFA3", backgroundColor: "rgba(0,255,163,0.1)", fill: "+1", borderWidth: 2, pointRadius: 0, tension: 0.3 },
+      { label: "25th %ile", data: results.chart.bands.p25, borderColor: "rgba(217,70,239,0.3)", backgroundColor: "rgba(217,70,239,0.05)", fill: "+1", borderWidth: 1, pointRadius: 0, tension: 0.3 },
+      { label: "5th %ile", data: results.chart.bands.p5, borderColor: "rgba(255,59,48,0.3)", borderWidth: 1, pointRadius: 0, fill: false, tension: 0.3 },
+      ...results.chart.sample_paths.slice(0, 5).map((path, i) => ({
+        label: `Path ${i + 1}`, data: path, borderColor: `hsla(${i * 60}, 80%, 60%, 0.25)`, borderWidth: 0.8, pointRadius: 0, fill: false, tension: 0.3,
+      })),
     ],
   } : null;
 
+  const histChart = results ? {
+    labels: results.histogram.map(h => `$${h.min.toFixed(5)}`),
+    datasets: [{
+      label: "Frequency",
+      data: results.histogram.map(h => h.count),
+      backgroundColor: results.histogram.map(h => h.min >= results.entry_price ? "rgba(0,255,163,0.6)" : "rgba(255,59,48,0.6)"),
+      borderRadius: 2,
+    }],
+  } : null;
+
   const chartOpts = {
-    responsive: true,
-    plugins: {
-      legend: { labels: { color: "#94a3b8", font: { size: 11 } } },
-      tooltip: { backgroundColor: "#13131F", borderColor: "rgba(255,255,255,0.1)", borderWidth: 1 },
-    },
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#13131F", borderColor: "rgba(255,255,255,0.1)", borderWidth: 1 } },
     scales: {
-      x: { ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.03)" } },
-      y: { ticks: { color: "#64748b", font: { size: 10 }, callback: v => `$${v.toLocaleString()}` }, grid: { color: "rgba(255,255,255,0.03)" } },
+      x: { ticks: { color: "#64748b", font: { size: 8 }, maxTicksLimit: 15 }, grid: { color: "rgba(255,255,255,0.03)" } },
+      y: { ticks: { color: "#64748b", font: { size: 9 } }, grid: { color: "rgba(255,255,255,0.03)" } },
     },
   };
 
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
-      <div className="max-w-5xl mx-auto px-6 md:px-12">
+      <div className="max-w-6xl mx-auto px-6 md:px-12" ref={reportRef}>
         <div className="text-center mb-10">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             Exit <span className="text-[#00C2FF]">Simulator</span>
           </h1>
-          <p className="text-slate-500 text-sm">Plan your perfect exit strategy for $BULLPUG positions</p>
+          <p className="text-slate-500 text-sm">Monte Carlo simulation with Geometric Brownian Motion</p>
+          <Badge className="mt-2 bg-[#00C2FF]/10 text-[#00C2FF] border-[#00C2FF]/30 text-[10px]">GBM Model</Badge>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Controls */}
           <div className="glass-card rounded-2xl p-6 space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               <Calculator className="w-4 h-4 text-[#00C2FF]" /> Parameters
             </h3>
             <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Token Amount</label>
-              <Input type="number" value={tokenAmount} onChange={e => setTokenAmount(e.target.value)}
-                data-testid="token-amount-input" className="bg-black/50 border-white/10 text-white" />
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Tokens</label>
+              <Input type="number" value={tokenAmount} onChange={e => setTokenAmount(e.target.value)} data-testid="mc-tokens" className="bg-black/50 border-white/10 text-white" />
             </div>
             <div>
               <label className="text-xs text-slate-500 uppercase mb-1 block">Entry Price ($)</label>
-              <Input type="number" step="0.0001" value={entryPrice} onChange={e => setEntryPrice(e.target.value)}
-                data-testid="entry-price-input" className="bg-black/50 border-white/10 text-white" />
+              <Input type="number" step="0.0001" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} data-testid="mc-entry" className="bg-black/50 border-white/10 text-white" />
             </div>
             <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Exit Prices (comma-separated)</label>
-              <Input value={exitPricesStr} onChange={e => setExitPricesStr(e.target.value)}
-                data-testid="exit-prices-input" className="bg-black/50 border-white/10 text-white text-xs" />
+              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Volatility</span><span className="text-[#D946EF] font-bold">{volatility[0]}%</span></div>
+              <Slider value={volatility} onValueChange={setVolatility} min={10} max={200} step={5} data-testid="mc-vol" />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Drift (Annual)</span><span className="text-[#00FFA3] font-bold">{drift[0]}%</span></div>
+              <Slider value={drift} onValueChange={setDrift} min={-50} max={200} step={5} data-testid="mc-drift" />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Days</span><span className="text-white font-bold">{days[0]}</span></div>
+              <Slider value={days} onValueChange={setDays} min={7} max={365} step={1} data-testid="mc-days" />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Simulations</span><span className="text-white font-bold">{simulations[0]}</span></div>
+              <Slider value={simulations} onValueChange={setSimulations} min={100} max={5000} step={100} data-testid="mc-sims" />
             </div>
             <div>
               <label className="text-xs text-slate-500 uppercase mb-1 block">Tax Rate (%)</label>
-              <Input type="number" value={taxRate} onChange={e => setTaxRate(e.target.value)}
-                data-testid="tax-rate-input" className="bg-black/50 border-white/10 text-white" />
+              <Input type="number" value={taxRate} onChange={e => setTaxRate(e.target.value)} data-testid="mc-tax" className="bg-black/50 border-white/10 text-white" />
             </div>
-            <Button onClick={simulate} disabled={loading} data-testid="simulate-btn"
+            <Button onClick={simulate} disabled={loading} data-testid="mc-simulate-btn"
               className="w-full bg-[#00C2FF] text-black font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
-              {loading ? "Simulating..." : "Simulate Exit"}
+              <Activity className="w-4 h-4 mr-2" /> {loading ? "Simulating..." : "Run Monte Carlo"}
             </Button>
+            {results && (
+              <Button onClick={exportPDF} variant="outline" data-testid="export-pdf-btn"
+                className="w-full border-[#F5D300] text-[#F5D300] rounded-xl text-sm font-bold uppercase hover:bg-[#F5D300]/10">
+                <Download className="w-4 h-4 mr-2" /> Export PDF
+              </Button>
+            )}
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            {results && (
+          {/* Results */}
+          <div className="lg:col-span-3 space-y-6">
+            {results ? (
               <>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="glass-card rounded-xl p-4 text-center">
-                    <DollarSign className="w-5 h-5 mx-auto mb-1 text-slate-400" />
-                    <p className="text-xs text-slate-500">Investment</p>
-                    <p className="text-lg font-black" style={{ fontFamily: 'Orbitron, sans-serif' }}>${results.investment.toLocaleString()}</p>
-                  </div>
-                  <div className="glass-card rounded-xl p-4 text-center">
-                    <TrendingUp className="w-5 h-5 mx-auto mb-1 text-[#00FFA3]" />
-                    <p className="text-xs text-slate-500">Best Exit</p>
-                    <p className="text-lg font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>${results.optimal_exit.exit_price}</p>
-                  </div>
-                  <div className="glass-card rounded-xl p-4 text-center">
-                    <BarChart3 className="w-5 h-5 mx-auto mb-1 text-[#F5D300]" />
-                    <p className="text-xs text-slate-500">Max Net P&L</p>
-                    <p className="text-lg font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron, sans-serif' }}>${results.optimal_exit.net_pnl.toLocaleString()}</p>
-                  </div>
+                {/* Probability Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[
+                    { label: "Profit", value: `${results.prob_profit}%`, color: results.prob_profit > 50 ? "#00FFA3" : "#FF3B30", icon: <TrendingUp size={16} /> },
+                    { label: "2x Return", value: `${results.prob_2x}%`, color: "#00C2FF", icon: <Percent size={16} /> },
+                    { label: "5x Return", value: `${results.prob_5x}%`, color: "#D946EF", icon: <Percent size={16} /> },
+                    { label: "10x Return", value: `${results.prob_10x}%`, color: "#F5D300", icon: <Percent size={16} /> },
+                    { label: ">50% Loss", value: `${results.prob_loss50}%`, color: "#FF3B30", icon: <TrendingDown size={16} /> },
+                  ].map((c, i) => (
+                    <div key={i} className="glass-card rounded-xl p-3 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-1" style={{ color: c.color }}>{c.icon}</div>
+                      <p className="text-lg font-black" style={{ color: c.color, fontFamily: 'Orbitron, sans-serif' }}>{c.value}</p>
+                      <p className="text-[10px] text-slate-500 uppercase">{c.label}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="glass-card rounded-2xl p-5">
-                  <h3 className="text-sm font-bold uppercase mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>P&L Chart</h3>
-                  <Line data={chartData} options={chartOpts} />
+                {/* P&L Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: "Mean P&L", value: results.mean_pnl, prefix: "$" },
+                    { label: "Median P&L", value: results.median_pnl, prefix: "$" },
+                    { label: "Best Case", value: results.max_pnl, prefix: "$" },
+                    { label: "Worst Case", value: results.min_pnl, prefix: "$" },
+                  ].map((s, i) => (
+                    <div key={i} className="glass-card rounded-xl p-4 text-center">
+                      <p className="text-[10px] text-slate-500 uppercase mb-1">{s.label}</p>
+                      <p className={`text-base font-black ${s.value >= 0 ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                        {s.value >= 0 ? "+" : ""}{s.prefix}{s.value.toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="glass-card rounded-2xl p-5">
-                  <h3 className="text-sm font-bold uppercase mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>Exit Scenarios</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-500">
-                          <th className="text-left py-2 px-2">Exit Price</th>
-                          <th className="text-right py-2 px-2">Value</th>
-                          <th className="text-right py-2 px-2">P&L</th>
-                          <th className="text-right py-2 px-2">P&L %</th>
-                          <th className="text-right py-2 px-2">Tax</th>
-                          <th className="text-right py-2 px-2">Net P&L</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.results.map((r, i) => (
-                          <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
-                            <td className="py-2 px-2 font-bold">${r.exit_price}</td>
-                            <td className="py-2 px-2 text-right">${r.value.toLocaleString()}</td>
-                            <td className={`py-2 px-2 text-right font-bold ${r.pnl >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
-                              {r.pnl >= 0 ? "+" : ""}${r.pnl.toLocaleString()}
-                            </td>
-                            <td className={`py-2 px-2 text-right ${r.pnl_percent >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
-                              {r.pnl_percent >= 0 ? "+" : ""}{r.pnl_percent}%
-                            </td>
-                            <td className="py-2 px-2 text-right text-amber-400">${r.tax.toLocaleString()}</td>
-                            <td className={`py-2 px-2 text-right font-bold ${r.net_pnl >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
-                              {r.net_pnl >= 0 ? "+" : ""}${r.net_pnl.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                {/* Charts */}
+                <Tabs value={tab} onValueChange={setTab}>
+                  <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1">
+                    <TabsTrigger value="paths" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF] rounded-lg text-xs font-bold uppercase">Price Paths</TabsTrigger>
+                    <TabsTrigger value="distribution" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg text-xs font-bold uppercase">Distribution</TabsTrigger>
+                    <TabsTrigger value="percentiles" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg text-xs font-bold uppercase">Percentiles</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="paths">
+                    <div className="glass-card rounded-2xl p-5">
+                      <h3 className="text-sm font-bold uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                        Simulated Price Paths ({results.simulations} sims)
+                      </h3>
+                      <div style={{ height: 350 }}>
+                        <Line data={pathsChart} options={chartOpts} />
+                      </div>
+                      <p className="text-[10px] text-slate-600 mt-2">Shaded bands: 5th-95th percentile range. Lines: sample paths.</p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="distribution">
+                    <div className="glass-card rounded-2xl p-5">
+                      <h3 className="text-sm font-bold uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>Final Price Distribution</h3>
+                      <div style={{ height: 350 }}>
+                        <Bar data={histChart} options={{ ...chartOpts, plugins: { ...chartOpts.plugins, legend: { display: false } } }} />
+                      </div>
+                      <p className="text-[10px] text-slate-600 mt-2">Green bars: above entry price. Red bars: below entry price.</p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="percentiles">
+                    <div className="glass-card rounded-2xl p-5">
+                      <h3 className="text-sm font-bold uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>Price & P&L Percentiles</h3>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-xs text-slate-500 uppercase mb-3">Final Price</p>
+                          {Object.entries(results.price_percentiles).map(([k, v]) => (
+                            <div key={k} className="flex justify-between py-1.5 border-b border-white/5 text-sm">
+                              <span className="text-slate-400">{k.replace("p", "")}th</span>
+                              <span className={`font-bold ${v >= results.entry_price ? "text-[#00FFA3]" : "text-red-400"}`}>${v}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 uppercase mb-3">Net P&L (after tax)</p>
+                          {Object.entries(results.pnl_percentiles).map(([k, v]) => (
+                            <div key={k} className="flex justify-between py-1.5 border-b border-white/5 text-sm">
+                              <span className="text-slate-400">{k.replace("p", "")}th</span>
+                              <span className={`font-bold ${v >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>{v >= 0 ? "+" : ""}${v.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </>
-            )}
-
-            {!results && (
-              <div className="glass-card rounded-2xl p-12 text-center">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                <p className="text-slate-500 text-sm">Configure your position and hit Simulate to see exit scenarios</p>
+            ) : (
+              <div className="glass-card rounded-2xl p-16 text-center">
+                <Activity className="w-14 h-14 mx-auto mb-4 text-slate-700" />
+                <p className="text-slate-500 text-sm mb-2">Configure parameters and run Monte Carlo simulation</p>
+                <p className="text-slate-600 text-xs">Uses Geometric Brownian Motion to simulate thousands of possible price paths</p>
               </div>
             )}
           </div>
