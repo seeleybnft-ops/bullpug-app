@@ -761,7 +761,8 @@ async def get_pot_status():
 
 
 @api_router.post("/betting/pot/join")
-async def join_pot(data: P2PPotJoinRequest):
+@limiter.limit("10/minute")
+async def join_pot(request: Request, data: P2PPotJoinRequest):
     """Join the P2P pot with SOL"""
     global active_pot
     if active_pot["status"] != "open":
