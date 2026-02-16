@@ -488,6 +488,53 @@ export default function SpeedRunGame() {
               </div>
             </div>
           </div>
+            </div>
+          </div>
+
+          {/* Leaderboard Sidebar */}
+          <div className="glass-card rounded-2xl p-5 h-fit sticky top-20">
+            <h3 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              <Trophy className="w-4 h-4 text-[#F5D300]" /> Weekly Leaderboard
+            </h3>
+            <div className="space-y-2">
+              {leaderboard.length === 0 ? (
+                <p className="text-xs text-slate-600 text-center py-4">No scores this week yet. Be the first!</p>
+              ) : (
+                leaderboard.map((entry, i) => (
+                  <div 
+                    key={entry.id} 
+                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-colors ${
+                      i === 0 ? "border-[#F5D300]/30 bg-[#F5D300]/5" :
+                      i === 1 ? "border-slate-400/20 bg-slate-400/5" :
+                      i === 2 ? "border-amber-700/20 bg-amber-700/5" :
+                      "border-white/5 bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                        i === 0 ? "bg-[#F5D300] text-black" :
+                        i === 1 ? "bg-slate-400 text-black" :
+                        i === 2 ? "bg-amber-700 text-white" :
+                        "bg-white/10 text-slate-400"
+                      }`}>
+                        {i < 3 ? <Medal size={12} /> : i + 1}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{entry.player_name}</p>
+                        <p className="text-[10px] text-slate-500">{entry.mooncakes} mooncakes</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                      {entry.score}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-[10px] text-slate-600 text-center mt-4">
+              Resets every Monday 00:00 UTC
+            </p>
+          </div>
         </div>
       </div>
     </div>
