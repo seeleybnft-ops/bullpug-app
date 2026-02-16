@@ -59,9 +59,22 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  location.pathname === '/admin'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                    : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/10'
+                }`}
+                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+              >
+                Admin
+              </Link>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-2">
               <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer"
                 data-testid="nav-x-link"
@@ -73,6 +86,14 @@ export default function Navbar() {
                 className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-[#00C2FF] hover:border-[#00C2FF]/50 transition-all">
                 <MessageCircle size={14} />
               </a>
+              {connected && (
+                <Link to="/messages"
+                  data-testid="nav-messages-link"
+                  className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-[#D946EF] hover:border-[#D946EF]/50 transition-all">
+                  <MessageSquare size={14} />
+                </Link>
+              )}
+              <NotificationBell />
             </div>
             <WalletMultiButton
               data-testid="wallet-connect-btn"
