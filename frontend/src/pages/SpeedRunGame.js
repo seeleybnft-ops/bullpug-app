@@ -385,10 +385,10 @@ export default function SpeedRunGame() {
       <div className="stars-bg fixed inset-0 -z-10" />
       <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-            Speed <span className="text-[#F5D300]">Run</span>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="game-title">
+            {t('game.title').split(' ')[0]} <span className="text-[#F5D300]">{t('game.title').split(' ')[1] || 'Run'}</span>
           </h1>
-          <p className="text-slate-500 text-sm">Dodge obstacles, collect Mooncake, activate power-ups</p>
+          <p className="text-slate-500 text-sm">{t('game.subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -408,7 +408,7 @@ export default function SpeedRunGame() {
                         onKeyDown={(e) => { if (e.key === "Enter") savePlayerName(e.target.value); }}
                         autoFocus
                       />
-                      <button onClick={(e) => savePlayerName(e.target.previousSibling.value)} className="text-xs text-[#00FFA3] hover:underline">Save</button>
+                      <button onClick={(e) => savePlayerName(e.target.previousSibling.value)} className="text-xs text-[#00FFA3] hover:underline">{t('common.save')}</button>
                     </div>
                   ) : (
                     <button onClick={() => setShowNameInput(true)} className="text-sm text-white hover:text-[#00FFA3] transition-colors">
@@ -418,7 +418,7 @@ export default function SpeedRunGame() {
                 </div>
                 <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
                   <Clock className="w-3 h-3 mr-1" />
-                  Resets in {leaderboardMeta.days_until_reset}d
+                  {t('game.resetsIn', { days: leaderboardMeta.days_until_reset })}
                 </Badge>
               </div>
 
@@ -434,34 +434,34 @@ export default function SpeedRunGame() {
                     <img src={GAME_IMG} alt="Bullpug" className="w-20 h-20 rounded-xl mb-3 border-2 border-[#00FFA3]/50" />
                     <Button onClick={startGame} data-testid="start-game-btn"
                       className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-5 text-sm uppercase hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)]">
-                      <Play className="w-5 h-5 mr-2" /> Start Game
+                      <Play className="w-5 h-5 mr-2" /> {t('game.startGame')}
                     </Button>
-                    <p className="text-xs text-slate-500 mt-3">SPACE / Tap to jump (double jump!)</p>
+                    <p className="text-xs text-slate-500 mt-3">{t('game.spaceToJump')}</p>
                   </div>
                 )}
 
                 {gameState === "over" && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl">
-                    <p className="text-3xl font-black text-red-400 mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>GAME OVER</p>
-                    <p className="text-lg font-bold text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>Score: {score}</p>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl" data-testid="game-over-screen">
+                    <p className="text-3xl font-black text-red-400 mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>{t('game.gameOver')}</p>
+                    <p className="text-lg font-bold text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>{t('game.score')}: {score}</p>
                     <div className="flex items-center gap-2 my-2">
                       <img src={MOONCAKE_IMG} alt="Mooncake" className="w-5 h-5 rounded" />
-                      <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncake</span>
+                      <span className="text-[#F5D300] font-bold">+{mooncakes} {t('game.mooncake')}</span>
                     </div>
-                    {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-2">New High Score!</Badge>}
+                    {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-2">{t('game.newHighScore')}</Badge>}
                     <div className="flex items-center gap-2 mt-2">
                       <Button onClick={startGame} data-testid="restart-game-btn"
                         className="bg-[#00FFA3] text-black font-bold rounded-full px-6 py-3 text-sm uppercase hover:scale-105 transition-transform">
-                        <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                        <RotateCcw className="w-4 h-4 mr-2" /> {t('game.playAgain')}
                       </Button>
                       <Button 
                         onClick={() => {
-                          const text = `I just scored ${score} points in the Bullpug Speed Run game! Can you beat my score? 🚀🐕\n\nPlay now at bullpug.com #Bullpug #Memecoin #Solana`;
+                          const text = t('game.shareText', { score }) + `\n\nPlay now at bullpug.com #Bullpug #Memecoin #Solana`;
                           window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
                         }}
                         data-testid="share-x-btn"
                         className="bg-black text-white border border-white/20 font-bold rounded-full px-4 py-3 text-sm uppercase hover:bg-white/10 transition-colors">
-                        Share on 𝕏
+                        {t('game.shareOnX')} 𝕏
                       </Button>
                     </div>
                   </div>
@@ -471,28 +471,28 @@ export default function SpeedRunGame() {
               <div className="flex items-center justify-between mt-4 px-2">
                 <div className="flex items-center gap-6">
                   <div>
-                <p className="text-xs text-slate-500">Score</p>
+                <p className="text-xs text-slate-500">{t('game.score')}</p>
                 <p className="text-xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{score}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">High Score</p>
+                <p className="text-xs text-slate-500">{t('game.highScore')}</p>
                 <p className="text-xl font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{highScore}</p>
               </div>
               <div className="flex items-center gap-2">
                 <img src={MOONCAKE_IMG} alt="Mooncake" className="w-6 h-6 rounded" />
                 <div>
-                  <p className="text-xs text-slate-500">Total Mooncake</p>
+                  <p className="text-xs text-slate-500">{t('game.totalMooncake')}</p>
                   <p className="text-lg font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{totalMooncakes}</p>
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-500 flex items-center gap-1 justify-end"><Gamepad2 className="w-3 h-3" /> SPACE / Tap</p>
+              <p className="text-xs text-slate-500 flex items-center gap-1 justify-end"><Gamepad2 className="w-3 h-3" /> {t('game.controls')}</p>
               <div className="flex gap-3 mt-1">
                 {[
-                  { icon: <Shield size={12} />, label: "Shield", color: "#00C2FF" },
-                  { icon: <Magnet size={12} />, label: "Magnet", color: "#D946EF" },
-                  { icon: <Zap size={12} />, label: "2x Score", color: "#F5D300" },
+                  { icon: <Shield size={12} />, label: t('game.shield'), color: "#00C2FF" },
+                  { icon: <Magnet size={12} />, label: t('game.magnet'), color: "#D946EF" },
+                  { icon: <Zap size={12} />, label: t('game.doubleScore'), color: "#F5D300" },
                 ].map((pw, i) => (
                   <div key={i} className="flex items-center gap-1 text-[10px]" style={{ color: pw.color }}>
                     {pw.icon} {pw.label}
@@ -507,11 +507,11 @@ export default function SpeedRunGame() {
           {/* Leaderboard Sidebar */}
           <div className="glass-card rounded-2xl p-5 h-fit sticky top-20">
             <h3 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              <Trophy className="w-4 h-4 text-[#F5D300]" /> Weekly Leaderboard
+              <Trophy className="w-4 h-4 text-[#F5D300]" /> {t('game.weeklyLeaderboard')}
             </h3>
             <div className="space-y-2">
               {leaderboard.length === 0 ? (
-                <p className="text-xs text-slate-600 text-center py-4">No scores this week yet. Be the first!</p>
+                <p className="text-xs text-slate-600 text-center py-4">{t('game.noScoresYet')}</p>
               ) : (
                 leaderboard.map((entry, i) => (
                   <div 
@@ -534,7 +534,7 @@ export default function SpeedRunGame() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">{entry.player_name}</p>
-                        <p className="text-[10px] text-slate-500">{entry.mooncakes} mooncakes</p>
+                        <p className="text-[10px] text-slate-500">{entry.mooncakes} {t('game.mooncakes')}</p>
                       </div>
                     </div>
                     <p className="text-sm font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>
@@ -545,7 +545,7 @@ export default function SpeedRunGame() {
               )}
             </div>
             <p className="text-[10px] text-slate-600 text-center mt-4">
-              Resets every Monday 00:00 UTC
+              {t('game.resetMonday')}
             </p>
           </div>
         </div>
