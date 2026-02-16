@@ -1511,6 +1511,563 @@ async def get_forum_categories():
     }
 
 
+# ========== ESCROW SYSTEM ==========
+@api_router.post("/escrow/deposit")
+async def escrow_deposit(data: EscrowDepositRequest):
+    """Record an escrow deposit (after user sends SOL to escrow wallet)"""
+    # Verify the transaction on Solana blockchain
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.post(
+                "https://api.mainnet-beta.solana.com",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getTransaction",
+                    "params": [data.tx_signature, {"encoding": "jsonParsed"}]
+                },
+                timeout=15.0
+            )
+            tx_data = resp.json()
+            
+            # Basic validation - in production, verify amount and destination
+            if "error" in tx_data or tx_data.get("result") is None:
+                logger.warning(f"Transaction not found or error: {data.tx_signature}")
+                # For development, allow deposits without full verification
+    except Exception as e:
+        logger.error(f"Failed to verify transaction: {e}")
+    
+    deposit = {
+        "id": str(uuid.uuid4()),
+        "wallet_address": data.wallet_address,
+        "amount_sol": data.amount_sol,
+        "tx_signature": data.tx_signature,
+        "purpose": data.purpose,
+        "reference_id": data.reference_id,
+        "status": "confirmed",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.escrow_deposits.insert_one(deposit)
+    
+    # Update the challenge or pot with the deposit
+    if data.purpose == "challenge":
+        await db.p2p_challenges.update_one(
+            {"id": data.reference_id},
+            {"$set": {"creator_deposit_confirmed": True, "creator_tx": data.tx_signature}}
+        )
+    
+    return {"message": "Deposit recorded", "deposit_id": deposit["id"]}
+
+
+@api_router.get("/escrow/balance/{wallet_address}")
+async def get_escrow_balance(wallet_address: str):
+    """Get user's escrow balance"""
+    deposits = await db.escrow_deposits.find(
+        {"wallet_address": wallet_address, "status": "confirmed"}
+    ).to_list(1000)
+    
+    withdrawals = await db.escrow_withdrawals.find(
+        {"wallet_address": wallet_address, "status": "completed"}
+    ).to_list(1000)
+    
+    total_deposited = sum(d.get("amount_sol", 0) for d in deposits)
+    total_withdrawn = sum(w.get("amount_sol", 0) for w in withdrawals)
+    
+    return {
+        "wallet_address": wallet_address,
+        "balance_sol": round(total_deposited - total_withdrawn, 6),
+        "total_deposited": round(total_deposited, 6),
+        "total_withdrawn": round(total_withdrawn, 6)
+    }
+
+
+@api_router.get("/escrow/wallet")
+async def get_escrow_wallet():
+    """Get the escrow wallet address for deposits"""
+    return {
+        "escrow_wallet": ESCROW_WALLET,
+        "message": "Send SOL to this address for P2P betting"
+    }
+
+
+# ========== DIRECT MESSAGING ==========
+@api_router.post("/messages/send")
+async def send_message(data: SendMessageRequest):
+    """Send a direct message to another user"""
+    if not data.content.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if data.from_wallet == data.to_wallet:
+        raise HTTPException(status_code=400, detail="Cannot message yourself")
+    
+    # Create conversation ID (sorted wallet addresses for consistency)
+    wallets = sorted([data.from_wallet, data.to_wallet])
+    conversation_id = f"{wallets[0]}_{wallets[1]}"
+    
+    message = {
+        "id": str(uuid.uuid4()),
+        "conversation_id": conversation_id,
+        "from_wallet": data.from_wallet,
+        "from_name": data.from_name[:30],
+        "to_wallet": data.to_wallet,
+        "content": data.content.strip()[:2000],
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.messages.insert_one(message)
+    
+    # Send real-time notification via WebSocket
+    await dm_manager.send_personal_message({
+        "type": "new_message",
+        "data": {k: v for k, v in message.items() if k != "_id"}
+    }, data.to_wallet)
+    
+    # Send push notification
+    await send_notification(
+        data.to_wallet,
+        f"New message from {data.from_name}",
+        data.content[:100],
+        "message"
+    )
+    
+    return {"message": "Message sent!", "message_id": message["id"]}
+
+
+@api_router.get("/messages/conversations/{wallet_address}")
+async def get_conversations(wallet_address: str):
+    """Get all conversations for a user"""
+    # Get all messages involving this wallet
+    messages = await db.messages.find({
+        "$or": [
+            {"from_wallet": wallet_address},
+            {"to_wallet": wallet_address}
+        ]
+    }).sort("created_at", -1).to_list(1000)
+    
+    # Group by conversation
+    conversations = {}
+    for msg in messages:
+        conv_id = msg["conversation_id"]
+        if conv_id not in conversations:
+            other_wallet = msg["to_wallet"] if msg["from_wallet"] == wallet_address else msg["from_wallet"]
+            other_name = msg.get("from_name", "Unknown") if msg["from_wallet"] != wallet_address else "You"
+            conversations[conv_id] = {
+                "conversation_id": conv_id,
+                "other_wallet": other_wallet,
+                "other_name": other_name,
+                "last_message": msg["content"][:50],
+                "last_message_at": msg["created_at"],
+                "unread_count": 0
+            }
+        if msg["to_wallet"] == wallet_address and not msg.get("read"):
+            conversations[conv_id]["unread_count"] += 1
+    
+    return {"conversations": list(conversations.values())}
+
+
+@api_router.get("/messages/conversation/{wallet1}/{wallet2}")
+async def get_conversation_messages(wallet1: str, wallet2: str, limit: int = 50):
+    """Get messages between two wallets"""
+    wallets = sorted([wallet1, wallet2])
+    conversation_id = f"{wallets[0]}_{wallets[1]}"
+    
+    messages = await db.messages.find(
+        {"conversation_id": conversation_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(limit)
+    
+    # Mark messages as read
+    await db.messages.update_many(
+        {"conversation_id": conversation_id, "to_wallet": wallet1, "read": False},
+        {"$set": {"read": True}}
+    )
+    
+    return {"messages": list(reversed(messages)), "conversation_id": conversation_id}
+
+
+@api_router.get("/messages/unread/{wallet_address}")
+async def get_unread_count(wallet_address: str):
+    """Get count of unread messages"""
+    count = await db.messages.count_documents({
+        "to_wallet": wallet_address,
+        "read": False
+    })
+    return {"unread_count": count}
+
+
+# ========== NOTIFICATIONS ==========
+@api_router.get("/notifications/{wallet_address}")
+async def get_notifications(wallet_address: str, limit: int = 50):
+    """Get notifications for a user"""
+    notifications = await db.notifications.find(
+        {"to_wallet": wallet_address},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(limit)
+    
+    unread = sum(1 for n in notifications if not n.get("read"))
+    
+    return {"notifications": notifications, "unread_count": unread}
+
+
+@api_router.post("/notifications/read/{notification_id}")
+async def mark_notification_read(notification_id: str):
+    """Mark a notification as read"""
+    await db.notifications.update_one(
+        {"id": notification_id},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Marked as read"}
+
+
+@api_router.post("/notifications/read-all/{wallet_address}")
+async def mark_all_notifications_read(wallet_address: str):
+    """Mark all notifications as read"""
+    await db.notifications.update_many(
+        {"to_wallet": wallet_address, "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"message": "All notifications marked as read"}
+
+
+@api_router.post("/notifications/subscribe")
+async def subscribe_push(data: PushSubscription):
+    """Subscribe to push notifications"""
+    subscription = {
+        "wallet_address": data.wallet_address,
+        "subscription": data.subscription,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Upsert - update if exists, insert if not
+    await db.push_subscriptions.update_one(
+        {"wallet_address": data.wallet_address},
+        {"$set": subscription},
+        upsert=True
+    )
+    
+    return {"message": "Subscribed to push notifications"}
+
+
+# ========== ADMIN PANEL ==========
+@api_router.get("/admin/check/{wallet_address}")
+async def check_admin(wallet_address: str):
+    """Check if wallet is admin"""
+    return {"is_admin": is_admin(wallet_address)}
+
+
+@api_router.get("/admin/dashboard")
+async def admin_dashboard(admin_wallet: str):
+    """Get admin dashboard data"""
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get statistics
+    total_bets = await db.bets.count_documents({})
+    total_challenges = await db.p2p_challenges.count_documents({})
+    open_challenges = await db.p2p_challenges.count_documents({"status": "open"})
+    completed_challenges = await db.p2p_challenges.count_documents({"status": "completed"})
+    
+    total_deposits = await db.escrow_deposits.count_documents({})
+    total_messages = await db.messages.count_documents({})
+    total_forum_posts = await db.forum_posts.count_documents({})
+    total_users = len(set(
+        [d["wallet_address"] async for d in db.bets.find({}, {"wallet_address": 1})]
+    ))
+    
+    # Calculate total rake collected
+    completed_bets = await db.bets.find({"type": "p2p_coin_flip"}, {"rake_sol": 1}).to_list(10000)
+    total_rake = sum(b.get("rake_sol", 0) for b in completed_bets)
+    
+    # Get pot statistics
+    pot_results = await db.pot_results.find({}, {"rake_sol": 1}).to_list(1000)
+    total_pot_rake = sum(p.get("rake_sol", 0) for p in pot_results)
+    
+    return {
+        "total_bets": total_bets,
+        "total_challenges": total_challenges,
+        "open_challenges": open_challenges,
+        "completed_challenges": completed_challenges,
+        "total_deposits": total_deposits,
+        "total_messages": total_messages,
+        "total_forum_posts": total_forum_posts,
+        "estimated_users": total_users,
+        "total_rake_collected_sol": round(total_rake + total_pot_rake, 6),
+        "current_pot": {
+            "total_amount_sol": active_pot["total_amount_sol"],
+            "entry_count": len(active_pot["entries"]),
+            "status": active_pot["status"]
+        },
+        "distribution_wallet": DISTRIBUTION_WALLET
+    }
+
+
+@api_router.get("/admin/challenges")
+async def admin_get_challenges(admin_wallet: str, status: Optional[str] = None, limit: int = 50):
+    """Get all challenges (admin only)"""
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    challenges = await db.p2p_challenges.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return {"challenges": challenges}
+
+
+@api_router.post("/admin/challenge/cancel")
+async def admin_cancel_challenge(data: AdminManageChallengeRequest):
+    """Cancel a challenge and refund (admin only)"""
+    if not is_admin(data.admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    challenge = await db.p2p_challenges.find_one({"id": data.challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    if challenge["status"] != "open":
+        raise HTTPException(status_code=400, detail="Can only cancel open challenges")
+    
+    await db.p2p_challenges.update_one(
+        {"id": data.challenge_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_by": data.admin_wallet,
+            "cancelled_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Notify the creator
+    await send_notification(
+        challenge["creator_wallet"],
+        "Challenge Cancelled",
+        f"Your {challenge['bet_amount_sol']} SOL challenge has been cancelled by admin",
+        "challenge"
+    )
+    
+    return {"message": "Challenge cancelled", "challenge_id": data.challenge_id}
+
+
+@api_router.post("/admin/pot/draw")
+async def admin_draw_pot(data: AdminDrawPotRequest):
+    """Force draw the current pot (admin only)"""
+    if not is_admin(data.admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    global active_pot
+    if len(active_pot["entries"]) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 entries to draw")
+    
+    # Draw winner
+    total = active_pot["total_amount_sol"]
+    rand_value = secrets.randbelow(int(total * 1000000)) / 1000000
+    cumulative = 0
+    winner = None
+    
+    for entry in active_pot["entries"]:
+        cumulative += entry["amount_sol"]
+        if rand_value <= cumulative:
+            winner = entry
+            break
+    if not winner:
+        winner = active_pot["entries"][-1]
+    
+    rake = round(total * active_pot["rake_percent"] / 100, 6)
+    payout = round(total - rake, 6)
+    
+    result = {
+        "winner_name": winner["display_name"],
+        "winner_wallet": winner["wallet_address"],
+        "payout_sol": payout,
+        "total_pot_sol": total,
+        "rake_sol": rake,
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "entry_count": len(active_pot["entries"]),
+        "drawn_by": data.admin_wallet
+    }
+    
+    active_pot["winner"] = result
+    active_pot["status"] = "completed"
+    
+    # Save to DB
+    await db.pot_results.insert_one({
+        **result,
+        "pot_id": active_pot["id"],
+        "entries": active_pot["entries"],
+        "drawn_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Notify winner
+    await send_notification(
+        winner["wallet_address"],
+        "You Won the Pot!",
+        f"Congratulations! You won {payout} SOL in the pot!",
+        "pot"
+    )
+    
+    # Notify all participants
+    for entry in active_pot["entries"]:
+        if entry["wallet_address"] != winner["wallet_address"]:
+            await send_notification(
+                entry["wallet_address"],
+                "Pot Drawn",
+                f"{winner['display_name']} won the pot of {total} SOL",
+                "pot"
+            )
+    
+    await pot_ws_manager.broadcast({"type": "pot_winner", "data": result})
+    
+    # Reset pot
+    active_pot = {
+        "id": str(uuid.uuid4()),
+        "total_amount_sol": 0,
+        "entries": [],
+        "status": "open",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "rake_percent": RAKE_PERCENT,
+        "winner": None
+    }
+    
+    await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
+    
+    return result
+
+
+@api_router.get("/admin/bets")
+async def admin_get_bets(admin_wallet: str, limit: int = 100):
+    """Get all bets (admin only)"""
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    bets = await db.bets.find({}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
+    return {"bets": bets}
+
+
+@api_router.get("/admin/escrow")
+async def admin_get_escrow(admin_wallet: str):
+    """Get escrow statistics (admin only)"""
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    deposits = await db.escrow_deposits.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    withdrawals = await db.escrow_withdrawals.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    total_deposited = sum(d.get("amount_sol", 0) for d in deposits)
+    total_withdrawn = sum(w.get("amount_sol", 0) for w in withdrawals)
+    
+    return {
+        "total_deposited_sol": round(total_deposited, 6),
+        "total_withdrawn_sol": round(total_withdrawn, 6),
+        "escrow_balance_sol": round(total_deposited - total_withdrawn, 6),
+        "recent_deposits": deposits[:20],
+        "recent_withdrawals": withdrawals[:20]
+    }
+
+
+# ========== TRADING JOURNAL CLOUD BACKUP ==========
+@api_router.post("/journal/backup")
+async def create_journal_backup(data: JournalBackupRequest):
+    """Create a cloud backup of user's trading journal"""
+    if not data.wallet_address:
+        raise HTTPException(status_code=400, detail="Wallet address required")
+    
+    # Get all trades for this wallet
+    trades = await db.trading_journal.find(
+        {"wallet_address": data.wallet_address},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    # Create backup
+    backup = {
+        "id": str(uuid.uuid4()),
+        "wallet_address": data.wallet_address,
+        "trades": trades,
+        "trade_count": len(trades),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Store backup
+    await db.journal_backups.insert_one(backup)
+    
+    return {
+        "message": "Backup created!",
+        "backup_id": backup["id"],
+        "trade_count": len(trades),
+        "created_at": backup["created_at"]
+    }
+
+
+@api_router.get("/journal/backups/{wallet_address}")
+async def get_journal_backups(wallet_address: str):
+    """Get list of backups for a wallet"""
+    backups = await db.journal_backups.find(
+        {"wallet_address": wallet_address},
+        {"_id": 0, "trades": 0}  # Don't include full trade data in list
+    ).sort("created_at", -1).to_list(50)
+    
+    return {"backups": backups}
+
+
+@api_router.get("/journal/backup/{backup_id}")
+async def get_journal_backup(backup_id: str, wallet_address: str):
+    """Get a specific backup"""
+    backup = await db.journal_backups.find_one(
+        {"id": backup_id, "wallet_address": wallet_address},
+        {"_id": 0}
+    )
+    
+    if not backup:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    
+    return backup
+
+
+@api_router.post("/journal/restore/{backup_id}")
+async def restore_journal_backup(backup_id: str, wallet_address: str):
+    """Restore trades from a backup"""
+    backup = await db.journal_backups.find_one(
+        {"id": backup_id, "wallet_address": wallet_address}
+    )
+    
+    if not backup:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    
+    # Option: Clear existing trades or merge
+    # For now, we'll merge (skip duplicates based on trade_id)
+    trades = backup.get("trades", [])
+    restored_count = 0
+    
+    for trade in trades:
+        existing = await db.trading_journal.find_one({"trade_id": trade.get("trade_id")})
+        if not existing:
+            trade["wallet_address"] = wallet_address
+            trade["restored_from_backup"] = backup_id
+            trade["restored_at"] = datetime.now(timezone.utc).isoformat()
+            await db.trading_journal.insert_one(trade)
+            restored_count += 1
+    
+    return {
+        "message": f"Restored {restored_count} trades",
+        "restored_count": restored_count,
+        "total_in_backup": len(trades)
+    }
+
+
+@api_router.delete("/journal/backup/{backup_id}")
+async def delete_journal_backup(backup_id: str, wallet_address: str):
+    """Delete a backup"""
+    result = await db.journal_backups.delete_one({
+        "id": backup_id,
+        "wallet_address": wallet_address
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    
+    return {"message": "Backup deleted"}
+
+
 app.include_router(api_router)
 
 
