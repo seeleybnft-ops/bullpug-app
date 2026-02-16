@@ -9,20 +9,6 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 - **Community Members**: Users who want to discuss and interact via forum and DMs
 - **Admins**: Wallet-authorized administrators who manage the platform
 
-## Core Requirements
-- **Lore Integration:** Immersive storytelling through animations and interactive elements
-- **Tokenomics:** Interactive display of token details, supply distribution, and reflections calculator
-- **Solana Wallet Integration:** Connect to Solana blockchain for staking, balance display, and real SOL betting
-- **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with 2.5% house rake
-- **Speed-Run Game:** Endless runner with weekly leaderboard and "Share to X" feature
-- **Trading Journal:** Comprehensive tool for logging trades with dashboard, CSV/PDF export, and cloud backup
-- **Community Forum:** Section for users to create posts, reply, and filter by category
-- **Direct Messaging:** Real-time chat between users via WebSockets
-- **Admin Panel:** Restricted page for wallet-authorized admins
-- **Multi-Language Support:** Internationalization with i18next (English/Spanish)
-- **Email Notifications:** SendGrid integration for welcome emails and weekly summaries
-- **Security:** Rate limiting and wallet signature verification
-
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Solana Web3.js & Wallet-Adapter, react-i18next
 - **Backend:** FastAPI, WebSockets, Pydantic, slowapi (rate limiting)
@@ -34,24 +20,48 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ## What's Been Implemented
 
-### December 2025
+### December 2025 - Session 2
+
+#### P1 Features (Completed)
+1. **UX Improvements - Sound Effects**
+   - ✅ Web Audio API sound utility (`/app/frontend/src/utils/sounds.js`)
+   - ✅ 9 sound presets: win, lose, flip, click, collect, powerup, gameover, jump, newHighScore
+   - ✅ Sound toggle buttons on Arena and Game pages
+   - ✅ LocalStorage persistence for sound preference
+
+2. **UX Improvements - Animations**
+   - ✅ CSS animations file (`/app/frontend/src/styles/animations.css`)
+   - ✅ Coin flip animation with spinning coin
+   - ✅ Win/lose pulse effects with glow
+   - ✅ Confetti effect on betting wins
+   - ✅ Button hover effects, card float animations
+   - ✅ Trophy bounce, score pop, powerup glow effects
+
+#### P2 Features (In Progress)
+3. **Backend Refactoring - Modular Structure**
+   - ✅ Created directory structure: `routers/`, `models/`, `services/`, `utils/`
+   - ✅ `models/schemas.py` - Pydantic request models
+   - ✅ `services/email_service.py` - SendGrid email functions
+   - ✅ `services/auth_service.py` - Wallet signature verification
+   - ✅ `utils/config.py` - Centralized configuration
+   - ✅ `utils/database.py` - MongoDB connection utilities
+   - ⏳ Main `server.py` still in use (gradual migration planned)
+
+### December 2025 - Session 1
 
 #### P0 Features (Completed)
 1. **Multi-Language Support (i18next)**
    - ✅ Language switcher in navbar with globe icon
    - ✅ English and Spanish translations
-   - ✅ BettingArena page fully translated
-   - ✅ SpeedRunGame page fully translated
-   - ✅ Navbar links translated
+   - ✅ BettingArena and SpeedRunGame pages fully translated
    - ✅ LocalStorage persistence (bullpugLang key)
 
 2. **Email Notifications (SendGrid)**
-   - ✅ Email subscription endpoints (subscribe, unsubscribe, status)
+   - ✅ Email subscription endpoints
    - ✅ Welcome email template (HTML formatted)
    - ✅ Weekly summary email template
-   - ⚠️ SENDGRID_API_KEY not configured (endpoints work but emails not sent)
+   - ⚠️ SENDGRID_API_KEY not configured
 
-#### P1 Features (Completed)
 3. **Backend Rate Limiting**
    - ✅ slowapi integration
    - ✅ /api/betting/challenge/create - 10/minute limit
@@ -61,7 +71,6 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
    - ✅ Signature verification utility using nacl
    - ✅ GET /api/auth/sign-message/{wallet} endpoint
    - ✅ POST /api/auth/verify-signature endpoint
-   - ✅ Nonce storage with 5-minute expiry
 
 ### Earlier Implementations
 - ✅ P2P Betting Arena (Coin Flip & Pot with real SOL logic)
@@ -75,27 +84,27 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ---
 
-## API Endpoints
-
-### Email
-- `POST /api/email/subscribe` - Subscribe wallet to emails
-- `POST /api/email/welcome` - Send welcome email
-- `GET /api/email/subscription/{wallet}` - Get subscription status
-- `DELETE /api/email/unsubscribe/{wallet}` - Unsubscribe
-- `POST /api/email/test` - Check SendGrid configuration
-
-### Auth/Security
-- `GET /api/auth/sign-message/{wallet}` - Generate signing message
-- `POST /api/auth/verify-signature` - Verify wallet signature
-
-### Betting (Rate Limited)
-- `GET /api/betting/config` - Get betting configuration
-- `POST /api/betting/challenge/create` - Create P2P challenge (10/min)
-- `POST /api/betting/challenge/accept` - Accept challenge (20/min)
-- `POST /api/betting/pot/join` - Join pot (10/min)
-- `GET /api/betting/challenges` - List open challenges
-- `GET /api/betting/pot` - Get pot status
-- `GET /api/betting/history` - Get bet history
+## Backend Modular Structure
+```
+/app/backend/
+├── server.py              # Main FastAPI app (still primary)
+├── requirements.txt       # Python dependencies
+├── .env                   # Environment variables
+├── models/
+│   ├── __init__.py
+│   └── schemas.py         # Pydantic request/response models
+├── services/
+│   ├── __init__.py
+│   ├── email_service.py   # SendGrid email functions
+│   └── auth_service.py    # Wallet signature verification
+├── utils/
+│   ├── __init__.py
+│   ├── config.py          # Configuration constants
+│   └── database.py        # MongoDB connection
+├── routers/               # (Empty - for future migration)
+│   └── __init__.py
+└── tests/                 # pytest test files
+```
 
 ---
 
@@ -104,14 +113,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 ### P0 - Critical (None remaining)
 All P0 features implemented
 
-### P1 - Important
-- ⬜ UX Improvements - Visual feedback (animations, sound effects) on Betting/Game pages
+### P1 - Important (None remaining)
+All P1 features implemented
 
 ### P2 - Nice to Have
-- ⬜ Re-enable Plushie Sales (Shop.js placeholder exists)
-- ⬜ Re-enable NFT Gallery (NFTGallery.js placeholder exists)
-- ⬜ Refactor backend/server.py into modular structure (routers/, models/, services/)
+- ⏳ Complete backend migration to modular routers (ongoing)
 - ⬜ Add global state management (Redux Toolkit or Zustand)
+- ❌ Plushie Sales (user deferred)
+- ❌ NFT Gallery (user deferred)
 
 ---
 
@@ -125,42 +134,17 @@ SENDER_EMAIL=noreply@bullpug.com
 ```
 
 ### Admin Wallets
-Configured in Navbar.js and server.py:
-- `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` (Fee Wallet)
-- `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs` (Personal)
-
----
-
-## File Structure
 ```
-/app/
-├── backend/
-│   ├── server.py           # Main FastAPI app (~2400 lines)
-│   ├── requirements.txt    # Python dependencies
-│   ├── .env                # Environment variables
-│   └── tests/              # Pytest tests
-├── frontend/
-│   ├── src/
-│   │   ├── i18n/config.js      # i18next configuration
-│   │   ├── components/
-│   │   │   ├── Navbar.js       # With LanguageSwitcher
-│   │   │   ├── LanguageSwitcher.js  # Language dropdown
-│   │   │   └── ...
-│   │   └── pages/
-│   │       ├── BettingArena.js # With i18n translations
-│   │       ├── SpeedRunGame.js # With i18n translations
-│   │       └── ...
-│   └── package.json
-└── memory/
-    └── PRD.md
+we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT (Fee Wallet)
+qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs (Personal)
 ```
 
 ---
 
 ## Testing Reports
-- `/app/test_reports/iteration_6.json` - Latest (100% pass rate)
-- Previous: iteration_2.json through iteration_5.json
+- `/app/test_reports/iteration_7.json` - Latest (100% pass rate)
+- Previous: iteration_2.json through iteration_6.json
 
 ## Known Issues
-- SendGrid API key not configured (emails won't send until configured)
-- Backend server.py is large (~2400 lines) - needs modularization
+- SendGrid API key not configured
+- Backend server.py migration to modular structure in progress
