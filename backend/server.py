@@ -529,7 +529,8 @@ async def get_betting_config():
 
 
 @api_router.post("/betting/challenge/create")
-async def create_challenge(data: CreateChallengeRequest):
+@limiter.limit("10/minute")
+async def create_challenge(request: Request, data: CreateChallengeRequest):
     """Create a P2P coin flip challenge"""
     if data.bet_amount_sol <= 0:
         raise HTTPException(status_code=400, detail="Bet must be positive")
