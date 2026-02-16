@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import "@/App.css";
+import "@/i18n/config"; // Initialize i18n
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
