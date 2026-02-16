@@ -2085,6 +2085,78 @@ async def pot_websocket(ws: WebSocket):
         pot_ws_manager.disconnect(ws)
 
 
+# WebSocket for direct messages
+@app.websocket("/ws/dm/{wallet_address}")
+async def dm_websocket(ws: WebSocket, wallet_address: str):
+    await dm_manager.connect(ws, wallet_address)
+    try:
+        while True:
+            data = await ws.receive_json()
+            # Handle incoming messages via WebSocket
+            if data.get("type") == "send_message":
+                to_wallet = data.get("to_wallet")
+                content = data.get("content", "")
+                from_name = data.get("from_name", "Anonymous")
+                
+                if to_wallet and content:
+                    wallets = sorted([wallet_address, to_wallet])
+                    conversation_id = f"{wallets[0]}_{wallets[1]}"
+                    
+                    message = {
+                        "id": str(uuid.uuid4()),
+                        "conversation_id": conversation_id,
+                        "from_wallet": wallet_address,
+                        "from_name": from_name,
+                        "to_wallet": to_wallet,
+                        "content": content[:2000],
+                        "read": False,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.messages.insert_one(message)
+                    
+                    # Send to recipient
+                    await dm_manager.send_personal_message({
+                        "type": "new_message",
+                        "data": {k: v for k, v in message.items() if k != "_id"}
+                    }, to_wallet)
+                    
+                    # Confirm to sender
+                    await ws.send_json({
+                        "type": "message_sent",
+                        "data": {k: v for k, v in message.items() if k != "_id"}
+                    })
+    except WebSocketDisconnect:
+        dm_manager.disconnect(wallet_address)
+    except Exception as e:
+        logger.error(f"DM WebSocket error: {e}")
+        dm_manager.disconnect(wallet_address)
+
+
+# WebSocket for notifications
+@app.websocket("/ws/notifications/{wallet_address}")
+async def notification_websocket(ws: WebSocket, wallet_address: str):
+    await notification_manager.connect(ws, wallet_address)
+    try:
+        # Send unread notifications on connect
+        notifications = await db.notifications.find(
+            {"to_wallet": wallet_address, "read": False},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(20)
+        
+        await ws.send_json({
+            "type": "initial_notifications",
+            "data": notifications
+        })
+        
+        while True:
+            await ws.receive_text()  # Keep connection alive
+    except WebSocketDisconnect:
+        notification_manager.disconnect(wallet_address)
+    except Exception as e:
+        logger.error(f"Notification WebSocket error: {e}")
+        notification_manager.disconnect(wallet_address)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
