@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap } from "lucide-react";
+import { toast } from "sonner";
+import axios from "axios";
+import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User } from "lucide-react";
 
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const GAME_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/kynwxxke_image%20-%202026-02-17T063523.593.jpg";
 const MOONCAKE_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/d1oc5e6f_image%20-%202026-02-17T071657.526.jpg";
 
@@ -16,6 +20,10 @@ export default function SpeedRunGame() {
   const [mooncakes, setMooncakes] = useState(0);
   const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem("bullpugHighScore") || "0"));
   const [totalMooncakes, setTotalMooncakes] = useState(() => parseInt(localStorage.getItem("bullpugMooncakes") || "0"));
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardMeta, setLeaderboardMeta] = useState({ days_until_reset: 0 });
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
+  const [showNameInput, setShowNameInput] = useState(false);
   const gameRef = useRef(null);
   const animRef = useRef(null);
   const spriteRef = useRef(null);
@@ -26,7 +34,41 @@ export default function SpeedRunGame() {
     img.onload = () => { spriteRef.current = img; };
     const mc = new Image(); mc.crossOrigin = "anonymous"; mc.src = MOONCAKE_IMG;
     mc.onload = () => { mooncakeRef.current = mc; };
+    fetchLeaderboard();
   }, []);
+
+  const fetchLeaderboard = async () => {
+    try {
+      const { data } = await axios.get(`${API}/leaderboard?limit=10`);
+      setLeaderboard(data.leaderboard);
+      setLeaderboardMeta({ days_until_reset: data.days_until_reset, next_reset: data.next_reset });
+    } catch (e) {
+      console.error("Failed to fetch leaderboard");
+    }
+  };
+
+  const submitScore = async (finalScore, finalMooncakes) => {
+    if (finalScore <= 0) return;
+    try {
+      const { data } = await axios.post(`${API}/leaderboard/submit`, {
+        player_name: playerName,
+        score: finalScore,
+        mooncakes: finalMooncakes
+      });
+      toast.success(`Rank #${data.rank} this week!`);
+      fetchLeaderboard();
+    } catch (e) {
+      console.error("Failed to submit score");
+    }
+  };
+
+  const savePlayerName = (name) => {
+    const trimmed = name.trim().slice(0, 20) || "Guardian";
+    setPlayerName(trimmed);
+    localStorage.setItem("bullpugPlayerName", trimmed);
+    setShowNameInput(false);
+    toast.success(`Name set to ${trimmed}`);
+  };
 
   const initGame = () => ({
     player: { x: 60, y: GROUND_Y - PLAYER_H, vy: 0, jumps: 0, maxJumps: 2 },
