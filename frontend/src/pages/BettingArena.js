@@ -200,6 +200,7 @@ function PotSystem({ walletAddress }) {
   const [betAmount, setBetAmount] = useState("50");
   const [displayName, setDisplayName] = useState("Guardian");
   const [joining, setJoining] = useState(false);
+  const [wsStatus, setWsStatus] = useState("connecting");
 
   const fetchPot = () => {
     axios.get(`${API}/betting/pot`).then(r => setPot(r.data)).catch(() => {});
@@ -207,8 +208,34 @@ function PotSystem({ walletAddress }) {
 
   useEffect(() => {
     fetchPot();
-    const iv = setInterval(fetchPot, 5000);
-    return () => clearInterval(iv);
+    // WebSocket for real-time updates
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+    const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/pot";
+    let ws;
+    let reconnectTimer;
+    const connect = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => setWsStatus("connected");
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "pot_update") setPot(msg.data);
+            if (msg.type === "pot_winner") {
+              toast.success(`Winner: ${msg.data.winner} won ${msg.data.payout} $BULLPUG!`);
+            }
+          } catch {}
+        };
+        ws.onclose = () => { setWsStatus("reconnecting"); reconnectTimer = setTimeout(connect, 3000); };
+        ws.onerror = () => { ws.close(); };
+      } catch {
+        setWsStatus("fallback");
+      }
+    };
+    connect();
+    // Fallback polling
+    const iv = setInterval(fetchPot, 10000);
+    return () => { clearInterval(iv); clearTimeout(reconnectTimer); if (ws) ws.close(); };
   }, []);
 
   const joinPot = async () => {
