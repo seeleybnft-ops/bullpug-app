@@ -190,17 +190,6 @@ PROPOSALS = [
     {"id": "prop-3", "title": "Partner with CosmicDogs DAO", "description": "Cross-promote with CosmicDogs DAO for joint NFT drops and shared liquidity.", "status": "active", "end_date": (datetime.now(timezone.utc) + timedelta(days=21)).isoformat()},
 ]
 
-active_pot = {
-    "id": str(uuid.uuid4()),
-    "total_amount": 0,
-    "entries": [],
-    "status": "open",
-    "created_at": datetime.now(timezone.utc).isoformat(),
-    "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-    "house_fee_percent": 7,
-    "winner": None
-}
-
 
 # ========== Routes ==========
 @api_router.get("/")
