@@ -503,6 +503,402 @@ async def monte_carlo_simulation(data: MonteCarloRequest):
     }
 
 
+# ========== Leaderboard Models ==========
+class LeaderboardEntry(BaseModel):
+    player_name: str
+    score: int
+    mooncakes: int = 0
+    wallet_address: Optional[str] = None
+
+class ReflectionsCalcRequest(BaseModel):
+    token_holdings: float
+    volume_24h: float = 89000
+    reflection_rate: float = 2.0
+
+# ========== Trading Journal Models ==========
+class TradeEntry(BaseModel):
+    trade_id: Optional[str] = None
+    date_entry: str
+    date_exit: Optional[str] = None
+    asset: str
+    trade_type: str
+    leverage: Optional[float] = 1.0
+    entry_price: float
+    position_size: float
+    exit_price: Optional[float] = None
+    exit_reason: Optional[str] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    fees: float = 0
+    slippage: float = 0
+    chart_link: Optional[str] = None
+    entry_reason: Optional[str] = None
+    strategy: Optional[str] = None
+    market_conditions: Optional[str] = None
+    expected_rr: Optional[float] = None
+    emotion_entry: Optional[str] = None
+    emotion_exit: Optional[str] = None
+    confidence_level: Optional[int] = None
+    mindset_notes: Optional[str] = None
+    what_went_well: Optional[str] = None
+    what_went_wrong: Optional[str] = None
+    lessons: Optional[str] = None
+    trade_grade: Optional[str] = None
+    tags: Optional[List[str]] = []
+    external_influences: Optional[str] = None
+    health_notes: Optional[str] = None
+    status: str = "open"
+
+
+# ========== Leaderboard Routes ==========
+@api_router.get("/leaderboard")
+async def get_leaderboard(limit: int = 20):
+    # Get the current week's start date (Monday)
+    today = datetime.now(timezone.utc)
+    days_since_monday = today.weekday()
+    week_start = (today - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Fetch scores from this week only
+    scores = await db.leaderboard.find(
+        {"created_at": {"$gte": week_start.isoformat()}},
+        {"_id": 0}
+    ).sort("score", -1).to_list(limit)
+    
+    # Calculate time until reset (next Monday)
+    days_until_reset = 7 - days_since_monday
+    next_reset = week_start + timedelta(days=7)
+    
+    return {
+        "leaderboard": scores,
+        "week_start": week_start.isoformat(),
+        "next_reset": next_reset.isoformat(),
+        "days_until_reset": days_until_reset
+    }
+
+
+@api_router.post("/leaderboard/submit")
+async def submit_score(data: LeaderboardEntry):
+    if data.score <= 0:
+        raise HTTPException(status_code=400, detail="Score must be positive")
+    
+    entry = {
+        "id": str(uuid.uuid4()),
+        "player_name": data.player_name[:20],
+        "score": data.score,
+        "mooncakes": data.mooncakes,
+        "wallet_address": data.wallet_address,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.leaderboard.insert_one(entry)
+    
+    # Get player's rank
+    today = datetime.now(timezone.utc)
+    days_since_monday = today.weekday()
+    week_start = (today - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    higher_scores = await db.leaderboard.count_documents({
+        "created_at": {"$gte": week_start.isoformat()},
+        "score": {"$gt": data.score}
+    })
+    
+    return {"message": "Score submitted!", "rank": higher_scores + 1, "entry_id": entry["id"]}
+
+
+# ========== Reflections Calculator Route ==========
+@api_router.post("/reflections/calculate")
+async def calculate_reflections(data: ReflectionsCalcRequest):
+    # Tokenomics constants
+    total_supply = 1_000_000_000
+    circulating_supply = 800_000_000
+    
+    # Calculate holder's share of circulating supply
+    holder_share = data.token_holdings / circulating_supply
+    
+    # Reflections are 2% of all transactions, distributed to holders
+    daily_volume = data.volume_24h
+    daily_reflections_pool = daily_volume * (data.reflection_rate / 100)
+    
+    # Holder's daily reflections based on their share
+    daily_reflections_usd = daily_reflections_pool * holder_share
+    weekly_reflections_usd = daily_reflections_usd * 7
+    monthly_reflections_usd = daily_reflections_usd * 30
+    yearly_reflections_usd = daily_reflections_usd * 365
+    
+    # Calculate in tokens (assuming current price)
+    price_usd = 0.00042
+    daily_reflections_tokens = daily_reflections_usd / price_usd if price_usd > 0 else 0
+    weekly_reflections_tokens = weekly_reflections_usd / price_usd if price_usd > 0 else 0
+    monthly_reflections_tokens = monthly_reflections_usd / price_usd if price_usd > 0 else 0
+    yearly_reflections_tokens = yearly_reflections_usd / price_usd if price_usd > 0 else 0
+    
+    # APY calculation
+    initial_value = data.token_holdings * price_usd
+    apy = (yearly_reflections_usd / initial_value * 100) if initial_value > 0 else 0
+    
+    return {
+        "holdings": data.token_holdings,
+        "holder_share_percent": round(holder_share * 100, 6),
+        "volume_24h": data.volume_24h,
+        "reflection_rate": data.reflection_rate,
+        "daily": {"usd": round(daily_reflections_usd, 4), "tokens": round(daily_reflections_tokens, 2)},
+        "weekly": {"usd": round(weekly_reflections_usd, 4), "tokens": round(weekly_reflections_tokens, 2)},
+        "monthly": {"usd": round(monthly_reflections_usd, 4), "tokens": round(monthly_reflections_tokens, 2)},
+        "yearly": {"usd": round(yearly_reflections_usd, 2), "tokens": round(yearly_reflections_tokens, 2)},
+        "estimated_apy": round(apy, 2),
+        "price_usd": price_usd
+    }
+
+
+# ========== Trading Journal Routes ==========
+@api_router.get("/journal/trades")
+async def get_trades(limit: int = 100, status: Optional[str] = None):
+    query = {}
+    if status:
+        query["status"] = status
+    trades = await db.trading_journal.find(query, {"_id": 0}).sort("date_entry", -1).to_list(limit)
+    return {"trades": trades, "count": len(trades)}
+
+
+@api_router.get("/journal/trade/{trade_id}")
+async def get_trade(trade_id: str):
+    trade = await db.trading_journal.find_one({"trade_id": trade_id}, {"_id": 0})
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    return trade
+
+
+@api_router.post("/journal/trade")
+async def create_trade(data: TradeEntry):
+    trade_id = data.trade_id or f"T{str(uuid.uuid4())[:8].upper()}"
+    
+    # Calculate P&L if exit price provided
+    pnl = 0
+    pnl_percent = 0
+    if data.exit_price and data.entry_price:
+        if data.trade_type.lower() in ["long", "spot"]:
+            pnl = (data.exit_price - data.entry_price) * data.position_size
+        else:  # short
+            pnl = (data.entry_price - data.exit_price) * data.position_size
+        pnl -= data.fees + data.slippage
+        pnl_percent = ((data.exit_price - data.entry_price) / data.entry_price * 100) if data.entry_price > 0 else 0
+        if data.trade_type.lower() == "short":
+            pnl_percent = -pnl_percent
+    
+    trade = {
+        "trade_id": trade_id,
+        "date_entry": data.date_entry,
+        "date_exit": data.date_exit,
+        "asset": data.asset.upper(),
+        "trade_type": data.trade_type,
+        "leverage": data.leverage,
+        "entry_price": data.entry_price,
+        "position_size": data.position_size,
+        "exit_price": data.exit_price,
+        "exit_reason": data.exit_reason,
+        "stop_loss": data.stop_loss,
+        "take_profit": data.take_profit,
+        "fees": data.fees,
+        "slippage": data.slippage,
+        "chart_link": data.chart_link,
+        "entry_reason": data.entry_reason,
+        "strategy": data.strategy,
+        "market_conditions": data.market_conditions,
+        "expected_rr": data.expected_rr,
+        "emotion_entry": data.emotion_entry,
+        "emotion_exit": data.emotion_exit,
+        "confidence_level": data.confidence_level,
+        "mindset_notes": data.mindset_notes,
+        "what_went_well": data.what_went_well,
+        "what_went_wrong": data.what_went_wrong,
+        "lessons": data.lessons,
+        "trade_grade": data.trade_grade,
+        "tags": data.tags or [],
+        "external_influences": data.external_influences,
+        "health_notes": data.health_notes,
+        "status": data.status,
+        "pnl": round(pnl, 2),
+        "pnl_percent": round(pnl_percent, 2),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.trading_journal.insert_one(trade)
+    return {"message": "Trade logged!", "trade_id": trade_id, "pnl": trade["pnl"]}
+
+
+@api_router.put("/journal/trade/{trade_id}")
+async def update_trade(trade_id: str, data: TradeEntry):
+    existing = await db.trading_journal.find_one({"trade_id": trade_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    
+    # Recalculate P&L
+    pnl = 0
+    pnl_percent = 0
+    if data.exit_price and data.entry_price:
+        if data.trade_type.lower() in ["long", "spot"]:
+            pnl = (data.exit_price - data.entry_price) * data.position_size
+        else:
+            pnl = (data.entry_price - data.exit_price) * data.position_size
+        pnl -= data.fees + data.slippage
+        pnl_percent = ((data.exit_price - data.entry_price) / data.entry_price * 100) if data.entry_price > 0 else 0
+        if data.trade_type.lower() == "short":
+            pnl_percent = -pnl_percent
+    
+    update_data = {
+        "date_entry": data.date_entry,
+        "date_exit": data.date_exit,
+        "asset": data.asset.upper(),
+        "trade_type": data.trade_type,
+        "leverage": data.leverage,
+        "entry_price": data.entry_price,
+        "position_size": data.position_size,
+        "exit_price": data.exit_price,
+        "exit_reason": data.exit_reason,
+        "stop_loss": data.stop_loss,
+        "take_profit": data.take_profit,
+        "fees": data.fees,
+        "slippage": data.slippage,
+        "chart_link": data.chart_link,
+        "entry_reason": data.entry_reason,
+        "strategy": data.strategy,
+        "market_conditions": data.market_conditions,
+        "expected_rr": data.expected_rr,
+        "emotion_entry": data.emotion_entry,
+        "emotion_exit": data.emotion_exit,
+        "confidence_level": data.confidence_level,
+        "mindset_notes": data.mindset_notes,
+        "what_went_well": data.what_went_well,
+        "what_went_wrong": data.what_went_wrong,
+        "lessons": data.lessons,
+        "trade_grade": data.trade_grade,
+        "tags": data.tags or [],
+        "external_influences": data.external_influences,
+        "health_notes": data.health_notes,
+        "status": data.status,
+        "pnl": round(pnl, 2),
+        "pnl_percent": round(pnl_percent, 2),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.trading_journal.update_one({"trade_id": trade_id}, {"$set": update_data})
+    return {"message": "Trade updated!", "trade_id": trade_id, "pnl": pnl}
+
+
+@api_router.delete("/journal/trade/{trade_id}")
+async def delete_trade(trade_id: str):
+    result = await db.trading_journal.delete_one({"trade_id": trade_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    return {"message": "Trade deleted!", "trade_id": trade_id}
+
+
+@api_router.get("/journal/dashboard")
+async def get_journal_dashboard():
+    trades = await db.trading_journal.find({}, {"_id": 0}).to_list(1000)
+    
+    if not trades:
+        return {
+            "total_trades": 0,
+            "open_trades": 0,
+            "closed_trades": 0,
+            "total_pnl": 0,
+            "win_rate": 0,
+            "avg_pnl": 0,
+            "biggest_win": None,
+            "biggest_loss": None,
+            "most_traded_asset": None,
+            "avg_confidence": 0,
+            "recent_emotions": [],
+            "pnl_by_asset": {},
+            "win_streak": 0,
+            "loss_streak": 0,
+            "avg_rr": 0,
+            "sharpe_ratio": 0
+        }
+    
+    closed_trades = [t for t in trades if t.get("status") == "closed" and t.get("pnl") is not None]
+    open_trades = [t for t in trades if t.get("status") == "open"]
+    
+    total_pnl = sum(t.get("pnl", 0) for t in closed_trades)
+    wins = [t for t in closed_trades if t.get("pnl", 0) > 0]
+    losses = [t for t in closed_trades if t.get("pnl", 0) < 0]
+    
+    win_rate = (len(wins) / len(closed_trades) * 100) if closed_trades else 0
+    avg_pnl = total_pnl / len(closed_trades) if closed_trades else 0
+    
+    biggest_win = max(closed_trades, key=lambda t: t.get("pnl", 0)) if wins else None
+    biggest_loss = min(closed_trades, key=lambda t: t.get("pnl", 0)) if losses else None
+    
+    # Most traded asset
+    asset_counts = {}
+    for t in trades:
+        asset = t.get("asset", "Unknown")
+        asset_counts[asset] = asset_counts.get(asset, 0) + 1
+    most_traded = max(asset_counts.items(), key=lambda x: x[1]) if asset_counts else (None, 0)
+    
+    # P&L by asset
+    pnl_by_asset = {}
+    for t in closed_trades:
+        asset = t.get("asset", "Unknown")
+        pnl_by_asset[asset] = pnl_by_asset.get(asset, 0) + t.get("pnl", 0)
+    
+    # Average confidence
+    confidence_vals = [t.get("confidence_level") for t in trades if t.get("confidence_level")]
+    avg_confidence = sum(confidence_vals) / len(confidence_vals) if confidence_vals else 0
+    
+    # Recent emotions
+    recent_emotions = [{"entry": t.get("emotion_entry"), "exit": t.get("emotion_exit"), "asset": t.get("asset")} 
+                       for t in sorted(trades, key=lambda x: x.get("date_entry", ""), reverse=True)[:5]]
+    
+    # Win/Loss streaks
+    sorted_closed = sorted(closed_trades, key=lambda x: x.get("date_entry", ""))
+    win_streak = loss_streak = current_win = current_loss = 0
+    for t in sorted_closed:
+        if t.get("pnl", 0) > 0:
+            current_win += 1
+            current_loss = 0
+            win_streak = max(win_streak, current_win)
+        elif t.get("pnl", 0) < 0:
+            current_loss += 1
+            current_win = 0
+            loss_streak = max(loss_streak, current_loss)
+    
+    # Average R:R
+    rr_vals = [t.get("expected_rr") for t in trades if t.get("expected_rr")]
+    avg_rr = sum(rr_vals) / len(rr_vals) if rr_vals else 0
+    
+    # Simple Sharpe-like ratio (avg return / std dev)
+    pnl_vals = [t.get("pnl", 0) for t in closed_trades]
+    if len(pnl_vals) > 1:
+        import statistics
+        std_dev = statistics.stdev(pnl_vals)
+        sharpe = (avg_pnl / std_dev) if std_dev > 0 else 0
+    else:
+        sharpe = 0
+    
+    return {
+        "total_trades": len(trades),
+        "open_trades": len(open_trades),
+        "closed_trades": len(closed_trades),
+        "total_pnl": round(total_pnl, 2),
+        "win_rate": round(win_rate, 1),
+        "avg_pnl": round(avg_pnl, 2),
+        "biggest_win": {"trade_id": biggest_win.get("trade_id"), "asset": biggest_win.get("asset"), "pnl": biggest_win.get("pnl")} if biggest_win else None,
+        "biggest_loss": {"trade_id": biggest_loss.get("trade_id"), "asset": biggest_loss.get("asset"), "pnl": biggest_loss.get("pnl")} if biggest_loss else None,
+        "most_traded_asset": {"asset": most_traded[0], "count": most_traded[1]} if most_traded[0] else None,
+        "avg_confidence": round(avg_confidence, 1),
+        "recent_emotions": recent_emotions,
+        "pnl_by_asset": {k: round(v, 2) for k, v in pnl_by_asset.items()},
+        "win_streak": win_streak,
+        "loss_streak": loss_streak,
+        "avg_rr": round(avg_rr, 2),
+        "sharpe_ratio": round(sharpe, 3),
+        "total_wins": len(wins),
+        "total_losses": len(losses)
+    }
+
+
 @api_router.get("/tokenomics/stats")
 async def get_tokenomics():
     total_bets = await db.bets.count_documents({})
