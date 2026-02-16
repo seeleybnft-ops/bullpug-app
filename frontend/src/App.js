@@ -47,6 +47,7 @@ function App() {
                 <Route path="/game" element={<SpeedRunGame />} />
                 <Route path="/reflections" element={<ReflectionsCalculator />} />
                 <Route path="/journal" element={<TradingJournal />} />
+                <Route path="/forum" element={<Forum />} />
               </Routes>
               <Footer />
               <Toaster theme="dark" />
