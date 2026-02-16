@@ -309,9 +309,11 @@ async def join_pot(data: PotJoinRequest):
              "joined_at": datetime.now(timezone.utc).isoformat()}
     active_pot["entries"].append(entry)
     active_pot["total_amount"] += data.bet_amount
-    return {"message": f"Joined pot with {data.bet_amount} $BULLPUG!",
+    resp = {"message": f"Joined pot with {data.bet_amount} $BULLPUG!",
             "probability": round(data.bet_amount / active_pot["total_amount"] * 100, 1),
             "total_pot": active_pot["total_amount"], "entry_count": len(active_pot["entries"])}
+    await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
+    return resp
 
 
 @api_router.post("/betting/pot/draw")
@@ -339,11 +341,24 @@ async def draw_pot_winner():
     active_pot["winner"] = result
     active_pot["status"] = "completed"
     await db.pot_results.insert_one({**result, "pot_id": active_pot["id"], "drawn_at": datetime.now(timezone.utc).isoformat()})
+    await pot_ws_manager.broadcast({"type": "pot_winner", "data": result})
     active_pot = {"id": str(uuid.uuid4()), "total_amount": 0, "entries": [], "status": "open",
                   "created_at": datetime.now(timezone.utc).isoformat(),
                   "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
                   "house_fee_percent": 7, "winner": None}
+    await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
     return result
+
+
+async def _get_pot_data():
+    entries_display = []
+    for e in active_pot["entries"]:
+        prob = round(e["amount"] / active_pot["total_amount"] * 100, 1) if active_pot["total_amount"] > 0 else 0
+        entries_display.append({"display_name": e["display_name"], "amount": e["amount"], "probability": prob})
+    return {"id": active_pot["id"], "total_amount": active_pot["total_amount"],
+            "entry_count": len(active_pot["entries"]), "entries": entries_display,
+            "status": active_pot["status"], "draw_at": active_pot["draw_at"],
+            "house_fee_percent": active_pot["house_fee_percent"], "winner": active_pot["winner"]}
 
 
 @api_router.get("/governance/proposals")
