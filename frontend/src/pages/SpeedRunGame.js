@@ -188,7 +188,13 @@ export default function SpeedRunGame() {
             const newTotal = totalMooncakes + g.mooncakes;
             setTotalMooncakes(newTotal);
             localStorage.setItem("bullpugMooncakes", String(newTotal));
-            if (g.score > highScore) { setHighScore(g.score); localStorage.setItem("bullpugHighScore", String(g.score)); }
+            if (g.score > highScore) { 
+              setHighScore(g.score); 
+              localStorage.setItem("bullpugHighScore", String(g.score));
+              playSoundIfEnabled('newHighScore');
+            } else {
+              playSoundIfEnabled('gameover');
+            }
             // Submit to leaderboard
             submitScore(g.score, g.mooncakes);
             return;
