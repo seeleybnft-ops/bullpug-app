@@ -1,175 +1,324 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, Play, RotateCcw, Trophy } from "lucide-react";
+import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap } from "lucide-react";
 
 const GAME_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/kynwxxke_image%20-%202026-02-17T063523.593.jpg";
+const MOONCAKE_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/d1oc5e6f_image%20-%202026-02-17T071657.526.jpg";
+
+const W = 800, H = 340, GROUND_Y = 270, PLAYER_W = 50, PLAYER_H = 50;
+const GRAVITY = 0.7, JUMP_FORCE = -13, DOUBLE_JUMP_FORCE = -11;
 
 export default function SpeedRunGame() {
   const canvasRef = useRef(null);
   const [gameState, setGameState] = useState("idle");
   const [score, setScore] = useState(0);
+  const [mooncakes, setMooncakes] = useState(0);
   const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem("bullpugHighScore") || "0"));
-  const gameRef = useRef({ player: { y: 0, vy: 0, jumping: false }, obstacles: [], frame: 0, speed: 4, score: 0, running: false });
+  const [totalMooncakes, setTotalMooncakes] = useState(() => parseInt(localStorage.getItem("bullpugMooncakes") || "0"));
+  const gameRef = useRef(null);
   const animRef = useRef(null);
   const spriteRef = useRef(null);
+  const mooncakeRef = useRef(null);
 
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = GAME_IMG;
+    const img = new Image(); img.crossOrigin = "anonymous"; img.src = GAME_IMG;
     img.onload = () => { spriteRef.current = img; };
+    const mc = new Image(); mc.crossOrigin = "anonymous"; mc.src = MOONCAKE_IMG;
+    mc.onload = () => { mooncakeRef.current = mc; };
   }, []);
 
-  const GROUND_Y = 260;
-  const PLAYER_SIZE = 50;
-  const GRAVITY = 0.8;
-  const JUMP_FORCE = -14;
+  const initGame = () => ({
+    player: { x: 60, y: GROUND_Y - PLAYER_H, vy: 0, jumps: 0, maxJumps: 2 },
+    obstacles: [],
+    collectibles: [],
+    particles: [],
+    powerups: [],
+    activePowerups: { shield: 0, magnet: 0, doubleScore: 0 },
+    frame: 0,
+    speed: 4.5,
+    score: 0,
+    mooncakes: 0,
+    combo: 0,
+    comboTimer: 0,
+    running: true,
+    difficulty: 1,
+    groundOffset: 0,
+  });
 
   const startGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const g = gameRef.current;
-    g.player = { y: GROUND_Y - PLAYER_SIZE, vy: 0, jumping: false };
-    g.obstacles = [];
-    g.frame = 0;
-    g.speed = 4;
-    g.score = 0;
-    g.running = true;
+    gameRef.current = initGame();
     setGameState("playing");
     setScore(0);
+    setMooncakes(0);
 
     const loop = () => {
-      if (!g.running) return;
+      const g = gameRef.current;
+      if (!g || !g.running) return;
       g.frame++;
-      g.speed = 4 + g.frame * 0.002;
-      g.score = Math.floor(g.frame / 5);
-      setScore(g.score);
+      g.difficulty = 1 + g.frame * 0.0003;
+      g.speed = 4.5 + g.difficulty * 1.5;
+      g.score = Math.floor(g.frame / 4);
+      g.groundOffset = (g.groundOffset + g.speed) % 40;
+      if (g.comboTimer > 0) g.comboTimer--;
+      else g.combo = 0;
+
+      // Decay powerups
+      for (const k of Object.keys(g.activePowerups)) {
+        if (g.activePowerups[k] > 0) g.activePowerups[k]--;
+      }
 
       // Physics
       g.player.vy += GRAVITY;
       g.player.y += g.player.vy;
-      if (g.player.y >= GROUND_Y - PLAYER_SIZE) {
-        g.player.y = GROUND_Y - PLAYER_SIZE;
+      if (g.player.y >= GROUND_Y - PLAYER_H) {
+        g.player.y = GROUND_Y - PLAYER_H;
         g.player.vy = 0;
-        g.player.jumping = false;
+        g.player.jumps = 0;
       }
 
       // Spawn obstacles
-      if (g.frame % Math.max(40, 80 - Math.floor(g.frame / 100)) === 0) {
-        const h = 25 + Math.random() * 35;
-        g.obstacles.push({ x: 800, w: 20 + Math.random() * 15, h, type: Math.random() > 0.5 ? "meteor" : "spike" });
+      const obstFreq = Math.max(35, 75 - Math.floor(g.difficulty * 8));
+      if (g.frame % obstFreq === 0) {
+        const h = 25 + Math.random() * 30 * g.difficulty;
+        const types = ["meteor", "spike", "asteroid"];
+        g.obstacles.push({ x: W + 20, w: 18 + Math.random() * 15, h: Math.min(h, 65), type: types[Math.floor(Math.random() * types.length)] });
       }
 
-      // Move obstacles
-      g.obstacles = g.obstacles.filter(o => { o.x -= g.speed; return o.x > -50; });
+      // Spawn mooncakes
+      if (g.frame % Math.max(25, 55 - Math.floor(g.difficulty * 3)) === 0) {
+        const yPos = GROUND_Y - 60 - Math.random() * 120;
+        g.collectibles.push({ x: W + 20, y: yPos, w: 28, h: 28, collected: false, glow: 0 });
+      }
 
-      // Collision
-      const px = 60, py = g.player.y, pw = PLAYER_SIZE - 10, ph = PLAYER_SIZE - 5;
-      for (const o of g.obstacles) {
-        if (px + pw > o.x + 5 && px < o.x + o.w - 5 && py + ph > GROUND_Y - o.h) {
-          g.running = false;
-          setGameState("over");
-          if (g.score > highScore) {
-            setHighScore(g.score);
-            localStorage.setItem("bullpugHighScore", String(g.score));
+      // Spawn powerups (rare)
+      if (g.frame % 300 === 0 && Math.random() < 0.5) {
+        const types = ["shield", "magnet", "doubleScore"];
+        const t = types[Math.floor(Math.random() * types.length)];
+        g.powerups.push({ x: W + 20, y: GROUND_Y - 100 - Math.random() * 80, w: 24, h: 24, type: t });
+      }
+
+      // Move entities
+      g.obstacles = g.obstacles.filter(o => { o.x -= g.speed; return o.x > -50; });
+      g.collectibles = g.collectibles.filter(c => {
+        c.x -= g.speed * 0.9;
+        c.glow = (c.glow + 0.05) % (Math.PI * 2);
+        // Magnet effect
+        if (g.activePowerups.magnet > 0 && !c.collected) {
+          const dx = g.player.x + PLAYER_W / 2 - c.x;
+          const dy = g.player.y + PLAYER_H / 2 - c.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 150) { c.x += dx * 0.08; c.y += dy * 0.08; }
+        }
+        return c.x > -40 && !c.collected;
+      });
+      g.powerups = g.powerups.filter(p => { p.x -= g.speed; return p.x > -40; });
+
+      // Update particles
+      g.particles = g.particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--; return p.life > 0; });
+
+      // Collision detection
+      const px = g.player.x + 8, py = g.player.y + 5, pw = PLAYER_W - 16, ph = PLAYER_H - 10;
+
+      // Obstacle collision
+      if (g.activePowerups.shield <= 0) {
+        for (const o of g.obstacles) {
+          if (px + pw > o.x + 4 && px < o.x + o.w - 4 && py + ph > GROUND_Y - o.h) {
+            g.running = false;
+            setGameState("over");
+            setScore(g.score);
+            setMooncakes(g.mooncakes);
+            const newTotal = totalMooncakes + g.mooncakes;
+            setTotalMooncakes(newTotal);
+            localStorage.setItem("bullpugMooncakes", String(newTotal));
+            if (g.score > highScore) { setHighScore(g.score); localStorage.setItem("bullpugHighScore", String(g.score)); }
+            return;
           }
-          return;
         }
       }
 
-      // Draw
-      ctx.fillStyle = "#05050A";
-      ctx.fillRect(0, 0, 800, 320);
+      // Collectible pickup
+      for (const c of g.collectibles) {
+        if (!c.collected && px + pw > c.x && px < c.x + c.w && py + ph > c.y && py < c.y + c.h) {
+          c.collected = true;
+          g.mooncakes++;
+          g.combo++;
+          g.comboTimer = 60;
+          const pts = g.activePowerups.doubleScore > 0 ? 2 : 1;
+          g.score += 25 * pts * Math.min(g.combo, 5);
+          for (let i = 0; i < 8; i++) {
+            g.particles.push({ x: c.x + 14, y: c.y + 14, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4 - 2, life: 25, color: `hsl(${40 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)` });
+          }
+        }
+      }
 
-      // Stars
-      for (let i = 0; i < 30; i++) {
-        const sx = (i * 137 + g.frame * 0.3) % 800;
-        const sy = (i * 97) % 250;
-        ctx.fillStyle = `rgba(255,255,255,${0.2 + (i % 3) * 0.2})`;
-        ctx.fillRect(sx, sy, 1.5, 1.5);
+      // Powerup pickup
+      for (let i = g.powerups.length - 1; i >= 0; i--) {
+        const p = g.powerups[i];
+        if (px + pw > p.x && px < p.x + p.w && py + ph > p.y && py < p.y + p.h) {
+          g.activePowerups[p.type] = 300;
+          g.powerups.splice(i, 1);
+          for (let j = 0; j < 12; j++) {
+            const clr = p.type === "shield" ? "#00C2FF" : p.type === "magnet" ? "#D946EF" : "#F5D300";
+            g.particles.push({ x: p.x + 12, y: p.y + 12, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, life: 30, color: clr });
+          }
+        }
+      }
+
+      setScore(g.score);
+      setMooncakes(g.mooncakes);
+
+      // ===== DRAW =====
+      ctx.fillStyle = "#05050A";
+      ctx.fillRect(0, 0, W, H);
+
+      // Distant stars
+      for (let i = 0; i < 40; i++) {
+        const sx = (i * 137 + g.frame * (0.1 + (i % 3) * 0.1)) % W;
+        const sy = (i * 97 + Math.sin(g.frame * 0.01 + i) * 2) % (GROUND_Y - 20);
+        const alpha = 0.15 + Math.sin(g.frame * 0.03 + i * 2) * 0.15;
+        ctx.fillStyle = i % 5 === 0 ? `rgba(0,255,163,${alpha})` : `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(sx, sy, 1 + (i % 2), 1 + (i % 2));
       }
 
       // Ground
       ctx.strokeStyle = "#00FFA3";
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, GROUND_Y);
-      ctx.lineTo(800, GROUND_Y);
-      ctx.stroke();
-      ctx.fillStyle = "rgba(0,255,163,0.05)";
-      ctx.fillRect(0, GROUND_Y, 800, 60);
+      ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke();
 
       // Ground grid
-      ctx.strokeStyle = "rgba(0,255,163,0.1)";
+      ctx.strokeStyle = "rgba(0,255,163,0.06)";
       ctx.lineWidth = 0.5;
-      for (let gx = -g.frame * g.speed % 40; gx < 800; gx += 40) {
-        ctx.beginPath(); ctx.moveTo(gx, GROUND_Y); ctx.lineTo(gx, 320); ctx.stroke();
+      for (let gx = -g.groundOffset; gx < W; gx += 40) {
+        ctx.beginPath(); ctx.moveTo(gx, GROUND_Y); ctx.lineTo(gx + 15, H); ctx.stroke();
       }
-
-      // Player
-      if (spriteRef.current) {
-        ctx.save();
-        ctx.drawImage(spriteRef.current, 50, g.player.y, PLAYER_SIZE, PLAYER_SIZE);
-        ctx.restore();
-      } else {
-        ctx.fillStyle = "#D946EF";
-        ctx.fillRect(50, g.player.y, PLAYER_SIZE, PLAYER_SIZE);
-        ctx.fillStyle = "#fff";
-        ctx.font = "10px Orbitron";
-        ctx.fillText("BP", 63, g.player.y + 30);
-      }
-
-      // Glow under player
-      const glowGrad = ctx.createRadialGradient(75, GROUND_Y, 0, 75, GROUND_Y, 30);
-      glowGrad.addColorStop(0, "rgba(0,255,163,0.3)");
-      glowGrad.addColorStop(1, "transparent");
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(45, GROUND_Y - 5, 60, 15);
+      ctx.fillStyle = "rgba(0,255,163,0.02)";
+      ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
 
       // Obstacles
       for (const o of g.obstacles) {
         if (o.type === "meteor") {
-          ctx.fillStyle = "#FF3B30";
-          ctx.beginPath();
-          ctx.moveTo(o.x + o.w / 2, GROUND_Y - o.h);
-          ctx.lineTo(o.x + o.w, GROUND_Y);
-          ctx.lineTo(o.x, GROUND_Y);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = "rgba(255,59,48,0.3)";
-          ctx.beginPath();
-          ctx.arc(o.x + o.w / 2, GROUND_Y - o.h / 2, o.w, 0, Math.PI * 2);
-          ctx.fill();
+          const grad = ctx.createLinearGradient(o.x, GROUND_Y - o.h, o.x, GROUND_Y);
+          grad.addColorStop(0, "#FF3B30"); grad.addColorStop(1, "#991b1b");
+          ctx.fillStyle = grad;
+          ctx.beginPath(); ctx.moveTo(o.x + o.w / 2, GROUND_Y - o.h); ctx.lineTo(o.x + o.w, GROUND_Y); ctx.lineTo(o.x, GROUND_Y); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "rgba(255,59,48,0.15)";
+          ctx.beginPath(); ctx.arc(o.x + o.w / 2, GROUND_Y - o.h * 0.4, o.w * 0.8, 0, Math.PI * 2); ctx.fill();
+        } else if (o.type === "asteroid") {
+          ctx.fillStyle = "#6b7280";
+          ctx.beginPath(); ctx.arc(o.x + o.w / 2, GROUND_Y - o.h / 2, o.h / 2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "rgba(107,114,128,0.2)";
+          ctx.beginPath(); ctx.arc(o.x + o.w / 2, GROUND_Y - o.h / 2, o.h / 2 + 4, 0, Math.PI * 2); ctx.fill();
         } else {
           ctx.fillStyle = "#F5D300";
           ctx.fillRect(o.x, GROUND_Y - o.h, o.w, o.h);
-          ctx.fillStyle = "rgba(245,211,0,0.3)";
-          ctx.fillRect(o.x - 2, GROUND_Y - o.h - 2, o.w + 4, o.h + 4);
+          ctx.fillStyle = "rgba(245,211,0,0.15)";
+          ctx.fillRect(o.x - 3, GROUND_Y - o.h - 3, o.w + 6, o.h + 6);
         }
       }
 
-      // Score HUD
-      ctx.fillStyle = "#00FFA3";
-      ctx.font = "bold 14px Orbitron, monospace";
+      // Mooncake collectibles
+      for (const c of g.collectibles) {
+        if (c.collected) continue;
+        const glowSize = 3 + Math.sin(c.glow) * 2;
+        ctx.fillStyle = `rgba(245,211,0,${0.1 + Math.sin(c.glow) * 0.05})`;
+        ctx.beginPath(); ctx.arc(c.x + 14, c.y + 14, 18 + glowSize, 0, Math.PI * 2); ctx.fill();
+        if (mooncakeRef.current) {
+          ctx.drawImage(mooncakeRef.current, c.x, c.y, c.w, c.h);
+        } else {
+          ctx.fillStyle = "#F5D300";
+          ctx.beginPath(); ctx.arc(c.x + 14, c.y + 14, 12, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#000"; ctx.font = "8px sans-serif"; ctx.textAlign = "center";
+          ctx.fillText("MC", c.x + 14, c.y + 17); ctx.textAlign = "left";
+        }
+      }
+
+      // Powerups
+      for (const p of g.powerups) {
+        const colors = { shield: "#00C2FF", magnet: "#D946EF", doubleScore: "#F5D300" };
+        const clr = colors[p.type];
+        ctx.fillStyle = `${clr}30`;
+        ctx.beginPath(); ctx.arc(p.x + 12, p.y + 12, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = clr; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x + 12, p.y + 12, 12, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = clr; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center";
+        const icons = { shield: "S", magnet: "M", doubleScore: "2x" };
+        ctx.fillText(icons[p.type], p.x + 12, p.y + 16);
+        ctx.textAlign = "left";
+      }
+
+      // Player
+      if (g.activePowerups.shield > 0) {
+        ctx.strokeStyle = `rgba(0,194,255,${0.4 + Math.sin(g.frame * 0.1) * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(g.player.x + PLAYER_W / 2, g.player.y + PLAYER_H / 2, 32, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (spriteRef.current) {
+        ctx.drawImage(spriteRef.current, g.player.x, g.player.y, PLAYER_W, PLAYER_H);
+      } else {
+        ctx.fillStyle = "#D946EF";
+        ctx.fillRect(g.player.x, g.player.y, PLAYER_W, PLAYER_H);
+      }
+
+      // Player glow
+      const pGrad = ctx.createRadialGradient(g.player.x + PLAYER_W / 2, GROUND_Y, 0, g.player.x + PLAYER_W / 2, GROUND_Y, 25);
+      pGrad.addColorStop(0, "rgba(0,255,163,0.25)"); pGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = pGrad;
+      ctx.fillRect(g.player.x - 5, GROUND_Y - 5, PLAYER_W + 10, 12);
+
+      // Particles
+      for (const p of g.particles) {
+        ctx.fillStyle = p.color || "#F5D300";
+        ctx.globalAlpha = p.life / 30;
+        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+      }
+      ctx.globalAlpha = 1;
+
+      // HUD
       ctx.textAlign = "right";
-      ctx.fillText(`SCORE: ${g.score}`, 780, 25);
+      ctx.fillStyle = "#00FFA3"; ctx.font = "bold 14px Orbitron, monospace";
+      ctx.fillText(`SCORE: ${g.score}`, W - 15, 22);
       ctx.fillStyle = "#F5D300";
-      ctx.fillText(`BEST: ${Math.max(g.score, highScore)}`, 780, 45);
+      ctx.fillText(`MOONCAKE: ${g.mooncakes}`, W - 15, 40);
+      ctx.fillStyle = "#94a3b8"; ctx.font = "10px monospace";
+      ctx.fillText(`BEST: ${Math.max(g.score, highScore)}`, W - 15, 55);
+
+      // Combo display
+      if (g.combo > 1 && g.comboTimer > 0) {
+        ctx.fillStyle = "#F5D300"; ctx.font = "bold 16px Orbitron, monospace";
+        ctx.fillText(`x${g.combo} COMBO!`, W / 2 + 40, 30);
+      }
+
+      // Active powerup indicators
+      ctx.textAlign = "left";
+      let pIdx = 0;
+      for (const [k, v] of Object.entries(g.activePowerups)) {
+        if (v > 0) {
+          const colors = { shield: "#00C2FF", magnet: "#D946EF", doubleScore: "#F5D300" };
+          ctx.fillStyle = colors[k]; ctx.font = "bold 10px monospace";
+          ctx.fillText(`${k.toUpperCase()} ${Math.ceil(v / 60)}s`, 15, 22 + pIdx * 16);
+          pIdx++;
+        }
+      }
       ctx.textAlign = "left";
 
       animRef.current = requestAnimationFrame(loop);
     };
     animRef.current = requestAnimationFrame(loop);
-  }, [highScore]);
+  }, [highScore, totalMooncakes]);
 
   const jump = useCallback(() => {
     const g = gameRef.current;
-    if (!g.running) return;
-    if (!g.player.jumping) {
-      g.player.vy = JUMP_FORCE;
-      g.player.jumping = true;
+    if (!g || !g.running) return;
+    if (g.player.jumps < g.player.maxJumps) {
+      g.player.vy = g.player.jumps === 0 ? JUMP_FORCE : DOUBLE_JUMP_FORCE;
+      g.player.jumps++;
+      for (let i = 0; i < 5; i++) {
+        g.particles.push({ x: g.player.x + PLAYER_W / 2, y: g.player.y + PLAYER_H, vx: (Math.random() - 0.5) * 3, vy: Math.random() * 2, life: 15, color: "rgba(0,255,163,0.6)" });
+      }
     }
   }, []);
 
@@ -178,7 +327,7 @@ export default function SpeedRunGame() {
       if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();
         if (gameState === "playing") jump();
-        else if (gameState !== "playing") startGame();
+        else startGame();
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -193,35 +342,37 @@ export default function SpeedRunGame() {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             Speed <span className="text-[#F5D300]">Run</span>
           </h1>
-          <p className="text-slate-500 text-sm">Navigate cosmic obstacles as Bullpug</p>
+          <p className="text-slate-500 text-sm">Dodge obstacles, collect Mooncake, activate power-ups</p>
         </div>
 
         <div className="glass-card rounded-2xl p-4 md:p-6">
-          <div className="relative mx-auto" style={{ maxWidth: 800 }}>
-            <canvas ref={canvasRef} width={800} height={320}
+          <div className="relative mx-auto" style={{ maxWidth: W }}>
+            <canvas ref={canvasRef} width={W} height={H}
               onClick={() => gameState === "playing" ? jump() : startGame()}
-              onTouchStart={() => gameState === "playing" ? jump() : startGame()}
+              onTouchStart={(e) => { e.preventDefault(); gameState === "playing" ? jump() : startGame(); }}
               className="w-full rounded-xl border-2 border-[#00FFA3]/20 cursor-pointer bg-[#05050A]"
               data-testid="game-canvas" />
 
             {gameState === "idle" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl">
-                <img src={GAME_IMG} alt="Bullpug" className="w-20 h-20 rounded-xl mb-4 border-2 border-[#00FFA3]/50" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl">
+                <img src={GAME_IMG} alt="Bullpug" className="w-20 h-20 rounded-xl mb-3 border-2 border-[#00FFA3]/50" />
                 <Button onClick={startGame} data-testid="start-game-btn"
                   className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-5 text-sm uppercase hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)]">
                   <Play className="w-5 h-5 mr-2" /> Start Game
                 </Button>
-                <p className="text-xs text-slate-500 mt-3">Press SPACE or tap to jump</p>
+                <p className="text-xs text-slate-500 mt-3">SPACE / Tap to jump (double jump!)</p>
               </div>
             )}
 
             {gameState === "over" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl">
-                <p className="text-3xl font-black text-red-400 mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>GAME OVER</p>
-                <p className="text-lg font-bold text-white mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>Score: {score}</p>
-                {score >= highScore && score > 0 && (
-                  <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-3">New High Score!</Badge>
-                )}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl">
+                <p className="text-3xl font-black text-red-400 mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>GAME OVER</p>
+                <p className="text-lg font-bold text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>Score: {score}</p>
+                <div className="flex items-center gap-2 my-2">
+                  <img src={MOONCAKE_IMG} alt="Mooncake" className="w-5 h-5 rounded" />
+                  <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncake</span>
+                </div>
+                {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-3">New High Score!</Badge>}
                 <Button onClick={startGame} data-testid="restart-game-btn"
                   className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-4 text-sm uppercase hover:scale-105 transition-transform">
                   <RotateCcw className="w-4 h-4 mr-2" /> Play Again
@@ -231,7 +382,7 @@ export default function SpeedRunGame() {
           </div>
 
           <div className="flex items-center justify-between mt-4 px-2">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <div>
                 <p className="text-xs text-slate-500">Score</p>
                 <p className="text-xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{score}</p>
@@ -240,10 +391,27 @@ export default function SpeedRunGame() {
                 <p className="text-xs text-slate-500">High Score</p>
                 <p className="text-xl font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{highScore}</p>
               </div>
+              <div className="flex items-center gap-2">
+                <img src={MOONCAKE_IMG} alt="Mooncake" className="w-6 h-6 rounded" />
+                <div>
+                  <p className="text-xs text-slate-500">Total Mooncake</p>
+                  <p className="text-lg font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{totalMooncakes}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Gamepad2 className="w-4 h-4" />
-              <span>SPACE / Tap to jump</span>
+            <div className="text-right">
+              <p className="text-xs text-slate-500 flex items-center gap-1 justify-end"><Gamepad2 className="w-3 h-3" /> SPACE / Tap</p>
+              <div className="flex gap-3 mt-1">
+                {[
+                  { icon: <Shield size={12} />, label: "Shield", color: "#00C2FF" },
+                  { icon: <Magnet size={12} />, label: "Magnet", color: "#D946EF" },
+                  { icon: <Zap size={12} />, label: "2x Score", color: "#F5D300" },
+                ].map((pw, i) => (
+                  <div key={i} className="flex items-center gap-1 text-[10px]" style={{ color: pw.color }}>
+                    {pw.icon} {pw.label}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
