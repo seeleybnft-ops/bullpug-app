@@ -37,6 +37,10 @@ db = mongo_client[os.environ['DB_NAME']]
 
 stripe_api_key = os.environ.get('STRIPE_API_KEY')
 
+# SendGrid Configuration
+sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
+sender_email = os.environ.get('SENDER_EMAIL', 'noreply@bullpug.com')
+
 # P2P Betting Configuration
 RAKE_PERCENT = 2.5
 DISTRIBUTION_WALLET = "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT"
