@@ -16,23 +16,24 @@ const ADMIN_WALLETS = [
   "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"
 ];
 
-const NAV_LINKS = [
-  { name: "Home", path: "/" },
-  { name: "Arena", path: "/betting" },
-  { name: "Game", path: "/game" },
-  { name: "Exit Sim", path: "/exit-simulator" },
-  { name: "Reflections", path: "/reflections" },
-  { name: "Journal", path: "/journal" },
-  { name: "Forum", path: "/forum" },
-  { name: "Wallet", path: "/wallet" },
-];
-
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { publicKey, connected } = useWallet();
+  const { t } = useTranslation();
   
   const isAdmin = connected && publicKey && ADMIN_WALLETS.includes(publicKey.toBase58());
+
+  const NAV_LINKS = [
+    { name: t('nav.home'), path: "/" },
+    { name: t('nav.arena'), path: "/betting" },
+    { name: t('nav.game'), path: "/game" },
+    { name: t('nav.exitSim'), path: "/exit-simulator" },
+    { name: t('nav.reflections'), path: "/reflections" },
+    { name: t('nav.journal'), path: "/journal" },
+    { name: t('nav.forum'), path: "/forum" },
+    { name: t('nav.wallet'), path: "/wallet" },
+  ];
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-xl border-b border-white/5" data-testid="navbar">
