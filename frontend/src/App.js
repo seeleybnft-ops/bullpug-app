@@ -1,53 +1,55 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { clusterApiUrl } from "@solana/web3.js";
+import { Toaster } from "@/components/ui/sonner";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import HomePage from "@/pages/HomePage";
+import BettingArena from "@/pages/BettingArena";
+import Shop from "@/pages/Shop";
+import ExitSimulator from "@/pages/ExitSimulator";
+import NFTGallery from "@/pages/NFTGallery";
+import WalletDashboard from "@/pages/WalletDashboard";
+import SpeedRunGame from "@/pages/SpeedRunGame";
 
 function App() {
+  const endpoint = useMemo(
+    () => process.env.REACT_APP_SOLANA_RPC_URL || clusterApiUrl('mainnet-beta'),
+    []
+  );
+
+  const wallets = useMemo(
+    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+    []
+  );
+
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <BrowserRouter>
+            <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
+              <Navbar />
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/betting" element={<BettingArena />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/exit-simulator" element={<ExitSimulator />} />
+                <Route path="/nft" element={<NFTGallery />} />
+                <Route path="/wallet" element={<WalletDashboard />} />
+                <Route path="/game" element={<SpeedRunGame />} />
+              </Routes>
+              <Footer />
+              <Toaster theme="dark" />
+            </div>
+          </BrowserRouter>
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
   );
 }
 
