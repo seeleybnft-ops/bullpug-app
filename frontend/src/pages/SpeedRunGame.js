@@ -203,6 +203,7 @@ export default function SpeedRunGame() {
           g.mooncakes++;
           g.combo++;
           g.comboTimer = 60;
+          playSoundIfEnabled('collect');
           const pts = g.activePowerups.doubleScore > 0 ? 2 : 1;
           g.score += 25 * pts * Math.min(g.combo, 5);
           for (let i = 0; i < 8; i++) {
@@ -217,6 +218,7 @@ export default function SpeedRunGame() {
         if (px + pw > p.x && px < p.x + p.w && py + ph > p.y && py < p.y + p.h) {
           g.activePowerups[p.type] = 300;
           g.powerups.splice(i, 1);
+          playSoundIfEnabled('powerup');
           for (let j = 0; j < 12; j++) {
             const clr = p.type === "shield" ? "#00C2FF" : p.type === "magnet" ? "#D946EF" : "#F5D300";
             g.particles.push({ x: p.x + 12, y: p.y + 12, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, life: 30, color: clr });
