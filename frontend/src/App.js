@@ -17,6 +17,7 @@ import WalletDashboard from "@/pages/WalletDashboard";
 import SpeedRunGame from "@/pages/SpeedRunGame";
 import ReflectionsCalculator from "@/pages/ReflectionsCalculator";
 import TradingJournal from "@/pages/TradingJournal";
+import Forum from "@/pages/Forum";
 
 function App() {
   const endpoint = useMemo(
