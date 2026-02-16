@@ -404,9 +404,19 @@ export default function SpeedRunGame() {
       <div className="stars-bg fixed inset-0 -z-10" />
       <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="game-title">
-            {t('game.title').split(' ')[0]} <span className="text-[#F5D300]">{t('game.title').split(' ')[1] || 'Run'}</span>
-          </h1>
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="game-title">
+              {t('game.title').split(' ')[0]} <span className="text-[#F5D300]">{t('game.title').split(' ')[1] || 'Run'}</span>
+            </h1>
+            <button
+              onClick={toggleSound}
+              data-testid="game-sound-toggle"
+              className="p-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-[#F5D300]/50 transition-all"
+              title={soundOn ? "Mute sounds" : "Enable sounds"}
+            >
+              {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+          </div>
           <p className="text-slate-500 text-sm">{t('game.subtitle')}</p>
         </div>
 
