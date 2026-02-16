@@ -197,6 +197,9 @@ export default function TradingJournal() {
             <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
               <BookOpen className="w-4 h-4 mr-2" />Trades
             </TabsTrigger>
+            <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
+              <Activity className="w-4 h-4 mr-2" />Cloud Backup
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
@@ -210,6 +213,10 @@ export default function TradingJournal() {
               onDelete={deleteTrade}
               formatCurrency={formatCurrency}
             />
+          </TabsContent>
+
+          <TabsContent value="backups">
+            <CloudBackup onRestore={fetchData} />
           </TabsContent>
         </Tabs>
 
