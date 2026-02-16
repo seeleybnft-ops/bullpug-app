@@ -640,7 +640,6 @@ async def _get_pot_data():
         "distribution_wallet": DISTRIBUTION_WALLET,
         "winner": active_pot["winner"]
     }
-            "house_fee_percent": active_pot["house_fee_percent"], "winner": active_pot["winner"]}
 
 
 @api_router.get("/governance/proposals")
