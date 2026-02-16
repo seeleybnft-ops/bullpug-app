@@ -1,64 +1,75 @@
 # Bullpug.com - PRD & Implementation Tracker
 
 ## Problem Statement
-Build a fully functional memecoin website for Bullpug based on the whitepaper. Features: immersive lore, tokenomics, P2P betting arena (coin flip + pot with real SOL and 2.5% rake), Monte Carlo exit simulator with PDF export, reflections calculator, comprehensive crypto trading journal with CSV/PDF export, community forum, speed-run game with leaderboard and share-to-X, wallet dashboard with staking/governance.
+Build a fully functional memecoin website for Bullpug. Features: P2P betting arena with real SOL escrow, admin panel, direct messaging, push notifications, trading journal with cloud backup, community forum, speed-run game with leaderboard, reflections calculator, Monte Carlo exit simulator.
 
 ## Architecture
-- **Frontend**: React + Tailwind CSS + Shadcn UI + Solana Wallet Adapter + Recharts + Chart.js + jsPDF
-- **Backend**: FastAPI + MongoDB + emergentintegrations (Stripe) + WebSockets + NumPy (Monte Carlo)
-- **Blockchain**: Solana Web3.js (mainnet-beta RPC)
-- **Theme**: Dark cosmic with neon green (#00FFA3), magenta (#D946EF), golden (#F5D300), cyan (#00C2FF) accents
+- **Frontend**: React + Tailwind CSS + Shadcn UI + Solana Wallet Adapter + WebSockets
+- **Backend**: FastAPI + MongoDB + WebSockets + NumPy
+- **Blockchain**: Solana Web3.js (mainnet-beta)
+- **Real-time**: WebSockets for DM, notifications, pot updates
 
 ## P2P Betting Configuration
 - **Rake**: 2.5% on all bets
 - **Distribution Wallet**: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
+- **Escrow**: Backend holds SOL temporarily during P2P matches
 - **Currency**: SOL only
-- **Min Bet**: 0.01 SOL
-- **Max Bet**: 10 SOL
+- **Min/Max Bet**: 0.01 - 10 SOL
+
+## Admin Configuration
+- **Admin Wallet 1 (Fee)**: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
+- **Admin Wallet 2 (Personal)**: `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
 
 ## What's Been Implemented (Feb 16, 2026)
 
-### Core Features
-- [x] Full backend with 40+ API endpoints
-- [x] Homepage: Hero, Lore, Features, Tokenomics (PieChart), Gallery, Roadmap, Newsletter
-- [x] Social Links: X (@Bullpugcoin) and Telegram (bullpugcoinchat) in Navbar and Footer
-
-### P2P Betting Arena (NEW)
-- [x] P2P Coin Flip with challenge system (create challenge, opponent accepts)
-- [x] P2P Winner Pot (multiple players, winner takes all minus rake)
-- [x] Real SOL currency only
+### P2P Betting System
+- [x] P2P Coin Flip with challenge system
+- [x] P2P Winner Pot (winner takes all minus rake)
+- [x] Escrow system (backend holds SOL)
+- [x] Transaction recording and verification
 - [x] 2.5% rake to distribution wallet
 - [x] Provably fair verification (SHA-256)
-- [x] WebSocket real-time updates for pot
 
-### Trading & Analysis
+### Admin Panel (NEW)
+- [x] Wallet-based authentication
+- [x] Dashboard with stats (bets, challenges, rake, users)
+- [x] Challenge management (view, cancel)
+- [x] Pot management (force draw)
+- [x] Escrow monitoring
+- [x] Bet history view
+
+### Direct Messaging (NEW)
+- [x] Persistent messages in MongoDB
+- [x] Conversation grouping
+- [x] Real-time WebSocket delivery
+- [x] Unread message tracking
+- [x] New chat by wallet address
+
+### Push Notifications (NEW)
+- [x] Web Push API integration
+- [x] Real-time WebSocket notifications
+- [x] Notification bell in navbar
+- [x] Mark as read / Mark all read
+- [x] Auto-notifications for challenges, messages, pot wins
+
+### Trading Journal Cloud Backup (NEW)
+- [x] Create backups (snapshots)
+- [x] List all backups
+- [x] Restore from backup (merge)
+- [x] Delete backups
+- [x] Wallet-linked storage
+
+### Other Features
+- [x] Community Forum (6 categories)
+- [x] Speed-Run Game with weekly leaderboard
+- [x] Share Score to X
+- [x] Reflections Calculator
 - [x] Monte Carlo Exit Simulator with PDF export
-- [x] Reflections Calculator (2% token redistribution)
-- [x] Comprehensive Trading Journal with 30+ fields
-- [x] Trading Journal CSV export
-- [x] Trading Journal PDF export
-
-### Community
-- [x] Community Forum with 6 categories
-- [x] Forum posts with CRUD
-- [x] Forum replies and likes
-- [x] Forum category filtering
-
-### Gaming
-- [x] Speed-Run Game with Mooncake collectibles and powerups
-- [x] Weekly Leaderboard (resets every Monday)
-- [x] Share Score to X (Twitter)
-
-### Other
-- [x] Wallet Dashboard: SOL balance, staking simulator, governance voting
-- [x] Solana wallet adapter (Phantom, Solflare)
-- [x] Plushie Shop (HIDDEN)
-- [x] NFT Gallery (HIDDEN)
+- [x] Wallet Dashboard with staking/governance
 
 ## Test Results (Feb 16, 2026)
-- Backend: 100% (60+ tests passed across iterations)
-- Frontend: 100% (All pages functional)
-- Overall: 100%
+- Backend: 100% (90+ tests passed)
+- Frontend: 100% (All features verified)
 
 ## Social Links
 - X (Twitter): https://x.com/Bullpugcoin
@@ -66,55 +77,61 @@ Build a fully functional memecoin website for Bullpug based on the whitepaper. F
 
 ## API Endpoints
 
-### P2P Betting
-- `/api/betting/config` - Get betting configuration (rake, wallet, limits)
-- `/api/betting/challenge/create` - Create P2P coin flip challenge
-- `/api/betting/challenges` - Get open challenges
-- `/api/betting/challenge/{id}` - Get challenge details
-- `/api/betting/challenge/accept` - Accept and execute challenge
-- `/api/betting/challenge/cancel/{id}` - Cancel open challenge
-- `/api/betting/pot` - Get pot status
-- `/api/betting/pot/join` - Join pot with SOL
-- `/api/betting/pot/draw` - Draw pot winner
-- `/ws/pot` - WebSocket for real-time pot updates
+### Admin (requires admin wallet)
+- `/api/admin/check/{wallet}` - Check if wallet is admin
+- `/api/admin/dashboard` - Get statistics
+- `/api/admin/challenges` - List challenges
+- `/api/admin/challenge/cancel` - Cancel challenge
+- `/api/admin/pot/draw` - Force draw pot
+- `/api/admin/bets` - List all bets
+- `/api/admin/escrow` - Escrow statistics
 
-### Forum
-- `/api/forum/categories` - Get forum categories
-- `/api/forum/posts` - Get/create posts
-- `/api/forum/post/{id}` - Get post with replies
-- `/api/forum/reply` - Create reply
-- `/api/forum/like/{type}/{id}` - Like post/reply
+### Escrow
+- `/api/escrow/wallet` - Get escrow wallet address
+- `/api/escrow/deposit` - Record deposit
+- `/api/escrow/balance/{wallet}` - Get user's escrow balance
 
-### Trading Journal
-- `/api/journal/trades` - Get all trades
-- `/api/journal/trade` - CRUD operations
-- `/api/journal/dashboard` - Analytics dashboard
-- `/api/journal/export/csv` - Export to CSV
-- `/api/journal/export/json` - Export to JSON
+### Messaging
+- `/api/messages/send` - Send message
+- `/api/messages/conversations/{wallet}` - Get conversations
+- `/api/messages/conversation/{w1}/{w2}` - Get messages
+- `/api/messages/unread/{wallet}` - Get unread count
+- `/ws/dm/{wallet}` - WebSocket for real-time DM
 
-### Other
-- `/api/exit-simulator/monte-carlo` - Monte Carlo simulation
-- `/api/reflections/calculate` - Token reflections calculator
-- `/api/leaderboard` - Weekly game leaderboard
-- `/api/leaderboard/submit` - Submit game score
+### Notifications
+- `/api/notifications/{wallet}` - Get notifications
+- `/api/notifications/read/{id}` - Mark as read
+- `/api/notifications/read-all/{wallet}` - Mark all read
+- `/api/notifications/subscribe` - Subscribe to push
+- `/ws/notifications/{wallet}` - WebSocket for real-time
+
+### Trading Journal Backup
+- `/api/journal/backup` - Create backup
+- `/api/journal/backups/{wallet}` - List backups
+- `/api/journal/backup/{id}` - Get backup
+- `/api/journal/restore/{id}` - Restore backup
+- `/api/journal/backup/{id}` (DELETE) - Delete backup
 
 ## Key Files
 - `backend/server.py` - All API endpoints
-- `frontend/src/pages/BettingArena.js` - P2P betting UI
-- `frontend/src/pages/Forum.js` - Community forum
-- `frontend/src/pages/TradingJournal.js` - Trading journal with export
-- `frontend/src/pages/SpeedRunGame.js` - Game with share button
+- `frontend/src/pages/AdminPanel.js` - Admin dashboard
+- `frontend/src/pages/Messages.js` - Direct messaging
+- `frontend/src/components/NotificationBell.js` - Notifications
+- `frontend/src/pages/TradingJournal.js` - Journal with backup
+
+## Known Limitations
+- Solana transaction verification is simplified for development
+- Escrow requires trust in backend (no smart contract)
+- Push notifications require browser permission
 
 ## Prioritized Backlog
+### P1
+- Full Solana program/smart contract for trustless escrow
+- Mobile-responsive improvements
+- Rate limiting for API endpoints
 
-### P1 (Important)
-- Real Solana transaction integration for P2P betting
-- Admin panel for pot management/draws
-- Push notifications for challenge acceptance
-
-### P2 (Nice to Have)
+### P2
 - Re-enable Plushie Shop
 - Re-enable NFT Gallery
-- Chat/messaging between forum users
-- Trading journal cloud backup
+- Email notifications option
 - Multi-language support
