@@ -534,6 +534,21 @@ async def get_wallet_balance(address: str):
 
 app.include_router(api_router)
 
+
+# WebSocket for pot real-time updates
+@app.websocket("/ws/pot")
+async def pot_websocket(ws: WebSocket):
+    await pot_ws_manager.connect(ws)
+    try:
+        await ws.send_json({"type": "pot_update", "data": await _get_pot_data()})
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pot_ws_manager.disconnect(ws)
+    except Exception:
+        pot_ws_manager.disconnect(ws)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
