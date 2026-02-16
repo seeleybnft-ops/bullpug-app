@@ -352,7 +352,7 @@ export default function SpeedRunGame() {
       animRef.current = requestAnimationFrame(loop);
     };
     animRef.current = requestAnimationFrame(loop);
-  }, [highScore, totalMooncakes]);
+  }, [highScore, totalMooncakes, playerName, submitScore]);
 
   const jump = useCallback(() => {
     const g = gameRef.current;
@@ -381,7 +381,7 @@ export default function SpeedRunGame() {
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
-      <div className="max-w-4xl mx-auto px-6 md:px-12">
+      <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             Speed <span className="text-[#F5D300]">Run</span>
@@ -389,45 +389,75 @@ export default function SpeedRunGame() {
           <p className="text-slate-500 text-sm">Dodge obstacles, collect Mooncake, activate power-ups</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-4 md:p-6">
-          <div className="relative mx-auto" style={{ maxWidth: W }}>
-            <canvas ref={canvasRef} width={W} height={H}
-              onClick={() => gameState === "playing" ? jump() : startGame()}
-              onTouchStart={(e) => { e.preventDefault(); gameState === "playing" ? jump() : startGame(); }}
-              className="w-full rounded-xl border-2 border-[#00FFA3]/20 cursor-pointer bg-[#05050A]"
-              data-testid="game-canvas" />
-
-            {gameState === "idle" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl">
-                <img src={GAME_IMG} alt="Bullpug" className="w-20 h-20 rounded-xl mb-3 border-2 border-[#00FFA3]/50" />
-                <Button onClick={startGame} data-testid="start-game-btn"
-                  className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-5 text-sm uppercase hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)]">
-                  <Play className="w-5 h-5 mr-2" /> Start Game
-                </Button>
-                <p className="text-xs text-slate-500 mt-3">SPACE / Tap to jump (double jump!)</p>
-              </div>
-            )}
-
-            {gameState === "over" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl">
-                <p className="text-3xl font-black text-red-400 mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>GAME OVER</p>
-                <p className="text-lg font-bold text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>Score: {score}</p>
-                <div className="flex items-center gap-2 my-2">
-                  <img src={MOONCAKE_IMG} alt="Mooncake" className="w-5 h-5 rounded" />
-                  <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncake</span>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Game Canvas */}
+          <div className="lg:col-span-3">
+            <div className="glass-card rounded-2xl p-4 md:p-6">
+              {/* Player Name */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#00FFA3]" />
+                  {showNameInput ? (
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        defaultValue={playerName}
+                        maxLength={20}
+                        className="w-32 h-8 bg-black/50 border-white/10 text-white text-sm"
+                        onKeyDown={(e) => { if (e.key === "Enter") savePlayerName(e.target.value); }}
+                        autoFocus
+                      />
+                      <button onClick={(e) => savePlayerName(e.target.previousSibling.value)} className="text-xs text-[#00FFA3] hover:underline">Save</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowNameInput(true)} className="text-sm text-white hover:text-[#00FFA3] transition-colors">
+                      {playerName}
+                    </button>
+                  )}
                 </div>
-                {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-3">New High Score!</Badge>}
-                <Button onClick={startGame} data-testid="restart-game-btn"
-                  className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-4 text-sm uppercase hover:scale-105 transition-transform">
-                  <RotateCcw className="w-4 h-4 mr-2" /> Play Again
-                </Button>
+                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Resets in {leaderboardMeta.days_until_reset}d
+                </Badge>
               </div>
-            )}
-          </div>
 
-          <div className="flex items-center justify-between mt-4 px-2">
-            <div className="flex items-center gap-6">
-              <div>
+              <div className="relative mx-auto" style={{ maxWidth: W }}>
+                <canvas ref={canvasRef} width={W} height={H}
+                  onClick={() => gameState === "playing" ? jump() : startGame()}
+                  onTouchStart={(e) => { e.preventDefault(); gameState === "playing" ? jump() : startGame(); }}
+                  className="w-full rounded-xl border-2 border-[#00FFA3]/20 cursor-pointer bg-[#05050A]"
+                  data-testid="game-canvas" />
+
+                {gameState === "idle" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-xl">
+                    <img src={GAME_IMG} alt="Bullpug" className="w-20 h-20 rounded-xl mb-3 border-2 border-[#00FFA3]/50" />
+                    <Button onClick={startGame} data-testid="start-game-btn"
+                      className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-5 text-sm uppercase hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)]">
+                      <Play className="w-5 h-5 mr-2" /> Start Game
+                    </Button>
+                    <p className="text-xs text-slate-500 mt-3">SPACE / Tap to jump (double jump!)</p>
+                  </div>
+                )}
+
+                {gameState === "over" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 rounded-xl">
+                    <p className="text-3xl font-black text-red-400 mb-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>GAME OVER</p>
+                    <p className="text-lg font-bold text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>Score: {score}</p>
+                    <div className="flex items-center gap-2 my-2">
+                      <img src={MOONCAKE_IMG} alt="Mooncake" className="w-5 h-5 rounded" />
+                      <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncake</span>
+                    </div>
+                    {score >= highScore && score > 0 && <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 mb-3">New High Score!</Badge>}
+                    <Button onClick={startGame} data-testid="restart-game-btn"
+                      className="bg-[#00FFA3] text-black font-bold rounded-full px-8 py-4 text-sm uppercase hover:scale-105 transition-transform">
+                      <RotateCcw className="w-4 h-4 mr-2" /> Play Again
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mt-4 px-2">
+                <div className="flex items-center gap-6">
+                  <div>
                 <p className="text-xs text-slate-500">Score</p>
                 <p className="text-xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>{score}</p>
               </div>
