@@ -71,6 +71,41 @@ class ExitSimRequest(BaseModel):
     exit_prices: List[float]
     tax_rate: float = 15.0
 
+class MonteCarloRequest(BaseModel):
+    token_amount: float
+    entry_price: float
+    volatility: float = 0.8
+    drift: float = 0.1
+    days: int = 180
+    simulations: int = 1000
+    tax_rate: float = 15.0
+
+
+# ========== WebSocket Manager ==========
+class PotWSManager:
+    def __init__(self):
+        self.connections: List[WebSocket] = []
+
+    async def connect(self, ws: WebSocket):
+        await ws.accept()
+        self.connections.append(ws)
+
+    def disconnect(self, ws: WebSocket):
+        if ws in self.connections:
+            self.connections.remove(ws)
+
+    async def broadcast(self, data: dict):
+        dead = []
+        for ws in self.connections:
+            try:
+                await ws.send_json(data)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.disconnect(ws)
+
+pot_ws_manager = PotWSManager()
+
 
 # ========== Products ==========
 PRODUCTS = {
