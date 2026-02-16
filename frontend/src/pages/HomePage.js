@@ -92,9 +92,9 @@ export default function HomePage() {
                   <Zap className="w-4 h-4 mr-2" /> Enter Arena
                 </Button>
               </Link>
-              <Link to="/shop">
-                <Button data-testid="hero-shop-btn" variant="outline" className="border-2 border-[#D946EF] text-[#D946EF] hover:bg-[#D946EF]/10 rounded-full px-8 py-5 text-sm font-bold uppercase tracking-wider">
-                  <ShoppingCart className="w-4 h-4 mr-2" /> Shop Plushies
+              <Link to="/game">
+                <Button data-testid="hero-game-btn" variant="outline" className="border-2 border-[#F5D300] text-[#F5D300] hover:bg-[#F5D300]/10 rounded-full px-8 py-5 text-sm font-bold uppercase tracking-wider">
+                  <Gamepad2 className="w-4 h-4 mr-2" /> Play Game
                 </Button>
               </Link>
             </div>
