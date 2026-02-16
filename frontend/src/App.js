@@ -15,6 +15,8 @@ import ExitSimulator from "@/pages/ExitSimulator";
 import NFTGallery from "@/pages/NFTGallery";
 import WalletDashboard from "@/pages/WalletDashboard";
 import SpeedRunGame from "@/pages/SpeedRunGame";
+import ReflectionsCalculator from "@/pages/ReflectionsCalculator";
+import TradingJournal from "@/pages/TradingJournal";
 
 function App() {
   const endpoint = useMemo(
@@ -42,6 +44,8 @@ function App() {
                 <Route path="/nft" element={<NFTGallery />} />
                 <Route path="/wallet" element={<WalletDashboard />} />
                 <Route path="/game" element={<SpeedRunGame />} />
+                <Route path="/reflections" element={<ReflectionsCalculator />} />
+                <Route path="/journal" element={<TradingJournal />} />
               </Routes>
               <Footer />
               <Toaster theme="dark" />
