@@ -1,36 +1,57 @@
-import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useEffect, useCallback } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Zap, Trophy, Clock, Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { Zap, Trophy, Clock, Shield, Users, Wallet, RefreshCw, Copy, ExternalLink, Swords } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function BettingArena() {
-  const { publicKey } = useWallet();
+  const { publicKey, connected } = useWallet();
   const [tab, setTab] = useState("coin-toss");
+  const [config, setConfig] = useState({ rake_percent: 2.5, distribution_wallet: "", min_bet_sol: 0.01, max_bet_sol: 10 });
+
+  useEffect(() => {
+    axios.get(`${API}/betting/config`).then(r => setConfig(r.data)).catch(() => {});
+  }, []);
+
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
       <div className="max-w-5xl mx-auto px-6 md:px-12">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-            Betting <span className="text-[#00FFA3] neon-text">Arena</span>
+            P2P <span className="text-[#00FFA3] neon-text">Arena</span>
           </h1>
-          <p className="text-slate-500 text-sm">Wager on the stars. Provably fair.</p>
-          <Badge className="mt-3 bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
-            For entertainment - check local laws
-          </Badge>
+          <p className="text-slate-500 text-sm">Player vs Player • Real SOL • {config.rake_percent}% Rake</p>
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px]">
+              <Wallet className="w-3 h-3 mr-1" /> SOL Only
+            </Badge>
+            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
+              For entertainment - check local laws
+            </Badge>
+          </div>
         </div>
+
+        {!connected && (
+          <div className="glass-card rounded-2xl p-8 text-center mb-8">
+            <Wallet className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+            <p className="text-slate-400 mb-2">Connect your Solana wallet to play</p>
+            <p className="text-xs text-slate-600">P2P betting requires a connected wallet with SOL</p>
+          </div>
+        )}
+
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-white/10 rounded-xl p-1 mb-8">
             <TabsTrigger value="coin-toss" data-testid="tab-coin-toss"
               className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
-              <Zap className="w-4 h-4 mr-2" />Coin Toss
+              <Swords className="w-4 h-4 mr-2" />P2P Coin Flip
             </TabsTrigger>
             <TabsTrigger value="pot" data-testid="tab-pot"
               className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
@@ -38,10 +59,10 @@ export default function BettingArena() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="coin-toss">
-            <CoinToss walletAddress={publicKey?.toBase58()} />
+            <P2PCoinFlip walletAddress={publicKey?.toBase58()} connected={connected} config={config} />
           </TabsContent>
           <TabsContent value="pot">
-            <PotSystem walletAddress={publicKey?.toBase58()} />
+            <P2PPotSystem walletAddress={publicKey?.toBase58()} connected={connected} config={config} />
           </TabsContent>
         </Tabs>
       </div>
@@ -49,296 +70,409 @@ export default function BettingArena() {
   );
 }
 
-function CoinToss({ walletAddress }) {
-  const [clientSeed, setClientSeed] = useState(() => Math.random().toString(36).slice(2, 10));
-  const [betAmount, setBetAmount] = useState("100");
+function P2PCoinFlip({ walletAddress, connected, config }) {
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
+  const [challenges, setChallenges] = useState([]);
+  const [betAmount, setBetAmount] = useState("0.1");
   const [choice, setChoice] = useState("heads");
-  const [flipping, setFlipping] = useState(false);
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
+  const [creating, setCreating] = useState(false);
+  const [accepting, setAccepting] = useState(null);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [showVerify, setShowVerify] = useState(false);
 
-  useEffect(() => {
-    axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
+  const fetchChallenges = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/betting/challenges?limit=20`);
+      setChallenges(data.challenges);
+    } catch (e) { console.error(e); }
   }, []);
 
-  const flip = async () => {
-    setFlipping(true);
-    setResult(null);
+  useEffect(() => {
+    fetchChallenges();
+    const interval = setInterval(fetchChallenges, 5000);
+    axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
+    return () => clearInterval(interval);
+  }, [fetchChallenges]);
+
+  const createChallenge = async () => {
+    if (!connected) return toast.error("Connect wallet first");
+    const amount = parseFloat(betAmount);
+    if (amount < config.min_bet_sol || amount > config.max_bet_sol) {
+      return toast.error(`Bet must be between ${config.min_bet_sol} and ${config.max_bet_sol} SOL`);
+    }
+
+    setCreating(true);
     try {
-      const { data } = await axios.post(`${API}/betting/coin-toss`, {
-        client_seed: clientSeed,
-        bet_amount: parseFloat(betAmount),
+      const { data } = await axios.post(`${API}/betting/challenge/create`, {
+        bet_amount_sol: amount,
         choice,
-        wallet_address: walletAddress || "anonymous",
+        wallet_address: walletAddress,
+        display_name: displayName
       });
-      setTimeout(() => {
-        setResult(data);
-        setFlipping(false);
-        data.won ? toast.success(`Won ${data.payout} $BULLPUG!`) : toast.error(`Lost. Coin: ${data.outcome}`);
-        setHistory(prev => [data, ...prev.slice(0, 9)]);
-        setClientSeed(Math.random().toString(36).slice(2, 10));
-      }, 1500);
+      toast.success("Challenge created! Waiting for opponent...");
+      localStorage.setItem("bullpugName", displayName);
+      fetchChallenges();
+      setResult(null);
     } catch (e) {
-      toast.error("Flip failed");
-      setFlipping(false);
+      toast.error(e.response?.data?.detail || "Failed to create challenge");
+    }
+    setCreating(false);
+  };
+
+  const acceptChallenge = async (challenge) => {
+    if (!connected) return toast.error("Connect wallet first");
+    setAccepting(challenge.id);
+
+    try {
+      const clientSeed = Math.random().toString(36).slice(2, 18);
+      const { data } = await axios.post(`${API}/betting/challenge/accept`, {
+        challenge_id: challenge.id,
+        wallet_address: walletAddress,
+        display_name: displayName,
+        client_seed: clientSeed
+      });
+
+      const won = data.winner_wallet === walletAddress;
+      setResult({ ...data, won, my_wallet: walletAddress });
+
+      if (won) {
+        toast.success(`You won ${data.payout_sol} SOL!`);
+      } else {
+        toast.error(`You lost. Better luck next time!`);
+      }
+
+      localStorage.setItem("bullpugName", displayName);
+      fetchChallenges();
+      axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed to accept challenge");
+    }
+    setAccepting(null);
+  };
+
+  const cancelChallenge = async (challengeId) => {
+    try {
+      await axios.post(`${API}/betting/challenge/cancel/${challengeId}?wallet_address=${walletAddress}`);
+      toast.success("Challenge cancelled");
+      fetchChallenges();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed to cancel");
     }
   };
 
+  const myChallenges = challenges.filter(c => c.creator_wallet === walletAddress);
+  const openChallenges = challenges.filter(c => c.creator_wallet !== walletAddress);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-      <div className="lg:col-span-3 space-y-6">
-        <div className="glass-card rounded-2xl p-8 text-center">
-          <div
-            className={`w-32 h-32 mx-auto rounded-full border-4 flex items-center justify-center text-3xl font-black mb-6 transition-all ${
-              flipping
-                ? "animate-coin-flip border-[#F5D300]"
-                : result?.won
-                ? "border-[#00FFA3] shadow-[0_0_30px_rgba(0,255,163,0.4)]"
-                : result
-                ? "border-red-500"
-                : "border-[#F5D300]/50"
-            }`}
-            style={{ fontFamily: "Orbitron" }}
-          >
-            {flipping ? "?" : result ? (result.outcome === "heads" ? "H" : "T") : "?"}
-          </div>
-          {result && (
-            <p className={`text-lg font-bold animate-slide-up ${result.won ? "text-[#00FFA3]" : "text-red-400"}`}
-              style={{ fontFamily: "Orbitron" }}>
-              {result.won ? `WON ${result.payout} $BULLPUG!` : `Lost! Coin: ${result.outcome}`}
-            </p>
-          )}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Create Challenge */}
+      <div className="glass-card rounded-2xl p-6 space-y-5">
+        <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+          <Zap className="w-4 h-4 text-[#00FFA3]" /> Create Challenge
+        </h3>
+
+        <div>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Your Name</label>
+          <Input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={20}
+            className="bg-black/50 border-white/10 text-white" data-testid="display-name-input" />
         </div>
 
-        <div className="glass-card rounded-2xl p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {["heads", "tails"].map(c => (
-              <button key={c} onClick={() => setChoice(c)} data-testid={`choice-${c}`}
-                className={`p-3 rounded-xl border text-sm font-bold uppercase transition-all ${
-                  choice === c
-                    ? c === "heads"
-                      ? "border-[#00FFA3] bg-[#00FFA3]/10 text-[#00FFA3]"
-                      : "border-[#D946EF] bg-[#D946EF]/10 text-[#D946EF]"
-                    : "border-white/10 text-slate-400"
-                }`}
-                style={{ fontFamily: "Orbitron" }}
-              >
-                {c}
+        <div>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Bet Amount (SOL)</label>
+          <Input type="number" step="0.01" value={betAmount} onChange={e => setBetAmount(e.target.value)}
+            className="bg-black/50 border-white/10 text-white text-lg font-bold" data-testid="bet-amount-input" />
+          <div className="flex gap-2 mt-2">
+            {["0.05", "0.1", "0.5", "1"].map(amt => (
+              <button key={amt} onClick={() => setBetAmount(amt)}
+                className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                {amt}
               </button>
             ))}
           </div>
-          <div>
-            <label className="text-xs text-slate-500 uppercase mb-1 block">Bet ($BULLPUG)</label>
-            <Input type="number" value={betAmount} onChange={e => setBetAmount(e.target.value)}
-              data-testid="bet-amount-input" className="bg-black/50 border-white/10 text-white" />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500 uppercase mb-1 block">Client Seed</label>
-            <Input value={clientSeed} onChange={e => setClientSeed(e.target.value)}
-              data-testid="client-seed-input" className="bg-black/50 border-white/10 text-white font-mono text-xs" />
-          </div>
-          <Button onClick={flip} disabled={flipping} data-testid="flip-btn"
-            className="w-full bg-[#00FFA3] text-black font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(0,255,163,0.3)]">
-            {flipping ? "Flipping..." : "Flip Coin"}
-          </Button>
-          <p className="text-[10px] text-slate-600 text-center">5% house fee | 50/50 odds</p>
         </div>
 
-        {result && (
-          <div className="glass-card rounded-2xl p-5">
-            <button onClick={() => setShowVerify(!showVerify)} data-testid="verify-toggle"
-              className="flex items-center gap-2 text-xs text-[#00FFA3] font-bold uppercase">
-              <Shield className="w-4 h-4" /> Verify{" "}
-              {showVerify ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            {showVerify && (
-              <div className="mt-3 space-y-1 text-[11px] font-mono text-slate-500 break-all">
-                <p>Server Seed: {result.server_seed}</p>
-                <p>Server Hash: {result.server_seed_hash}</p>
-                <p>Client Seed: {result.client_seed}</p>
-                <p>Result Hash: {result.result_hash}</p>
-                <p className="text-[#00FFA3]">
-                  Last hex: {result.result_hash?.slice(-1)} ={" "}
-                  {parseInt(result.result_hash?.slice(-1), 16) % 2 === 0 ? "even(heads)" : "odd(tails)"}
-                </p>
+        <div>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Your Pick</label>
+          <div className="grid grid-cols-2 gap-2">
+            {["heads", "tails"].map(c => (
+              <button key={c} onClick={() => setChoice(c)} data-testid={`choice-${c}`}
+                className={`py-3 rounded-xl text-sm font-bold uppercase transition-all ${
+                  choice === c ? "bg-[#00FFA3] text-black scale-[1.02]" : "bg-white/5 text-slate-400 hover:bg-white/10"
+                }`}>
+                {c === "heads" ? "🪙 Heads" : "⭐ Tails"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs space-y-1">
+          <div className="flex justify-between"><span className="text-slate-500">Opponent Bet:</span><span className="text-white">{betAmount} SOL</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Total Pot:</span><span className="text-[#00FFA3]">{(parseFloat(betAmount || 0) * 2).toFixed(2)} SOL</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Rake ({config.rake_percent}%):</span><span className="text-amber-400">{(parseFloat(betAmount || 0) * 2 * config.rake_percent / 100).toFixed(4)} SOL</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Winner Gets:</span><span className="text-[#00FFA3] font-bold">{(parseFloat(betAmount || 0) * 2 * (1 - config.rake_percent / 100)).toFixed(4)} SOL</span></div>
+        </div>
+
+        <Button onClick={createChallenge} disabled={creating || !connected} data-testid="create-challenge-btn"
+          className="w-full bg-[#00FFA3] text-black font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
+          {creating ? "Creating..." : "Create Challenge"}
+        </Button>
+
+        {myChallenges.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500 uppercase">Your Open Challenges</p>
+            {myChallenges.map(c => (
+              <div key={c.id} className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-amber-400">{c.bet_amount_sol} SOL on {c.creator_choice}</p>
+                  <p className="text-[10px] text-slate-500">Waiting for opponent...</p>
+                </div>
+                <button onClick={() => cancelChallenge(c.id)} className="text-xs text-red-400 hover:text-red-300">Cancel</button>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      <div className="lg:col-span-2">
-        <div className="glass-card rounded-2xl p-5 sticky top-20">
-          <h3 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ fontFamily: "Orbitron" }}>
-            <Clock className="w-4 h-4 text-[#00FFA3]" /> Recent Flips
+      {/* Open Challenges */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+            <Users className="w-4 h-4 text-[#D946EF]" /> Open Challenges
           </h3>
-          <div className="space-y-2 max-h-[500px] overflow-y-auto">
-            {history.length === 0 && <p className="text-xs text-slate-600">No flips yet</p>}
-            {history.map((h, i) => (
-              <div key={i}
-                className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
-                  h.won ? "border-[#00FFA3]/20 bg-[#00FFA3]/5" : "border-red-500/20 bg-red-500/5"
-                }`}>
-                <span className={h.won ? "text-[#00FFA3]" : "text-red-400"}>
-                  {h.won ? "WON" : "LOST"} - {h.outcome}
-                </span>
-                <span className={`font-bold ${h.won ? "text-[#00FFA3]" : "text-red-400"}`}>
-                  {h.won ? `+${h.payout}` : `-${h.bet_amount}`}
-                </span>
+          <button onClick={fetchChallenges} className="text-xs text-slate-500 hover:text-white flex items-center gap-1">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+
+        {result && (
+          <div className={`glass-card rounded-xl p-5 border-2 ${result.won ? "border-[#00FFA3]" : "border-red-500"}`}>
+            <div className="text-center">
+              <p className={`text-2xl font-black ${result.won ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
+                {result.won ? `YOU WON ${result.payout_sol} SOL!` : "YOU LOST"}
+              </p>
+              <p className="text-sm text-slate-400 mt-1">Coin landed on: <span className="text-white font-bold uppercase">{result.outcome}</span></p>
+              <div className="mt-3 p-3 rounded-lg bg-black/50 text-left">
+                <p className="text-[10px] text-slate-500 uppercase mb-1">Provably Fair Verification</p>
+                <p className="text-[10px] text-slate-400 break-all">Server Seed: {result.server_seed}</p>
+                <p className="text-[10px] text-slate-400 break-all">Client Seed: {result.client_seed}</p>
+                <p className="text-[10px] text-[#00FFA3] break-all">Result Hash: {result.result_hash}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {openChallenges.length === 0 ? (
+          <div className="glass-card rounded-xl p-10 text-center">
+            <Swords className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+            <p className="text-slate-500">No open challenges</p>
+            <p className="text-xs text-slate-600 mt-1">Create one or wait for others!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {openChallenges.map(c => (
+              <div key={c.id} className="glass-card rounded-xl p-4 hover:bg-white/[0.02] transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-[#D946EF]/10 flex items-center justify-center text-[#D946EF] text-xs font-bold">
+                      {c.creator_name?.charAt(0) || "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{c.creator_name}</p>
+                      <p className="text-[10px] text-slate-500">{c.creator_wallet?.slice(0, 8)}...</p>
+                    </div>
+                  </div>
+                  <Badge className={`text-[10px] ${c.creator_choice === "heads" ? "bg-amber-500/10 text-amber-400" : "bg-[#00C2FF]/10 text-[#00C2FF]"}`}>
+                    Picked {c.creator_choice}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron' }}>{c.bet_amount_sol} SOL</p>
+                    <p className="text-[10px] text-slate-500">You pick: {c.creator_choice === "heads" ? "TAILS" : "HEADS"}</p>
+                  </div>
+                  <Button onClick={() => acceptChallenge(c)} disabled={accepting === c.id || !connected}
+                    data-testid={`accept-${c.id}`}
+                    className="bg-[#D946EF] text-white font-bold rounded-lg px-4 py-2 text-xs uppercase hover:scale-[1.02] transition-transform">
+                    {accepting === c.id ? "Flipping..." : "Accept"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        )}
+
+        {/* Recent History */}
+        {history.length > 0 && (
+          <div className="glass-card rounded-xl p-4 mt-6">
+            <h4 className="text-xs font-bold uppercase text-slate-500 mb-3">Recent P2P Flips</h4>
+            <div className="space-y-2">
+              {history.slice(0, 5).map((h, i) => (
+                <div key={i} className="flex items-center justify-between text-xs p-2 rounded bg-white/[0.02]">
+                  <span className="text-slate-400">{h.bet_amount_sol || h.bet_amount} SOL</span>
+                  <span className={h.outcome === "heads" ? "text-amber-400" : "text-[#00C2FF]"}>{h.outcome}</span>
+                  <span className="text-slate-600">{new Date(h.timestamp).toLocaleTimeString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function PotSystem({ walletAddress }) {
-  const [pot, setPot] = useState(null);
-  const [betAmount, setBetAmount] = useState("50");
-  const [displayName, setDisplayName] = useState("Guardian");
+function P2PPotSystem({ walletAddress, connected, config }) {
+  const [pot, setPot] = useState({ total_amount_sol: 0, entries: [], status: "open", rake_percent: 2.5 });
+  const [betAmount, setBetAmount] = useState("0.1");
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
   const [joining, setJoining] = useState(false);
-  const [wsStatus, setWsStatus] = useState("connecting");
-
-  const fetchPot = () => {
-    axios.get(`${API}/betting/pot`).then(r => setPot(r.data)).catch(() => {});
-  };
+  const [ws, setWs] = useState(null);
 
   useEffect(() => {
-    fetchPot();
-    // WebSocket for real-time updates
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
-    const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/pot";
-    let ws;
-    let reconnectTimer;
-    const connect = () => {
-      try {
-        ws = new WebSocket(wsUrl);
-        ws.onopen = () => setWsStatus("connected");
-        ws.onmessage = (e) => {
-          try {
-            const msg = JSON.parse(e.data);
-            if (msg.type === "pot_update") setPot(msg.data);
-            if (msg.type === "pot_winner") {
-              toast.success(`Winner: ${msg.data.winner} won ${msg.data.payout} $BULLPUG!`);
-            }
-          } catch {}
-        };
-        ws.onclose = () => { setWsStatus("reconnecting"); reconnectTimer = setTimeout(connect, 3000); };
-        ws.onerror = () => { ws.close(); };
-      } catch {
-        setWsStatus("fallback");
+    const wsUrl = process.env.REACT_APP_BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
+    const socket = new WebSocket(`${wsUrl}/ws/pot`);
+    socket.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "pot_update") setPot(msg.data);
+      if (msg.type === "pot_winner") {
+        toast.success(`${msg.data.winner_name} won ${msg.data.payout_sol} SOL!`);
       }
     };
-    connect();
-    // Fallback polling
-    const iv = setInterval(fetchPot, 10000);
-    return () => { clearInterval(iv); clearTimeout(reconnectTimer); if (ws) ws.close(); };
+    setWs(socket);
+    axios.get(`${API}/betting/pot`).then(r => setPot(r.data)).catch(() => {});
+    return () => socket.close();
   }, []);
 
   const joinPot = async () => {
-    if (!betAmount || parseFloat(betAmount) <= 0) return toast.error("Enter valid bet");
+    if (!connected) return toast.error("Connect wallet first");
+    const amount = parseFloat(betAmount);
+    if (amount < config.min_bet_sol) return toast.error(`Minimum bet is ${config.min_bet_sol} SOL`);
+
     setJoining(true);
     try {
       const { data } = await axios.post(`${API}/betting/pot/join`, {
-        bet_amount: parseFloat(betAmount),
-        wallet_address: walletAddress || "anon",
-        display_name: displayName,
+        bet_amount_sol: amount,
+        wallet_address: walletAddress,
+        display_name: displayName
       });
       toast.success(data.message);
-      fetchPot();
+      localStorage.setItem("bullpugName", displayName);
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Failed");
+      toast.error(e.response?.data?.detail || "Failed to join pot");
     }
     setJoining(false);
   };
 
-  const drawWinner = async () => {
-    try {
-      const { data } = await axios.post(`${API}/betting/pot/draw`);
-      toast.success(`Winner: ${data.winner} - ${data.payout} $BULLPUG!`);
-      fetchPot();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Need 2+ entries");
-    }
-  };
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="space-y-6">
-        <div className="glass-card rounded-2xl p-6 text-center">
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-2" style={{ fontFamily: "Orbitron" }}>
-            Current Pot
-          </p>
-          <p className="text-4xl md:text-5xl font-black text-[#F5D300] mb-2" style={{ fontFamily: "Orbitron" }}>
-            {pot?.total_amount || 0}
-          </p>
-          <p className="text-xs text-slate-500">
-            {pot?.entry_count || 0} entries | {pot?.house_fee_percent || 7}% fee
-          </p>
-          <Badge className={`mt-3 ${pot?.status === "open" ? "bg-[#00FFA3]/10 text-[#00FFA3]" : "bg-red-500/10 text-red-400"}`}>
-            {pot?.status || "open"}
-          </Badge>
-          <div className="flex items-center gap-1 mt-2 justify-center">
-            <div className={`w-1.5 h-1.5 rounded-full ${wsStatus === "connected" ? "bg-[#00FFA3]" : "bg-amber-400 animate-pulse"}`} />
-            <span className="text-[9px] text-slate-600">{wsStatus === "connected" ? "Live" : "Connecting..."}</span>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Join Pot */}
+      <div className="glass-card rounded-2xl p-6 space-y-5">
+        <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+          <Trophy className="w-4 h-4 text-[#D946EF]" /> Join Pot
+        </h3>
+
+        <div>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Your Name</label>
+          <Input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={20}
+            className="bg-black/50 border-white/10 text-white" />
+        </div>
+
+        <div>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Bet Amount (SOL)</label>
+          <Input type="number" step="0.01" value={betAmount} onChange={e => setBetAmount(e.target.value)}
+            className="bg-black/50 border-white/10 text-white text-lg font-bold" data-testid="pot-bet-input" />
+          <div className="flex gap-2 mt-2">
+            {["0.1", "0.5", "1", "2"].map(amt => (
+              <button key={amt} onClick={() => setBetAmount(amt)}
+                className="text-[10px] px-2 py-1 rounded bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                {amt}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="glass-card rounded-2xl p-6 space-y-4">
-          <div>
-            <label className="text-xs text-slate-500 uppercase mb-1 block">Name</label>
-            <Input value={displayName} onChange={e => setDisplayName(e.target.value)}
-              data-testid="pot-name-input" className="bg-black/50 border-white/10 text-white" />
-          </div>
-          <div>
-            <label className="text-xs text-slate-500 uppercase mb-1 block">Bet ($BULLPUG)</label>
-            <Input type="number" value={betAmount} onChange={e => setBetAmount(e.target.value)}
-              data-testid="pot-amount-input" className="bg-black/50 border-white/10 text-white" />
-          </div>
-          <Button onClick={joinPot} disabled={joining} data-testid="pot-join-btn"
-            className="w-full bg-[#D946EF] text-white font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
-            {joining ? "Joining..." : "Join Pot"}
-          </Button>
-          <Button onClick={drawWinner} variant="outline" data-testid="pot-draw-btn"
-            className="w-full border-[#F5D300] text-[#F5D300] rounded-xl py-5 text-sm font-bold uppercase hover:bg-[#F5D300]/10">
-            Draw Winner
-          </Button>
+        <div className="p-3 rounded-lg bg-[#D946EF]/10 border border-[#D946EF]/30">
+          <p className="text-xs text-slate-400">
+            Higher bet = higher win probability. Winner takes all minus {pot.rake_percent}% rake.
+          </p>
+        </div>
+
+        <Button onClick={joinPot} disabled={joining || !connected} data-testid="join-pot-btn"
+          className="w-full bg-[#D946EF] text-white font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
+          {joining ? "Joining..." : "Join Pot"}
+        </Button>
+
+        <div className="text-center">
+          <p className="text-[10px] text-slate-600">
+            Rake goes to: <span className="text-slate-400">{config.distribution_wallet?.slice(0, 12)}...</span>
+          </p>
         </div>
       </div>
 
-      <div className="glass-card rounded-2xl p-5">
-        <h3 className="text-sm font-bold uppercase mb-4" style={{ fontFamily: "Orbitron" }}>
-          <Trophy className="inline w-4 h-4 text-[#F5D300] mr-2" />
-          Participants
-        </h3>
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-          {(!pot?.entries || pot.entries.length === 0) && (
-            <p className="text-xs text-slate-600">No entries yet</p>
-          )}
-          {pot?.entries?.map((e, i) => (
-            <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center text-[10px] font-bold text-black">
-                  {i + 1}
-                </div>
-                <span className="text-sm">{e.display_name}</span>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold">{e.amount}</p>
-                <p className="text-[10px] text-[#00FFA3]">{e.probability}%</p>
-              </div>
+      {/* Pot Status */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="glass-card rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-xs text-slate-500 uppercase">Current Pot</p>
+              <p className="text-4xl font-black text-[#D946EF]" style={{ fontFamily: 'Orbitron' }}>
+                {pot.total_amount_sol?.toFixed(2) || "0.00"} <span className="text-lg">SOL</span>
+              </p>
             </div>
-          ))}
-        </div>
-        {pot?.winner && (
-          <div className="mt-4 p-3 rounded-xl border border-[#F5D300]/30 bg-[#F5D300]/5">
-            <p className="text-xs text-[#F5D300] font-bold">Last Winner: {pot.winner.winner}</p>
-            <p className="text-sm text-[#00FFA3]">Won {pot.winner.payout} $BULLPUG</p>
+            <div className="text-right">
+              <p className="text-xs text-slate-500 uppercase">Entries</p>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: 'Orbitron' }}>{pot.entry_count || 0}</p>
+            </div>
           </div>
-        )}
+
+          {pot.winner && (
+            <div className="p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30 mb-4">
+              <p className="text-sm font-bold text-[#00FFA3]">
+                🎉 {pot.winner.winner_name} won {pot.winner.payout_sol} SOL!
+              </p>
+            </div>
+          )}
+
+          {pot.entries && pot.entries.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500 uppercase mb-2">Participants</p>
+              {pot.entries.map((e, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#D946EF]/10 flex items-center justify-center text-[#D946EF] text-xs font-bold">
+                      {e.display_name?.charAt(0) || "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{e.display_name}</p>
+                      <p className="text-[10px] text-slate-500">{e.wallet_address}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[#D946EF]">{e.amount_sol} SOL</p>
+                    <p className="text-[10px] text-[#00FFA3]">{e.probability}% chance</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Trophy className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p className="text-slate-500">No entries yet. Be the first!</p>
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card rounded-xl p-4">
+          <p className="text-xs text-slate-500 mb-2">How P2P Pot Works</p>
+          <ul className="text-xs text-slate-400 space-y-1">
+            <li>• Multiple players contribute SOL to the pot</li>
+            <li>• Your win probability = your bet / total pot</li>
+            <li>• When drawn, one winner takes all (minus {pot.rake_percent}% rake)</li>
+            <li>• Provably fair random selection</li>
+          </ul>
+        </div>
       </div>
     </div>
   );
