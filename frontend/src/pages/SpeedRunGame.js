@@ -372,6 +372,7 @@ export default function SpeedRunGame() {
     if (g.player.jumps < g.player.maxJumps) {
       g.player.vy = g.player.jumps === 0 ? JUMP_FORCE : DOUBLE_JUMP_FORCE;
       g.player.jumps++;
+      playSoundIfEnabled('jump');
       for (let i = 0; i < 5; i++) {
         g.particles.push({ x: g.player.x + PLAYER_W / 2, y: g.player.y + PLAYER_H, vx: (Math.random() - 0.5) * 3, vy: Math.random() * 2, life: 15, color: "rgba(0,255,163,0.6)" });
       }
