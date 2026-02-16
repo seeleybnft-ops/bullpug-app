@@ -123,12 +123,16 @@ class CreateChallengeRequest(BaseModel):
     choice: str  # heads or tails
     wallet_address: str
     display_name: str = "Anonymous Guardian"
+    signature: Optional[str] = None  # Optional wallet signature for verification
+    message: Optional[str] = None  # Message that was signed
 
 class AcceptChallengeRequest(BaseModel):
     challenge_id: str
     wallet_address: str
     display_name: str = "Anonymous Guardian"
     client_seed: str
+    signature: Optional[str] = None
+    message: Optional[str] = None
 
 # P2P Pot Models
 class P2PPotJoinRequest(BaseModel):
@@ -136,6 +140,8 @@ class P2PPotJoinRequest(BaseModel):
     wallet_address: str
     display_name: str = "Anonymous Guardian"
     tx_signature: Optional[str] = None
+    signature: Optional[str] = None
+    message: Optional[str] = None
 
 # Forum Models
 class CreatePostRequest(BaseModel):
