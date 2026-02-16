@@ -1,34 +1,90 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Stars background */
+.stars-bg {
+  background: #05050A;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 50% 10%, rgba(0,255,163,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, rgba(217,70,239,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 50%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 85% 90%, rgba(0,255,163,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 45%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 75%, rgba(245,211,0,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 95%, rgba(255,255,255,0.4) 0%, transparent 100%);
+  animation: twinkle 8s ease-in-out infinite alternate;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+@keyframes twinkle {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-15px) rotate(1deg); }
+  75% { transform: translateY(10px) rotate(-1deg); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
 
-.App-link {
-    color: #61dafb;
+/* Pulse glow */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 163, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(0, 255, 163, 0.6); }
+}
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Coin flip */
+@keyframes coinFlip {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(1800deg); }
+}
+.animate-coin-flip {
+  animation: coinFlip 1.5s ease-in-out;
+}
+
+/* Slide up entrance */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.6s ease-out forwards;
+}
+
+/* Neon text glow */
+.neon-text {
+  text-shadow: 0 0 10px rgba(0, 255, 163, 0.5), 0 0 20px rgba(0, 255, 163, 0.3), 0 0 40px rgba(0, 255, 163, 0.1);
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.glass-card:hover {
+  border-color: rgba(0, 255, 163, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 163, 0.15);
+}
+
+/* Game canvas */
+.game-canvas {
+  image-rendering: pixelated;
+  border: 2px solid rgba(0, 255, 163, 0.3);
+  border-radius: 12px;
+}
+
+/* Speed run runner */
+@keyframes run {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.animate-run {
+  animation: run 0.3s ease-in-out infinite;
 }
