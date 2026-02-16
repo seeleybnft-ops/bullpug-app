@@ -289,104 +289,343 @@ async def stripe_webhook(request: Request):
         return {"status": "error"}
 
 
-@api_router.post("/betting/coin-toss")
-async def flip_coin(data: CoinTossFlip):
+# ========== P2P COIN FLIP (Challenge System) ==========
+@api_router.get("/betting/config")
+async def get_betting_config():
+    """Get betting configuration including rake and distribution wallet"""
+    return {
+        "rake_percent": RAKE_PERCENT,
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "currency": "SOL",
+        "min_bet_sol": 0.01,
+        "max_bet_sol": 10.0
+    }
+
+
+@api_router.post("/betting/challenge/create")
+async def create_challenge(data: CreateChallengeRequest):
+    """Create a P2P coin flip challenge"""
+    if data.bet_amount_sol <= 0:
+        raise HTTPException(status_code=400, detail="Bet must be positive")
+    if data.bet_amount_sol < 0.01:
+        raise HTTPException(status_code=400, detail="Minimum bet is 0.01 SOL")
+    if data.bet_amount_sol > 10.0:
+        raise HTTPException(status_code=400, detail="Maximum bet is 10 SOL")
+    if data.choice.lower() not in ["heads", "tails"]:
+        raise HTTPException(status_code=400, detail="Choice must be heads or tails")
+    
+    challenge = {
+        "id": str(uuid.uuid4()),
+        "creator_wallet": data.wallet_address,
+        "creator_name": data.display_name,
+        "creator_choice": data.choice.lower(),
+        "bet_amount_sol": data.bet_amount_sol,
+        "status": "open",  # open, matched, completed, cancelled
+        "opponent_wallet": None,
+        "opponent_name": None,
+        "winner_wallet": None,
+        "result": None,
+        "rake_sol": round(data.bet_amount_sol * 2 * RAKE_PERCENT / 100, 6),
+        "payout_sol": round(data.bet_amount_sol * 2 * (1 - RAKE_PERCENT / 100), 6),
+        "server_seed_hash": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "matched_at": None,
+        "completed_at": None
+    }
+    
+    # Generate server seed hash (seed revealed after match)
     server_seed = secrets.token_hex(32)
-    server_seed_hash = hashlib.sha256(server_seed.encode()).hexdigest()
+    challenge["server_seed"] = server_seed
+    challenge["server_seed_hash"] = hashlib.sha256(server_seed.encode()).hexdigest()
+    
+    await db.p2p_challenges.insert_one(challenge)
+    
+    # Don't expose server_seed yet
+    return {
+        "challenge_id": challenge["id"],
+        "bet_amount_sol": challenge["bet_amount_sol"],
+        "creator_choice": challenge["creator_choice"],
+        "server_seed_hash": challenge["server_seed_hash"],
+        "status": "open",
+        "message": f"Challenge created! Waiting for opponent to bet {data.bet_amount_sol} SOL on {('tails' if data.choice.lower() == 'heads' else 'heads')}"
+    }
+
+
+@api_router.get("/betting/challenges")
+async def get_open_challenges(limit: int = 20):
+    """Get all open P2P challenges"""
+    challenges = await db.p2p_challenges.find(
+        {"status": "open"},
+        {"_id": 0, "server_seed": 0}
+    ).sort("created_at", -1).to_list(limit)
+    return {"challenges": challenges}
+
+
+@api_router.get("/betting/challenge/{challenge_id}")
+async def get_challenge(challenge_id: str):
+    """Get a specific challenge"""
+    challenge = await db.p2p_challenges.find_one({"id": challenge_id}, {"_id": 0})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    # Only expose server_seed if completed
+    if challenge["status"] != "completed":
+        challenge.pop("server_seed", None)
+    return challenge
+
+
+@api_router.post("/betting/challenge/accept")
+async def accept_challenge(data: AcceptChallengeRequest):
+    """Accept a P2P coin flip challenge and execute the flip"""
+    challenge = await db.p2p_challenges.find_one({"id": data.challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if challenge["status"] != "open":
+        raise HTTPException(status_code=400, detail="Challenge is not open")
+    if challenge["creator_wallet"] == data.wallet_address:
+        raise HTTPException(status_code=400, detail="Cannot accept your own challenge")
+    
+    # Execute the flip
+    server_seed = challenge["server_seed"]
     combined = f"{server_seed}{data.client_seed}"
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
     last_digit = int(result_hash[-1], 16)
     outcome = "heads" if last_digit % 2 == 0 else "tails"
-    won = outcome == data.choice.lower()
-
-    house_fee_percent = 5
-    payout = 0
-    if won:
-        payout = round(data.bet_amount * 2 * (1 - house_fee_percent / 100), 2)
-    else:
-        rev = data.bet_amount
-        logger.info(f"Revenue: buyback={rev*0.6:.2f}, growth={rev*0.3:.2f}, profit={rev*0.1:.2f}")
-
-    result = {
-        "id": str(uuid.uuid4()), "outcome": outcome, "choice": data.choice.lower(), "won": won,
-        "bet_amount": data.bet_amount, "payout": payout, "house_fee_percent": house_fee_percent,
-        "server_seed": server_seed, "server_seed_hash": server_seed_hash,
-        "client_seed": data.client_seed, "result_hash": result_hash,
-        "verification": f"SHA256({server_seed} + {data.client_seed}) = {result_hash}",
-        "wallet_address": data.wallet_address, "timestamp": datetime.now(timezone.utc).isoformat()
+    
+    # Determine winner
+    creator_won = outcome == challenge["creator_choice"]
+    winner_wallet = challenge["creator_wallet"] if creator_won else data.wallet_address
+    winner_name = challenge["creator_name"] if creator_won else data.display_name
+    loser_wallet = data.wallet_address if creator_won else challenge["creator_wallet"]
+    
+    # Calculate payouts
+    total_pot = challenge["bet_amount_sol"] * 2
+    rake = round(total_pot * RAKE_PERCENT / 100, 6)
+    payout = round(total_pot - rake, 6)
+    
+    # Update challenge
+    update_data = {
+        "status": "completed",
+        "opponent_wallet": data.wallet_address,
+        "opponent_name": data.display_name,
+        "opponent_choice": "tails" if challenge["creator_choice"] == "heads" else "heads",
+        "client_seed": data.client_seed,
+        "result_hash": result_hash,
+        "outcome": outcome,
+        "winner_wallet": winner_wallet,
+        "winner_name": winner_name,
+        "loser_wallet": loser_wallet,
+        "rake_sol": rake,
+        "payout_sol": payout,
+        "matched_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.bets.insert_one({**result, "type": "coin_toss"})
-    return result
+    
+    await db.p2p_challenges.update_one({"id": data.challenge_id}, {"$set": update_data})
+    
+    # Log rake for distribution wallet
+    logger.info(f"P2P Flip Rake: {rake} SOL to {DISTRIBUTION_WALLET}")
+    
+    # Record in bets collection
+    bet_record = {
+        "id": str(uuid.uuid4()),
+        "type": "p2p_coin_flip",
+        "challenge_id": data.challenge_id,
+        "creator_wallet": challenge["creator_wallet"],
+        "opponent_wallet": data.wallet_address,
+        "bet_amount_sol": challenge["bet_amount_sol"],
+        "total_pot_sol": total_pot,
+        "rake_sol": rake,
+        "payout_sol": payout,
+        "outcome": outcome,
+        "winner_wallet": winner_wallet,
+        "server_seed": server_seed,
+        "server_seed_hash": challenge["server_seed_hash"],
+        "client_seed": data.client_seed,
+        "result_hash": result_hash,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await db.bets.insert_one(bet_record)
+    
+    return {
+        "challenge_id": data.challenge_id,
+        "outcome": outcome,
+        "winner_wallet": winner_wallet,
+        "winner_name": winner_name,
+        "payout_sol": payout,
+        "rake_sol": rake,
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "server_seed": server_seed,
+        "client_seed": data.client_seed,
+        "result_hash": result_hash,
+        "verification": f"SHA256({server_seed} + {data.client_seed}) = {result_hash}"
+    }
+
+
+@api_router.post("/betting/challenge/cancel/{challenge_id}")
+async def cancel_challenge(challenge_id: str, wallet_address: str):
+    """Cancel an open challenge (only creator can cancel)"""
+    challenge = await db.p2p_challenges.find_one({"id": challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if challenge["status"] != "open":
+        raise HTTPException(status_code=400, detail="Can only cancel open challenges")
+    if challenge["creator_wallet"] != wallet_address:
+        raise HTTPException(status_code=403, detail="Only creator can cancel")
+    
+    await db.p2p_challenges.update_one(
+        {"id": challenge_id},
+        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Challenge cancelled", "challenge_id": challenge_id}
 
 
 @api_router.get("/betting/history")
-async def get_bet_history(limit: int = 20):
-    history = await db.bets.find({"type": "coin_toss"}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
+async def get_bet_history(limit: int = 20, wallet_address: Optional[str] = None):
+    """Get betting history, optionally filtered by wallet"""
+    query = {}
+    if wallet_address:
+        query["$or"] = [
+            {"creator_wallet": wallet_address},
+            {"opponent_wallet": wallet_address},
+            {"wallet_address": wallet_address}
+        ]
+    history = await db.bets.find(query, {"_id": 0}).sort("timestamp", -1).to_list(limit)
     return {"history": history}
+
+
+# ========== P2P POT SYSTEM ==========
+# Active pot stored in memory (resets on server restart)
+active_pot = {
+    "id": str(uuid.uuid4()),
+    "total_amount_sol": 0,
+    "entries": [],
+    "status": "open",
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+    "rake_percent": RAKE_PERCENT,
+    "winner": None
+}
 
 
 @api_router.get("/betting/pot")
 async def get_pot_status():
-    global active_pot
+    """Get current P2P pot status"""
     entries_display = []
     for e in active_pot["entries"]:
-        prob = round(e["amount"] / active_pot["total_amount"] * 100, 1) if active_pot["total_amount"] > 0 else 0
-        entries_display.append({"display_name": e["display_name"], "amount": e["amount"], "probability": prob})
-    return {"id": active_pot["id"], "total_amount": active_pot["total_amount"],
-            "entry_count": len(active_pot["entries"]), "entries": entries_display,
-            "status": active_pot["status"], "draw_at": active_pot["draw_at"],
-            "house_fee_percent": active_pot["house_fee_percent"], "winner": active_pot["winner"]}
+        prob = round(e["amount_sol"] / active_pot["total_amount_sol"] * 100, 1) if active_pot["total_amount_sol"] > 0 else 0
+        entries_display.append({
+            "display_name": e["display_name"],
+            "wallet_address": e["wallet_address"][:8] + "..." if e.get("wallet_address") else "???",
+            "amount_sol": e["amount_sol"],
+            "probability": prob
+        })
+    return {
+        "id": active_pot["id"],
+        "total_amount_sol": active_pot["total_amount_sol"],
+        "entry_count": len(active_pot["entries"]),
+        "entries": entries_display,
+        "status": active_pot["status"],
+        "draw_at": active_pot["draw_at"],
+        "rake_percent": active_pot["rake_percent"],
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "winner": active_pot["winner"]
+    }
 
 
 @api_router.post("/betting/pot/join")
-async def join_pot(data: PotJoinRequest):
+async def join_pot(data: P2PPotJoinRequest):
+    """Join the P2P pot with SOL"""
     global active_pot
     if active_pot["status"] != "open":
         raise HTTPException(status_code=400, detail="Pot is closed")
-    if data.bet_amount <= 0:
+    if data.bet_amount_sol <= 0:
         raise HTTPException(status_code=400, detail="Bet must be positive")
-    entry = {"id": str(uuid.uuid4()), "display_name": data.display_name,
-             "amount": data.bet_amount, "wallet_address": data.wallet_address,
-             "joined_at": datetime.now(timezone.utc).isoformat()}
+    if data.bet_amount_sol < 0.01:
+        raise HTTPException(status_code=400, detail="Minimum bet is 0.01 SOL")
+    if not data.wallet_address:
+        raise HTTPException(status_code=400, detail="Wallet address required")
+    
+    entry = {
+        "id": str(uuid.uuid4()),
+        "display_name": data.display_name,
+        "wallet_address": data.wallet_address,
+        "amount_sol": data.bet_amount_sol,
+        "tx_signature": data.tx_signature,
+        "joined_at": datetime.now(timezone.utc).isoformat()
+    }
     active_pot["entries"].append(entry)
-    active_pot["total_amount"] += data.bet_amount
-    resp = {"message": f"Joined pot with {data.bet_amount} $BULLPUG!",
-            "probability": round(data.bet_amount / active_pot["total_amount"] * 100, 1),
-            "total_pot": active_pot["total_amount"], "entry_count": len(active_pot["entries"])}
+    active_pot["total_amount_sol"] += data.bet_amount_sol
+    
+    resp = {
+        "message": f"Joined pot with {data.bet_amount_sol} SOL!",
+        "probability": round(data.bet_amount_sol / active_pot["total_amount_sol"] * 100, 1),
+        "total_pot_sol": active_pot["total_amount_sol"],
+        "entry_count": len(active_pot["entries"])
+    }
     await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
     return resp
 
 
 @api_router.post("/betting/pot/draw")
 async def draw_pot_winner():
+    """Draw pot winner - winner takes all minus rake"""
     global active_pot
     if len(active_pot["entries"]) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 entries")
-    total = active_pot["total_amount"]
-    rand_value = secrets.randbelow(int(total * 100)) / 100
+    
+    total = active_pot["total_amount_sol"]
+    rand_value = secrets.randbelow(int(total * 1000000)) / 1000000
     cumulative = 0
     winner = None
+    
     for entry in active_pot["entries"]:
-        cumulative += entry["amount"]
+        cumulative += entry["amount_sol"]
         if rand_value <= cumulative:
             winner = entry
             break
     if not winner:
         winner = active_pot["entries"][-1]
-    house_fee = round(total * active_pot["house_fee_percent"] / 100, 2)
-    payout = round(total - house_fee, 2)
-    logger.info(f"Pot Revenue: buyback={house_fee*0.6:.2f}, growth={house_fee*0.3:.2f}, profit={house_fee*0.1:.2f}")
-    result = {"winner": winner["display_name"], "winner_wallet": winner.get("wallet_address"),
-              "payout": payout, "total_pot": total, "house_fee": house_fee,
-              "entry_count": len(active_pot["entries"])}
+    
+    rake = round(total * active_pot["rake_percent"] / 100, 6)
+    payout = round(total - rake, 6)
+    
+    logger.info(f"Pot Rake: {rake} SOL to {DISTRIBUTION_WALLET}")
+    
+    result = {
+        "winner_name": winner["display_name"],
+        "winner_wallet": winner["wallet_address"],
+        "payout_sol": payout,
+        "total_pot_sol": total,
+        "rake_sol": rake,
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "entry_count": len(active_pot["entries"])
+    }
+    
     active_pot["winner"] = result
     active_pot["status"] = "completed"
-    await db.pot_results.insert_one({**result, "pot_id": active_pot["id"], "drawn_at": datetime.now(timezone.utc).isoformat()})
+    
+    # Save to DB
+    await db.pot_results.insert_one({
+        **result,
+        "pot_id": active_pot["id"],
+        "entries": active_pot["entries"],
+        "drawn_at": datetime.now(timezone.utc).isoformat()
+    })
+    
     await pot_ws_manager.broadcast({"type": "pot_winner", "data": result})
-    active_pot = {"id": str(uuid.uuid4()), "total_amount": 0, "entries": [], "status": "open",
-                  "created_at": datetime.now(timezone.utc).isoformat(),
-                  "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-                  "house_fee_percent": 7, "winner": None}
+    
+    # Reset pot
+    active_pot = {
+        "id": str(uuid.uuid4()),
+        "total_amount_sol": 0,
+        "entries": [],
+        "status": "open",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "rake_percent": RAKE_PERCENT,
+        "winner": None
+    }
+    
     await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
     return result
 
@@ -394,11 +633,24 @@ async def draw_pot_winner():
 async def _get_pot_data():
     entries_display = []
     for e in active_pot["entries"]:
-        prob = round(e["amount"] / active_pot["total_amount"] * 100, 1) if active_pot["total_amount"] > 0 else 0
-        entries_display.append({"display_name": e["display_name"], "amount": e["amount"], "probability": prob})
-    return {"id": active_pot["id"], "total_amount": active_pot["total_amount"],
-            "entry_count": len(active_pot["entries"]), "entries": entries_display,
-            "status": active_pot["status"], "draw_at": active_pot["draw_at"],
+        prob = round(e["amount_sol"] / active_pot["total_amount_sol"] * 100, 1) if active_pot["total_amount_sol"] > 0 else 0
+        entries_display.append({
+            "display_name": e["display_name"],
+            "wallet_address": e["wallet_address"][:8] + "..." if e.get("wallet_address") else "???",
+            "amount_sol": e["amount_sol"],
+            "probability": prob
+        })
+    return {
+        "id": active_pot["id"],
+        "total_amount_sol": active_pot["total_amount_sol"],
+        "entry_count": len(active_pot["entries"]),
+        "entries": entries_display,
+        "status": active_pot["status"],
+        "draw_at": active_pot["draw_at"],
+        "rake_percent": active_pot["rake_percent"],
+        "distribution_wallet": DISTRIBUTION_WALLET,
+        "winner": active_pot["winner"]
+    }
             "house_fee_percent": active_pot["house_fee_percent"], "winner": active_pot["winner"]}
 
 
