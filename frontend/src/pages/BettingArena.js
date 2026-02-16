@@ -101,6 +101,8 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
   const [accepting, setAccepting] = useState(null);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -116,6 +118,12 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
     return () => clearInterval(interval);
   }, [fetchChallenges]);
 
+  // Spawn confetti particles
+  const spawnConfetti = () => {
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 3000);
+  };
+
   const createChallenge = async () => {
     if (!connected) return toast.error(t('common.connectWallet'));
     const amount = parseFloat(betAmount);
@@ -123,6 +131,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
       return toast.error(`Bet must be between ${config.min_bet_sol} and ${config.max_bet_sol} SOL`);
     }
 
+    playSoundIfEnabled('click');
     setCreating(true);
     try {
       await axios.post(`${API}/betting/challenge/create`, {
@@ -136,6 +145,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
       fetchChallenges();
       setResult(null);
     } catch (e) {
+      playSoundIfEnabled('lose');
       toast.error(e.response?.data?.detail || "Failed to create challenge");
     }
     setCreating(false);
@@ -144,6 +154,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
   const acceptChallenge = async (challenge) => {
     if (!connected) return toast.error(t('common.connectWallet'));
     setAccepting(challenge.id);
+    setIsFlipping(true);
 
     try {
       const clientSeed = Math.random().toString(36).slice(2, 18);
@@ -155,18 +166,28 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
       });
 
       const won = data.winner_wallet === walletAddress;
-      setResult({ ...data, won, my_wallet: walletAddress });
-
-      if (won) {
-        toast.success(t('betting.coinFlip.youWon', { amount: data.payout_sol }));
-      } else {
-        toast.error(t('betting.coinFlip.youLost'));
-      }
+      
+      // Play coin flip animation sequence
+      playCoinFlipSequence(won, () => {
+        setIsFlipping(false);
+        setResult({ ...data, won, my_wallet: walletAddress });
+        
+        if (won) {
+          playSoundIfEnabled('win');
+          spawnConfetti();
+          toast.success(t('betting.coinFlip.youWon', { amount: data.payout_sol }));
+        } else {
+          playSoundIfEnabled('lose');
+          toast.error(t('betting.coinFlip.youLost'));
+        }
+      });
 
       localStorage.setItem("bullpugName", displayName);
       fetchChallenges();
       axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
     } catch (e) {
+      setIsFlipping(false);
+      playSoundIfEnabled('lose');
       toast.error(e.response?.data?.detail || "Failed to accept challenge");
     }
     setAccepting(null);
