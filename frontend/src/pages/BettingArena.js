@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Zap, Trophy, Users, Wallet, RefreshCw, Swords } from "lucide-react";
+import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX } from "lucide-react";
+import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence } from "@/utils/sounds";
+import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
