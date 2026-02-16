@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import axios from "axios";
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Plus, X, Edit2, Trash2,
-  BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash
+  BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash,
+  Download, FileText
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import jsPDF from "jspdf";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -44,6 +46,92 @@ export default function TradingJournal() {
       console.error(e);
     }
     setLoading(false);
+  };
+
+  const exportCSV = () => {
+    window.open(`${API}/journal/export/csv`, '_blank');
+    toast.success("Downloading CSV...");
+  };
+
+  const exportPDF = () => {
+    if (!dashboard || trades.length === 0) {
+      return toast.error("No trades to export");
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(0, 255, 163);
+    doc.text("Bullpug Trading Journal", pageWidth / 2, 20, { align: "center" });
+
+    // Summary
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 28, { align: "center" });
+
+    // Dashboard Stats
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("Performance Summary", 20, 45);
+
+    doc.setFontSize(10);
+    const stats = [
+      `Total Trades: ${dashboard.total_trades}`,
+      `Win Rate: ${dashboard.win_rate}%`,
+      `Total P&L: $${dashboard.total_pnl}`,
+      `Avg P&L: $${dashboard.avg_pnl}`,
+      `Win Streak: ${dashboard.win_streak}`,
+      `Loss Streak: ${dashboard.loss_streak}`,
+      `Sharpe Ratio: ${dashboard.sharpe_ratio}`,
+    ];
+
+    let y = 55;
+    stats.forEach(stat => {
+      doc.text(stat, 20, y);
+      y += 7;
+    });
+
+    // Trades Table Header
+    y += 10;
+    doc.setFontSize(14);
+    doc.text("Recent Trades", 20, y);
+    y += 10;
+
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("Date", 20, y);
+    doc.text("Asset", 45, y);
+    doc.text("Type", 70, y);
+    doc.text("Entry", 95, y);
+    doc.text("Exit", 115, y);
+    doc.text("P&L", 135, y);
+    doc.text("Grade", 160, y);
+    y += 5;
+
+    // Trades
+    doc.setTextColor(0);
+    trades.slice(0, 30).forEach(trade => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(trade.date_entry?.slice(0, 10) || "-", 20, y);
+      doc.text(trade.asset || "-", 45, y);
+      doc.text(trade.trade_type || "-", 70, y);
+      doc.text(`$${trade.entry_price || 0}`, 95, y);
+      doc.text(`$${trade.exit_price || "-"}`, 115, y);
+      const pnlColor = (trade.pnl || 0) >= 0 ? [0, 150, 0] : [200, 0, 0];
+      doc.setTextColor(...pnlColor);
+      doc.text(`$${trade.pnl || 0}`, 135, y);
+      doc.setTextColor(0);
+      doc.text(trade.trade_grade || "-", 160, y);
+      y += 6;
+    });
+
+    doc.save("bullpug_trading_journal.pdf");
+    toast.success("PDF exported!");
   };
 
   const deleteTrade = async (tradeId) => {
