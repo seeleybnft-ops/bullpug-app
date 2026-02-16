@@ -18,19 +18,37 @@ export default function BettingArena() {
   const { t } = useTranslation();
   const [tab, setTab] = useState("coin-toss");
   const [config, setConfig] = useState({ rake_percent: 2.5, distribution_wallet: "", min_bet_sol: 0.01, max_bet_sol: 10 });
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   useEffect(() => {
     axios.get(`${API}/betting/config`).then(r => setConfig(r.data)).catch(() => {});
   }, []);
+
+  const toggleSound = () => {
+    const newValue = !soundOn;
+    setSoundOn(newValue);
+    setSoundEnabled(newValue);
+    if (newValue) playSoundIfEnabled('click');
+  };
 
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
       <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="arena-title">
-            {t('betting.title').split(' ')[0]} <span className="text-[#00FFA3] neon-text">{t('betting.title').split(' ')[1] || 'Arena'}</span>
-          </h1>
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="arena-title">
+              {t('betting.title').split(' ')[0]} <span className="text-[#00FFA3] neon-text">{t('betting.title').split(' ')[1] || 'Arena'}</span>
+            </h1>
+            <button
+              onClick={toggleSound}
+              data-testid="sound-toggle"
+              className="p-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-[#00FFA3]/50 transition-all"
+              title={soundOn ? "Mute sounds" : "Enable sounds"}
+            >
+              {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+          </div>
           <p className="text-slate-500 text-sm">{t('betting.subtitle', { rake: config.rake_percent })}</p>
           <div className="flex items-center justify-center gap-3 mt-3">
             <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px]">
