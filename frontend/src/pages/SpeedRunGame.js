@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ const W = 800, H = 340, GROUND_Y = 270, PLAYER_W = 50, PLAYER_H = 50;
 const GRAVITY = 0.7, JUMP_FORCE = -13, DOUBLE_JUMP_FORCE = -11;
 
 export default function SpeedRunGame() {
+  const { t } = useTranslation();
   const canvasRef = useRef(null);
   const [gameState, setGameState] = useState("idle");
   const [score, setScore] = useState(0);
