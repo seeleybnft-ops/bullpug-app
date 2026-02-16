@@ -57,6 +57,40 @@ class CoinTossFlip(BaseModel):
     choice: str
     wallet_address: Optional[str] = None
 
+# P2P Coin Flip Challenge Models
+class CreateChallengeRequest(BaseModel):
+    bet_amount_sol: float
+    choice: str  # heads or tails
+    wallet_address: str
+    display_name: str = "Anonymous Guardian"
+
+class AcceptChallengeRequest(BaseModel):
+    challenge_id: str
+    wallet_address: str
+    display_name: str = "Anonymous Guardian"
+    client_seed: str
+
+# P2P Pot Models
+class P2PPotJoinRequest(BaseModel):
+    bet_amount_sol: float
+    wallet_address: str
+    display_name: str = "Anonymous Guardian"
+    tx_signature: Optional[str] = None
+
+# Forum Models
+class CreatePostRequest(BaseModel):
+    title: str
+    content: str
+    author_wallet: str
+    author_name: str = "Anonymous"
+    category: str = "general"
+
+class CreateReplyRequest(BaseModel):
+    post_id: str
+    content: str
+    author_wallet: str
+    author_name: str = "Anonymous"
+
 class PotJoinRequest(BaseModel):
     bet_amount: float
     wallet_address: Optional[str] = None
