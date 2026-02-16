@@ -18,6 +18,8 @@ import SpeedRunGame from "@/pages/SpeedRunGame";
 import ReflectionsCalculator from "@/pages/ReflectionsCalculator";
 import TradingJournal from "@/pages/TradingJournal";
 import Forum from "@/pages/Forum";
+import AdminPanel from "@/pages/AdminPanel";
+import Messages from "@/pages/Messages";
 
 function App() {
   const endpoint = useMemo(
