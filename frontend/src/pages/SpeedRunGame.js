@@ -132,13 +132,8 @@ export default function SpeedRunGame() {
     playSoundIfEnabled('click');
 
     const loop = () => {
-      console.log("Loop called");
       const g = gameRef.current;
-      if (!g || !g.running) {
-        console.log("Game loop stopped - g:", !!g, "running:", g?.running);
-        return;
-      }
-      if (g.frame === 0) console.log("First frame, ctx:", !!ctx);
+      if (!g || !g.running) return;
       g.frame++;
       g.difficulty = 1 + g.frame * 0.0003;
       g.speed = 4.5 + g.difficulty * 1.5;
