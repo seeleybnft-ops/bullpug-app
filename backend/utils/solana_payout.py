@@ -122,12 +122,12 @@ async def send_sol_payout(
         
         recent_blockhash = blockhash_resp.value.blockhash
         
-        # Create transfer instruction
+        # Create transfer instruction (recipient gets exact payout_lamports)
         transfer_ix = transfer(
             TransferParams(
                 from_pubkey=escrow_keypair.pubkey(),
                 to_pubkey=recipient_pubkey,
-                lamports=lamports
+                lamports=payout_lamports
             )
         )
         
@@ -146,6 +146,7 @@ async def send_sol_payout(
         if tx_resp.value:
             tx_signature = str(tx_resp.value)
             logger.info(f"Payout sent! {amount_sol} SOL to {recipient_wallet}. TX: {tx_signature}")
+            logger.info(f"Remaining escrow balance: ~{(escrow_balance - total_required)/LAMPORTS_PER_SOL:.6f} SOL")
             return True, tx_signature
         else:
             return False, "Transaction failed - no signature returned"
@@ -154,6 +155,11 @@ async def send_sol_payout(
         error_msg = f"Payout failed: {str(e)}"
         logger.error(error_msg)
         return False, error_msg
+
+
+def get_tx_fee_sol() -> float:
+    """Get the transaction fee in SOL."""
+    return TOTAL_TX_FEE_LAMPORTS / LAMPORTS_PER_SOL
 
 
 def get_escrow_balance() -> Optional[float]:
