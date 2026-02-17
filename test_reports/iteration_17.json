@@ -1,0 +1,115 @@
+{
+  "summary": "Iteration 17: Verified pot and admin router modular refactoring. All 18 backend tests PASS. Pot state is correctly shared between routers. Frontend pot tab loads correctly with enhanced waiting UI. WebSocket connection fails externally (wss://...) but works locally (ws://localhost:8001). server.py reduced from 2068 to 1585 lines (23% reduction).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/ws/pot",
+        "issue": "WebSocket connection fails externally via wss:// but works locally. Frontend falls back to REST API polling.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "WebSocket pot updates",
+        "issue": "WebSocket connection to wss://space-pug-beta.preview.emergentagent.com/ws/pot fails externally. Frontend console shows 'WebSocket is closed before the connection is established'. App gracefully falls back to REST API.",
+        "affected_selectors": []
+      }
+    ],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/betting/pot - returns pot status with all required fields",
+    "Backend: GET /api/betting/pot - includes remaining_seconds field",
+    "Backend: POST /api/betting/pot/join - requires wallet address (400)",
+    "Backend: POST /api/betting/pot/join - validates minimum bet 0.01 SOL",
+    "Backend: POST /api/betting/pot/join - rejects negative/zero bets",
+    "Backend: POST /api/betting/pot/join - successful join with valid data",
+    "Backend: POST /api/betting/pot/join - countdown starts when 2 participants join",
+    "Backend: GET /api/admin/check/{wallet} - identifies admin wallet correctly",
+    "Backend: GET /api/admin/check/{wallet} - identifies non-admin correctly",
+    "Backend: GET /api/admin/dashboard - returns full dashboard stats for admin",
+    "Backend: GET /api/admin/dashboard - rejects unauthorized access (403)",
+    "Backend: GET /api/admin/challenges - returns challenges list for admin",
+    "Backend: GET /api/admin/challenges - rejects unauthorized access (403)",
+    "Backend: POST /api/admin/pot/draw - requires at least 2 entries",
+    "Backend: POST /api/admin/pot/draw - rejects non-admin wallet (403)",
+    "Backend: Shared state - pot data consistent across pot and admin routers",
+    "Backend: GET /api/betting/config - returns all config fields correctly",
+    "Backend: POST /api/admin/pot/draw - admin force draw with 2+ entries works (pot reset after)",
+    "Frontend: Pot tab 'Be the first to join!' message displays (0 entries)",
+    "Frontend: Pot tab '0/2 players' progress indicator",
+    "Frontend: Pot tab 'No entries yet. Be the first!' message",
+    "Frontend: Pot tab Join Pot button visible",
+    "Frontend: Pot tab bet amount input with quick amount buttons",
+    "WebSocket: /ws/pot works locally on port 8001"
+  ],
+  "backend_test_results": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "test_file": "/app/backend/tests/test_pot_admin_refactor.py"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pot_admin_refactor.py",
+    "/app/test_reports/pytest/pytest_pot_admin_refactor.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WebSocket routing via Kubernetes ingress may not support external wss:// connections - this is an infrastructure issue, not code. Frontend gracefully handles this."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pot_admin_refactor.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Created TEST_* pot entries during countdown trigger test (cleaned up by force draw)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 17 verified the pot/admin router refactoring: (1) state/pot_state.py provides shared pot state via get_pot(), reset_pot(), update_pot(). (2) routers/pot.py handles GET /api/betting/pot and POST /api/betting/pot/join with proper validation. (3) routers/admin.py handles GET /api/admin/check/{wallet}, GET /api/admin/dashboard, GET /api/admin/challenges, POST /api/admin/pot/draw with authorization. (4) WebSocket /ws/pot works locally but fails externally due to wss routing - frontend falls back to REST API. (5) server.py now 1585 lines (down from 2068).",
+  "features_verified": {
+    "pot_router": {
+      "location": "/app/backend/routers/pot.py",
+      "endpoints": [
+        "GET /api/betting/pot - returns pot status with entries, countdown, rake",
+        "POST /api/betting/pot/join - join pot with validation (min bet, wallet required)",
+        "POST /api/betting/pot/draw - draw winner (called internally)"
+      ],
+      "shared_state": "Uses state/pot_state.py get_pot(), reset_pot()"
+    },
+    "admin_router": {
+      "location": "/app/backend/routers/admin.py",
+      "endpoints": [
+        "GET /api/admin/check/{wallet} - check if wallet is admin",
+        "GET /api/admin/dashboard - dashboard stats (authorized only)",
+        "GET /api/admin/challenges - list challenges (authorized only)",
+        "POST /api/admin/pot/draw - force draw pot (authorized only, needs 2 entries)"
+      ],
+      "shared_state": "Uses state/pot_state.py get_pot() for current_pot in dashboard"
+    },
+    "shared_state_module": {
+      "location": "/app/backend/state/pot_state.py",
+      "exports": [
+        "create_fresh_pot() - creates new pot dict",
+        "get_pot() - returns active_pot",
+        "reset_pot() - resets to fresh pot",
+        "update_pot(updates) - updates pot with dict"
+      ]
+    },
+    "websocket": {
+      "endpoint": "/ws/pot",
+      "status": "Works locally (ws://localhost:8001), fails externally (wss://...)",
+      "fallback": "Frontend gracefully falls back to REST API polling"
+    },
+    "server_py_reduction": {
+      "before": "2068 lines",
+      "after": "1585 lines",
+      "reduction": "483 lines (23%)"
+    }
+  }
+}
