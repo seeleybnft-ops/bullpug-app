@@ -480,8 +480,74 @@ export default function SpeedRunGame() {
       g.collectibles = g.collectibles.filter(c => {
         c.depth += depthSpeed;
         c.glow += 0.15;
+        
+        // Magnet effect - pull mooncakes towards player
+        if (g.activePowerups.magnet && Date.now() < g.activePowerups.magnet.endTime) {
+          if (c.depth > 0.5 && c.depth < 1.1) {
+            // Gradually move mooncake towards player's lane
+            const playerLane = g.player.lane;
+            if (c.lane !== playerLane) {
+              c.lane += (playerLane - c.lane) * 0.05;
+            }
+          }
+        }
+        
         return c.depth < 1.3 && !c.collected;
       });
+
+      // Move power-ups
+      g.powerups = g.powerups.filter(p => {
+        p.depth += depthSpeed;
+        p.glow += 0.12;
+        p.sparklePhase += 0.15;
+        p.rotation += 0.03;
+        return p.depth < 1.3 && !p.collected;
+      });
+
+      // Update background elements based on speed
+      const bgSpeed = g.speed * 0.3;
+      
+      // Move stars with parallax
+      g.stars.forEach(star => {
+        star.x -= bgSpeed * star.speed * (1 - star.z * 0.5);
+        star.twinkle += 0.05;
+        if (star.x < -10) {
+          star.x = W + 10;
+          star.y = Math.random() * HORIZON_Y * 1.5;
+        }
+      });
+      
+      // Move nebulas
+      g.nebulas.forEach(nebula => {
+        nebula.x -= bgSpeed * nebula.speed * (1 - nebula.z * 0.3);
+        if (nebula.x < -nebula.size) {
+          nebula.x = W + nebula.size;
+          nebula.y = Math.random() * HORIZON_Y;
+          nebula.hue = (nebula.hue + 30) % 360;
+        }
+      });
+      
+      // Move cosmic objects (distant galaxies/planets)
+      g.cosmicObjects.forEach(obj => {
+        obj.x -= bgSpeed * obj.speed * 0.3;
+        obj.rotation += 0.002;
+        if (obj.x < -obj.size) {
+          obj.x = W + obj.size;
+          obj.y = 20 + Math.random() * (HORIZON_Y - 40);
+          obj.hue = Math.random() * 360;
+        }
+      });
+      
+      // Update background hue based on stage
+      const stageTheme = STAGE_BACKGROUNDS[g.stage];
+      if (stageTheme.hue === -1) {
+        // Rainbow effect for stage 5
+        g.backgroundHue = (g.frame * 0.5) % 360;
+      } else {
+        // Smoothly transition to stage hue
+        const targetHue = stageTheme.hue;
+        g.backgroundHue += (targetHue - g.backgroundHue) * 0.02;
+      }
 
       // Update particles
       g.particles = g.particles.filter(p => {
