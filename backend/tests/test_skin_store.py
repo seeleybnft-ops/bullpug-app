@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ethereal-skin-test.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://space-pug-beta.preview.emergentagent.com').rstrip('/')
 
 class TestSkinsAPI:
     """Tests for /api/skins/* endpoints"""

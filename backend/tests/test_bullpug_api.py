@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ethereal-skin-test.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://space-pug-beta.preview.emergentagent.com')
 BASE_URL = BASE_URL.rstrip('/')
 
 
