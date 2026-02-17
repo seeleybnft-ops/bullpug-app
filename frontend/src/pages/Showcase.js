@@ -452,6 +452,86 @@ export default function Showcase() {
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowShareModal(false)}>
+          <div 
+            className="bg-gradient-to-br from-[#0F0F1A] to-[#1A1A2E] rounded-2xl p-6 max-w-md w-full border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-[#D946EF]" /> Share Collection
+              </h3>
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Share Preview */}
+            <div className="bg-black/30 rounded-xl p-4 mb-6 border border-white/5">
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{shareData?.share_text}</p>
+            </div>
+
+            {/* Share Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <Button 
+                onClick={shareToTwitter}
+                className="bg-[#1DA1F2] hover:bg-[#1DA1F2]/80 text-white"
+                data-testid="share-twitter-btn"
+              >
+                <Twitter className="w-4 h-4 mr-2" /> Twitter/X
+              </Button>
+              <Button 
+                onClick={shareToTelegram}
+                className="bg-[#0088cc] hover:bg-[#0088cc]/80 text-white"
+                data-testid="share-telegram-btn"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" /> Telegram
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                onClick={copyShareLink}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/5"
+                data-testid="copy-link-btn"
+              >
+                <Link2 className="w-4 h-4 mr-2" /> Copy Link
+              </Button>
+              <Button 
+                onClick={copyShareText}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/5"
+                data-testid="copy-text-btn"
+              >
+                <Copy className="w-4 h-4 mr-2" /> Copy Text
+              </Button>
+            </div>
+
+            {/* Stats Summary */}
+            {shareData?.stats && (
+              <div className="mt-6 pt-4 border-t border-white/10">
+                <p className="text-xs text-slate-500 mb-2">Your collection stats:</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-[#00FFA3]">{shareData.stats.total_owned}/{shareData.stats.total_skins} skins</span>
+                  <span className="text-slate-400">{shareData.stats.completion_percent}% complete</span>
+                  {shareData.stats.has_ethereal && (
+                    <Badge className="bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                      <Star className="w-3 h-3 mr-1" /> Mythic
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
