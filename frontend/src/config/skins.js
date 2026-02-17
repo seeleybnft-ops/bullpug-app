@@ -11,6 +11,18 @@ export const SKINS = [
     color: "#00FFA3"
   },
   {
+    id: "ethereal",
+    name: "Ethereal",
+    description: "Mythic cosmic guardian - Unlocked by collecting all skins",
+    image: "https://customer-assets.emergentagent.com/job_b50eda93-3e28-4d4f-b3a4-f9545d162331/artifacts/nyk7s5uc_Ethereal.jpg",
+    bonusPercent: 10,
+    price: 0,
+    rarity: "mythic",
+    color: "#E8D5FF",
+    achievement: true,
+    unlockRequirement: "Own all 10 purchasable skins"
+  },
+  {
     id: "diamond",
     name: "Diamond",
     description: "Crystal-clear perfection with maximum sparkle",
@@ -117,7 +129,11 @@ export const RARITY_COLORS = {
   uncommon: { bg: "bg-green-500/10", border: "border-green-500/30", text: "text-green-400" },
   rare: { bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400" },
   epic: { bg: "bg-purple-500/10", border: "border-purple-500/30", text: "text-purple-400" },
-  legendary: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400" }
+  legendary: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400" },
+  mythic: { bg: "bg-pink-500/10", border: "border-pink-500/30", text: "text-pink-300" }
 };
+
+// List of purchasable skin IDs (excludes default and achievement skins)
+export const PURCHASABLE_SKIN_IDS = SKINS.filter(s => s.price > 0 && !s.achievement).map(s => s.id);
 
 export const getSkinById = (id) => SKINS.find(s => s.id === id) || SKINS[0];
