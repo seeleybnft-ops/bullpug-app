@@ -4,8 +4,8 @@ from fastapi import APIRouter
 import secrets
 from datetime import datetime, timezone, timedelta
 
-from ..utils.database import db
-from ..services.auth_service import verify_wallet_signature
+from utils.database import db
+from services.auth_service import verify_wallet_signature
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
