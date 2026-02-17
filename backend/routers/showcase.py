@@ -257,3 +257,61 @@ async def get_showcase(wallet_address: str):
             "missing_for_ethereal": len(PURCHASABLE_SKIN_IDS) - len(set(owned_skin_ids) & set(PURCHASABLE_SKIN_IDS))
         }
     }
+
+
+@router.get("/share-text/{wallet_address}")
+async def get_share_text(wallet_address: str):
+    """Generate share text for Twitter/X with collection stats."""
+    # Get owned skins
+    owned = await db.skin_purchases.find(
+        {"wallet_address": wallet_address, "status": "completed"},
+        {"_id": 0, "skin_id": 1}
+    ).to_list(100)
+    
+    owned_skin_ids = [p["skin_id"] for p in owned]
+    
+    # Get settings for display name
+    settings = await db.showcases.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0, "display_name": 1}
+    )
+    display_name = settings.get("display_name", f"Collector_{wallet_address[:6]}") if settings else f"Collector_{wallet_address[:6]}"
+    
+    # Calculate stats
+    total_owned = len(owned_skin_ids) + 1  # +1 for default
+    has_ethereal = "ethereal" in owned_skin_ids
+    completion = round((total_owned / len(SKINS_CATALOG)) * 100, 1)
+    
+    # Count rarities
+    mythic_count = 1 if has_ethereal else 0
+    legendary_count = len([s for s in owned_skin_ids if s in ["diamond", "gold"]])
+    
+    # Build share text
+    if has_ethereal:
+        share_text = f"🏆 {display_name} unlocked the MYTHIC Ethereal skin on @BullpugSOL!\n\n"
+        share_text += f"✨ Collection: {total_owned}/{len(SKINS_CATALOG)} skins ({completion}%)\n"
+        share_text += f"💎 Mythic: {mythic_count} | Legendary: {legendary_count}\n\n"
+        share_text += f"Check out my collection and start yours! #Bullpug #Solana #NFT"
+    elif completion >= 50:
+        share_text = f"🔥 {display_name} is collecting skins on @BullpugSOL!\n\n"
+        share_text += f"✨ Progress: {total_owned}/{len(SKINS_CATALOG)} skins ({completion}%)\n"
+        share_text += f"💎 Legendary skins: {legendary_count}\n"
+        share_text += f"🎯 {len(SKINS_CATALOG) - total_owned} more to unlock MYTHIC Ethereal!\n\n"
+        share_text += f"Join the hunt! #Bullpug #Solana"
+    else:
+        share_text = f"🚀 {display_name} started collecting Bullpug skins!\n\n"
+        share_text += f"✨ Collection: {total_owned}/{len(SKINS_CATALOG)} skins\n"
+        share_text += f"🎯 Goal: Collect all skins to unlock the MYTHIC Ethereal!\n\n"
+        share_text += f"Play the Speed Run game @BullpugSOL #Bullpug #Solana"
+    
+    return {
+        "share_text": share_text,
+        "stats": {
+            "total_owned": total_owned,
+            "total_skins": len(SKINS_CATALOG),
+            "completion_percent": completion,
+            "has_ethereal": has_ethereal
+        },
+        "hashtags": ["Bullpug", "Solana", "NFT", "Gaming"],
+        "mentions": ["@BullpugSOL"]
+    }
