@@ -1983,7 +1983,10 @@ export default function SpeedRunGame() {
           </div>
 
           {/* Leaderboard */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
+            {/* Jackpot Display */}
+            <JackpotDisplay />
+            
             <div className="glass-card rounded-2xl p-4">
               <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
                 <span className="text-[#FFD700]">🏆</span> WEEKLY LEADERBOARD
