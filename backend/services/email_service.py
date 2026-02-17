@@ -4,7 +4,7 @@ import logging
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from datetime import datetime, timezone
-from ..utils.config import SENDGRID_API_KEY, SENDER_EMAIL
+from utils.config import SENDGRID_API_KEY, SENDER_EMAIL
 
 logger = logging.getLogger(__name__)
 
