@@ -1585,7 +1585,9 @@ export default function SpeedRunGame() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, startGame]);
 
-  // Touch controls
+  // Touch controls with swipe support
+  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
+  
   const handleTouchStart = (e) => {
     if (gameState !== "playing") {
       startGame();
@@ -1594,12 +1596,63 @@ export default function SpeedRunGame() {
     
     const touch = e.touches[0];
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const third = rect.width / 3;
+    touchStartRef.current = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+      time: Date.now()
+    };
+  };
+  
+  const handleTouchMove = (e) => {
+    if (gameState !== "playing") return;
+    e.preventDefault();
+  };
+  
+  const handleTouchEnd = (e) => {
+    if (gameState !== "playing") return;
     
-    if (x < third) keysRef.current.left = true;
-    else if (x > third * 2) keysRef.current.right = true;
-    else keysRef.current.jump = true;
+    const touch = e.changedTouches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const endX = touch.clientX - rect.left;
+    const endY = touch.clientY - rect.top;
+    
+    const deltaX = endX - touchStartRef.current.x;
+    const deltaY = endY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    
+    const minSwipeDistance = 30;
+    const maxSwipeTime = 500;
+    
+    if (deltaTime < maxSwipeTime) {
+      // Swipe detection
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+        // Horizontal swipe - change lane
+        if (deltaX > 0) {
+          keysRef.current.right = true;
+          setTimeout(() => keysRef.current.right = false, 100);
+        } else {
+          keysRef.current.left = true;
+          setTimeout(() => keysRef.current.left = false, 100);
+        }
+      } else if (deltaY < -minSwipeDistance) {
+        // Swipe up - jump
+        keysRef.current.jump = true;
+        setTimeout(() => keysRef.current.jump = false, 100);
+      } else if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+        // Tap - also jump (or use position for lane change)
+        const third = rect.width / 3;
+        if (touchStartRef.current.x < third) {
+          keysRef.current.left = true;
+          setTimeout(() => keysRef.current.left = false, 100);
+        } else if (touchStartRef.current.x > third * 2) {
+          keysRef.current.right = true;
+          setTimeout(() => keysRef.current.right = false, 100);
+        } else {
+          keysRef.current.jump = true;
+          setTimeout(() => keysRef.current.jump = false, 100);
+        }
+      }
+    }
   };
 
   useEffect(() => {
