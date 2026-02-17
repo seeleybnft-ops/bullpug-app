@@ -217,29 +217,29 @@ export default function Showcase() {
                     </div>
                   </div>
                   
-                  {isOwnShowcase && (
-                    <div className="flex gap-2">
-                      {editing ? (
-                        <>
-                          <Button onClick={saveSettings} size="sm" className="bg-[#00FFA3] text-black">
-                            Save
-                          </Button>
-                          <Button onClick={() => setEditing(false)} size="sm" variant="outline" className="border-white/20 text-white">
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        <>
+                  <div className="flex gap-2">
+                    {isOwnShowcase && editing ? (
+                      <>
+                        <Button onClick={saveSettings} size="sm" className="bg-[#00FFA3] text-black">
+                          Save
+                        </Button>
+                        <Button onClick={() => setEditing(false)} size="sm" variant="outline" className="border-white/20 text-white">
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {isOwnShowcase && (
                           <Button onClick={() => setEditing(true)} size="sm" variant="outline" className="border-white/20 text-white">
                             <Edit2 className="w-4 h-4 mr-1" /> Edit
                           </Button>
-                          <Button onClick={openShareModal} size="sm" className="bg-[#D946EF] text-white" data-testid="share-btn">
-                            <Share2 className="w-4 h-4 mr-1" /> Share
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )}
+                        )}
+                        <Button onClick={openShareModal} size="sm" className="bg-[#D946EF] text-white" data-testid="share-btn">
+                          <Share2 className="w-4 h-4 mr-1" /> Share
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 {editing ? (
