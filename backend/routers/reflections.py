@@ -2,81 +2,56 @@
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
 
 router = APIRouter(prefix="/reflections", tags=["reflections"])
 
-# Token constants (can be moved to config if needed)
-TOTAL_SUPPLY = 100_000_000_000  # 100B tokens
-TOKEN_PRICE_USD = 0.000001  # Default placeholder price
 
-
-class ReflectionsCalculateRequest(BaseModel):
+class ReflectionsCalcRequest(BaseModel):
     token_holdings: float
-    volume_24h: float = 100000
-    reflection_rate: float = 0.8  # Blowfish: 1% fee × 80% to holders = 0.8%
-    token_price: Optional[float] = None
+    volume_24h: float = 89000
+    reflection_rate: float = 2.0
 
 
 @router.post("/calculate")
-async def calculate_reflections(data: ReflectionsCalculateRequest):
+async def calculate_reflections(data: ReflectionsCalcRequest):
     """Calculate reflections based on Blowfish fee structure."""
-    if data.token_holdings <= 0:
-        return {
-            "holdings": 0,
-            "holder_share_percent": 0,
-            "daily": {"tokens": 0, "usd": 0},
-            "weekly": {"tokens": 0, "usd": 0},
-            "monthly": {"tokens": 0, "usd": 0},
-            "yearly": {"tokens": 0, "usd": 0},
-            "estimated_apy": 0,
-            "volume_24h": data.volume_24h,
-            "reflection_rate": data.reflection_rate,
-            "price_usd": data.token_price or TOKEN_PRICE_USD
-        }
+    # Tokenomics constants
+    total_supply = 1_000_000_000
+    circulating_supply = 800_000_000
     
-    price = data.token_price or TOKEN_PRICE_USD
-    holder_share = data.token_holdings / TOTAL_SUPPLY
+    # Calculate holder's share of circulating supply
+    holder_share = data.token_holdings / circulating_supply
     
-    # Daily reflection pool based on volume and reflection rate
-    daily_pool_usd = data.volume_24h * (data.reflection_rate / 100)
-    daily_reflections_usd = daily_pool_usd * holder_share
-    daily_reflections_tokens = daily_reflections_usd / price if price > 0 else 0
+    # Reflections are distributed from all transactions
+    daily_volume = data.volume_24h
+    daily_reflections_pool = daily_volume * (data.reflection_rate / 100)
     
-    # Time projections
-    weekly_usd = daily_reflections_usd * 7
-    monthly_usd = daily_reflections_usd * 30
-    yearly_usd = daily_reflections_usd * 365
+    # Holder's daily reflections based on their share
+    daily_reflections_usd = daily_reflections_pool * holder_share
+    weekly_reflections_usd = daily_reflections_usd * 7
+    monthly_reflections_usd = daily_reflections_usd * 30
+    yearly_reflections_usd = daily_reflections_usd * 365
     
-    weekly_tokens = daily_reflections_tokens * 7
-    monthly_tokens = daily_reflections_tokens * 30
-    yearly_tokens = daily_reflections_tokens * 365
+    # Calculate in tokens (assuming current price)
+    price_usd = 0.00042
+    daily_reflections_tokens = daily_reflections_usd / price_usd if price_usd > 0 else 0
+    weekly_reflections_tokens = weekly_reflections_usd / price_usd if price_usd > 0 else 0
+    monthly_reflections_tokens = monthly_reflections_usd / price_usd if price_usd > 0 else 0
+    yearly_reflections_tokens = yearly_reflections_usd / price_usd if price_usd > 0 else 0
     
     # APY calculation
-    holdings_value = data.token_holdings * price
-    estimated_apy = (yearly_usd / holdings_value * 100) if holdings_value > 0 else 0
+    initial_value = data.token_holdings * price_usd
+    apy = (yearly_reflections_usd / initial_value * 100) if initial_value > 0 else 0
     
     return {
         "holdings": data.token_holdings,
         "holder_share_percent": round(holder_share * 100, 6),
-        "daily": {
-            "tokens": round(daily_reflections_tokens, 2),
-            "usd": round(daily_reflections_usd, 4)
-        },
-        "weekly": {
-            "tokens": round(weekly_tokens, 2),
-            "usd": round(weekly_usd, 4)
-        },
-        "monthly": {
-            "tokens": round(monthly_tokens, 2),
-            "usd": round(monthly_usd, 4)
-        },
-        "yearly": {
-            "tokens": round(yearly_tokens, 2),
-            "usd": round(yearly_usd, 4)
-        },
-        "estimated_apy": round(estimated_apy, 2),
         "volume_24h": data.volume_24h,
         "reflection_rate": data.reflection_rate,
-        "price_usd": price
+        "daily": {"usd": round(daily_reflections_usd, 4), "tokens": round(daily_reflections_tokens, 2)},
+        "weekly": {"usd": round(weekly_reflections_usd, 4), "tokens": round(weekly_reflections_tokens, 2)},
+        "monthly": {"usd": round(monthly_reflections_usd, 4), "tokens": round(monthly_reflections_tokens, 2)},
+        "yearly": {"usd": round(yearly_reflections_usd, 2), "tokens": round(yearly_reflections_tokens, 2)},
+        "estimated_apy": round(apy, 2),
+        "price_usd": price_usd
     }
