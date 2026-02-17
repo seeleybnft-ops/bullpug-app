@@ -590,28 +590,63 @@ export default function SpeedRunGame() {
         switch (o.type) {
           case 'meteor':
             ctx.rotate(o.rotation);
-            // Fiery core
-            const mGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.6);
-            mGrad.addColorStop(0, '#ffcc00');
-            mGrad.addColorStop(0.4, '#ff6600');
-            mGrad.addColorStop(0.8, '#cc2200');
-            mGrad.addColorStop(1, '#440000');
+            // Outer fire aura (pulsing)
+            const fireAura = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.85);
+            fireAura.addColorStop(0, 'transparent');
+            fireAura.addColorStop(0.5, `rgba(255, 80, 0, ${0.15 + Math.sin(o.pulse * 2) * 0.1})`);
+            fireAura.addColorStop(0.8, `rgba(255, 30, 0, ${0.25 + Math.sin(o.pulse * 3) * 0.15})`);
+            fireAura.addColorStop(1, 'transparent');
+            ctx.fillStyle = fireAura;
+            ctx.beginPath();
+            ctx.arc(0, 0, w * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Fiery core with enhanced gradient
+            const mGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.55);
+            mGrad.addColorStop(0, '#FFFFFF');
+            mGrad.addColorStop(0.2, '#FFFF00');
+            mGrad.addColorStop(0.4, '#FFA500');
+            mGrad.addColorStop(0.65, '#FF4500');
+            mGrad.addColorStop(0.85, '#CC0000');
+            mGrad.addColorStop(1, '#660000');
             ctx.fillStyle = mGrad;
             ctx.beginPath();
             ctx.ellipse(0, 0, w * 0.5, h * 0.45, 0, 0, Math.PI * 2);
             ctx.fill();
-            // Fire trail going UP (toward horizon since meteor comes down)
-            ctx.fillStyle = `rgba(255, 100, 0, ${0.4 + Math.sin(o.pulse) * 0.2})`;
-            ctx.beginPath();
-            ctx.moveTo(-w * 0.3, -h * 0.2);
-            ctx.quadraticCurveTo(0, -h * 1.2, w * 0.3, -h * 0.2);
-            ctx.closePath();
-            ctx.fill();
+            
+            // Multiple fire trails going UP (toward horizon)
+            for (let t = 0; t < 3; t++) {
+              const trailOffset = (t - 1) * w * 0.15;
+              const trailAlpha = 0.5 + Math.sin(o.pulse + t) * 0.25;
+              ctx.fillStyle = `rgba(255, ${80 + t * 30}, 0, ${trailAlpha})`;
+              ctx.beginPath();
+              ctx.moveTo(trailOffset - w * 0.15, -h * 0.2);
+              ctx.quadraticCurveTo(trailOffset, -h * (1.0 + t * 0.2), trailOffset + w * 0.15, -h * 0.2);
+              ctx.closePath();
+              ctx.fill();
+            }
+            
+            // Fire embers/sparks
+            for (let s = 0; s < 4; s++) {
+              const sparkAngle = o.pulse * 2 + s * 1.5;
+              const sparkDist = w * (0.4 + Math.sin(sparkAngle) * 0.15);
+              const sparkX = Math.cos(sparkAngle) * sparkDist;
+              const sparkY = Math.sin(sparkAngle) * sparkDist * 0.7;
+              ctx.fillStyle = `rgba(255, ${200 + Math.floor(Math.random() * 55)}, 50, ${0.6 + Math.sin(sparkAngle * 2) * 0.4})`;
+              ctx.beginPath();
+              ctx.arc(sparkX, sparkY, 2 * scale, 0, Math.PI * 2);
+              ctx.fill();
+            }
             break;
             
           case 'debris':
             ctx.rotate(o.rotation * 1.5);
-            ctx.fillStyle = '#5a5a6a';
+            // Burning debris with fire effect
+            const debrisGrad = ctx.createLinearGradient(-w * 0.5, -h * 0.5, w * 0.5, h * 0.5);
+            debrisGrad.addColorStop(0, '#6a5a5a');
+            debrisGrad.addColorStop(0.5, '#4a4a5a');
+            debrisGrad.addColorStop(1, '#3a3a4a');
+            ctx.fillStyle = debrisGrad;
             ctx.beginPath();
             ctx.moveTo(-w * 0.4, -h * 0.2);
             ctx.lineTo(-w * 0.2, -h * 0.45);
@@ -621,33 +656,69 @@ export default function SpeedRunGame() {
             ctx.lineTo(-w * 0.35, h * 0.25);
             ctx.closePath();
             ctx.fill();
-            ctx.strokeStyle = '#8a8a9a';
+            // Fire edge glow
+            ctx.strokeStyle = `rgba(255, 100, 0, ${0.5 + Math.sin(o.pulse * 2) * 0.3})`;
+            ctx.lineWidth = 3 * scale;
+            ctx.stroke();
+            // Inner stroke
+            ctx.strokeStyle = '#9a8a8a';
             ctx.lineWidth = 1;
             ctx.stroke();
+            // Ember spots
+            for (let e = 0; e < 3; e++) {
+              const ex = (Math.sin(o.pulse + e * 2) - 0.5) * w * 0.3;
+              const ey = (Math.cos(o.pulse + e * 2) - 0.5) * h * 0.3;
+              ctx.fillStyle = `rgba(255, ${150 + e * 30}, 0, ${0.4 + Math.sin(o.pulse * 3 + e) * 0.3})`;
+              ctx.beginPath();
+              ctx.arc(ex, ey, 3 * scale, 0, Math.PI * 2);
+              ctx.fill();
+            }
             break;
             
           case 'blackhole':
+            // Outer danger glow
+            const bhOuterGlow = ctx.createRadialGradient(0, 0, w * 0.5, 0, 0, w * 0.85);
+            bhOuterGlow.addColorStop(0, 'transparent');
+            bhOuterGlow.addColorStop(0.5, `rgba(180, 0, 255, ${0.15 + Math.sin(o.pulse) * 0.1})`);
+            bhOuterGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = bhOuterGlow;
+            ctx.beginPath();
+            ctx.arc(0, 0, w * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+            
             // Event horizon
             const bhGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.6);
             bhGrad.addColorStop(0, '#000000');
-            bhGrad.addColorStop(0.5, '#1a0030');
-            bhGrad.addColorStop(0.8, '#4a0080');
+            bhGrad.addColorStop(0.4, '#0a0015');
+            bhGrad.addColorStop(0.6, '#2a0050');
+            bhGrad.addColorStop(0.85, '#5a00a0');
             bhGrad.addColorStop(1, 'transparent');
             ctx.fillStyle = bhGrad;
             ctx.beginPath();
             ctx.arc(0, 0, w * 0.6, 0, Math.PI * 2);
             ctx.fill();
-            // Accretion disk
-            ctx.strokeStyle = `rgba(200, 120, 255, ${0.6 + Math.sin(o.pulse * 2) * 0.3})`;
-            ctx.lineWidth = 2 * scale;
-            for (let ring = 0; ring < 3; ring++) {
+            // Accretion disk with fire colors
+            for (let ring = 0; ring < 4; ring++) {
+              const ringAlpha = 0.7 - ring * 0.1 + Math.sin(o.pulse * 2 + ring) * 0.2;
+              ctx.strokeStyle = `rgba(${220 + ring * 10}, ${100 - ring * 20}, 255, ${ringAlpha})`;
+              ctx.lineWidth = (3 - ring * 0.5) * scale;
               ctx.beginPath();
-              ctx.ellipse(0, 0, w * (0.45 + ring * 0.1), h * (0.15 + ring * 0.05), o.rotation * 2, 0, Math.PI * 2);
+              ctx.ellipse(0, 0, w * (0.42 + ring * 0.08), h * (0.14 + ring * 0.04), o.rotation * 2, 0, Math.PI * 2);
               ctx.stroke();
             }
             break;
             
           case 'satellite':
+            // Danger glow
+            const satGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.7);
+            satGlow.addColorStop(0, 'transparent');
+            satGlow.addColorStop(0.7, `rgba(255, 50, 50, ${0.1 + Math.sin(o.pulse * 2) * 0.08})`);
+            satGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = satGlow;
+            ctx.beginPath();
+            ctx.arc(0, 0, w * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            
             // Body
             ctx.fillStyle = '#7799bb';
             ctx.fillRect(-w * 0.2, -h * 0.35, w * 0.4, h * 0.7);
@@ -655,6 +726,10 @@ export default function SpeedRunGame() {
             ctx.fillStyle = '#2255aa';
             ctx.fillRect(-w * 0.5, -h * 0.15, w * 0.25, h * 0.3);
             ctx.fillRect(w * 0.25, -h * 0.15, w * 0.25, h * 0.3);
+            // Panel reflections
+            ctx.fillStyle = 'rgba(100, 180, 255, 0.3)';
+            ctx.fillRect(-w * 0.48, -h * 0.12, w * 0.1, h * 0.1);
+            ctx.fillRect(w * 0.35, -h * 0.12, w * 0.1, h * 0.1);
             // Antenna
             ctx.strokeStyle = '#aaccdd';
             ctx.lineWidth = 2 * scale;
@@ -662,42 +737,63 @@ export default function SpeedRunGame() {
             ctx.moveTo(0, -h * 0.35);
             ctx.lineTo(0, -h * 0.55);
             ctx.stroke();
-            // Blinking light
-            if (Math.sin(o.pulse * 3) > 0) {
-              ctx.fillStyle = '#ff0000';
+            // Blinking warning light
+            const lightOn = Math.sin(o.pulse * 4) > 0;
+            ctx.fillStyle = lightOn ? '#ff3333' : '#660000';
+            ctx.beginPath();
+            ctx.arc(0, -h * 0.55, 4 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            if (lightOn) {
+              ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
               ctx.beginPath();
-              ctx.arc(0, -h * 0.55, 3 * scale, 0, Math.PI * 2);
+              ctx.arc(0, -h * 0.55, 8 * scale, 0, Math.PI * 2);
               ctx.fill();
             }
             break;
             
           case 'alienship':
-            // UFO body
-            ctx.fillStyle = '#40e0d0';
+            // UFO danger aura
+            const ufoAura = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.7);
+            ufoAura.addColorStop(0, 'transparent');
+            ufoAura.addColorStop(0.6, `rgba(0, 255, 200, ${0.1 + Math.sin(o.pulse * 2) * 0.08})`);
+            ufoAura.addColorStop(1, 'transparent');
+            ctx.fillStyle = ufoAura;
+            ctx.beginPath();
+            ctx.arc(0, 0, w * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // UFO body with gradient
+            const ufoGrad = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+            ufoGrad.addColorStop(0, '#20b0a0');
+            ufoGrad.addColorStop(0.5, '#50f0e0');
+            ufoGrad.addColorStop(1, '#20b0a0');
+            ctx.fillStyle = ufoGrad;
             ctx.beginPath();
             ctx.ellipse(0, 0, w * 0.5, h * 0.25, 0, 0, Math.PI * 2);
             ctx.fill();
             // Dome
-            ctx.fillStyle = 'rgba(200, 255, 255, 0.5)';
+            ctx.fillStyle = 'rgba(200, 255, 255, 0.6)';
             ctx.beginPath();
             ctx.ellipse(0, -h * 0.15, w * 0.25, h * 0.2, 0, Math.PI, 0);
             ctx.fill();
-            // Lights
-            for (let i = 0; i < 5; i++) {
-              const lightPhase = o.pulse + (i / 5) * Math.PI * 2;
-              ctx.fillStyle = `rgba(255, 255, 100, ${0.5 + Math.sin(lightPhase * 2) * 0.5})`;
+            // Animated lights
+            for (let i = 0; i < 6; i++) {
+              const lightPhase = o.pulse * 3 + (i / 6) * Math.PI * 2;
+              const brightness = 0.4 + Math.sin(lightPhase) * 0.6;
+              ctx.fillStyle = `rgba(255, 255, ${150 + Math.floor(brightness * 105)}, ${brightness})`;
               ctx.beginPath();
-              ctx.arc((i - 2) * (w / 5), h * 0.15, 3 * scale, 0, Math.PI * 2);
+              ctx.arc((i - 2.5) * (w / 6), h * 0.12, 4 * scale * brightness, 0, Math.PI * 2);
               ctx.fill();
             }
-            // Beam
-            if (Math.sin(o.pulse) > 0.6) {
-              ctx.fillStyle = 'rgba(100, 255, 200, 0.25)';
+            // Beam (more visible)
+            if (Math.sin(o.pulse) > 0.4) {
+              const beamAlpha = 0.2 + Math.sin(o.pulse * 2) * 0.15;
+              ctx.fillStyle = `rgba(100, 255, 200, ${beamAlpha})`;
               ctx.beginPath();
-              ctx.moveTo(-w * 0.2, h * 0.25);
-              ctx.lineTo(-w * 0.4, h * 0.8);
-              ctx.lineTo(w * 0.4, h * 0.8);
-              ctx.lineTo(w * 0.2, h * 0.25);
+              ctx.moveTo(-w * 0.25, h * 0.25);
+              ctx.lineTo(-w * 0.5, h * 1.0);
+              ctx.lineTo(w * 0.5, h * 1.0);
+              ctx.lineTo(w * 0.25, h * 0.25);
               ctx.closePath();
               ctx.fill();
             }
