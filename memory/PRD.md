@@ -12,151 +12,50 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ---
 
-## ✅ All Features Complete
+## ✅ Latest Update: Feb 17, 2026 - Cosmic Runner Game Overhaul
 
-### Core Features
-- ✅ P2P Betting Arena (Coin Flip & Pot with real SOL)
-- ✅ Speed-Run Game with weekly leaderboard
-- ✅ Trading Journal with CSV/PDF export + cloud backup
-- ✅ Community Forum with categories
-- ✅ Direct Messaging via WebSockets
-- ✅ Admin Panel (wallet-restricted)
-- ✅ Push Notifications
-- ✅ Reflections Calculator
-- ✅ Multi-Language (English/Spanish)
-- ✅ Email Notifications (SendGrid)
-- ✅ Security (Rate limiting, wallet verification)
-- ✅ Sound Effects + Haptic Feedback
+### 🎮 Complete Game Transformation
+The Speed-Run game has been completely redesigned as **COSMIC RUNNER** - a Subway Surfers-style 3-lane endless runner:
 
----
+#### Gameplay Mechanics
+- **3-Lane System:** Players can switch between left/center/right lanes
+- **Controls:** A/D or Arrow Keys for lane switching, Space/ArrowUp for jump
+- **Progressive Difficulty:** 5 stages with increasingly challenging obstacles
 
-## 🆕 Latest Updates (Feb 17, 2026)
+#### Obstacle Types (by Stage)
+| Stage | Score Threshold | Obstacles |
+|-------|-----------------|-----------|
+| 1 | 0 | Meteors |
+| 2 | 500 | Meteors, Space Debris |
+| 3 | 1000 | + Black Holes |
+| 4 | 2000 | + Satellites |
+| 5 | 3000 | + Alien Ships |
 
-### ✅ Completed in This Session
+#### Visual Design
+- **Deep Space Background:** Black with stars and purple nebulas
+- **3D Perspective Runway:** Grid lines converging to vanishing point
+- **Glowing Edge Lines:** Teal/green energy borders
+- **Particle Effects:** Jump particles, collection effects, stage-up celebrations
 
-#### 1. Fixed Speed-Run Game (CORS Issue)
-- **Problem:** Game showed black canvas - assets failing to load due to CORS
-- **Root Cause:** External image URLs causing cross-origin issues
-- **Fix:** Downloaded assets locally to `/public/images/`
-- **Additional Fix:** Fixed React useEffect cleanup that was cancelling animation frames immediately
-- **Files Modified:** 
-  - `frontend/src/pages/SpeedRunGame.js` (useCallback/useEffect fix)
-  - `frontend/public/images/` (local assets)
-
-#### 2. Complete Backend Refactoring - server.py Cleanup
-- **Before:** ~1586 lines in server.py
-- **After:** 212 lines in server.py (86% reduction!)
-- **Architecture:** All business logic moved to modular routers
-
-### New Routers Created
-| Router | File | Endpoints |
-|--------|------|-----------|
-| newsletter | `routers/newsletter.py` | /newsletter/subscribe |
-| checkout | `routers/checkout.py` | /products, /checkout/session, /webhook/stripe |
-| governance | `routers/governance.py` | /governance/proposals, /governance/vote |
-| staking | `routers/staking.py` | /staking/simulate, /exit-simulator, /exit-simulator/monte-carlo |
-| wallet | `routers/wallet.py` | /wallet/balance |
-| escrow | `routers/escrow.py` | /escrow/deposit, /escrow/balance, /escrow/wallet |
-| tokenomics | `routers/tokenomics.py` | /tokenomics/stats |
-
-### All Active Routers (20 total)
-| Router | Endpoints | Status |
-|--------|-----------|--------|
-| betting | challenges, history | ✅ Active |
-| auth | sign-message, verify | ✅ Active |
-| email | subscribe, unsubscribe | ✅ Active |
-| leaderboard | get, submit | ✅ Active |
-| skins | catalog, owned, purchase, gift | ✅ Active |
-| forum | posts, replies, categories | ✅ Active |
-| messages | send, inbox, conversations | ✅ Active |
-| journal | trades, dashboard, backup, export | ✅ Active |
-| showcase | collection, leaderboard, share | ✅ Active |
-| notifications | list, read, subscribe | ✅ Active |
-| reflections | calculate | ✅ Active |
-| pot | status, join, draw | ✅ Active |
-| admin | dashboard, challenges, pot/draw | ✅ Active |
-| newsletter | subscribe | ✅ Active |
-| checkout | products, session, webhook | ✅ Active |
-| governance | proposals, vote | ✅ Active |
-| staking | simulate, exit-sim, monte-carlo | ✅ Active |
-| wallet | balance | ✅ Active |
-| escrow | deposit, balance, wallet | ✅ Active |
-| tokenomics | stats | ✅ Active |
-
-### server.py Now Contains Only
-- Application startup & configuration
-- Database initialization
-- CORS & middleware setup
-- Router registration
-- WebSocket handlers (dm, pot, notifications)
+#### New Character Sprite
+- Generated new Bullpug sprite with dark background for seamless blending
+- Cape-wearing bulldog with golden horns in pixel art style
+- Located at `/images/bullpug_sprite.png`
 
 ---
 
-## 📊 Code Architecture
+## 🎨 Skin Store Updates
 
-```
-/app/backend/
-├── server.py (212 lines - app setup only)
-├── routers/ (20 router files, ~3200 lines total)
-│   ├── admin.py
-│   ├── auth.py
-│   ├── betting.py
-│   ├── checkout.py
-│   ├── email.py
-│   ├── escrow.py
-│   ├── forum.py
-│   ├── governance.py
-│   ├── journal.py
-│   ├── leaderboard.py
-│   ├── messages.py
-│   ├── newsletter.py
-│   ├── notifications.py
-│   ├── pot.py
-│   ├── reflections.py
-│   ├── showcase.py
-│   ├── simulator.py
-│   ├── skins.py
-│   ├── staking.py
-│   ├── tokenomics.py
-│   └── wallet.py
-├── services/
-│   ├── auth_service.py
-│   ├── email_service.py
-│   └── state.py
-├── models/
-│   └── schemas.py
-├── state/
-│   └── pot_state.py
-└── utils/
-    ├── config.py
-    ├── database.py
-    ├── notifications.py
-    └── websocket_managers.py
-```
+### Display Improvements
+- Dark gradient backgrounds (no more transparency checkerboard)
+- Proper color tints for each skin variant
+- Drop shadow glow effects based on skin color
+- Rarity badges with icons (Crown for Legendary, Star for Mythic)
 
----
-
-## 📋 P0 Tasks - None
-
-## 📋 P1 Tasks - COMPLETED ✅
-- ✅ Fixed Speed-Run game CORS issue
-- ✅ Complete server.py cleanup (212 lines)
-- ✅ All endpoints modularized to routers
-
-## 📋 P2 Tasks - Future/Backlog
-- Re-enable Plushie Sales (Shop.js) - Hidden until ready
-- Re-enable NFT Gallery (NFTGallery.js) - Placeholder exists
-- Deployment to bullpug.com - Ready when user confirms
-
----
-
-## 🎮 In-Game Skin Store
-
-### Skins (10 purchasable + 1 default + 1 achievement)
-
+### 12 Available Skins
 | Skin | Bonus | Price | Rarity |
 |------|-------|-------|--------|
-| Guardian | 0% | Free | Default |
+| Guardian | 0% | Free | Common |
 | **Ethereal** | **+10%** | **Achievement** | **Mythic** |
 | Diamond | +5% | 0.05 SOL | Legendary |
 | Gold | +5% | 0.05 SOL | Legendary |
@@ -164,42 +63,110 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 | Heatmap | +3% | 0.03 SOL | Rare |
 | Radioactive | +3% | 0.03 SOL | Rare |
 | Zombie | +3% | 0.03 SOL | Rare |
-| Water | +2% | 0.02 SOL | Uncommon |
-| Fire | +2% | 0.02 SOL | Uncommon |
-| Robot | +1% | 0.01 SOL | Common |
-| Skeletal | +1% | 0.01 SOL | Common |
-
-### Ethereal Achievement Skin
-- **Unlock Requirement:** Own all 10 purchasable skins
-- **Bonus:** +10% points (highest in game)
-- **Rarity:** Mythic (pink/purple theme)
-
-### Skin Gifting System
-- Gift owned skins to other players
-- Gift history tracking
-- Notifications for both sender and receiver
+| Aqua | +2% | 0.02 SOL | Uncommon |
+| Inferno | +2% | 0.02 SOL | Uncommon |
+| Cyber | +1% | 0.01 SOL | Common |
+| Phantom | +1% | 0.01 SOL | Common |
 
 ---
 
-## 🎯 Key APIs Verified Working
+## ✅ Backend Architecture (Completed)
 
-- `/api/` - Root (OK)
-- `/api/tokenomics/stats` - Token stats (OK)
-- `/api/governance/proposals` - Governance (OK)
-- `/api/betting/config` - Betting config (OK)
-- `/api/products` - Shop products (OK)
-- `/api/leaderboard` - Game leaderboard (OK)
+### server.py Cleanup Complete
+- **Before:** ~1586 lines
+- **After:** 212 lines (86% reduction)
+- All business logic modularized into 20 routers
+
+### All Active Routers
+| Router | Endpoints |
+|--------|-----------|
+| betting | challenges, history |
+| auth | sign-message, verify |
+| email | subscribe, unsubscribe |
+| leaderboard | get, submit |
+| skins | catalog, owned, purchase, gift |
+| forum | posts, replies, categories |
+| messages | send, inbox, conversations |
+| journal | trades, dashboard, backup |
+| showcase | collection, leaderboard |
+| notifications | list, read, subscribe |
+| reflections | calculate |
+| pot | status, join, draw |
+| admin | dashboard, challenges |
+| newsletter | subscribe |
+| checkout | products, session, webhook |
+| governance | proposals, vote |
+| staking | simulate, exit-sim |
+| wallet | balance |
+| escrow | deposit, balance |
+| tokenomics | stats |
 
 ---
 
-## 📝 Admin Credentials
+## 📊 Code Architecture
+
+```
+/app/
+├── backend/
+│   ├── server.py (212 lines - app setup only)
+│   ├── routers/ (20 router files)
+│   ├── services/
+│   ├── models/
+│   └── utils/
+├── frontend/
+│   ├── public/images/
+│   │   ├── bullpug_sprite.png (NEW - dark bg character)
+│   │   └── mooncake.png
+│   ├── src/
+│   │   ├── pages/
+│   │   │   └── SpeedRunGame.js (REWRITTEN - 3-lane game)
+│   │   ├── config/
+│   │   │   └── skins.js (UPDATED - new sprite paths)
+│   │   └── components/
+│   │       └── SkinStore.js (UPDATED - dark backgrounds)
+│   └── package.json
+└── memory/
+    └── PRD.md
+```
+
+---
+
+## 📋 Testing Status
+
+### Latest Test Report: iteration_18.json
+- **Frontend:** 100% pass rate (47 tests passed)
+- **Backend:** N/A (frontend-only testing)
+- All game mechanics verified working
+- Skin store, leaderboard, controls all functional
+
+---
+
+## 📋 Task Status
+
+### ✅ Completed This Session
+1. Fixed Speed-Run game (animation frame issue)
+2. Complete server.py cleanup (86% reduction)
+3. Transformed game to 3-lane Subway Surfers style
+4. Generated new character sprite with dark background
+5. Fixed skin store display (dark backgrounds)
+6. Progressive obstacle system (5 stages)
+7. Deep space visual theme
+
+### 📋 P2 Tasks - Future/Backlog
+- Re-enable Plushie Sales (Shop.js)
+- Re-enable NFT Gallery
+- Deployment to bullpug.com
+
+---
+
+## 🔑 Admin Credentials
 - **Admin Wallets:**
-  - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` (Fee Wallet)
-  - `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs` (Personal)
+  - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
+  - `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
 
 ---
 
 ## 🚀 Deployment Status
 - Ready for deployment to bullpug.com
-- Client-side Solana integration compatible with platform
 - All features tested and working
+- Client-side Solana integration compatible
