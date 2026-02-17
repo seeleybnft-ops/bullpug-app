@@ -1,6 +1,6 @@
 // Skin configuration for Speed Run game
-// Images hosted on Emergent static CDN to avoid CORS issues
-const BULLPUG_DEFAULT_IMG = "https://static.prod-images.emergentagent.com/jobs/b75b6322-24e6-4d16-a4ec-ae3ed31f0fe4/images/698272adccc7c6f29bcfad37f56c6f7059f383d8a3d70720a8582be4499db4a8.png";
+// Images served from public folder to avoid CORS issues
+const BULLPUG_DEFAULT_IMG = "/images/bullpug_default.png";
 
 export const SKINS = [
   {
