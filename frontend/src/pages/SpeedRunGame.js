@@ -1970,7 +1970,7 @@ export default function SpeedRunGame() {
                   </div>
                   <div className="flex items-center gap-1">
                     <p className="text-xs text-slate-500">Mooncakes</p>
-                    <p className="text-lg font-bold text-[#FFD700]">{totalMooncakes}</p>
+                    <p className="text-lg font-bold text-[#FFD700]">{gameState === 'playing' ? mooncakes : totalMooncakes}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500">
