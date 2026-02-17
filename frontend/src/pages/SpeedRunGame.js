@@ -179,21 +179,45 @@ export default function SpeedRunGame() {
     skinColor: currentSkin.color
   });
 
+  // Check if a lane/depth position is too close to existing objects
+  const isPositionClear = (g, lane, depth, minSeparation = 0.15) => {
+    // Check obstacles
+    for (const o of g.obstacles) {
+      if (o.lane === lane && Math.abs(o.depth - depth) < minSeparation) {
+        return false;
+      }
+    }
+    // Check collectibles
+    for (const c of g.collectibles) {
+      if (c.lane === lane && Math.abs(c.depth - depth) < minSeparation) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const spawnObstacle = (g) => {
     const stage = getCurrentStage(g.score);
     const types = OBSTACLE_STAGES[stage].types;
     const type = types[Math.floor(Math.random() * types.length)];
-    const lane = Math.floor(Math.random() * LANE_COUNT);
+    
+    // Try to find a clear lane (max 5 attempts)
+    let lane = Math.floor(Math.random() * LANE_COUNT);
+    for (let attempts = 0; attempts < 5; attempts++) {
+      if (isPositionClear(g, lane, 0, 0.18)) break;
+      lane = Math.floor(Math.random() * LANE_COUNT);
+    }
     
     let size = 40;
     let isFlying = false;
     
+    // LARGER obstacles - increased sizes by ~30%
     switch (type) {
-      case 'meteor': size = 35 + Math.random() * 15; break;
-      case 'debris': size = 25 + Math.random() * 15; break;
-      case 'blackhole': size = 50; break;
-      case 'satellite': size = 45; isFlying = Math.random() > 0.5; break;
-      case 'alienship': size = 55; isFlying = true; break;
+      case 'meteor': size = 50 + Math.random() * 20; break;      // Was 35-50, now 50-70
+      case 'debris': size = 35 + Math.random() * 20; break;      // Was 25-40, now 35-55
+      case 'blackhole': size = 65; break;                         // Was 50, now 65
+      case 'satellite': size = 58; isFlying = Math.random() > 0.5; break;  // Was 45, now 58
+      case 'alienship': size = 70; isFlying = true; break;        // Was 55, now 70
       default: break;
     }
     
@@ -209,13 +233,21 @@ export default function SpeedRunGame() {
     };
   };
 
-  const spawnCollectible = () => {
+  const spawnCollectible = (g) => {
+    // Try to find a clear lane (max 5 attempts)
+    let lane = Math.floor(Math.random() * LANE_COUNT);
+    for (let attempts = 0; attempts < 5; attempts++) {
+      if (isPositionClear(g, lane, 0, 0.18)) break;
+      lane = Math.floor(Math.random() * LANE_COUNT);
+    }
+    
     return {
-      lane: Math.floor(Math.random() * LANE_COUNT),
+      lane,
       depth: 0,
       collected: false,
       floatOffset: 30 + Math.random() * 20,
-      glow: Math.random() * Math.PI * 2
+      glow: Math.random() * Math.PI * 2,
+      sparkleParticles: [] // For sparkle effect
     };
   };
 
