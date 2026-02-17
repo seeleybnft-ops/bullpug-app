@@ -14,7 +14,7 @@ import SkinStore from "@/components/SkinStore";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const MOONCAKE_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/d1oc5e6f_image%20-%202026-02-17T071657.526.jpg";
+const MOONCAKE_IMG = "https://static.prod-images.emergentagent.com/jobs/b75b6322-24e6-4d16-a4ec-ae3ed31f0fe4/images/159b675b61684cc6a8b2e543f188685b679ef226b83759d64b25378ad6f0d652.png";
 
 const W = 800, H = 340, GROUND_Y = 270, PLAYER_W = 50, PLAYER_H = 50;
 const GRAVITY = 0.7, JUMP_FORCE = -13, DOUBLE_JUMP_FORCE = -11;
