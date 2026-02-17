@@ -25,6 +25,12 @@ SOLANA_RPC_URL = MAINNET_RPC
 # Lamports per SOL
 LAMPORTS_PER_SOL = 1_000_000_000
 
+# Solana transaction fee (base fee is 5000 lamports = 0.000005 SOL)
+# Adding buffer for priority fees and potential increases
+BASE_TX_FEE_LAMPORTS = 5000
+TX_FEE_BUFFER_LAMPORTS = 5000  # Extra buffer for safety
+TOTAL_TX_FEE_LAMPORTS = BASE_TX_FEE_LAMPORTS + TX_FEE_BUFFER_LAMPORTS  # 10000 lamports = 0.00001 SOL
+
 
 def get_escrow_keypair() -> Optional[Keypair]:
     """Load the escrow wallet keypair from environment."""
