@@ -267,7 +267,7 @@ Located in `/app/backend/routers/`:
 
 ---
 
-## 📊 Backend Refactoring Status
+## 📊 Backend Refactoring Status - COMPLETE ✅
 
 ### Routers Migrated and Active
 | Router | Location | Endpoints | Status |
@@ -283,15 +283,23 @@ Located in `/app/backend/routers/`:
 | showcase | `routers/showcase.py` | collection, leaderboard, share | ✅ Active |
 | notifications | `routers/notifications.py` | list, read, subscribe | ✅ Active |
 | reflections | `routers/reflections.py` | calculate | ✅ Active |
+| pot | `routers/pot.py` | status, join, draw | ✅ Active |
+| admin | `routers/admin.py` | dashboard, challenges, pot/draw | ✅ Active |
 
-### Routers Created But Not Active (Share State)
-| Router | Location | Reason |
-|--------|----------|--------|
-| pot | `routers/pot.py` | Uses `active_pot` shared with admin |
-| simulator | `routers/simulator.py` | Different API model from existing |
-| admin | `routers/admin.py` | Uses `active_pot` from server.py |
+### Shared State Module
+- `state/pot_state.py` - Centralized pot game state shared between pot and admin routers
 
 ### server.py Reduction Progress
 - **Original:** ~2800 lines
-- **Current:** 2068 lines  
-- **Removed:** 732 lines (26% reduction)
+- **Current:** 1585 lines  
+- **Total Removed:** ~1215 lines (43% reduction)
+
+### Files Still in server.py
+- Application startup & configuration
+- Database initialization
+- CORS & middleware setup
+- Governance endpoints
+- Exit simulator endpoints  
+- WebSocket handlers
+- Escrow endpoints
+- Remaining utility models
