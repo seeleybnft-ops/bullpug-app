@@ -1810,7 +1810,9 @@ async def admin_draw_pot(data: AdminDrawPotRequest):
         "entries": [],
         "status": "open",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "draw_at": None,
+        "countdown_started": False,
+        "countdown_seconds": 60,
         "rake_percent": RAKE_PERCENT,
         "winner": None
     }
