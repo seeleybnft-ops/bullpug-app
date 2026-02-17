@@ -19,31 +19,35 @@ The user wants to build a full-stack, responsive website for the memecoin Bullpu
 **User's preferred language**: English
 
 **what currently exists?**
-A stable full-stack application with a React frontend and a fully refactored FastAPI backend. The backend logic, previously in a monolithic , is now organized into a clean, modular structure under .
+A stable full-stack application with a React frontend and a refactored FastAPI backend. The centerpiece is the Cosmic Runner game, a 3D-perspective Subway Surfers-style runner built on the HTML5 Canvas.
 
-The primary feature, the Cosmic Runner game, has been significantly enhanced through multiple iterations. It has evolved into a 3D-perspective, Subway Surfers-style space runner with a progressive difficulty curve, a skin store featuring 12 unique 3D-rendered characters, and refined game mechanics. The application is currently stable, with all previous critical build failures and game-breaking bugs resolved.
+The game has been heavily developed and now includes:
+-   **Core Gameplay:** A 3-lane runner with procedurally spawned obstacles and collectibles.
+-   **Advanced Features:** A power-up system (Shield, Magnet, 2x Score), a dynamic background with moving nebulas that change as the player progresses, and mobile swipe controls.
+-   **Visuals & Animation:** Multiple iterations on character skin designs have been completed, settling on user-provided original assets. The static character sprites are animated using canvas transforms to simulate running and jumping, and their orientation is fixed to face down the track.
+-   **Game Balance:** The game's speed, progression curve, and object designs (e.g., cake-shaped mooncakes) have been iteratively adjusted based on user feedback.
 
 **Last working item**:
-The agent was about to begin implementing a new batch of user requests to further enhance the Cosmic Runner game.
+The agent was actively working on implementing two new user requests for the Cosmic Runner game.
 
--   **Last item agent was working:** Planning the implementation of new game features based on the latest user feedback. The agent had just inspected the existing skin assets in preparation for the work.
--   **Status:** NOT STARTED
--   **Agent Testing Done:** N/A
--   **Which testing method agent to use?** Frontend testing agent should be used after all visual and mechanical changes are implemented to ensure the game remains fully functional. The screenshot tool can be used for intermediate visual checks.
+-   **Last item agent was working:** The agent was in the process of adding a descriptive guide for all in-game items and obstacles to be displayed below the game canvas. Simultaneously, the agent was tasked with enhancing the visual effect of the mooncakes to make them shinier and brighter.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** A screenshot should be taken after implementation to visually verify the new guide section and the updated mooncake visuals. Afterward, the frontend testing agent can be used to perform a full regression test.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement New Cosmic Runner Game Enhancements (P0)**
-    -   **Description:** The user has requested several improvements to the game's mechanics and visuals. This is the top priority.
-    -   **Attempted fixes:** None, work has not started.
+-   **Issue 1: Implement Game Guide and Enhance Mooncake Visuals (P0)**
+    -   **Description:** The user has requested a guide section below the game screen to explain all items and obstacles. Additionally, the mooncakes (collectibles) need to be visually updated to be more shiny and bright.
+    -   **Attempted fixes:** The agent has viewed the  file and was preparing to add the necessary JSX for the guide and modify the canvas rendering logic for the mooncakes.
     -   **Next debug checklist:**
-        1.  **Animate Characters:** Convert the static 3D character renders into animated models with running and jumping animations. The user is open to a pixel art style, suggesting a sprite sheet approach is viable and preferred over integrating a heavy 3D library. This involves generating animation frames for each of the 12 skins and updating the game's render loop in  to cycle through them.
-        2.  **Unify Skin Models:** The user wants all 3D character models to match the style of the Zombie render for consistency. This requires re-generating the other 11 character renders using the image generation tool with prompts that ensure a similar aesthetic.
-        3.  **Differentiate Game Objects:** Make obstacles more fiery and slightly larger. Add a slight sparkle to mooncakes. This can be achieved by modifying their drawing functions in , potentially using simple particle effects or generating new assets.
-        4.  **Fix Spawning Logic:** Ensure obstacles and mooncakes do not overlap by adding separation checks to the object spawning logic.
-        5.  **Ensure Consistent Speed:** Verify that the game speed is applied uniformly to all moving objects across all three lanes by reviewing the object update logic within the main game loop.
-    -   **Why fix this issue and what will be achieved with the fix?** This will significantly improve the game's visual appeal and player experience, making it more dynamic and polished.
-    -   **Status:** NOT STARTED
+        1.  Edit .
+        2.  Add a new JSX  element below the main game container to serve as the guide.
+        3.  Style the guide using Tailwind CSS to create a descriptive list of all obstacles (Meteors, Black Holes, etc.) and power-ups (Shield, Magnet, 2x Score), showing an image and a short description for each.
+        4.  Locate the mooncake drawing function within the canvas rendering logic.
+        5.  Modify its  to use a  for a stronger glow and increase the brightness and particle count of its sparkle effect.
+    -   **Why fix this issue and what will be achieved with the fix?** This will improve the user experience by clarifying game mechanics and will enhance the visual appeal of the primary collectible.
+    -   **Status:** IN PROGRESS
     -   **Is recurring issue?** N
     -   **Should Test frontend/backend/both after fix?** frontend
     -   **Blocked on other issue:** None
@@ -53,25 +57,21 @@ None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **Resume Deployment (P1):** The user wants to deploy the application to . Now that the application is stable, this process can be re-initiated.
+    -   **Resume Deployment (P1):** Deploy the application to .
 -   **Future Tasks:**
     -   **Re-enable Plushie Sales (P2):** Un-hide and implement the shop page.
     -   **Re-enable NFT Gallery (P2):** Build out the NFT gallery page.
-    -   **Complete remaining PRD features:** P2P Betting Arena, Exit Simulator, Trading Journal, Forum, and DMs.
+    -   **Complete remaining PRD features (P2):** P2P Betting Arena, Exit Simulator, Trading Journal, Forum, and DMs.
 
 **Completed work in this session**
--   **MAJOR: Completed Backend Refactoring:** Successfully migrated all remaining business logic from  into new, modular routers (, , , , , ). Reduced  from ~1586 lines to a lean 212 lines.
--   **MAJOR: Cosmic Runner Game Overhaul:**
-    -   Transformed the game into a 3D-perspective, 3-lane runner.
-    -   Implemented progressive difficulty, with game speed increasing over 60 seconds.
-    -   Halved the point-scoring rate as requested.
-    -   Generated and integrated 12 unique, high-quality 3D character renders for the in-game skins.
-    -   Fixed obstacle movement to have them come from the horizon towards the player.
-    -   Updated the Skin Store UI with new 2D and 3D character assets.
--   **CRITICAL: Resolved Core Stability Issues:**
-    -   Fixed the persistent frontend build failure that was blocking all development.
-    -   Fixed the game-breaking bug where the animation frame was being cancelled immediately, causing a blank screen.
--   **Testing:** Used the testing agent multiple times to validate game mechanics and UI changes, with the latest reports confirming 100% success.
+-   **MAJOR: Cosmic Runner Game Overhaul (Multiple Iterations):**
+    -   **Power-ups Implemented:** Added Shield, Coin Magnet, and 2x Score power-ups, complete with spawning logic, on-screen timers, and gameplay effects.
+    -   **Dynamic Background Created:** Implemented a moving, multi-layered parallax background with procedurally generated stars and nebulas that change color and density based on game progression.
+    -   **Mobile Controls Added:** Enhanced the controls to include swipe gestures for lane changes and jumping on mobile devices.
+    -   **Character Skins Finalized:** Went through several cycles of generating and replacing character skin art, ultimately reverting to the user's original  images and a specific user-provided Guardian sprite.
+    -   **Character Animation System:** Built and refined a pseudo-animation system that animates static character images using canvas transforms (skewing, scaling, clipping) to create a Subway Surfers-style running and jumping illusion.
+    -   **Game Feel & Balance Tuned:** Iteratively adjusted game speed, object designs (making mooncakes look like cakes), obstacle visuals (fiery effects), and fixed object spawning logic to prevent overlaps.
+    -   **Character Orientation Fixed:** Corrected the player model's orientation to face down the lane (into the screen), maintaining the 3D perspective.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -83,9 +83,10 @@ N/A
 
 
 **Key Technical Concepts**
--   **Frontend:** React, HTML5 Canvas API (for 2D game rendering), Tailwind CSS.
--   **Backend:** FastAPI with a fully modular router architecture.
--   **AI Tools:**  was used extensively to create game assets, including character sprites and 3D renders.
+-   **Frontend:** React, HTML5 Canvas API, Tailwind CSS.
+-   **Backend:** FastAPI with a modular router architecture.
+-   **Game Engine:** A custom engine built entirely within the  React component using the Canvas API for all rendering and game loop management.
+-   **Animation:** Pseudo-animation of static images using canvas transforms to create the illusion of movement, avoiding the need for sprite sheets or a 3D library.
 
 **key DB schema**
 No changes made.
@@ -94,43 +95,36 @@ No changes made.
 No new technologies were added.
 
 **All files of reference**
+-   **Heavily Modified:**
+    -   : This file was the exclusive focus of the session and has grown significantly in complexity. It handles gameplay, power-ups, rendering, animation, and controls.
+    -   : Updated multiple times to switch between different sets of skin assets.
 -   **New Files:**
-    -   , , , , , 
-    -   Numerous 3D render image assets under 
--   **Heavily Modified Files:**
-    -    (complete architectural refactor)
-    -    (multiple gameplay and visual rewrites)
-    -    (updated to use new 3D renders)
-    -    (UI improvements for new assets)
+    -   Numerous image files for character skins were generated and stored in .
 
 **Areas that need refactoring**:
--   The  file is now over 1000 lines. It contains all game logic for rendering, state management, physics, and controls. It is a strong candidate for being broken down into smaller, reusable hooks and components (e.g., , , , ).
+-   The  file is now critically oversized (over 2000 lines) and has become a god component. It urgently needs to be broken down into smaller, manageable pieces. A refactor should introduce custom hooks (, , ) and separate components (, , , ) to improve readability, maintainability, and performance.
 
 **key api endpoints**
-The refactoring moved existing API endpoints into new router files. All endpoints were tested and confirmed to be working post-refactor.
+No changes were made to API endpoints.
 
 **Critical Info for New Agent**
--   Your immediate priority is to implement the latest user requests for the Cosmic Runner game, focusing on character animation and visual polish.
--   The most complex request is to create **animated 3D characters**. The recommended approach is to generate sprite sheets for run/jump animations for each of the 12 skins and update the canvas rendering logic to cycle through frames. Avoid integrating a full 3D engine like Three.js, as it is likely overkill.
--   You must also re-generate 11 of the 3D character renders to ensure a consistent visual style matching the Zombie skin.
--   The backend is stable and fully refactored. Your work will be concentrated on the frontend, primarily within the  file.
--   Be mindful that  is very large. Consider planning a refactor of this component after implementing the current set of features to improve maintainability.
+-   Your immediate task is to complete the user's latest request: add a game guide below the game canvas and make the mooncake collectibles shinier. All work will be in .
+-   The user provides very specific, iterative visual feedback. Expect to make multiple small adjustments to match their vision.
+-   **Technical Debt:** Be aware that  is extremely large and complex. While your current task is small, you should be prepared to recommend a refactor of this file as the next logical step to ensure the project's long-term health.
+-   **Animation Method:** The current animation technique (manipulating a static sprite with canvas transforms) is clever but fragile. If more complex animations are requested, suggest moving to a sprite-sheet-based approach for a more robust and scalable solution.
 
 **documents and test reports created in this job**
--    (updated)
--   Multiple test reports from the testing agent, with the latest confirming the successful implementation of the 3D runner game.
+-    (Updated)
+-    (Latest report confirming success of power-ups, dynamic background, and mobile controls)
 
 **Last 10 User Messages and any pending HUMAN messages**
--   The most recent user messages outline the next set of tasks for the Cosmic Runner game:
-    -   Prevent obstacles/mooncakes from overlapping.
-    -   Ensure consistent obstacle speed in all lanes.
-    -   Make obstacles more fiery and bigger; add a sparkle to mooncakes.
-    -   Make all skin models match the style of the Zombie render.
-    -   Turn the static 3D characters into animated models (e.g., pixel art style).
+1.  User: Add power-ups, mobile controls, fix orientation, and add a dynamic moving background. (COMPLETED)
+2.  User: Add a guide as to what each item/obstacle is/does and display it under the game screen. (IN PROGRESS)
+3.  User: Continue [with the guide] and also make the mooncakes more shiny and bright. (IN PROGRESS - LATEST REQUEST)
 
 **Project Health Check:**
 -   **Broken:** None. The application is stable.
--   **Mocked/Partially Implemented:** The 3D characters in the game are currently static images. The immediate task is to make them animated.
+-   **Mocked/Partially Implemented:** The game guide requested by the user is not yet implemented.
 
 **3rd Party Integrations**
 -   **Solana:** , 
@@ -138,7 +132,7 @@ The refactoring moved existing API endpoints into new router files. All endpoint
 -   **SendGrid:** For emails.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent was used successfully after the backend refactor and after major game updates.
+-   **Testing agent used after significant changes:** YES. The agent was used successfully after implementing the batch of features including power-ups and the dynamic background.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None.
 -   **Known regressions:** None.
@@ -150,4 +144,4 @@ The refactoring moved existing API endpoints into new router files. All endpoint
 -   Authentication is via Solana wallet; no user/password needed.
 
 **What agent forgot to execute**
-The agent did not forget to execute any tasks. It successfully resolved a critical blocker, completed a major backend refactor, and implemented several complex user-requested game features before the session ended.</analysis>
+The agent has followed all user instructions and did not forget to execute any requested tasks.</analysis>
