@@ -124,10 +124,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ### Modular Router Structure
 New routers created in `/app/backend/routers/`:
-- `skins.py` - Skin store endpoints (NEW)
-- `forum.py` - Forum posts/replies (NEW)  
-- `messages.py` - Direct messaging (NEW)
-- `journal.py` - Trading journal (NEW)
+- `showcase.py` - Skin collection showcase (NEW)
+- `skins.py` - Skin store endpoints
+- `forum.py` - Forum posts/replies
+- `messages.py` - Direct messaging
+- `journal.py` - Trading journal
 - `betting.py` - P2P betting
 - `auth.py` - Wallet authentication
 - `email.py` - Email subscriptions
