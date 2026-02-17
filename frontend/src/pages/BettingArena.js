@@ -549,6 +549,40 @@ function P2PPotSystem({ walletAddress, connected, config }) {
             </div>
           </div>
 
+          {/* Countdown Timer - Shows when 2+ participants */}
+          {pot.countdown_started && countdown !== null && countdown > 0 && (
+            <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[#FF6B6B]/20 to-[#D946EF]/20 border border-[#FF6B6B]/40 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#FF6B6B]/30 flex items-center justify-center">
+                    <span className="text-xl">⏱️</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase">Draw Countdown</p>
+                    <p className="text-sm text-white">Winner will be selected when timer ends!</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-3xl font-black ${countdown <= 10 ? 'text-[#FF6B6B] animate-bounce' : 'text-[#D946EF]'}`} 
+                     style={{ fontFamily: 'Orbitron' }}
+                     data-testid="pot-countdown">
+                    {formatCountdown(countdown)}
+                  </p>
+                  <p className="text-[10px] text-slate-500">seconds remaining</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Waiting for participants message */}
+          {!pot.countdown_started && pot.entry_count < 2 && (
+            <div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
+              <p className="text-sm text-center text-slate-400">
+                <span className="text-[#D946EF] font-bold">{2 - (pot.entry_count || 0)}</span> more participant(s) needed to start countdown
+              </p>
+            </div>
+          )}
+
           {pot.winner && (
             <div className="p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30 mb-4">
               <p className="text-sm font-bold text-[#00FFA3]">
