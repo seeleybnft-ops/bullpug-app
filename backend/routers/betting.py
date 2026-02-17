@@ -6,14 +6,17 @@ from slowapi.util import get_remote_address
 import hashlib
 import secrets
 import uuid
+import logging
 from datetime import datetime, timezone
 
 from models.schemas import CreateChallengeRequest, AcceptChallengeRequest
 from utils.database import db
 from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
+from utils.solana_payout import send_sol_payout, get_escrow_balance
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
 
 
 @router.get("/config")
