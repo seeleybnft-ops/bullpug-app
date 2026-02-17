@@ -139,6 +139,7 @@ export default function SpeedRunGame() {
     playSoundIfEnabled('click');
 
     const loop = () => {
+      console.log("Loop called");
       const g = gameRef.current;
       if (!g || !g.running) {
         console.log("Game loop stopped - g:", !!g, "running:", g?.running);
