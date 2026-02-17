@@ -34,6 +34,45 @@ const PLAYER_BASE_Y = GROUND_Y - 80;
 const ANIM_RUN_FRAMES = 8;
 const ANIM_JUMP_FRAMES = 4;
 
+// Power-up configuration - Bullpug Lore themed
+const POWERUP_TYPES = {
+  shield: {
+    name: 'Guardian Shield',
+    description: 'Cosmic protection from one hit',
+    color: '#00FFFF',
+    glowColor: 'rgba(0, 255, 255, 0.6)',
+    icon: '🛡️',
+    duration: 10000 // 10 seconds
+  },
+  magnet: {
+    name: 'Mooncake Magnet', 
+    description: 'Attracts mooncakes from all lanes',
+    color: '#FFD700',
+    glowColor: 'rgba(255, 215, 0, 0.6)',
+    icon: '🧲',
+    duration: 10000
+  },
+  doubleScore: {
+    name: 'Star Power',
+    description: 'Double points from cosmic energy',
+    color: '#FF00FF',
+    glowColor: 'rgba(255, 0, 255, 0.6)',
+    icon: '⭐',
+    duration: 10000
+  }
+};
+
+const POWERUP_SPAWN_INTERVAL = 720; // Every 12 seconds at 60fps
+
+// Stage-specific background themes
+const STAGE_BACKGROUNDS = {
+  1: { name: 'Deep Space', hue: 240, nebulaDensity: 3, starBrightness: 0.7 },
+  2: { name: 'Blue Nebula', hue: 200, nebulaDensity: 5, starBrightness: 0.8 },
+  3: { name: 'Purple Galaxy', hue: 280, nebulaDensity: 6, starBrightness: 0.9 },
+  4: { name: 'Cosmic Fire', hue: 20, nebulaDensity: 7, starBrightness: 1.0 },
+  5: { name: 'Multiverse', hue: -1, nebulaDensity: 8, starBrightness: 1.0 } // -1 = rainbow
+};
+
 // Obstacle stages - adjusted for halved points
 const OBSTACLE_STAGES = {
   1: { score: 0, types: ['meteor'] },
