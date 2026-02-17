@@ -2277,6 +2277,21 @@ SKINS_CATALOG = {
     "skeletal": {"name": "Skeletal", "bonus_percent": 1, "price_sol": 0.01, "rarity": "common"},
 }
 
+# Achievement skin - unlocked by owning all purchasable skins
+ACHIEVEMENT_SKIN = {
+    "ethereal": {
+        "name": "Ethereal",
+        "bonus_percent": 10,
+        "price_sol": 0,  # Not purchasable
+        "rarity": "mythic",
+        "achievement": True,
+        "unlock_requirement": "Own all 10 purchasable skins"
+    }
+}
+
+# List of purchasable skin IDs for achievement check
+PURCHASABLE_SKIN_IDS = list(SKINS_CATALOG.keys())
+
 
 class SkinPurchaseRequest(BaseModel):
     wallet_address: str
