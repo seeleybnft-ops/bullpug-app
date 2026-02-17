@@ -18,67 +18,63 @@ class PushSubscription(BaseModel):
 
 @router.get("/{wallet_address}")
 async def get_notifications(wallet_address: str, limit: int = 50):
-    """Get notifications for a wallet."""
+    """Get notifications for a user."""
     notifications = await db.notifications.find(
-        {"wallet_address": wallet_address},
+        {"to_wallet": wallet_address},
         {"_id": 0}
     ).sort("created_at", -1).to_list(limit)
     
-    return {
-        "notifications": notifications,
-        "unread_count": sum(1 for n in notifications if not n.get("read"))
-    }
+    unread = sum(1 for n in notifications if not n.get("read"))
+    
+    return {"notifications": notifications, "unread_count": unread}
 
 
 @router.post("/read/{notification_id}")
 async def mark_notification_read(notification_id: str):
     """Mark a notification as read."""
-    result = await db.notifications.update_one(
+    await db.notifications.update_one(
         {"id": notification_id},
-        {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": {"read": True}}
     )
-    return {"success": result.modified_count > 0}
+    return {"message": "Marked as read"}
 
 
 @router.post("/read-all/{wallet_address}")
 async def mark_all_notifications_read(wallet_address: str):
-    """Mark all notifications as read for a wallet."""
-    result = await db.notifications.update_many(
-        {"wallet_address": wallet_address, "read": False},
-        {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    """Mark all notifications as read."""
+    await db.notifications.update_many(
+        {"to_wallet": wallet_address, "read": False},
+        {"$set": {"read": True}}
     )
-    return {"marked_read": result.modified_count}
+    return {"message": "All notifications marked as read"}
 
 
 @router.post("/subscribe")
-async def subscribe_push_notifications(data: PushSubscription):
+async def subscribe_push(data: PushSubscription):
     """Subscribe to push notifications."""
-    existing = await db.push_subscriptions.find_one({"wallet_address": data.wallet_address})
+    subscription = {
+        "wallet_address": data.wallet_address,
+        "subscription": data.subscription,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
     
-    if existing:
-        await db.push_subscriptions.update_one(
-            {"wallet_address": data.wallet_address},
-            {"$set": {"subscription": data.subscription, "updated_at": datetime.now(timezone.utc).isoformat()}}
-        )
-    else:
-        await db.push_subscriptions.insert_one({
-            "id": str(uuid.uuid4()),
-            "wallet_address": data.wallet_address,
-            "subscription": data.subscription,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
+    await db.push_subscriptions.update_one(
+        {"wallet_address": data.wallet_address},
+        {"$set": subscription},
+        upsert=True
+    )
     
     return {"message": "Subscribed to push notifications"}
 
 
-async def create_notification(wallet_address: str, notification_type: str, title: str, message: str, data: dict = None):
+async def create_notification(to_wallet: str, notification_type: str, title: str, body: str, data: dict = None):
     """Helper function to create a notification."""
     notification = {
         "id": str(uuid.uuid4()),
-        "wallet_address": wallet_address,
+        "to_wallet": to_wallet,
         "type": notification_type,
         "title": title,
-        "message": message,
+        "body": body,
         "data": data or {},
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()
