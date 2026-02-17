@@ -87,13 +87,8 @@ export default function HomePage() {
               Meet Bullpug, the fearless and loyal guardian of the Memecoin Universe. Born from a cosmic mix-up when the stars of the Bull constellation collided with the energy of a pug-shaped nebula.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link to="/betting">
-                <Button data-testid="hero-betting-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
-                  <Zap className="w-4 h-4 mr-2" /> Enter Arena
-                </Button>
-              </Link>
               <Link to="/game">
-                <Button data-testid="hero-game-btn" variant="outline" className="border-2 border-[#F5D300] text-[#F5D300] hover:bg-[#F5D300]/10 rounded-full px-8 py-5 text-sm font-bold uppercase tracking-wider">
+                <Button data-testid="hero-game-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
                   <Gamepad2 className="w-4 h-4 mr-2" /> Play Game
                 </Button>
               </Link>
