@@ -225,6 +225,13 @@ Routes removed from server.py (now in modular routers):
 - **Frontend:** Complete UI overhaul with info card explaining Blowfish distribution
 - **Files:** `frontend/src/pages/ReflectionsCalculator.js` (complete rewrite)
 
+#### 4. Enhanced Pot Game Waiting UI (New)
+- **When 0 players:** Shows "Be the first to join!" with call to action
+- **When 1 player:** Shows "1 player waiting..." with progress indicator
+- **Progress indicator:** Visual dots (○○ or ●○) showing X/2 players
+- **Urgency message:** "One more player triggers the countdown!" with animation
+- **Files:** `frontend/src/pages/BettingArena.js` (lines 578-629)
+
 ### Backend Refactoring Progress
 
 #### New Routers Created (Not Yet Integrated)
