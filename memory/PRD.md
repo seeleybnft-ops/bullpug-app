@@ -111,8 +111,17 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 - `GET /api/showcase/{wallet}` - Full collection data with stats
 - `GET /api/showcase/leaderboard/collectors` - Ranked collector leaderboard  
 - `GET /api/showcase/recent-acquisitions` - Recent skin acquisitions feed
+- `GET /api/showcase/share-text/{wallet}` - Dynamic share text for social (NEW)
 - `POST /api/showcase/settings` - Update display name, bio, privacy
 - `POST /api/showcase/share/{wallet}` - Generate share link
+
+### Social Sharing (Feb 2026)
+- **Share Modal:** Accessible via Share button on all showcases
+- **Twitter/X:** Opens intent with collection stats and @BullpugSOL mention
+- **Telegram:** Opens share URL with encoded text
+- **Copy Link:** Copies showcase URL to clipboard
+- **Copy Text:** Copies dynamic share text with emojis
+- **Dynamic Text:** Changes based on collection status (new/50%+/mythic)
 
 ### Frontend Routes
 - `/showcase` - Prompt to connect wallet
