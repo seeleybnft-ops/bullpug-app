@@ -20,11 +20,36 @@ const ADMIN_WALLETS = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
   const location = useLocation();
   const { publicKey, connected } = useWallet();
   const { t } = useTranslation();
   
   const isAdmin = connected && publicKey && ADMIN_WALLETS.includes(publicKey.toBase58());
+
+  // Fetch profile to get profile image
+  useEffect(() => {
+    if (connected && publicKey) {
+      fetchProfile();
+    } else {
+      setProfileImage(null);
+    }
+  }, [connected, publicKey]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data } = await axios.get(`${API}/profile/${publicKey.toBase58()}`);
+      if (data.profile_image_url) {
+        setProfileImage(data.profile_image_url);
+      } else if (data.profile_skin_id) {
+        setProfileImage(`/images/${data.profile_skin_id}_cutout.png`);
+      } else {
+        setProfileImage("/images/guardian_cutout.png");
+      }
+    } catch (e) {
+      setProfileImage("/images/guardian_cutout.png");
+    }
+  };
 
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/" },
