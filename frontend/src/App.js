@@ -22,6 +22,7 @@ import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
+import ProfilePage from "@/pages/ProfilePage";
 
 function App() {
   const endpoint = useMemo(
