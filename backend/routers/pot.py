@@ -133,6 +133,16 @@ async def draw_pot_winner():
     
     logger.info(f"Pot Rake: {rake} SOL to {DISTRIBUTION_WALLET}")
     
+    # === CONTRIBUTE TO PRIZE POOL (25% of rake) ===
+    try:
+        await add_to_prize_pool(
+            amount_sol=rake,
+            source="pot_rake",
+            details={"pot_id": pot["id"], "total_pot": total, "entries": len(pot["entries"])}
+        )
+    except Exception as e:
+        logger.error(f"Failed to add pot rake to prize pool: {e}")
+    
     # === AUTOMATIC PAYOUT ===
     payout_success = False
     payout_tx = None
