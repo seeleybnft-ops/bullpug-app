@@ -58,11 +58,12 @@ export default function JackpotDisplay({ compact = false }) {
     const secs = seconds % 60;
 
     if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
+      return `${days}d ${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m ${secs.toString().padStart(2, "0")}s`;
     }
-    return `${hours.toString().padStart(2, "0")}:${minutes
-      .toString()
-      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m ${secs.toString().padStart(2, "0")}s`;
+    }
+    return `${minutes.toString().padStart(2, "0")}m ${secs.toString().padStart(2, "0")}s`;
   };
 
   if (loading) {
