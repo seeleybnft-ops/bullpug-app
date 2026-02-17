@@ -38,6 +38,119 @@ class ShowcaseSettings(BaseModel):
     is_public: bool = True
 
 
+@router.get("/leaderboard/collectors")
+async def get_collector_leaderboard(limit: int = 20):
+    """Get top skin collectors leaderboard."""
+    # Aggregate skin purchases to find top collectors
+    pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {
+            "_id": "$wallet_address",
+            "skin_count": {"$sum": 1},
+            "skins": {"$addToSet": "$skin_id"}
+        }},
+        {"$sort": {"skin_count": -1}},
+        {"$limit": limit}
+    ]
+    
+    collectors = await db.skin_purchases.aggregate(pipeline).to_list(limit)
+    
+    leaderboard = []
+    for i, collector in enumerate(collectors):
+        wallet = collector["_id"]
+        skins = collector["skins"]
+        
+        # Get showcase settings for display name
+        settings = await db.showcases.find_one(
+            {"wallet_address": wallet},
+            {"_id": 0, "display_name": 1}
+        )
+        
+        # Calculate rarity score
+        rarity_score = 0
+        rarity_points = {"mythic": 100, "legendary": 50, "epic": 30, "rare": 20, "uncommon": 10, "common": 5}
+        for skin_id in skins:
+            if skin_id in SKINS_CATALOG:
+                rarity = SKINS_CATALOG[skin_id]["rarity"]
+                rarity_score += rarity_points.get(rarity, 0)
+        
+        leaderboard.append({
+            "rank": i + 1,
+            "wallet_address": wallet,
+            "display_name": settings.get("display_name", f"Collector_{wallet[:6]}") if settings else f"Collector_{wallet[:6]}",
+            "skin_count": collector["skin_count"],
+            "has_ethereal": "ethereal" in skins,
+            "rarity_score": rarity_score,
+            "completion_percent": round((len(skins) / len(SKINS_CATALOG)) * 100, 1)
+        })
+    
+    return {"leaderboard": leaderboard}
+
+
+@router.get("/recent-acquisitions")
+async def get_recent_acquisitions(limit: int = 10):
+    """Get recent skin acquisitions across all users."""
+    recent = await db.skin_purchases.find(
+        {"status": "completed"},
+        {"_id": 0, "wallet_address": 1, "skin_id": 1, "skin_name": 1, "purchased_at": 1, "gift_from": 1, "achievement": 1}
+    ).sort("purchased_at", -1).to_list(limit)
+    
+    acquisitions = []
+    for purchase in recent:
+        wallet = purchase["wallet_address"]
+        settings = await db.showcases.find_one(
+            {"wallet_address": wallet},
+            {"_id": 0, "display_name": 1}
+        )
+        
+        acquisition_type = "purchase"
+        if purchase.get("achievement"):
+            acquisition_type = "achievement"
+        elif purchase.get("gift_from"):
+            acquisition_type = "gift"
+        
+        acquisitions.append({
+            "wallet_address": wallet,
+            "display_name": settings.get("display_name", f"Collector_{wallet[:6]}") if settings else f"Collector_{wallet[:6]}",
+            "skin_id": purchase["skin_id"],
+            "skin_name": purchase.get("skin_name", SKINS_CATALOG.get(purchase["skin_id"], {}).get("name", "Unknown")),
+            "rarity": SKINS_CATALOG.get(purchase["skin_id"], {}).get("rarity", "common"),
+            "acquired_at": purchase["purchased_at"],
+            "acquisition_type": acquisition_type
+        })
+    
+    return {"acquisitions": acquisitions}
+
+
+@router.post("/share/{wallet_address}")
+async def generate_share_link(wallet_address: str):
+    """Generate a shareable link for a showcase."""
+    # Check if showcase is public
+    settings = await db.showcases.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0, "is_public": 1}
+    )
+    
+    if settings and not settings.get("is_public", True):
+        raise HTTPException(status_code=403, detail="This showcase is private")
+    
+    # Generate share token
+    share_token = str(uuid.uuid4())[:8]
+    
+    await db.showcase_shares.insert_one({
+        "id": str(uuid.uuid4()),
+        "wallet_address": wallet_address,
+        "share_token": share_token,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "views": 0
+    })
+    
+    return {
+        "share_token": share_token,
+        "share_url": f"/showcase/{wallet_address}?ref={share_token}"
+    }
+
+
 @router.get("/{wallet_address}")
 async def get_showcase(wallet_address: str):
     """Get a user's skin showcase/collection."""
