@@ -192,23 +192,47 @@ export default function SpeedRunGame() {
     },
     obstacles: [],
     collectibles: [],
+    powerups: [],
     particles: [],
-    stars: Array.from({ length: 150 }, () => ({
+    // Active power-up effects
+    activePowerups: {
+      shield: null,    // { endTime: timestamp }
+      magnet: null,
+      doubleScore: null
+    },
+    lastPowerupSpawn: 0,
+    // Dynamic background elements
+    stars: Array.from({ length: 200 }, () => ({
       x: Math.random() * W,
+      y: Math.random() * HORIZON_Y * 1.5,
+      z: Math.random(), // depth for parallax
+      size: Math.random() * 2.5 + 0.5,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.2 + Math.random() * 0.5
+    })),
+    nebulas: Array.from({ length: 12 }, () => ({
+      x: Math.random() * W * 1.5,
       y: Math.random() * HORIZON_Y,
-      size: Math.random() * 2 + 0.5,
-      twinkle: Math.random() * Math.PI * 2
+      z: Math.random() * 0.8 + 0.2, // depth
+      size: 80 + Math.random() * 150,
+      hue: Math.random() * 360,
+      alpha: 0.06 + Math.random() * 0.1,
+      speed: 0.3 + Math.random() * 0.5
     })),
-    nebulas: Array.from({ length: 8 }, () => ({
+    // Distant galaxies/planets
+    cosmicObjects: Array.from({ length: 5 }, () => ({
       x: Math.random() * W,
-      y: Math.random() * (HORIZON_Y - 20),
-      size: 60 + Math.random() * 100,
-      hue: 240 + Math.random() * 80,
-      alpha: 0.08 + Math.random() * 0.12
+      y: 20 + Math.random() * (HORIZON_Y - 40),
+      size: 15 + Math.random() * 40,
+      type: Math.random() > 0.5 ? 'galaxy' : 'planet',
+      hue: Math.random() * 360,
+      rotation: Math.random() * Math.PI * 2,
+      speed: 0.1 + Math.random() * 0.2
     })),
+    backgroundHue: 240,
     frame: 0,
-    speed: 2.5, // Start much slower (was 6)
-    startTime: Date.now(), // Track game start time for progressive speed
+    speed: 2.5,
+    startTime: Date.now(),
     score: 0,
     mooncakes: 0,
     running: true,
