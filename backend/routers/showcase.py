@@ -291,18 +291,18 @@ async def get_share_text(wallet_address: str):
         share_text = f"🏆 {display_name} unlocked the MYTHIC Ethereal skin on @BullpugSOL!\n\n"
         share_text += f"✨ Collection: {total_owned}/{len(SKINS_CATALOG)} skins ({completion}%)\n"
         share_text += f"💎 Mythic: {mythic_count} | Legendary: {legendary_count}\n\n"
-        share_text += f"Check out my collection and start yours! #Bullpug #Solana #NFT"
+        share_text += "Check out my collection and start yours! #Bullpug #Solana #NFT"
     elif completion >= 50:
         share_text = f"🔥 {display_name} is collecting skins on @BullpugSOL!\n\n"
         share_text += f"✨ Progress: {total_owned}/{len(SKINS_CATALOG)} skins ({completion}%)\n"
         share_text += f"💎 Legendary skins: {legendary_count}\n"
         share_text += f"🎯 {len(SKINS_CATALOG) - total_owned} more to unlock MYTHIC Ethereal!\n\n"
-        share_text += f"Join the hunt! #Bullpug #Solana"
+        share_text += "Join the hunt! #Bullpug #Solana"
     else:
         share_text = f"🚀 {display_name} started collecting Bullpug skins!\n\n"
         share_text += f"✨ Collection: {total_owned}/{len(SKINS_CATALOG)} skins\n"
-        share_text += f"🎯 Goal: Collect all skins to unlock the MYTHIC Ethereal!\n\n"
-        share_text += f"Play the Speed Run game @BullpugSOL #Bullpug #Solana"
+        share_text += "🎯 Goal: Collect all skins to unlock the MYTHIC Ethereal!\n\n"
+        share_text += "Play the Speed Run game @BullpugSOL #Bullpug #Solana"
     
     return {
         "share_text": share_text,

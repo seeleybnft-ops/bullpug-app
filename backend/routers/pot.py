@@ -12,7 +12,7 @@ from models.schemas import P2PPotJoinRequest
 from utils.database import db
 from utils.config import DISTRIBUTION_WALLET
 from utils.websocket_managers import pot_ws_manager
-from state.pot_state import get_pot, reset_pot, RAKE_PERCENT
+from state.pot_state import get_pot, reset_pot
 
 router = APIRouter(prefix="/betting/pot", tags=["pot"])
 limiter = Limiter(key_func=get_remote_address)

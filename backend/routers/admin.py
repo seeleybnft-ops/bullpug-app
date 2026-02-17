@@ -8,10 +8,9 @@ import secrets
 import logging
 
 from utils.database import db
-from utils.config import ADMIN_WALLETS, DISTRIBUTION_WALLET, is_admin
+from utils.config import DISTRIBUTION_WALLET, is_admin
 from utils.websocket_managers import pot_ws_manager
 from state.pot_state import get_pot, reset_pot
-from routers.pot import get_pot_data
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)

@@ -16,7 +16,6 @@ class ReflectionsCalcRequest(BaseModel):
 async def calculate_reflections(data: ReflectionsCalcRequest):
     """Calculate reflections based on Blowfish fee structure."""
     # Tokenomics constants
-    total_supply = 1_000_000_000
     circulating_supply = 800_000_000
     
     # Calculate holder's share of circulating supply

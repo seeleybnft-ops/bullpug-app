@@ -1,8 +1,7 @@
 """Notifications routes for push notifications and alerts."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
 import uuid
 from datetime import datetime, timezone
 

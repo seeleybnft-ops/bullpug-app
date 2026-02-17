@@ -1,13 +1,11 @@
 """Exit simulator routes for Monte Carlo simulations."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 import numpy as np
 import uuid
-from datetime import datetime, timezone
 
-from utils.database import db
 
 router = APIRouter(prefix="/exit-simulator", tags=["simulator"])
 

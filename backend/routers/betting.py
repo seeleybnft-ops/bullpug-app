@@ -8,7 +8,7 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 
-from models.schemas import CreateChallengeRequest, AcceptChallengeRequest, P2PPotJoinRequest
+from models.schemas import CreateChallengeRequest, AcceptChallengeRequest
 from utils.database import db
 from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
 
