@@ -132,6 +132,33 @@ async def draw_pot_winner():
     
     logger.info(f"Pot Rake: {rake} SOL to {DISTRIBUTION_WALLET}")
     
+    # === AUTOMATIC PAYOUT ===
+    payout_success = False
+    payout_tx = None
+    payout_error = None
+    
+    try:
+        winner_wallet = winner["wallet_address"]
+        logger.info(f"Initiating pot payout: {payout} SOL to {winner_wallet}")
+        
+        success, tx_result = await send_sol_payout(
+            recipient_wallet=winner_wallet,
+            amount_sol=payout,
+            memo=f"Bullpug Pot Win - {pot['id'][:8]}"
+        )
+        
+        if success:
+            payout_success = True
+            payout_tx = tx_result
+            logger.info(f"Pot payout successful! TX: {payout_tx}")
+        else:
+            payout_error = tx_result
+            logger.error(f"Pot payout failed: {payout_error}")
+            
+    except Exception as e:
+        payout_error = str(e)
+        logger.error(f"Pot payout exception: {payout_error}")
+    
     result = {
         "winner_name": winner["display_name"],
         "winner_wallet": winner["wallet_address"],
@@ -139,7 +166,10 @@ async def draw_pot_winner():
         "total_pot_sol": total,
         "rake_sol": rake,
         "distribution_wallet": DISTRIBUTION_WALLET,
-        "entry_count": len(pot["entries"])
+        "entry_count": len(pot["entries"]),
+        "payout_sent": payout_success,
+        "payout_tx": payout_tx,
+        "payout_error": payout_error
     }
     
     pot["winner"] = result
