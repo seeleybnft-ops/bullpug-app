@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Store, Check, Lock, Sparkles, Zap, Crown, X, Gift, Eye, Send, ArrowRight, User } from "lucide-react";
-import { SKINS, RARITY_COLORS, getSkinById } from "@/config/skins";
+import { Store, Check, Lock, Sparkles, Zap, Crown, X, Gift, Eye, Send, ArrowRight, User, Star, Trophy } from "lucide-react";
+import { SKINS, RARITY_COLORS, getSkinById, PURCHASABLE_SKIN_IDS } from "@/config/skins";
 import { playSoundIfEnabled, clickFeedback } from "@/utils/sounds";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -26,11 +26,13 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
   const [giftRecipient, setGiftRecipient] = useState("");
   const [sendingGift, setSendingGift] = useState(false);
   const [giftHistory, setGiftHistory] = useState([]);
+  const [achievementStatus, setAchievementStatus] = useState(null);
 
   useEffect(() => {
     if (connected && publicKey) {
       fetchOwnedSkins();
       fetchGiftHistory();
+      fetchAchievementStatus();
     }
   }, [connected, publicKey]);
 
@@ -49,6 +51,19 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
       setGiftHistory(data.gifts || []);
     } catch (e) {
       console.error("Failed to fetch gift history:", e);
+    }
+  };
+
+  const fetchAchievementStatus = async () => {
+    try {
+      const { data } = await axios.get(`${API}/skins/achievement-status/${publicKey.toBase58()}`);
+      setAchievementStatus(data.ethereal);
+      // If ethereal was just unlocked, refresh owned skins
+      if (data.ethereal?.unlocked && !ownedSkins.includes("ethereal")) {
+        fetchOwnedSkins();
+      }
+    } catch (e) {
+      console.error("Failed to fetch achievement status:", e);
     }
   };
 
