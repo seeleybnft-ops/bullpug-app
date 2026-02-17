@@ -90,34 +90,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# ========== WebSocket Managers ==========
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
-
-    async def connect(self, websocket: WebSocket, user_id: str):
-        await websocket.accept()
-        self.active_connections[user_id] = websocket
-
-    def disconnect(self, user_id: str):
-        self.active_connections.pop(user_id, None)
-
-    async def send_personal_message(self, message: dict, user_id: str):
-        if user_id in self.active_connections:
-            try:
-                await self.active_connections[user_id].send_json(message)
-            except:
-                self.disconnect(user_id)
-
-    async def broadcast(self, message: dict):
-        for user_id, connection in list(self.active_connections.items()):
-            try:
-                await connection.send_json(message)
-            except:
-                self.disconnect(user_id)
-
-dm_manager = ConnectionManager()
-notification_manager = ConnectionManager()
+# WebSocket managers imported from utils.websocket_managers
 
 
 # ========== Models ==========
