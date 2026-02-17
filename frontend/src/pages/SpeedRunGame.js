@@ -115,6 +115,7 @@ export default function SpeedRunGame() {
     running: true,
     difficulty: 1,
     groundOffset: 0,
+    skinBonus: currentSkin.bonusPercent / 100, // Apply skin bonus
   });
 
   const startGame = useCallback(() => {
@@ -125,6 +126,7 @@ export default function SpeedRunGame() {
     setGameState("playing");
     setScore(0);
     setMooncakes(0);
+    playSoundIfEnabled('click');
 
     const loop = () => {
       const g = gameRef.current;
