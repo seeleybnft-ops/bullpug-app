@@ -461,6 +461,12 @@ export default function SpeedRunGame() {
         g.collectibles.push(spawnCollectible(g));
       }
 
+      // Spawn power-ups every 12 seconds (720 frames at 60fps)
+      if (g.frame - g.lastPowerupSpawn >= POWERUP_SPAWN_INTERVAL) {
+        g.powerups.push(spawnPowerup(g));
+        g.lastPowerupSpawn = g.frame;
+      }
+
       // Move obstacles DOWN the lane - speed based on game speed
       const depthSpeed = g.speed * 0.008; // Slower depth movement
       g.obstacles = g.obstacles.filter(o => {
