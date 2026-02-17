@@ -31,6 +31,18 @@ from emergentintegrations.payments.stripe.checkout import (
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
+# Import routers
+from routers import (
+    betting_router,
+    auth_router,
+    email_router,
+    leaderboard_router,
+    skins_router,
+    forum_router,
+    messages_router,
+    journal_router
+)
+
 # Rate Limiter setup
 limiter = Limiter(key_func=get_remote_address)
 
