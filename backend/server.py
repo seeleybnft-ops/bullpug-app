@@ -2302,8 +2302,12 @@ class SkinPurchaseRequest(BaseModel):
 
 @api_router.get("/skins/catalog")
 async def get_skins_catalog():
-    """Get all available skins with pricing"""
-    return {"skins": SKINS_CATALOG}
+    """Get all available skins including achievement skins"""
+    # Merge purchasable and achievement skins
+    all_skins = {**SKINS_CATALOG}
+    for skin_id, skin_data in ACHIEVEMENT_SKIN.items():
+        all_skins[skin_id] = skin_data
+    return {"skins": all_skins, "achievement_skins": ACHIEVEMENT_SKIN}
 
 
 @api_router.get("/skins/owned/{wallet_address}")
