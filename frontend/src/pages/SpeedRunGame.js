@@ -11,6 +11,7 @@ import { Play, RotateCcw, Clock, User, Volume2, VolumeX, Store, Sparkles, Award,
 import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, collectFeedback, winFeedback } from "@/utils/sounds";
 import { getSkinById, SKINS } from "@/config/skins";
 import SkinStore from "@/components/SkinStore";
+import JackpotDisplay from "@/components/JackpotDisplay";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
