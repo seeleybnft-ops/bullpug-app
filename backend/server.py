@@ -2054,9 +2054,8 @@ api_router.include_router(forum_router)
 api_router.include_router(messages_router)
 api_router.include_router(journal_router)
 api_router.include_router(showcase_router)
-# Note: pot_router, simulator_router, reflections_router, notifications_router, admin_router
-# created but not registered - these conflict with existing endpoints in server.py
-# Future refactoring: remove duplicates from server.py and enable these routers
+api_router.include_router(notifications_router)
+api_router.include_router(reflections_router)
 
 # Now register the complete api_router with the app
 app.include_router(api_router)
