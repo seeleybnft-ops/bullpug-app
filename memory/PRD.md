@@ -151,8 +151,9 @@ New routers created in `/app/backend/routers/`:
 ### Status
 - ✅ Core routes modularized
 - ✅ All routers connected via `api_router.include_router()`
-- ⏳ WebSocket handlers still in server.py
-- ⏳ Some duplicate routes exist (server.py + routers)
+- ✅ WebSocket managers moved to `utils/websocket_managers.py`
+- ✅ Duplicate WebSocket class definitions removed from server.py
+- ⏳ Some duplicate API routes still exist (server.py + routers)
 
 ---
 
