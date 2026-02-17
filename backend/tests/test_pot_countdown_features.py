@@ -9,7 +9,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bullpug-cosmic.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pug-guardian-test.preview.emergentagent.com').rstrip('/')
 
 class TestPotGameCountdown:
     """Tests for Pot Game 60s countdown that starts when 2 participants join"""

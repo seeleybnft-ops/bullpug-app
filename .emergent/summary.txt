@@ -8,86 +8,70 @@ The user wants to build a full-stack, responsive website for the memecoin Bullpu
 -   **Revenue & Engagement Features:**
     -   **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with a 2.5% house rake.
     -   **Exit Simulator:** A tool for users to simulate crypto trading outcomes with Monte Carlo simulations and a PDF export feature.
-    -   **Bullpug Speed-Run Game:** An endless runner game with collectibles, a weekly leaderboard, an in-game store with purchasable skins (using SOL), skin gifting, and an achievement-based unlockable skin.
+    -   **Bullpug Speed-Run Game (Cosmic Runner):** An endless runner game with collectibles, a weekly leaderboard, an in-game store with purchasable skins (using SOL), skin gifting, and an achievement-based unlockable skin.
     -   **Crypto Trading Journal:** A comprehensive feature for logging trades with a dashboard, CSV/PDF export, and cloud backup.
     -   **Community Forum:** A section for users to create posts, reply, and filter.
     -   **Direct Messaging (DMs):** Real-time chat between users.
--   **Admin & Notifications:**
-    -   **Admin Panel:** A restricted page for wallet-authorized admins.
-    -   **Push Notifications:** Using the Web Push API for user alerts.
-    -   **Email Notifications:** Using SendGrid for key events.
--   **Internationalization:** Multi-language support (English & Spanish).
+-   **Admin & Notifications:** An admin panel, push notifications, and email notifications.
+-   **Internationalization:** Multi-language support.
 -   **Tech Stack:** React frontend, FastAPI backend, Tailwind CSS, MongoDB, and Solana Web3.js.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A comprehensive full-stack application with a React frontend and a FastAPI backend using MongoDB. The backend refactoring has begun, with new directories for , , and , although  still contains significant logic.
+A stable full-stack application with a React frontend and a fully refactored FastAPI backend. The backend logic, previously in a monolithic , is now organized into a clean, modular structure under .
 
-The application includes:
--   A P2P Betting Arena (Coin Flip, Pot games) with real SOL transaction logic.
--   An advanced Speed-Run Game with a weekly leaderboard, sound effects, an in-game store to purchase skins with SOL, animated skin previews, and a gifting system.
--   A Community Forum, Direct Messaging, Trading Journal, Reflections Calculator, and Admin Panel.
--   Multi-language support (English/Spanish) via .
--   Email notifications via SendGrid (backend service is implemented and configured).
--   Security enhancements including API rate-limiting and server-side wallet signature verification.
+The primary feature, the Cosmic Runner game, has been significantly enhanced through multiple iterations. It has evolved into a 3D-perspective, Subway Surfers-style space runner with a progressive difficulty curve, a skin store featuring 12 unique 3D-rendered characters, and refined game mechanics. The application is currently stable, with all previous critical build failures and game-breaking bugs resolved.
 
 **Last working item**:
--   **Last item agent was working:** The user requested the implementation of an unlockable achievement skin named Ethereal. This skin is awarded to users who own all 10 other purchasable skins and provides a 10% bonus to points in the Speed-Run Game. The agent received the skin image and requirements.
+The agent was about to begin implementing a new batch of user requests to further enhance the Cosmic Runner game.
+
+-   **Last item agent was working:** Planning the implementation of new game features based on the latest user feedback. The agent had just inspected the existing skin assets in preparation for the work.
 -   **Status:** NOT STARTED
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. This requires backend logic to check for ownership and unlock the skin, and frontend changes to display the skin, its lock status, and its unlock condition in the store.
+-   **Agent Testing Done:** N/A
+-   **Which testing method agent to use?** Frontend testing agent should be used after all visual and mechanical changes are implemented to ensure the game remains fully functional. The screenshot tool can be used for intermediate visual checks.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement Ethereal Achievement Skin (P0)**
-    -   **Description:** This is the highest priority task based on the last user request.
-    -   **Attempted fixes:** N/A
+-   **Issue 1: Implement New Cosmic Runner Game Enhancements (P0)**
+    -   **Description:** The user has requested several improvements to the game's mechanics and visuals. This is the top priority.
+    -   **Attempted fixes:** None, work has not started.
     -   **Next debug checklist:**
-        1.  **Backend:**
-            -   Modify the  to include the Ethereal skin, perhaps with an  flag.
-            -   Create a new API endpoint or modify an existing one (e.g., ) to check if a user owns all 10 base skins.
-            -   If the condition is met, automatically grant the Ethereal skin to the user in the  collection.
-        2.  **Frontend:**
-            -   Update  to display the Ethereal skin.
-            -   The skin should appear locked with a message indicating the unlock requirement (e.g., Own all other skins to unlock).
-            -   Once unlocked, it should become selectable like other skins.
-            -   Ensure the 10% bonus is correctly applied in .
-    -   **Why fix this issue and what will be achieved with the fix?** It will add a new engagement and retention mechanic to the Speed-Run game, encouraging players to collect all skins.
+        1.  **Animate Characters:** Convert the static 3D character renders into animated models with running and jumping animations. The user is open to a pixel art style, suggesting a sprite sheet approach is viable and preferred over integrating a heavy 3D library. This involves generating animation frames for each of the 12 skins and updating the game's render loop in  to cycle through them.
+        2.  **Unify Skin Models:** The user wants all 3D character models to match the style of the Zombie render for consistency. This requires re-generating the other 11 character renders using the image generation tool with prompts that ensure a similar aesthetic.
+        3.  **Differentiate Game Objects:** Make obstacles more fiery and slightly larger. Add a slight sparkle to mooncakes. This can be achieved by modifying their drawing functions in , potentially using simple particle effects or generating new assets.
+        4.  **Fix Spawning Logic:** Ensure obstacles and mooncakes do not overlap by adding separation checks to the object spawning logic.
+        5.  **Ensure Consistent Speed:** Verify that the game speed is applied uniformly to all moving objects across all three lanes by reviewing the object update logic within the main game loop.
+    -   **Why fix this issue and what will be achieved with the fix?** This will significantly improve the game's visual appeal and player experience, making it more dynamic and polished.
     -   **Status:** NOT STARTED
     -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** both
+    -   **Should Test frontend/backend/both after fix?** frontend
     -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Complete Backend Refactoring (P1)**
-    -   **Description:** The initial structure for modularizing  has been created (, , ), and some routes have been moved. However,  is still very large and contains critical logic (WebSocket handlers, database connections, remaining API endpoints).
-    -   **Where to resume:**
-        1.  Move WebSocket connection logic and handlers (, ) into a dedicated  or  module.
-        2.  Move the remaining API endpoints (forum, journal, messages, etc.) into their respective router files in .
-        3.  Refactor the database initialization and utility functions into a  or similar.
-        4.  Slim down  to primarily handle application startup, middleware configuration, and including the main API router.
-    -   **What will be achieved with this?** A maintainable, scalable, and organized backend codebase, making future development easier and less error-prone.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** backend
-    -   **Blocked on something:** None.
+None.
 
 **Upcoming and Future Tasks**
+-   **Upcoming Tasks:**
+    -   **Resume Deployment (P1):** The user wants to deploy the application to . Now that the application is stable, this process can be re-initiated.
 -   **Future Tasks:**
-    -   **Re-enable Plushie Sales (P2):** The code exists in  and can be un-hidden when the user provides more details.
-    -   **Re-enable NFT Gallery (P2):** The placeholder page  exists and can be built out when the user is ready.
+    -   **Re-enable Plushie Sales (P2):** Un-hide and implement the shop page.
+    -   **Re-enable NFT Gallery (P2):** Build out the NFT gallery page.
+    -   **Complete remaining PRD features:** P2P Betting Arena, Exit Simulator, Trading Journal, Forum, and DMs.
 
 **Completed work in this session**
--   **Multi-Language Support:** Integrated  for English and Spanish translations, with a language switcher in the navbar.
--   **Email Notifications:** Integrated SendGrid, configured the API key, and created a backend email service and test endpoint.
--   **Security Enhancements:** Implemented API rate-limiting () and a server-side wallet signature verification flow.
--   **UX Improvements:** Added sound effects, animations, haptic feedback, and particle effects to the Betting Arena and Speed-Run Game.
--   **Speed-Run Game Skin Store:**
-    -   Created an in-game store for purchasing skins with Solana.
-    -   Added 10 unique, purchasable skins with different point bonuses.
-    -   Implemented animated skin previews and a skin gifting feature.
--   **Backend Refactoring (Started):** Created a modular directory structure (, , ) and moved several API endpoints out of .
--   **Testing:** Successfully ran the testing agent multiple times to validate all new features and changes.
+-   **MAJOR: Completed Backend Refactoring:** Successfully migrated all remaining business logic from  into new, modular routers (, , , , , ). Reduced  from ~1586 lines to a lean 212 lines.
+-   **MAJOR: Cosmic Runner Game Overhaul:**
+    -   Transformed the game into a 3D-perspective, 3-lane runner.
+    -   Implemented progressive difficulty, with game speed increasing over 60 seconds.
+    -   Halved the point-scoring rate as requested.
+    -   Generated and integrated 12 unique, high-quality 3D character renders for the in-game skins.
+    -   Fixed obstacle movement to have them come from the horizon towards the player.
+    -   Updated the Skin Store UI with new 2D and 3D character assets.
+-   **CRITICAL: Resolved Core Stability Issues:**
+    -   Fixed the persistent frontend build failure that was blocking all development.
+    -   Fixed the game-breaking bug where the animation frame was being cancelled immediately, causing a blank screen.
+-   **Testing:** Used the testing agent multiple times to validate game mechanics and UI changes, with the latest reports confirming 100% success.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -99,101 +83,71 @@ N/A
 
 
 **Key Technical Concepts**
--   **Frontend:** React, Tailwind CSS, Solana Web3.js & Wallet-Adapter, , , , .
--   **Backend:** FastAPI, WebSockets, Pydantic, MongoDB (), , , .
--   **Database:** MongoDB for user data, messages, forum posts, journal backups, and skin ownership.
--   **Internationalization (i18n):** Using  with JSON translation files for EN/ES.
+-   **Frontend:** React, HTML5 Canvas API (for 2D game rendering), Tailwind CSS.
+-   **Backend:** FastAPI with a fully modular router architecture.
+-   **AI Tools:**  was used extensively to create game assets, including character sprites and 3D renders.
 
 **key DB schema**
--   : {wallet_address: str, username: str, ...}
--   : {id: str, author: str, content: str, ...}
--   : {id: str, sender: str, recipient: str, ...}
--   : {user_id: str, trades: list}
--   : {id: str, name: str, price: float, bonus: float, rarity: str}
--   : {wallet_address: str, skin_id: str, equipped: bool}
--   : {sender_wallet: str, recipient_wallet: str, skin_id: str, timestamp: datetime}
+No changes made.
 
 **changes in tech stack**
--   **Internationalization:** Added  and  for multi-language support.
--   **Email:** Added  library for transactional emails.
--   **Rate Limiting:** Added  to the backend for API security.
+No new technologies were added.
 
 **All files of reference**
 -   **New Files:**
-    -   , , 
-    -   , , 
-    -   , , 
-    -   All files in , , 
-    -   All skin images in 
+    -   , , , , , 
+    -   Numerous 3D render image assets under 
 -   **Heavily Modified Files:**
-    -    (multiple additions, start of refactor)
-    -    (skin store integration, bonuses, UI)
-    -    (translations, sound effects)
-    -    (language switcher)
-    -    (i18n provider)
-    -    (SendGrid API key added)
+    -    (complete architectural refactor)
+    -    (multiple gameplay and visual rewrites)
+    -    (updated to use new 3D renders)
+    -    (UI improvements for new assets)
 
 **Areas that need refactoring**:
--   The  file refactoring is incomplete. WebSocket logic, database setup, and several API endpoints still reside in this monolithic file and must be moved to their respective modules to complete the transition to a scalable architecture.
+-   The  file is now over 1000 lines. It contains all game logic for rendering, state management, physics, and controls. It is a strong candidate for being broken down into smaller, reusable hooks and components (e.g., , , , ).
 
 **key api endpoints**
--    (POST): Test SendGrid integration.
--    (POST): Generate a message for wallet signature verification.
--    (GET): Get a list of all available skins.
--    (POST): Purchase a skin with SOL.
--    (POST): Equip a purchased skin.
--    (GET): Get skins owned by the connected wallet.
--    (POST): Gift a skin to another user.
+The refactoring moved existing API endpoints into new router files. All endpoints were tested and confirmed to be working post-refactor.
 
 **Critical Info for New Agent**
--   **Your immediate task is to implement the Ethereal achievement skin.** This was the user's last request and is the highest priority (P0).
--   After implementing the achievement skin, **continue and complete the backend refactoring**, which is currently in-progress (P1).
--   The SendGrid API key has been provided by the user and is configured in .
+-   Your immediate priority is to implement the latest user requests for the Cosmic Runner game, focusing on character animation and visual polish.
+-   The most complex request is to create **animated 3D characters**. The recommended approach is to generate sprite sheets for run/jump animations for each of the 12 skins and update the canvas rendering logic to cycle through frames. Avoid integrating a full 3D engine like Three.js, as it is likely overkill.
+-   You must also re-generate 11 of the 3D character renders to ensure a consistent visual style matching the Zombie skin.
+-   The backend is stable and fully refactored. Your work will be concentrated on the frontend, primarily within the  file.
+-   Be mindful that  is very large. Consider planning a refactor of this component after implementing the current set of features to improve maintainability.
 
 **documents and test reports created in this job**
 -    (updated)
--   
--   
--   
--   
+-   Multiple test reports from the testing agent, with the latest confirming the successful implementation of the 3D runner game.
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User:** Requests to add purchasable skins to the speed-run game, providing 10 images with names, prices, and bonuses.
-9.  **Agent:** Confirms receipt of skins and plan to implement the store.
-8.  **Agent:** Implements the full skin store with Solana purchasing and runs tests. Finishes task.
-7.  **User:** Asks to add animated skin previews and the ability to gift skins to other users.
-6.  **Agent:** Confirms and implements animated previews and the gifting system (backend API and frontend UI).
-5.  **Agent:** Runs tests and confirms completion. Finishes task.
-4.  **User:** Requests an achievement skin named Ethereal that unlocks after collecting all other skins, providing a 10% bonus. Provides the image.
-3.  **Agent:** Acknowledges the request and prepares to start implementation. *(This is the current state).*
-2.  **User:** Complete backend route. Sendgrid API - [key]. Proceed with adding more sound effect, etc as recommended
-1.  **Agent:** Finishes task after completing backend route migration and adding SendGrid API.
+-   The most recent user messages outline the next set of tasks for the Cosmic Runner game:
+    -   Prevent obstacles/mooncakes from overlapping.
+    -   Ensure consistent obstacle speed in all lanes.
+    -   Make obstacles more fiery and bigger; add a sparkle to mooncakes.
+    -   Make all skin models match the style of the Zombie render.
+    -   Turn the static 3D characters into animated models (e.g., pixel art style).
 
 **Project Health Check:**
--   **Broken:** None.
--   **Mocked/Partially Implemented:**
-    -   **Backend Refactoring:** In progress. The structure is there, but logic migration from  is not complete.
+-   **Broken:** None. The application is stable.
+-   **Mocked/Partially Implemented:** The 3D characters in the game are currently static images. The immediate task is to make them animated.
 
 **3rd Party Integrations**
--   **Solana:** , ,  (Python).
--   **MongoDB:** Via .
--   **SendGrid:** Integrated for transactional emails.
--   **i18next / react-i18next:** Integrated for EN/ES translation.
--   **slowapi:** Integrated for backend rate limiting.
--   **jsPDF & papaparse:** For client-side document generation/parsing.
+-   **Solana:** , 
+-   **MongoDB:** via 
+-   **SendGrid:** For emails.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent ran the testing agent successfully after every major feature implementation (i18n, security, skin store, gifting).
+-   **Testing agent used after significant changes:** YES. The agent was used successfully after the backend refactor and after major game updates.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None. All testing was performed by the testing agent.
+-   **Test files created:** None.
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
 -   **Admin Wallets:**
-    -    (Fee Wallet)
-    -    (Personal)
--   **SendGrid API Key:** Present in .
--   No user/password credentials. Authentication is via Solana wallet.
+    -   
+    -   
+-   Authentication is via Solana wallet; no user/password needed.
 
 **What agent forgot to execute**
--   The agent started the backend refactoring as requested but has not fully completed it. Significant amounts of code (especially WebSocket handlers) still reside in the monolithic  file. This task needs to be finished to achieve a clean architecture.</analysis>
+The agent did not forget to execute any tasks. It successfully resolved a critical blocker, completed a major backend refactor, and implemented several complex user-requested game features before the session ended.</analysis>
