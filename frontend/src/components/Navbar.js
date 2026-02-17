@@ -41,8 +41,9 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2" data-testid="nav-logo">
             <img src={LOGO} alt="Bullpug" className="w-9 h-9 rounded-full ring-2 ring-[#00FFA3]/30" />
-            <span className="font-black text-lg tracking-wider hidden sm:block" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+            <span className="font-black text-lg tracking-wider hidden sm:flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               BULL<span className="text-[#00FFA3]">PUG</span>
+              <span className="text-[10px] font-bold text-[#F5D300] bg-[#F5D300]/10 px-2 py-0.5 rounded-full border border-[#F5D300]/30">BETA</span>
             </span>
           </Link>
 
