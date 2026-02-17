@@ -1171,6 +1171,87 @@ export default function SpeedRunGame() {
         ctx.stroke();
       });
 
+      // Draw power-ups (shiny, sparkly, cosmic items)
+      g.powerups.forEach(p => {
+        if (p.collected || p.depth < 0.05 || p.depth > 1.15) return;
+        
+        const scale = getDepthScale(p.depth);
+        const x = getLaneX(p.lane, p.depth);
+        const y = getDepthY(p.depth) - p.floatOffset * scale - 10;
+        const size = 25 * scale;
+        
+        const config = POWERUP_TYPES[p.type];
+        
+        // Outer sparkle aura (very shiny)
+        const auraSize = size * (2.5 + Math.sin(p.glow * 2) * 0.5);
+        const auraGrad = ctx.createRadialGradient(x, y, 0, x, y, auraSize);
+        auraGrad.addColorStop(0, config.glowColor);
+        auraGrad.addColorStop(0.3, `${config.color}40`);
+        auraGrad.addColorStop(0.6, `${config.color}15`);
+        auraGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, auraSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Sparkle rays (8-pointed star)
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(p.rotation);
+        
+        for (let i = 0; i < 8; i++) {
+          const rayAngle = (i / 8) * Math.PI * 2;
+          const rayLen = size * (1.5 + Math.sin(p.sparklePhase + i) * 0.4);
+          const rayAlpha = 0.6 + Math.sin(p.sparklePhase * 2 + i) * 0.3;
+          
+          ctx.strokeStyle = `${config.color}${Math.floor(rayAlpha * 255).toString(16).padStart(2, '0')}`;
+          ctx.lineWidth = 2 * scale;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(rayAngle) * rayLen, Math.sin(rayAngle) * rayLen);
+          ctx.stroke();
+        }
+        ctx.restore();
+        
+        // Main orb with gradient
+        const orbGrad = ctx.createRadialGradient(x - size * 0.2, y - size * 0.2, 0, x, y, size);
+        orbGrad.addColorStop(0, '#FFFFFF');
+        orbGrad.addColorStop(0.3, config.color);
+        orbGrad.addColorStop(0.7, shadeColor(config.color, -30));
+        orbGrad.addColorStop(1, shadeColor(config.color, -50));
+        ctx.fillStyle = orbGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner icon/symbol
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `${Math.floor(size * 0.9)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(config.icon, x, y);
+        
+        // Highlight shine
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.35, y - size * 0.35, size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Orbiting sparkles
+        for (let s = 0; s < 6; s++) {
+          const sparkAngle = p.glow * 2.5 + (s / 6) * Math.PI * 2;
+          const sparkDist = size * (1.4 + Math.sin(sparkAngle * 2) * 0.2);
+          const sx = x + Math.cos(sparkAngle) * sparkDist;
+          const sy = y + Math.sin(sparkAngle) * sparkDist;
+          const sparkSize = (2 + Math.sin(sparkAngle * 3)) * scale;
+          
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.7 + Math.sin(sparkAngle * 2) * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
       // Draw animated Bullpug character - galloping animation
       const pX = playerX;
       const pY = playerY;
