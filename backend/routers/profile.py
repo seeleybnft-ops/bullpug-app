@@ -54,7 +54,7 @@ async def get_or_create_profile(wallet_address: str):
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.user_profiles.insert_one(profile)
-        del profile["_id"] if "_id" in profile else None
+        profile.pop("_id", None)  # Remove MongoDB _id if present
         logger.info(f"Created new profile for wallet: {wallet_address[:8]}...")
     
     return profile
