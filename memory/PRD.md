@@ -1,172 +1,140 @@
 # Bullpug.com - PRD & Implementation Tracker
 
 ## Original Problem Statement
-Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com), space-themed with cosmic guardian lore.
+Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic guardian lore.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Solana Web3.js, react-i18next
 - **Backend:** FastAPI, WebSockets, Pydantic, slowapi
 - **Database:** MongoDB
-- **Email:** SendGrid ✅ CONFIGURED
-- **Blockchain:** Solana network
+- **Email:** SendGrid
 
 ---
 
-## ✅ Latest Update: Feb 17, 2026 - Cosmic Runner Game Overhaul
+## ✅ Latest Update: Feb 17, 2026 - Cosmic Runner V2
 
-### 🎮 Complete Game Transformation
-The Speed-Run game has been completely redesigned as **COSMIC RUNNER** - a Subway Surfers-style 3-lane endless runner:
+### 🎮 Major Game Improvements
 
-#### Gameplay Mechanics
-- **3-Lane System:** Players can switch between left/center/right lanes
-- **Controls:** A/D or Arrow Keys for lane switching, Space/ArrowUp for jump
-- **Progressive Difficulty:** 5 stages with increasingly challenging obstacles
+#### 1. Obstacle Movement (FIXED)
+- Obstacles now spawn at **horizon** (top/far) and move **DOWN toward player**
+- Proper 3D perspective - obstacles start small and grow as they approach
+- Depth-based rendering (depth=0 at horizon, depth=1 at player level)
 
-#### Obstacle Types (by Stage)
-| Stage | Score Threshold | Obstacles |
-|-------|-----------------|-----------|
-| 1 | 0 | Meteors |
-| 2 | 500 | Meteors, Space Debris |
-| 3 | 1000 | + Black Holes |
-| 4 | 2000 | + Satellites |
-| 5 | 3000 | + Alien Ships |
+#### 2. Animated 3D Character
+- **Running animation:** Vertical bob motion when moving
+- **Jump animation:** Stretch when jumping up, squash when landing
+- Character glow effect based on skin color
+- Running particles trail when moving
 
-#### Visual Design
-- **Deep Space Background:** Black with stars and purple nebulas
-- **3D Perspective Runway:** Grid lines converging to vanishing point
-- **Glowing Edge Lines:** Teal/green energy borders
-- **Particle Effects:** Jump particles, collection effects, stage-up celebrations
+#### 3. Unique Skin Store Images
+Each skin now has its own unique character artwork from the library:
 
-#### New Character Sprite
-- Generated new Bullpug sprite with dark background for seamless blending
-- Cape-wearing bulldog with golden horns in pixel art style
-- Located at `/images/bullpug_sprite.png`
-
----
-
-## 🎨 Skin Store Updates
-
-### Display Improvements
-- Dark gradient backgrounds (no more transparency checkerboard)
-- Proper color tints for each skin variant
-- Drop shadow glow effects based on skin color
-- Rarity badges with icons (Crown for Legendary, Star for Mythic)
-
-### 12 Available Skins
-| Skin | Bonus | Price | Rarity |
-|------|-------|-------|--------|
-| Guardian | 0% | Free | Common |
-| **Ethereal** | **+10%** | **Achievement** | **Mythic** |
-| Diamond | +5% | 0.05 SOL | Legendary |
-| Gold | +5% | 0.05 SOL | Legendary |
-| Silver | +4% | 0.04 SOL | Epic |
-| Heatmap | +3% | 0.03 SOL | Rare |
-| Radioactive | +3% | 0.03 SOL | Rare |
-| Zombie | +3% | 0.03 SOL | Rare |
-| Aqua | +2% | 0.02 SOL | Uncommon |
-| Inferno | +2% | 0.02 SOL | Uncommon |
-| Cyber | +1% | 0.01 SOL | Common |
-| Phantom | +1% | 0.01 SOL | Common |
+| Skin | Image File | Description |
+|------|-----------|-------------|
+| Guardian | bullpug_sprite.png | Original Bullpug |
+| Ethereal | ethereal.jpg | Glowing mystical character |
+| Diamond | diamond.jpg | Crystal themed character |
+| Gold | gold.jpg | Golden themed character |
+| Silver | silver.jpg | Metallic character |
+| Heatmap | heatmap.jpg | Thermal vision character |
+| Radioactive | radioactive.jpg | Nuclear glow character |
+| Zombie | zombie.jpg | Undead themed character |
+| Aqua | water.jpg | Ocean/water themed |
+| Inferno | fire.jpg | Fire/flame themed |
+| Cyber | robot.jpg | Mechanical character |
+| Phantom | skeletal.jpg | Ghostly character |
 
 ---
 
-## ✅ Backend Architecture (Completed)
+## 🕹️ Game Features
 
-### server.py Cleanup Complete
-- **Before:** ~1586 lines
-- **After:** 212 lines (86% reduction)
-- All business logic modularized into 20 routers
+### Gameplay
+- **3-Lane System:** A/D or Arrow keys to switch lanes
+- **Jump:** Space or ArrowUp to jump over obstacles
+- **5 Stages:** Progressive difficulty with new obstacle types
 
-### All Active Routers
-| Router | Endpoints |
-|--------|-----------|
-| betting | challenges, history |
-| auth | sign-message, verify |
-| email | subscribe, unsubscribe |
-| leaderboard | get, submit |
-| skins | catalog, owned, purchase, gift |
-| forum | posts, replies, categories |
-| messages | send, inbox, conversations |
-| journal | trades, dashboard, backup |
-| showcase | collection, leaderboard |
-| notifications | list, read, subscribe |
-| reflections | calculate |
-| pot | status, join, draw |
-| admin | dashboard, challenges |
-| newsletter | subscribe |
-| checkout | products, session, webhook |
-| governance | proposals, vote |
-| staking | simulate, exit-sim |
-| wallet | balance |
-| escrow | deposit, balance |
-| tokenomics | stats |
+### Obstacle Types
+| Stage | Score | New Obstacles |
+|-------|-------|---------------|
+| 1 | 0+ | Meteors (fiery, with fire trail pointing up) |
+| 2 | 500+ | Space Debris (rocky chunks) |
+| 3 | 1000+ | Black Holes (swirling vortex) |
+| 4 | 2000+ | Satellites (with solar panels) |
+| 5 | 3000+ | Alien Ships (UFOs with beam) |
+
+### Visual Design
+- **Deep space background** with nebulas and twinkling stars
+- **3D perspective track** with converging lane lines
+- **Glowing edge borders** in teal/green
+- **Grid lines** moving toward player for speed effect
 
 ---
 
-## 📊 Code Architecture
+## ✅ Backend Architecture (Complete)
+
+### server.py: 212 lines
+All business logic in 20 modular routers:
+- betting, auth, email, leaderboard, skins, forum
+- messages, journal, showcase, notifications
+- reflections, pot, admin, newsletter
+- checkout, governance, staking, wallet, escrow, tokenomics
+
+---
+
+## 📊 Testing Status
+
+### Latest: iteration_19.json - 100% pass rate
+All features verified:
+- Obstacles move DOWN from horizon ✅
+- Character animation (bob/stretch/squash) ✅
+- Unique skin images in store ✅
+- 3-lane system + jump mechanics ✅
+- Collision detection ✅
+- Score/leaderboard integration ✅
+
+---
+
+## 📁 Key Files
 
 ```
-/app/
-├── backend/
-│   ├── server.py (212 lines - app setup only)
-│   ├── routers/ (20 router files)
-│   ├── services/
-│   ├── models/
-│   └── utils/
-├── frontend/
-│   ├── public/images/
-│   │   ├── bullpug_sprite.png (NEW - dark bg character)
-│   │   └── mooncake.png
-│   ├── src/
-│   │   ├── pages/
-│   │   │   └── SpeedRunGame.js (REWRITTEN - 3-lane game)
-│   │   ├── config/
-│   │   │   └── skins.js (UPDATED - new sprite paths)
-│   │   └── components/
-│   │       └── SkinStore.js (UPDATED - dark backgrounds)
-│   └── package.json
-└── memory/
-    └── PRD.md
+/app/frontend/
+├── public/images/
+│   ├── bullpug_sprite.png    # Guardian character
+│   ├── ethereal.jpg          # Mythic skin
+│   ├── diamond.jpg           # Legendary skin
+│   ├── gold.jpg              # Legendary skin
+│   ├── silver.jpg            # Epic skin
+│   ├── heatmap.jpg           # Rare skin
+│   ├── radioactive.jpg       # Rare skin
+│   ├── zombie.jpg            # Rare skin
+│   ├── water.jpg             # Uncommon (Aqua)
+│   ├── fire.jpg              # Uncommon (Inferno)
+│   ├── robot.jpg             # Common (Cyber)
+│   └── skeletal.jpg          # Common (Phantom)
+├── src/
+│   ├── pages/SpeedRunGame.js # Main game (rewritten)
+│   ├── config/skins.js       # Skin configuration
+│   └── components/SkinStore.js
 ```
-
----
-
-## 📋 Testing Status
-
-### Latest Test Report: iteration_18.json
-- **Frontend:** 100% pass rate (47 tests passed)
-- **Backend:** N/A (frontend-only testing)
-- All game mechanics verified working
-- Skin store, leaderboard, controls all functional
 
 ---
 
 ## 📋 Task Status
 
-### ✅ Completed This Session
-1. Fixed Speed-Run game (animation frame issue)
-2. Complete server.py cleanup (86% reduction)
-3. Transformed game to 3-lane Subway Surfers style
-4. Generated new character sprite with dark background
-5. Fixed skin store display (dark backgrounds)
-6. Progressive obstacle system (5 stages)
-7. Deep space visual theme
+### ✅ Completed
+1. Obstacles coming from horizon DOWN the track
+2. Animated 3D character (run bob, jump stretch/squash)
+3. Unique skin images from library
+4. Complete server.py refactoring (86% reduction)
 
-### 📋 P2 Tasks - Future/Backlog
-- Re-enable Plushie Sales (Shop.js)
-- Re-enable NFT Gallery
+### 📋 Future/Backlog
 - Deployment to bullpug.com
+- Re-enable Plushie Sales
+- Power-ups implementation (Shield, Magnet, 2x Score)
+- Mobile swipe controls
 
 ---
 
-## 🔑 Admin Credentials
-- **Admin Wallets:**
-  - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
-  - `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
-
----
-
-## 🚀 Deployment Status
-- Ready for deployment to bullpug.com
-- All features tested and working
-- Client-side Solana integration compatible
+## 🔑 Admin Wallets
+- `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
+- `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
