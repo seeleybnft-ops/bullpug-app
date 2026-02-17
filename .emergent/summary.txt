@@ -6,76 +6,88 @@ The user wants to build a full-stack, responsive website for the memecoin Bullpu
 -   **Tokenomics:** Interactive display of token details, supply distribution, and a reflections calculator.
 -   **Solana Wallet Integration:** Connect to the Solana blockchain for features like staking, balance display, and real SOL betting.
 -   **Revenue & Engagement Features:**
-    -   **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with a 2.5% house rake sent to a distribution wallet.
+    -   **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with a 2.5% house rake.
     -   **Exit Simulator:** A tool for users to simulate crypto trading outcomes with Monte Carlo simulations and a PDF export feature.
-    -   **Bullpug Speed-Run Game:** An endless runner game with Mooncake collectibles, a weekly leaderboard, and a Share to X feature.
-    -   **Crypto Trading Journal:** A comprehensive, built-in feature for logging trades with a dashboard, CSV/PDF export, and cloud backup to MongoDB.
-    -   **Community Forum:** A section for users to create posts, reply, and filter by category.
+    -   **Bullpug Speed-Run Game:** An endless runner game with collectibles, a weekly leaderboard, an in-game store with purchasable skins (using SOL), skin gifting, and an achievement-based unlockable skin.
+    -   **Crypto Trading Journal:** A comprehensive feature for logging trades with a dashboard, CSV/PDF export, and cloud backup.
+    -   **Community Forum:** A section for users to create posts, reply, and filter.
     -   **Direct Messaging (DMs):** Real-time chat between users.
 -   **Admin & Notifications:**
-    -   **Admin Panel:** A restricted page for wallet-authorized admins to manage the platform.
+    -   **Admin Panel:** A restricted page for wallet-authorized admins.
     -   **Push Notifications:** Using the Web Push API for user alerts.
     -   **Email Notifications:** Using SendGrid for key events.
--   **Internationalization:** Multi-language support.
+-   **Internationalization:** Multi-language support (English & Spanish).
 -   **Tech Stack:** React frontend, FastAPI backend, Tailwind CSS, MongoDB, and Solana Web3.js.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A comprehensive full-stack application with a FastAPI backend and a React frontend. The backend now uses MongoDB for persistence of user data, forum posts, messages, and trading journal backups.
+A comprehensive full-stack application with a React frontend and a FastAPI backend using MongoDB. The backend refactoring has begun, with new directories for , , and , although  still contains significant logic.
 
 The application includes:
--   A P2P Betting Arena for Coin Flip and Pot games (backend logic for real SOL transactions is implemented).
--   A Speed-Run Game with a weekly leaderboard and share functionality.
--   A Reflections Calculator.
--   A detailed Trading Journal with export and cloud backup features.
--   A Community Forum with categories and posting capabilities.
--   A real-time Direct Messaging system via WebSockets.
--   An Admin Panel accessible only by whitelisted wallet addresses.
--   A UI for push notifications.
--   All features require a Solana wallet connection.
+-   A P2P Betting Arena (Coin Flip, Pot games) with real SOL transaction logic.
+-   An advanced Speed-Run Game with a weekly leaderboard, sound effects, an in-game store to purchase skins with SOL, animated skin previews, and a gifting system.
+-   A Community Forum, Direct Messaging, Trading Journal, Reflections Calculator, and Admin Panel.
+-   Multi-language support (English/Spanish) via .
+-   Email notifications via SendGrid (backend service is implemented and configured).
+-   Security enhancements including API rate-limiting and server-side wallet signature verification.
 
 **Last working item**:
--   **Last item agent was working:** The agent was initiating the implementation of the user's latest requests: multi-language support, email notifications, enhanced security, and UX improvements. The last action was calling the  subagent to get playbooks for  (for translations) and  (for email).
+-   **Last item agent was working:** The user requested the implementation of an unlockable achievement skin named Ethereal. This skin is awarded to users who own all 10 other purchasable skins and provides a 10% bonus to points in the Speed-Run Game. The agent received the skin image and requirements.
 -   **Status:** NOT STARTED
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. These are significant new integrations and changes requiring full end-to-end validation.
+-   **Which testing method agent to use?** both. This requires backend logic to check for ownership and unlock the skin, and frontend changes to display the skin, its lock status, and its unlock condition in the store.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-There are no known bugs or issues. All pending work consists of new feature implementation.
+-   **Issue 1: Implement Ethereal Achievement Skin (P0)**
+    -   **Description:** This is the highest priority task based on the last user request.
+    -   **Attempted fixes:** N/A
+    -   **Next debug checklist:**
+        1.  **Backend:**
+            -   Modify the  to include the Ethereal skin, perhaps with an  flag.
+            -   Create a new API endpoint or modify an existing one (e.g., ) to check if a user owns all 10 base skins.
+            -   If the condition is met, automatically grant the Ethereal skin to the user in the  collection.
+        2.  **Frontend:**
+            -   Update  to display the Ethereal skin.
+            -   The skin should appear locked with a message indicating the unlock requirement (e.g., Own all other skins to unlock).
+            -   Once unlocked, it should become selectable like other skins.
+            -   Ensure the 10% bonus is correctly applied in .
+    -   **Why fix this issue and what will be achieved with the fix?** It will add a new engagement and retention mechanic to the Speed-Run game, encouraging players to collect all skins.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Implement New Feature Batch (P0)**
-    -   **Description:** This is the primary task, based on the user's latest request and choices. It involves several components that need to be implemented.
-    -   **Where to resume:** The agent has just called the  tool. The next step is to receive the playbooks for  and  and begin implementing them according to the user's specifications.
-    -   **What will be achieved with this?** The application will gain multi-language support, email notifications, enhanced security through rate limiting and wallet checks, and improved UX on key pages.
+-   **Task 1: Complete Backend Refactoring (P1)**
+    -   **Description:** The initial structure for modularizing  has been created (, , ), and some routes have been moved. However,  is still very large and contains critical logic (WebSocket handlers, database connections, remaining API endpoints).
+    -   **Where to resume:**
+        1.  Move WebSocket connection logic and handlers (, ) into a dedicated  or  module.
+        2.  Move the remaining API endpoints (forum, journal, messages, etc.) into their respective router files in .
+        3.  Refactor the database initialization and utility functions into a  or similar.
+        4.  Slim down  to primarily handle application startup, middleware configuration, and including the main API router.
+    -   **What will be achieved with this?** A maintainable, scalable, and organized backend codebase, making future development easier and less error-prone.
     -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** both
-    -   **Blocked on something:** Waiting for the response from the  subagent.
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks:**
-    -   **Implement Multi-Language Support (P0):** Integrate  with a language switcher in the navbar. Prioritize translating the Betting and Game pages first.
-    -   **Implement Email Notifications (P0):** Integrate  to send emails for new user sign-ups and weekly performance summaries.
-    -   **Add Backend Rate Limiting (P1):** Implement recommended rate limiting on API endpoints to prevent abuse.
-    -   **Enhance Wallet Security (P1):** Implement a server-side check to ensure only user-owned wallets can sign for actions.
-    -   **UX Improvements (P1):** Add visual feedback (animations, sound effects) to the Betting and Game pages.
 -   **Future Tasks:**
     -   **Re-enable Plushie Sales (P2):** The code exists in  and can be un-hidden when the user provides more details.
     -   **Re-enable NFT Gallery (P2):** The placeholder page  exists and can be built out when the user is ready.
 
 **Completed work in this session**
--   **E2E Testing:** Ran comprehensive tests on the initial feature set.
--   **Social Links:** Added and corrected Telegram and X links in the Navbar and Footer.
--   **Reflections Calculator:** Created a new page with a functional calculator.
--   **Trading Journal:** Implemented a full-featured journal with dashboard, CSV/PDF export, and cloud backup to MongoDB.
--   **Game Leaderboard:** Added a weekly resetting leaderboard to the Speed-Run Game.
--   **P2P Betting with Real SOL:** Reworked the Betting Arena to be a player-vs-player system with a 2.5% rake, using real SOL transactions (backend logic complete).
--   **Community Forum:** Built a multi-category forum for user discussions.
--   **Direct Messaging:** Added a real-time user-to-user private messaging system.
--   **Admin Panel:** Created a secure admin page accessible only to whitelisted wallets.
--   **Push Notifications:** Implemented the frontend and backend for web push notifications.
+-   **Multi-Language Support:** Integrated  for English and Spanish translations, with a language switcher in the navbar.
+-   **Email Notifications:** Integrated SendGrid, configured the API key, and created a backend email service and test endpoint.
+-   **Security Enhancements:** Implemented API rate-limiting () and a server-side wallet signature verification flow.
+-   **UX Improvements:** Added sound effects, animations, haptic feedback, and particle effects to the Betting Arena and Speed-Run Game.
+-   **Speed-Run Game Skin Store:**
+    -   Created an in-game store for purchasing skins with Solana.
+    -   Added 10 unique, purchasable skins with different point bonuses.
+    -   Implemented animated skin previews and a skin gifting feature.
+-   **Backend Refactoring (Started):** Created a modular directory structure (, , ) and moved several API endpoints out of .
+-   **Testing:** Successfully ran the testing agent multiple times to validate all new features and changes.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -88,99 +100,100 @@ N/A
 
 **Key Technical Concepts**
 -   **Frontend:** React, Tailwind CSS, Solana Web3.js & Wallet-Adapter, , , , .
--   **Backend:** FastAPI, WebSockets, Pydantic, MongoDB (), , .
--   **Database:** MongoDB for persistence of user data, messages, forum posts, and journal backups.
--   **Blockchain:** Live integration with the Solana network for identity and transactions.
+-   **Backend:** FastAPI, WebSockets, Pydantic, MongoDB (), , , .
+-   **Database:** MongoDB for user data, messages, forum posts, journal backups, and skin ownership.
+-   **Internationalization (i18n):** Using  with JSON translation files for EN/ES.
 
 **key DB schema**
-The application now uses MongoDB. Data structures are defined as Pydantic models in :
--   : {wallet_address: str, username: str, created_at: datetime}
--   : {id: str, author: str, content: str, created_at: datetime, replies: list}
--   : {id: str, sender: str, recipient: str, content: str, timestamp: datetime}
+-   : {wallet_address: str, username: str, ...}
+-   : {id: str, author: str, content: str, ...}
+-   : {id: str, sender: str, recipient: str, ...}
 -   : {user_id: str, trades: list}
--   : {id: str, creator_wallet: str, amount: float, status: str}
--   : {id: str, entries: list, total_amount: float, winner: str}
+-   : {id: str, name: str, price: float, bonus: float, rarity: str}
+-   : {wallet_address: str, skin_id: str, equipped: bool}
+-   : {sender_wallet: str, recipient_wallet: str, skin_id: str, timestamp: datetime}
 
 **changes in tech stack**
--   **Database:** Shifted from an in-memory backend to a persistent one using **MongoDB**. This was a major architectural change to support features like forum posts, DMs, and backups.
+-   **Internationalization:** Added  and  for multi-language support.
+-   **Email:** Added  library for transactional emails.
+-   **Rate Limiting:** Added  to the backend for API security.
 
 **All files of reference**
--   : The monolithic backend file, now significantly larger, containing all API routes, WebSocket logic, database models, and Solana transaction handling.
--   : Contains all routes, including new ones for Admin, Messages, and Forum.
--   : Updated to include links to the Admin Panel, Messages, and a Notifications component.
--   : Completely rewritten to support the P2P SOL betting system.
--   : Heavily modified to include export buttons and a cloud backup tab.
--   : New file for admin-only functionality.
--   : New file for the forum.
--   : New file for the direct messaging UI.
+-   **New Files:**
+    -   , , 
+    -   , , 
+    -   , , 
+    -   All files in , , 
+    -   All skin images in 
+-   **Heavily Modified Files:**
+    -    (multiple additions, start of refactor)
+    -    (skin store integration, bonuses, UI)
+    -    (translations, sound effects)
+    -    (language switcher)
+    -    (i18n provider)
+    -    (SendGrid API key added)
 
 **Areas that need refactoring**:
--   The  file is now critically oversized and complex. It urgently needs to be broken down into a modular structure (e.g., , , ) to be maintainable.
--   The frontend lacks a global state management solution (like Redux Toolkit or Zustand). State is managed locally within components, which will become difficult to manage as complexity grows.
+-   The  file refactoring is incomplete. WebSocket logic, database setup, and several API endpoints still reside in this monolithic file and must be moved to their respective modules to complete the transition to a scalable architecture.
 
 **key api endpoints**
--    (POST): Create a new P2P coin flip challenge.
--    (POST): Join the P2P pot.
--    (GET/POST): Fetch or create forum posts.
--    (GET): Get messages for a user.
--    (POST): Admin endpoint to manually draw a pot winner.
--    (POST): Backup trading journal to MongoDB.
--    (GET): Restore trading journal from MongoDB.
--    (WebSocket): Real-time direct messages.
--    (WebSocket): Real-time push notifications.
+-    (POST): Test SendGrid integration.
+-    (POST): Generate a message for wallet signature verification.
+-    (GET): Get a list of all available skins.
+-    (POST): Purchase a skin with SOL.
+-    (POST): Equip a purchased skin.
+-    (GET): Get skins owned by the connected wallet.
+-    (POST): Gift a skin to another user.
 
 **Critical Info for New Agent**
--   **Your immediate task is to handle the response from the  and implement  and .**
--   The application now handles **real SOL transactions**. The backend logic is in place but requires careful frontend integration and testing. The user has approved the logic.
--   The backend has transitioned to a stateful service with **MongoDB**. Ensure MongoDB is running and accessible.
--   Admin access is restricted to specific wallet addresses provided by the user. Use these for testing the admin panel.
--   The user has provided clear choices for the next batch of features (multi-language, email notifications, security). Follow the plan laid out in the  interaction.
+-   **Your immediate task is to implement the Ethereal achievement skin.** This was the user's last request and is the highest priority (P0).
+-   After implementing the achievement skin, **continue and complete the backend refactoring**, which is currently in-progress (P1).
+-   The SendGrid API key has been provided by the user and is configured in .
 
 **documents and test reports created in this job**
--    (updated multiple times)
+-    (updated)
 -   
 -   
 -   
 -   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requests new features: real SOL betting, admin panel, push notifications, DMs, journal cloud backup.
-2.  **Agent:** Asks for clarification on implementation details for each feature.
-3.  **User:** Provides clear choices:  for transactions, wallet-based admin access, Web Push API,  for DMs, and MongoDB for backup.
-4.  **Agent:** Implements all requested features (backend, frontend, UI updates).
-5.  **Agent:** Restarts and tests services, verifies with screenshots.
-6.  **Agent:** Runs comprehensive E2E testing using , which passes.
-7.  **Agent:** Summarizes completion and presents next actions.
-8.  **User:** Approves and requests the next features: multi-language support and email notifications.
-9.  **Agent:** Asks for clarification on implementation details.
-10. **User:** Provides clear choices:  with a navbar switcher, rate limiting, server-side wallet security,  for emails, and prioritizing UX on betting/game pages.
+10. **User:** Requests to add purchasable skins to the speed-run game, providing 10 images with names, prices, and bonuses.
+9.  **Agent:** Confirms receipt of skins and plan to implement the store.
+8.  **Agent:** Implements the full skin store with Solana purchasing and runs tests. Finishes task.
+7.  **User:** Asks to add animated skin previews and the ability to gift skins to other users.
+6.  **Agent:** Confirms and implements animated previews and the gifting system (backend API and frontend UI).
+5.  **Agent:** Runs tests and confirms completion. Finishes task.
+4.  **User:** Requests an achievement skin named Ethereal that unlocks after collecting all other skins, providing a 10% bonus. Provides the image.
+3.  **Agent:** Acknowledges the request and prepares to start implementation. *(This is the current state).*
+2.  **User:** Complete backend route. Sendgrid API - [key]. Proceed with adding more sound effect, etc as recommended
+1.  **Agent:** Finishes task after completing backend route migration and adding SendGrid API.
 
 **Project Health Check:**
--   **Broken:** None confirmed.
+-   **Broken:** None.
 -   **Mocked/Partially Implemented:**
-    -   **Real SOL Transactions:** Backend logic is implemented, but frontend wallet interaction for signing and sending transactions needs to be fully wired up and tested.
-    -   **Push Notifications:** The infrastructure is in place, but the triggers for sending notifications need to be connected to specific events (e.g., new DM, betting round end).
+    -   **Backend Refactoring:** In progress. The structure is there, but logic migration from  is not complete.
 
 **3rd Party Integrations**
--   **Solana:** , ,  (Python library).
--   **Stripe:** For payments (currently unused in favor of SOL betting).
+-   **Solana:** , ,  (Python).
+-   **MongoDB:** Via .
+-   **SendGrid:** Integrated for transactional emails.
+-   **i18next / react-i18next:** Integrated for EN/ES translation.
+-   **slowapi:** Integrated for backend rate limiting.
 -   **jsPDF & papaparse:** For client-side document generation/parsing.
--   **MongoDB:** Via  for data persistence.
--   **i18next / react-i18next:** (Pending Implementation) For internationalization.
--   **SendGrid:** (Pending Implementation) For transactional emails.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent ran the testing agent after each of the last four major feature batches.
+-   **Testing agent used after significant changes:** YES. The agent ran the testing agent successfully after every major feature implementation (i18n, security, skin store, gifting).
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None. Testing has been done via the testing agent.
+-   **Test files created:** None. All testing was performed by the testing agent.
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
 -   **Admin Wallets:**
     -    (Fee Wallet)
     -    (Personal)
-    -   Connect with a wallet holding one of these addresses to access .
--   No user/password credentials. All authentication is via a Solana wallet.
+-   **SendGrid API Key:** Present in .
+-   No user/password credentials. Authentication is via Solana wallet.
 
 **What agent forgot to execute**
-The agent has been diligent and has not forgotten any explicit user instructions. It is currently in the process of starting the user's latest batch of requests.</analysis>
+-   The agent started the backend refactoring as requested but has not fully completed it. Significant amounts of code (especially WebSocket handlers) still reside in the monolithic  file. This task needs to be finished to achieve a clean architecture.</analysis>
