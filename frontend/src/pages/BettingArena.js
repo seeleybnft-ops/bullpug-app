@@ -180,7 +180,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
           spawnConfetti();
           toast.success(t('betting.coinFlip.youWon', { amount: data.payout_sol }));
         } else {
-          playSoundIfEnabled('lose');
+          loseFeedback();
           toast.error(t('betting.coinFlip.youLost'));
         }
       });
@@ -190,18 +190,21 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
       axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
     } catch (e) {
       setIsFlipping(false);
-      playSoundIfEnabled('lose');
+      playSoundIfEnabled('error');
       toast.error(e.response?.data?.detail || "Failed to accept challenge");
     }
     setAccepting(null);
   };
 
   const cancelChallenge = async (challengeId) => {
+    clickFeedback();
     try {
       await axios.post(`${API}/betting/challenge/cancel/${challengeId}?wallet_address=${walletAddress}`);
+      playSoundIfEnabled('success');
       toast.success("Challenge cancelled");
       fetchChallenges();
     } catch (e) {
+      playSoundIfEnabled('error');
       toast.error(e.response?.data?.detail || "Failed to cancel");
     }
   };
