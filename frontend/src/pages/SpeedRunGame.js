@@ -54,7 +54,6 @@ export default function SpeedRunGame() {
     setCurrentSkinId(skinId);
     // Reload sprite image
     const img = new Image(); 
-    img.crossOrigin = "anonymous"; 
     img.src = getSkinById(skinId).image;
     img.onload = () => { spriteRef.current = img; };
   };
