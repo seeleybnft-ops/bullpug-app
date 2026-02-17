@@ -233,6 +233,8 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
               const owned = ownedSkins.includes(skin.id);
               const isSelected = selectedSkin === skin.id;
               const rarity = RARITY_COLORS[skin.rarity];
+              const isAchievement = skin.achievement;
+              const isEthereal = skin.id === "ethereal";
 
               return (
                 <div
@@ -242,7 +244,9 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                       ? "border-[#00FFA3] ring-2 ring-[#00FFA3]/30" 
                       : owned 
                         ? "border-white/10 hover:border-white/30 cursor-pointer" 
-                        : "border-white/5 opacity-80"
+                        : isAchievement
+                          ? "border-pink-500/30 bg-gradient-to-b from-pink-500/5 to-transparent"
+                          : "border-white/5 opacity-80"
                   }`}
                   data-testid={`skin-${skin.id}`}
                 >
@@ -257,7 +261,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                       alt={skin.name}
                       className={`w-full h-full object-cover transition-transform duration-300 ${
                         previewSkin?.id === skin.id ? "scale-110" : ""
-                      }`}
+                      } ${!owned && isAchievement ? "grayscale" : ""}`}
                     />
                     
                     {/* Animated Glow Effect on Hover */}
@@ -275,10 +279,19 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                       />
                     )}
                     
-                    {/* Lock overlay for unowned */}
+                    {/* Lock overlay for unowned - special styling for achievement skins */}
                     {!owned && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <Lock className="w-8 h-8 text-slate-400" />
+                      <div className={`absolute inset-0 flex flex-col items-center justify-center ${
+                        isAchievement ? "bg-black/70" : "bg-black/60"
+                      }`}>
+                        {isAchievement ? (
+                          <>
+                            <Trophy className="w-8 h-8 text-pink-400 mb-1" />
+                            <p className="text-[10px] text-pink-300 font-bold">ACHIEVEMENT</p>
+                          </>
+                        ) : (
+                          <Lock className="w-8 h-8 text-slate-400" />
+                        )}
                       </div>
                     )}
 
@@ -292,6 +305,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                     {/* Rarity badge */}
                     <div className={`absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${rarity.bg} ${rarity.text} ${rarity.border} border`}>
                       {skin.rarity === "legendary" && <Crown className="w-3 h-3 inline mr-1" />}
+                      {skin.rarity === "mythic" && <Star className="w-3 h-3 inline mr-1" />}
                       {skin.rarity}
                     </div>
 
@@ -312,7 +326,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                     <p className="text-sm font-bold text-white truncate">{skin.name}</p>
                     <div className="flex items-center justify-between mt-1">
                       {skin.bonusPercent > 0 ? (
-                        <span className="text-[10px] text-[#00FFA3] flex items-center gap-1">
+                        <span className={`text-[10px] flex items-center gap-1 ${isAchievement ? "text-pink-300" : "text-[#00FFA3]"}`}>
                           <Sparkles className="w-3 h-3" /> +{skin.bonusPercent}%
                         </span>
                       ) : (
@@ -321,6 +335,14 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
 
                       {owned ? (
                         <span className="text-[10px] text-slate-400">Owned</span>
+                      ) : isAchievement ? (
+                        achievementStatus ? (
+                          <span className="text-[10px] text-pink-400 font-bold">
+                            {achievementStatus.progress}/{achievementStatus.required}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-pink-400">Unlock</span>
+                        )
                       ) : (
                         <span className="text-[10px] text-[#D946EF] font-bold">{skin.price} SOL</span>
                       )}
@@ -343,7 +365,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                         >
                           {isSelected ? "Equipped" : "Equip"}
                         </Button>
-                        {skin.id !== "default" && (
+                        {skin.id !== "default" && !isAchievement && (
                           <Button
                             onClick={(e) => { e.stopPropagation(); setGiftModal({ open: true, skin }); }}
                             className="w-full bg-[#D946EF]/20 text-[#D946EF] border border-[#D946EF]/30 hover:bg-[#D946EF]/30 text-xs py-2"
@@ -352,7 +374,27 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                             <Gift className="w-3 h-3 mr-1" /> Gift
                           </Button>
                         )}
+                        {isAchievement && (
+                          <p className="text-[10px] text-pink-300 text-center italic">Achievement skins cannot be gifted</p>
+                        )}
                       </>
+                    ) : isAchievement ? (
+                      <div className="text-center px-2">
+                        <Trophy className="w-6 h-6 text-pink-400 mx-auto mb-2" />
+                        <p className="text-xs text-pink-300 font-bold mb-1">Achievement Skin</p>
+                        <p className="text-[10px] text-slate-400 mb-2">{skin.unlockRequirement}</p>
+                        {achievementStatus && (
+                          <div className="w-full bg-white/10 rounded-full h-2 mb-2">
+                            <div 
+                              className="bg-gradient-to-r from-pink-500 to-purple-500 h-2 rounded-full transition-all"
+                              style={{ width: `${(achievementStatus.progress / achievementStatus.required) * 100}%` }}
+                            />
+                          </div>
+                        )}
+                        <p className="text-[10px] text-pink-400 font-bold">
+                          {achievementStatus ? `${achievementStatus.progress}/${achievementStatus.required} skins owned` : "Loading..."}
+                        </p>
+                      </div>
                     ) : connected ? (
                       <Button
                         onClick={(e) => { e.stopPropagation(); purchaseSkin(skin); }}
