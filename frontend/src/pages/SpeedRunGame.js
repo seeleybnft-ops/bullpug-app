@@ -1466,6 +1466,52 @@ export default function SpeedRunGame() {
       ctx.lineWidth = 1;
       ctx.strokeRect(20, 88, 90, 5);
       
+      // Active Power-ups display
+      let powerupX = 130;
+      const now = Date.now();
+      Object.entries(g.activePowerups).forEach(([type, data]) => {
+        if (data && now < data.endTime) {
+          const config = POWERUP_TYPES[type];
+          const remaining = Math.ceil((data.endTime - now) / 1000);
+          
+          // Power-up icon background
+          ctx.fillStyle = `${config.color}40`;
+          ctx.beginPath();
+          ctx.roundRect(powerupX, 15, 65, 30, 5);
+          ctx.fill();
+          ctx.strokeStyle = config.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Icon and timer
+          ctx.font = '16px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = config.color;
+          ctx.fillText(config.icon, powerupX + 5, 37);
+          ctx.font = 'bold 12px monospace';
+          ctx.fillStyle = '#FFF';
+          ctx.fillText(`${remaining}s`, powerupX + 28, 35);
+          
+          powerupX += 72;
+        }
+      });
+      
+      // Shield visual effect around player
+      if (g.activePowerups.shield && now < g.activePowerups.shield.endTime) {
+        const shieldPulse = Math.sin(g.frame * 0.15) * 0.3 + 0.7;
+        ctx.strokeStyle = `rgba(0, 255, 255, ${shieldPulse * 0.6})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(playerX, playerY + playerH / 2, 55, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.strokeStyle = `rgba(0, 255, 255, ${shieldPulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(playerX, playerY + playerH / 2, 65, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      
       ctx.textAlign = 'right';
       ctx.fillStyle = '#64748b';
       ctx.font = '12px monospace';
