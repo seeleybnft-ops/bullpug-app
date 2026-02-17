@@ -209,11 +209,21 @@ export default function SpeedRunGame() {
           g.mooncakes++;
           g.combo++;
           g.comboTimer = 60;
-          playSoundIfEnabled('collect');
+          collectFeedback();
           const pts = g.activePowerups.doubleScore > 0 ? 2 : 1;
           g.score += 25 * pts * Math.min(g.combo, 5);
-          for (let i = 0; i < 8; i++) {
-            g.particles.push({ x: c.x + 14, y: c.y + 14, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4 - 2, life: 25, color: `hsl(${40 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)` });
+          // Enhanced particle burst - circular explosion
+          for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 / 12) * i;
+            const speed = 3 + Math.random() * 2;
+            g.particles.push({ 
+              x: c.x + 14, 
+              y: c.y + 14, 
+              vx: Math.cos(angle) * speed, 
+              vy: Math.sin(angle) * speed - 2, 
+              life: 30, 
+              color: `hsl(${40 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)` 
+            });
           }
         }
       }
@@ -225,9 +235,19 @@ export default function SpeedRunGame() {
           g.activePowerups[p.type] = 300;
           g.powerups.splice(i, 1);
           playSoundIfEnabled('powerup');
-          for (let j = 0; j < 12; j++) {
+          // Enhanced powerup particle burst
+          for (let j = 0; j < 16; j++) {
+            const angle = (Math.PI * 2 / 16) * j;
+            const speed = 4 + Math.random() * 3;
             const clr = p.type === "shield" ? "#00C2FF" : p.type === "magnet" ? "#D946EF" : "#F5D300";
-            g.particles.push({ x: p.x + 12, y: p.y + 12, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, life: 30, color: clr });
+            g.particles.push({ 
+              x: p.x + 12, 
+              y: p.y + 12, 
+              vx: Math.cos(angle) * speed, 
+              vy: Math.sin(angle) * speed, 
+              life: 35, 
+              color: clr 
+            });
           }
         }
       }
