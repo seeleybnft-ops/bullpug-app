@@ -106,9 +106,18 @@ api_router.include_router(staking_router)
 api_router.include_router(wallet_router)
 api_router.include_router(escrow_router)
 api_router.include_router(tokenomics_router)
+api_router.include_router(prize_pool_router)
 
 # Register the complete api_router with the app
 app.include_router(api_router)
+
+
+# ========== Startup/Shutdown Events ==========
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks on app startup."""
+    start_scheduler()
+    logger.info("Prize pool scheduler started")
 
 
 # ========== WebSocket Endpoints ==========
