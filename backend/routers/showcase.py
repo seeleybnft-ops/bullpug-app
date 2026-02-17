@@ -87,6 +87,28 @@ async def get_collector_leaderboard(limit: int = 20):
     return {"leaderboard": leaderboard}
 
 
+@router.post("/settings")
+async def update_showcase_settings(data: ShowcaseSettings):
+    """Update showcase settings for a user."""
+    settings = {
+        "wallet_address": data.wallet_address,
+        "display_name": (data.display_name or f"Collector_{data.wallet_address[:6]}")[:30],
+        "bio": (data.bio or "")[:200],
+        "featured_skins": data.featured_skins[:6] if data.featured_skins else [],
+        "show_stats": data.show_stats,
+        "is_public": data.is_public,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.showcases.update_one(
+        {"wallet_address": data.wallet_address},
+        {"$set": settings},
+        upsert=True
+    )
+    
+    return {"message": "Showcase settings updated", "settings": settings}
+
+
 @router.get("/recent-acquisitions")
 async def get_recent_acquisitions(limit: int = 10):
     """Get recent skin acquisitions across all users."""
