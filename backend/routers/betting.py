@@ -13,6 +13,7 @@ from models.schemas import CreateChallengeRequest, AcceptChallengeRequest
 from utils.database import db
 from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
 from utils.solana_payout import send_sol_payout, get_escrow_balance
+from routers.prize_pool import add_to_prize_pool
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 limiter = Limiter(key_func=get_remote_address)
