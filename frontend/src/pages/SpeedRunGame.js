@@ -34,13 +34,13 @@ const PLAYER_BASE_Y = GROUND_Y - 80;
 const ANIM_RUN_FRAMES = 8;
 const ANIM_JUMP_FRAMES = 4;
 
-// Obstacle stages
+// Obstacle stages - adjusted for halved points
 const OBSTACLE_STAGES = {
   1: { score: 0, types: ['meteor'] },
-  2: { score: 500, types: ['meteor', 'debris'] },
-  3: { score: 1000, types: ['meteor', 'debris', 'blackhole'] },
-  4: { score: 2000, types: ['meteor', 'debris', 'blackhole', 'satellite'] },
-  5: { score: 3000, types: ['meteor', 'debris', 'blackhole', 'satellite', 'alienship'] }
+  2: { score: 250, types: ['meteor', 'debris'] },       // Was 500
+  3: { score: 500, types: ['meteor', 'debris', 'blackhole'] },  // Was 1000
+  4: { score: 1000, types: ['meteor', 'debris', 'blackhole', 'satellite'] },  // Was 2000
+  5: { score: 1500, types: ['meteor', 'debris', 'blackhole', 'satellite', 'alienship'] }  // Was 3000
 };
 
 export default function SpeedRunGame() {
