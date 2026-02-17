@@ -167,23 +167,29 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-5 glass-card rounded-2xl p-6">
               <h3 className="text-base font-bold mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>Supply Distribution</h3>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={TOKEN_DIST} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
-                      {TOKEN_DIST.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                {TOKEN_DIST.map((d, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-slate-400">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-                    <span>{d.name} ({d.value}%)</span>
+              <div className="h-56 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-40 h-40 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00FFA3]/60 flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(0,255,163,0.3)]">
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-black" style={{ fontFamily: 'Orbitron, sans-serif' }}>100%</div>
+                      <div className="text-xs font-bold text-black/70">FAIR LAUNCH</div>
+                    </div>
                   </div>
-                ))}
+                </div>
+              </div>
+              <div className="space-y-2 mt-3">
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#00FFA3]" />
+                  <span>100% to Liquidity Pool</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#D946EF]" />
+                  <span>0% Team Allocation</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-[#F5D300]" />
+                  <span>No Presale</span>
+                </div>
               </div>
             </div>
             <div className="lg:col-span-7 grid grid-cols-2 gap-4">
