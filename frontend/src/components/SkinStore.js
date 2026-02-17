@@ -511,6 +511,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
               <div className="text-center">
                 <Badge className={`${RARITY_COLORS[previewSkin.rarity].bg} ${RARITY_COLORS[previewSkin.rarity].text} ${RARITY_COLORS[previewSkin.rarity].border} border mb-2`}>
                   {previewSkin.rarity === "legendary" && <Crown className="w-3 h-3 inline mr-1" />}
+                  {previewSkin.rarity === "mythic" && <Star className="w-3 h-3 inline mr-1" />}
                   {previewSkin.rarity.toUpperCase()}
                 </Badge>
                 <h3 className="text-2xl font-black text-white mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
@@ -519,15 +520,45 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                 <p className="text-sm text-slate-400 mb-4">{previewSkin.description}</p>
                 
                 {previewSkin.bonusPercent > 0 && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/30 mb-4">
-                    <Sparkles className="w-5 h-5 text-[#00FFA3]" />
-                    <span className="text-lg font-bold text-[#00FFA3]">+{previewSkin.bonusPercent}% Bonus Points</span>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 ${
+                    previewSkin.achievement 
+                      ? "bg-pink-500/10 border border-pink-500/30" 
+                      : "bg-[#00FFA3]/10 border border-[#00FFA3]/30"
+                  }`}>
+                    <Sparkles className={`w-5 h-5 ${previewSkin.achievement ? "text-pink-400" : "text-[#00FFA3]"}`} />
+                    <span className={`text-lg font-bold ${previewSkin.achievement ? "text-pink-300" : "text-[#00FFA3]"}`}>
+                      +{previewSkin.bonusPercent}% Bonus Points
+                    </span>
+                  </div>
+                )}
+
+                {/* Achievement Progress Bar */}
+                {previewSkin.achievement && !ownedSkins.includes(previewSkin.id) && achievementStatus && (
+                  <div className="mb-4 px-4">
+                    <p className="text-xs text-slate-500 mb-2">Collection Progress</p>
+                    <div className="w-full bg-white/10 rounded-full h-3 mb-2">
+                      <div 
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full transition-all"
+                        style={{ width: `${(achievementStatus.progress / achievementStatus.required) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-sm text-pink-400 font-bold">
+                      {achievementStatus.progress}/{achievementStatus.required} skins owned
+                    </p>
+                    {achievementStatus.missing_skins?.length > 0 && (
+                      <p className="text-[10px] text-slate-500 mt-2">
+                        Missing: {achievementStatus.missing_skins.map(s => {
+                          const skin = SKINS.find(sk => sk.id === s);
+                          return skin?.name || s;
+                        }).join(", ")}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* Action Button */}
                 {ownedSkins.includes(previewSkin.id) ? (
-                  <div className="flex gap-2 justify-center">
+                  <div className="flex gap-2 justify-center flex-wrap">
                     <Button
                       onClick={() => { selectSkin(previewSkin.id); setPreviewSkin(null); }}
                       disabled={selectedSkin === previewSkin.id}
@@ -535,7 +566,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                     >
                       {selectedSkin === previewSkin.id ? "Currently Equipped" : "Equip Now"}
                     </Button>
-                    {previewSkin.id !== "default" && (
+                    {previewSkin.id !== "default" && !previewSkin.achievement && (
                       <Button
                         onClick={() => { setGiftModal({ open: true, skin: previewSkin }); setPreviewSkin(null); }}
                         className="bg-[#D946EF] text-white font-bold px-6"
@@ -543,6 +574,11 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                         <Gift className="w-4 h-4 mr-2" /> Gift
                       </Button>
                     )}
+                  </div>
+                ) : previewSkin.achievement ? (
+                  <div className="text-center">
+                    <p className="text-sm text-pink-300 font-bold mb-2">Achievement Skin</p>
+                    <p className="text-xs text-slate-400">{previewSkin.unlockRequirement}</p>
                   </div>
                 ) : (
                   <Button
