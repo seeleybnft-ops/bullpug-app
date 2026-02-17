@@ -455,8 +455,15 @@ export default function SpeedRunGame() {
       }
     };
     window.addEventListener("keydown", handleKey);
-    return () => { window.removeEventListener("keydown", handleKey); if (animRef.current) cancelAnimationFrame(animRef.current); };
+    return () => { window.removeEventListener("keydown", handleKey); };
   }, [gameState, jump, startGame]);
+
+  // Separate cleanup for animation frame
+  useEffect(() => {
+    return () => { 
+      if (animRef.current) cancelAnimationFrame(animRef.current); 
+    };
+  }, []);
 
   return (
     <div className="pt-20 pb-16 min-h-screen">
