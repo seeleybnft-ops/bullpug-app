@@ -1,14 +1,12 @@
 // Skin configuration for Cosmic Runner game
-// Each skin applies a color tint overlay to the base character sprite
-
-const BULLPUG_SPRITE_IMG = "/images/bullpug_sprite.png";
+// Each skin has its own unique character image
 
 export const SKINS = [
   {
     id: "default",
     name: "Guardian",
     description: "The original Bullpug Guardian - protector of the cosmos",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/bullpug_sprite.png",
     bonusPercent: 0,
     price: 0,
     rarity: "common",
@@ -19,7 +17,7 @@ export const SKINS = [
     id: "ethereal",
     name: "Ethereal",
     description: "Mythic cosmic guardian - Unlocked by collecting all skins",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/ethereal.jpg",
     bonusPercent: 10,
     price: 0,
     rarity: "mythic",
@@ -32,7 +30,7 @@ export const SKINS = [
     id: "diamond",
     name: "Diamond",
     description: "Crystal-clear perfection with maximum sparkle",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/diamond.jpg",
     bonusPercent: 5,
     price: 0.05,
     rarity: "legendary",
@@ -43,7 +41,7 @@ export const SKINS = [
     id: "gold",
     name: "Gold",
     description: "Pure golden glory for the champions",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/gold.jpg",
     bonusPercent: 5,
     price: 0.05,
     rarity: "legendary",
@@ -54,7 +52,7 @@ export const SKINS = [
     id: "silver",
     name: "Silver",
     description: "Sleek metallic sheen of the moon",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/silver.jpg",
     bonusPercent: 4,
     price: 0.04,
     rarity: "epic",
@@ -65,7 +63,7 @@ export const SKINS = [
     id: "heatmap",
     name: "Heatmap",
     description: "Thermal vision powered cosmic energy",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/heatmap.jpg",
     bonusPercent: 3,
     price: 0.03,
     rarity: "rare",
@@ -76,7 +74,7 @@ export const SKINS = [
     id: "radioactive",
     name: "Radioactive",
     description: "Glowing with nuclear power",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/radioactive.jpg",
     bonusPercent: 3,
     price: 0.03,
     rarity: "rare",
@@ -87,7 +85,7 @@ export const SKINS = [
     id: "zombie",
     name: "Zombie",
     description: "Risen from the crypto dead",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/zombie.jpg",
     bonusPercent: 3,
     price: 0.03,
     rarity: "rare",
@@ -98,7 +96,7 @@ export const SKINS = [
     id: "water",
     name: "Aqua",
     description: "Flowing with cosmic aquatic grace",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/water.jpg",
     bonusPercent: 2,
     price: 0.02,
     rarity: "uncommon",
@@ -109,7 +107,7 @@ export const SKINS = [
     id: "fire",
     name: "Inferno",
     description: "Blazing with stellar flames",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/fire.jpg",
     bonusPercent: 2,
     price: 0.02,
     rarity: "uncommon",
@@ -120,7 +118,7 @@ export const SKINS = [
     id: "robot",
     name: "Cyber",
     description: "Mechanical precision engineering",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/robot.jpg",
     bonusPercent: 1,
     price: 0.01,
     rarity: "common",
@@ -131,7 +129,7 @@ export const SKINS = [
     id: "skeletal",
     name: "Phantom",
     description: "Ghostly speed demon of the void",
-    image: BULLPUG_SPRITE_IMG,
+    image: "/images/skeletal.jpg",
     bonusPercent: 1,
     price: 0.01,
     rarity: "common",
@@ -149,12 +147,10 @@ export const RARITY_COLORS = {
   mythic: { bg: "bg-pink-500/10", border: "border-pink-500/30", text: "text-pink-300", glow: "rgba(236,72,153,0.6)" }
 };
 
-// List of purchasable skin IDs (excludes default and achievement skins)
 export const PURCHASABLE_SKIN_IDS = SKINS.filter(s => s.price > 0 && !s.achievement).map(s => s.id);
 
 export const getSkinById = (id) => SKINS.find(s => s.id === id) || SKINS[0];
 
-// Get skin display color with alpha
 export const getSkinGlowColor = (id, alpha = 0.4) => {
   const skin = getSkinById(id);
   return skin.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
