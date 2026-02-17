@@ -237,9 +237,18 @@ export default function SpeedRunGame() {
       if (!g || !g.running) return;
       
       g.frame++;
-      const baseScore = Math.floor(g.frame / 3);
+      
+      // Progressive speed over 60 seconds
+      // Start at 2.5, max at 12 after 60 seconds (3600 frames at 60fps)
+      const elapsedSeconds = (Date.now() - g.startTime) / 1000;
+      const speedProgress = Math.min(elapsedSeconds / 60, 1); // 0 to 1 over 60 seconds
+      const minSpeed = 2.5;
+      const maxSpeed = 12;
+      g.speed = minSpeed + (maxSpeed - minSpeed) * speedProgress;
+      
+      // HALVED points: baseScore is now /6 instead of /3
+      const baseScore = Math.floor(g.frame / 6);
       g.score = Math.floor(baseScore * (1 + g.skinBonus));
-      g.speed = 6 + Math.min(g.score / 400, 10);
       g.trackOffset = (g.trackOffset + g.speed * 0.02) % 1;
       
       // Update stage
