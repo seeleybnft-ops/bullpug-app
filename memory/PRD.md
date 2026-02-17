@@ -32,11 +32,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ## 🎮 In-Game Skin Store
 
-### Skins (10 purchasable + 1 default)
+### Skins (10 purchasable + 1 default + 1 achievement)
 
 | Skin | Bonus | Price | Rarity |
 |------|-------|-------|--------|
 | Guardian | 0% | Free | Default |
+| **Ethereal** | **+10%** | **Achievement** | **Mythic** |
 | Diamond | +5% | 0.05 SOL | Legendary |
 | Gold | +5% | 0.05 SOL | Legendary |
 | Silver | +4% | 0.04 SOL | Epic |
@@ -47,6 +48,18 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 | Fire | +2% | 0.02 SOL | Uncommon |
 | Robot | +1% | 0.01 SOL | Common |
 | Skeletal | +1% | 0.01 SOL | Common |
+
+### 🏆 NEW: Ethereal Achievement Skin (Feb 2026)
+- **Unlock Requirement:** Own all 10 purchasable skins
+- **Bonus:** +10% points (highest in game)
+- **Rarity:** Mythic (pink/purple theme)
+- **Features:**
+  - Trophy icon on locked state
+  - Progress bar showing X/10 skins owned
+  - Shows missing skins list on hover
+  - Auto-unlocks when collection complete
+  - Cannot be gifted (achievement-only)
+  - Special notification on unlock
 
 ### ✨ NEW: Animated Skin Previews
 - **Hover Effects:** Image scales (zoom), glow effect with skin color
