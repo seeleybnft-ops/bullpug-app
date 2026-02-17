@@ -32,7 +32,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 # Import routers
-from routers import (
+from backend.routers import (
     betting_router,
     auth_router,
     email_router,
