@@ -21,6 +21,7 @@ import TradingJournal from "@/pages/TradingJournal";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import Messages from "@/pages/Messages";
+import Showcase from "@/pages/Showcase";
 
 function App() {
   const endpoint = useMemo(
