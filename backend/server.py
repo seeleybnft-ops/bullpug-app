@@ -2262,6 +2262,125 @@ async def delete_journal_backup(backup_id: str, wallet_address: str):
     return {"message": "Backup deleted"}
 
 
+# ========== SKINS STORE ENDPOINTS ==========
+# Skin definitions with pricing
+SKINS_CATALOG = {
+    "diamond": {"name": "Diamond", "bonus_percent": 5, "price_sol": 0.05, "rarity": "legendary"},
+    "gold": {"name": "Gold", "bonus_percent": 5, "price_sol": 0.05, "rarity": "legendary"},
+    "silver": {"name": "Silver", "bonus_percent": 4, "price_sol": 0.04, "rarity": "epic"},
+    "heatmap": {"name": "Heatmap", "bonus_percent": 3, "price_sol": 0.03, "rarity": "rare"},
+    "radioactive": {"name": "Radioactive", "bonus_percent": 3, "price_sol": 0.03, "rarity": "rare"},
+    "zombie": {"name": "Zombie", "bonus_percent": 3, "price_sol": 0.03, "rarity": "rare"},
+    "water": {"name": "Water", "bonus_percent": 2, "price_sol": 0.02, "rarity": "uncommon"},
+    "fire": {"name": "Fire", "bonus_percent": 2, "price_sol": 0.02, "rarity": "uncommon"},
+    "robot": {"name": "Robot", "bonus_percent": 1, "price_sol": 0.01, "rarity": "common"},
+    "skeletal": {"name": "Skeletal", "bonus_percent": 1, "price_sol": 0.01, "rarity": "common"},
+}
+
+
+class SkinPurchaseRequest(BaseModel):
+    wallet_address: str
+    skin_id: str
+    tx_signature: str
+    amount_sol: float
+
+
+@api_router.get("/skins/catalog")
+async def get_skins_catalog():
+    """Get all available skins with pricing"""
+    return {"skins": SKINS_CATALOG}
+
+
+@api_router.get("/skins/owned/{wallet_address}")
+async def get_owned_skins(wallet_address: str):
+    """Get skins owned by a wallet"""
+    owned = await db.skin_purchases.find(
+        {"wallet_address": wallet_address, "status": "completed"},
+        {"_id": 0, "skin_id": 1}
+    ).to_list(100)
+    
+    skin_ids = [p["skin_id"] for p in owned]
+    return {"skins": skin_ids, "wallet": wallet_address}
+
+
+@api_router.post("/skins/purchase")
+async def purchase_skin(data: SkinPurchaseRequest):
+    """Record a skin purchase after SOL transaction"""
+    # Validate skin exists
+    if data.skin_id not in SKINS_CATALOG:
+        raise HTTPException(status_code=400, detail="Invalid skin ID")
+    
+    skin = SKINS_CATALOG[data.skin_id]
+    
+    # Check price matches
+    if abs(data.amount_sol - skin["price_sol"]) > 0.001:
+        raise HTTPException(status_code=400, detail="Invalid payment amount")
+    
+    # Check if already owned
+    existing = await db.skin_purchases.find_one({
+        "wallet_address": data.wallet_address,
+        "skin_id": data.skin_id,
+        "status": "completed"
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Skin already owned")
+    
+    # Record purchase
+    purchase = {
+        "id": str(uuid.uuid4()),
+        "wallet_address": data.wallet_address,
+        "skin_id": data.skin_id,
+        "skin_name": skin["name"],
+        "amount_sol": data.amount_sol,
+        "tx_signature": data.tx_signature,
+        "status": "completed",
+        "purchased_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.skin_purchases.insert_one(purchase)
+    
+    # Send notification
+    await send_notification(
+        data.wallet_address,
+        f"Skin Unlocked: {skin['name']}",
+        f"You now have +{skin['bonus_percent']}% bonus points!",
+        "purchase"
+    )
+    
+    return {
+        "message": f"Successfully purchased {skin['name']} skin!",
+        "skin_id": data.skin_id,
+        "bonus_percent": skin["bonus_percent"],
+        "tx_signature": data.tx_signature
+    }
+
+
+@api_router.get("/skins/stats")
+async def get_skins_stats():
+    """Get skin purchase statistics"""
+    pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {
+            "_id": "$skin_id",
+            "count": {"$sum": 1},
+            "total_sol": {"$sum": "$amount_sol"}
+        }},
+        {"$sort": {"count": -1}}
+    ]
+    
+    stats = await db.skin_purchases.aggregate(pipeline).to_list(20)
+    
+    total_revenue = sum(s["total_sol"] for s in stats)
+    total_sales = sum(s["count"] for s in stats)
+    
+    return {
+        "by_skin": stats,
+        "total_sales": total_sales,
+        "total_revenue_sol": total_revenue
+    }
+
+
 # ========== EMAIL ENDPOINTS ==========
 class EmailSubscribeRequest(BaseModel):
     email: str
