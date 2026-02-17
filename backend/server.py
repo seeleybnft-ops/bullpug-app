@@ -44,7 +44,8 @@ from routers import (
     skins_router,
     forum_router,
     messages_router,
-    journal_router
+    journal_router,
+    showcase_router
 )
 
 # Rate Limiter setup
