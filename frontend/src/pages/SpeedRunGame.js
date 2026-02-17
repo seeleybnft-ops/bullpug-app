@@ -802,102 +802,113 @@ export default function SpeedRunGame() {
         ctx.restore();
       });
 
-      // Draw collectibles (mooncakes with sparkle)
+      // Draw collectibles (mooncakes - actual cake shape, distinct from obstacles)
       g.collectibles.forEach(c => {
         if (c.collected || c.depth < 0.05 || c.depth > 1.15) return;
         
         const scale = getDepthScale(c.depth);
         const x = getLaneX(c.lane, c.depth);
         const y = getDepthY(c.depth) - c.floatOffset * scale - 15;
-        const size = 22 * scale; // Slightly larger
+        const cakeWidth = 28 * scale;  // Wider for cake shape
+        const cakeHeight = 18 * scale; // Shorter height for cake
         
-        // Outer sparkle glow (pulsing)
-        const sparkleGlowSize = size * (2.2 + Math.sin(c.glow * 1.5) * 0.5);
-        const sparkleGlow = ctx.createRadialGradient(x, y, 0, x, y, sparkleGlowSize);
-        sparkleGlow.addColorStop(0, 'rgba(255, 255, 200, 0.4)');
-        sparkleGlow.addColorStop(0.4, 'rgba(255, 215, 0, 0.3)');
-        sparkleGlow.addColorStop(0.7, 'rgba(255, 180, 0, 0.15)');
-        sparkleGlow.addColorStop(1, 'transparent');
-        ctx.fillStyle = sparkleGlow;
+        // Soft golden glow around cake (distinct from fiery obstacle glow)
+        const glowSize = cakeWidth * 1.8;
+        const cakeGlow = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+        cakeGlow.addColorStop(0, 'rgba(255, 230, 150, 0.5)');
+        cakeGlow.addColorStop(0.5, 'rgba(255, 200, 100, 0.25)');
+        cakeGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = cakeGlow;
         ctx.beginPath();
-        ctx.arc(x, y, sparkleGlowSize, 0, Math.PI * 2);
+        ctx.arc(x, y, glowSize, 0, Math.PI * 2);
         ctx.fill();
         
-        // Sparkle rays (4-pointed star effect)
+        // Floating sparkles around cake
+        for (let s = 0; s < 4; s++) {
+          const sparkleAngle = c.glow * 1.5 + (s / 4) * Math.PI * 2;
+          const sparkleX = x + Math.cos(sparkleAngle) * (cakeWidth * 1.4);
+          const sparkleY = y + Math.sin(sparkleAngle) * (cakeHeight * 1.4);
+          const sparkleSize = (2 + Math.sin(c.glow * 3 + s) * 1.5) * scale;
+          ctx.fillStyle = `rgba(255, 255, 220, ${0.6 + Math.sin(c.glow * 2 + s) * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(c.glow * 0.3); // Slow rotation
-        const rayLength = size * (1.8 + Math.sin(c.glow * 2) * 0.4);
-        for (let r = 0; r < 4; r++) {
-          ctx.save();
-          ctx.rotate((r / 4) * Math.PI * 2);
-          const rayGrad = ctx.createLinearGradient(0, 0, 0, -rayLength);
-          rayGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-          rayGrad.addColorStop(0.5, 'rgba(255, 230, 100, 0.4)');
-          rayGrad.addColorStop(1, 'transparent');
-          ctx.fillStyle = rayGrad;
-          ctx.beginPath();
-          ctx.moveTo(-2 * scale, 0);
-          ctx.lineTo(0, -rayLength);
-          ctx.lineTo(2 * scale, 0);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
         
-        // Secondary diagonal rays (8-pointed effect)
-        for (let r = 0; r < 4; r++) {
-          ctx.save();
-          ctx.rotate((r / 4) * Math.PI * 2 + Math.PI / 4);
-          const smallRayLength = rayLength * 0.6;
-          ctx.fillStyle = `rgba(255, 255, 200, ${0.3 + Math.sin(c.glow * 3 + r) * 0.2})`;
-          ctx.beginPath();
-          ctx.moveTo(-1.5 * scale, 0);
-          ctx.lineTo(0, -smallRayLength);
-          ctx.lineTo(1.5 * scale, 0);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
+        // Cake side (3D effect - darker bottom edge)
+        const sideGrad = ctx.createLinearGradient(0, -cakeHeight * 0.3, 0, cakeHeight * 0.5);
+        sideGrad.addColorStop(0, '#D4A050');
+        sideGrad.addColorStop(0.5, '#C49040');
+        sideGrad.addColorStop(1, '#A07030');
+        ctx.fillStyle = sideGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, cakeHeight * 0.2, cakeWidth, cakeHeight * 0.4, 0, 0, Math.PI);
+        ctx.fill();
+        
+        // Cake top surface (golden brown)
+        const topGrad = ctx.createRadialGradient(-cakeWidth * 0.2, -cakeHeight * 0.2, 0, 0, 0, cakeWidth);
+        topGrad.addColorStop(0, '#FFE4A0');
+        topGrad.addColorStop(0.4, '#E8C060');
+        topGrad.addColorStop(0.8, '#D4A050');
+        topGrad.addColorStop(1, '#C49040');
+        ctx.fillStyle = topGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth, cakeHeight * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Decorative pattern on top (traditional mooncake pattern)
+        ctx.strokeStyle = '#B08030';
+        ctx.lineWidth = 1.5 * scale;
+        
+        // Outer ring pattern
+        ctx.beginPath();
+        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth * 0.8, cakeHeight * 0.38, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Inner circle with design
+        ctx.fillStyle = '#C8A050';
+        ctx.beginPath();
+        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth * 0.5, cakeHeight * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Moon symbol in center (crescent)
+        ctx.fillStyle = '#FFE090';
+        ctx.beginPath();
+        ctx.arc(-cakeWidth * 0.05, -cakeHeight * 0.15, cakeWidth * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#C8A050';
+        ctx.beginPath();
+        ctx.arc(cakeWidth * 0.08, -cakeHeight * 0.12, cakeWidth * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Cross pattern for traditional look
+        ctx.strokeStyle = '#A87020';
+        ctx.lineWidth = 1 * scale;
+        ctx.beginPath();
+        ctx.moveTo(-cakeWidth * 0.75, -cakeHeight * 0.1);
+        ctx.lineTo(cakeWidth * 0.75, -cakeHeight * 0.1);
+        ctx.moveTo(0, -cakeHeight * 0.5);
+        ctx.lineTo(0, cakeHeight * 0.3);
+        ctx.stroke();
+        
+        // Highlight shine on top
+        ctx.fillStyle = 'rgba(255, 255, 230, 0.5)';
+        ctx.beginPath();
+        ctx.ellipse(-cakeWidth * 0.35, -cakeHeight * 0.3, cakeWidth * 0.2, cakeHeight * 0.12, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        
         ctx.restore();
         
-        // Main mooncake body with enhanced gradient
-        const moonGrad = ctx.createRadialGradient(x - size * 0.2, y - size * 0.2, 0, x, y, size);
-        moonGrad.addColorStop(0, '#FFFFD0');
-        moonGrad.addColorStop(0.3, '#FFE55C');
-        moonGrad.addColorStop(0.7, '#FFD700');
-        moonGrad.addColorStop(1, '#DAA520');
-        ctx.fillStyle = moonGrad;
+        // Pulsing outline glow
+        const pulseAlpha = 0.3 + Math.sin(c.glow * 2) * 0.2;
+        ctx.strokeStyle = `rgba(255, 215, 100, ${pulseAlpha})`;
+        ctx.lineWidth = 2 * scale;
         ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner design
-        ctx.fillStyle = '#FFCC00';
-        ctx.beginPath();
-        ctx.arc(x, y, size * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Highlight shine
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(x - size * 0.3, y - size * 0.3, size * 0.22, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Orbiting sparkle particles
-        for (let p = 0; p < 5; p++) {
-          const particleAngle = c.glow * 2 + (p / 5) * Math.PI * 2;
-          const particleDist = size * (1.3 + Math.sin(particleAngle * 2) * 0.3);
-          const px = x + Math.cos(particleAngle) * particleDist;
-          const py = y + Math.sin(particleAngle) * particleDist;
-          const particleSize = (2 + Math.sin(particleAngle * 3) * 1) * scale;
-          const particleAlpha = 0.5 + Math.sin(particleAngle * 2) * 0.4;
-          
-          ctx.fillStyle = `rgba(255, 255, ${200 + Math.floor(Math.random() * 55)}, ${particleAlpha})`;
-          ctx.beginPath();
-          ctx.arc(px, py, particleSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        ctx.ellipse(x, y - cakeHeight * 0.1, cakeWidth * 1.1, cakeHeight * 0.6, 0, 0, Math.PI * 2);
+        ctx.stroke();
       });
 
       // Draw 3D animated player character with enhanced animation
