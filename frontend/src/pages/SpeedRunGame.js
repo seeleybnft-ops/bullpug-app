@@ -711,8 +711,8 @@ export default function SpeedRunGame() {
       // Draw 3D animated player character
       const pX = playerX;
       const pY = playerY;
-      const pW = playerW;
-      const pH = playerH;
+      const pW = 70;  // Larger width for 3D character
+      const pH = 90;  // Larger height for 3D character
       
       // Shadow
       ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
