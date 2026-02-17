@@ -57,6 +57,7 @@ function App() {
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/showcase" element={<Showcase />} />
                 <Route path="/showcase/:walletAddress" element={<Showcase />} />
+                <Route path="/profile" element={<ProfilePage />} />
               </Routes>
               <Footer />
               <Toaster theme="dark" />
