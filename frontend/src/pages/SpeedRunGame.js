@@ -65,6 +65,44 @@ export default function SpeedRunGame() {
 
   const currentSkin = getSkinById(currentSkinId);
 
+  // Function to remove white background from sprite
+  const processSprite = useCallback((img) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    // Remove white/near-white pixels
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Check if pixel is white or near-white (threshold: 240)
+      if (r > 240 && g > 240 && b > 240) {
+        data[i + 3] = 0; // Make transparent
+      }
+      // Smooth edge pixels (light gray to white)
+      else if (r > 200 && g > 200 && b > 200) {
+        // Gradually reduce alpha for smoother edges
+        const avg = (r + g + b) / 3;
+        const alpha = Math.max(0, 255 - (avg - 200) * 4.5);
+        data[i + 3] = alpha;
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    
+    // Create new image from processed canvas
+    const processedImg = new Image();
+    processedImg.src = canvas.toDataURL();
+    return processedImg;
+  }, []);
+
   const toggleSound = () => {
     const newValue = !soundOn;
     setSoundOn(newValue);
