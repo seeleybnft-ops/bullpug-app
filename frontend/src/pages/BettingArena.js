@@ -574,12 +574,57 @@ function P2PPotSystem({ walletAddress, connected, config }) {
             </div>
           )}
 
-          {/* Waiting for participants message */}
+          {/* Waiting for participants message - Enhanced */}
           {!pot.countdown_started && pot.entry_count < 2 && (
-            <div className="mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-sm text-center text-slate-400">
-                <span className="text-[#D946EF] font-bold">{2 - (pot.entry_count || 0)}</span> more participant(s) needed to start countdown
-              </p>
+            <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[#D946EF]/10 to-[#00FFA3]/10 border border-[#D946EF]/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full bg-[#D946EF]/20 flex items-center justify-center animate-pulse">
+                      <Users className="w-6 h-6 text-[#D946EF]" />
+                    </div>
+                    {pot.entry_count === 1 && (
+                      <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#00FFA3] flex items-center justify-center text-[10px] font-bold text-black">
+                        1
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      {pot.entry_count === 0 ? "Be the first to join!" : "1 player waiting..."}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {pot.entry_count === 0 
+                        ? "Start the pot and wait for a challenger"
+                        : "Join now to trigger the 60s countdown!"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center gap-1">
+                    {[...Array(2)].map((_, i) => (
+                      <div 
+                        key={i}
+                        className={`w-4 h-4 rounded-full border-2 transition-all ${
+                          i < (pot.entry_count || 0)
+                            ? 'bg-[#00FFA3] border-[#00FFA3]'
+                            : 'border-slate-600 bg-transparent'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {pot.entry_count || 0}/2 players
+                  </p>
+                </div>
+              </div>
+              {pot.entry_count === 1 && (
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <p className="text-xs text-center text-[#00FFA3] animate-pulse">
+                    ⚡ One more player triggers the countdown! ⚡
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
