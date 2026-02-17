@@ -44,9 +44,11 @@ from routers import (
     escrow_router,
     tokenomics_router
 )
+from routers.prize_pool import router as prize_pool_router
 from routers.pot import get_pot_data
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
 from utils.database import db
+from utils.scheduler import start_scheduler, stop_scheduler
 
 # Rate Limiter setup
 limiter = Limiter(key_func=get_remote_address)
