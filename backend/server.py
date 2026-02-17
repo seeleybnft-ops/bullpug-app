@@ -2308,14 +2308,90 @@ async def get_skins_catalog():
 
 @api_router.get("/skins/owned/{wallet_address}")
 async def get_owned_skins(wallet_address: str):
-    """Get skins owned by a wallet"""
+    """Get skins owned by a wallet, including achievement skins"""
     owned = await db.skin_purchases.find(
         {"wallet_address": wallet_address, "status": "completed"},
         {"_id": 0, "skin_id": 1}
     ).to_list(100)
     
     skin_ids = [p["skin_id"] for p in owned]
+    
+    # Check and auto-unlock Ethereal achievement skin
+    ethereal_unlocked = await check_and_unlock_ethereal(wallet_address, skin_ids)
+    if ethereal_unlocked and "ethereal" not in skin_ids:
+        skin_ids.append("ethereal")
+    
     return {"skins": skin_ids, "wallet": wallet_address}
+
+
+async def check_and_unlock_ethereal(wallet_address: str, owned_skin_ids: list) -> bool:
+    """Check if user owns all purchasable skins and auto-unlock Ethereal"""
+    # Check if already owns Ethereal
+    if "ethereal" in owned_skin_ids:
+        return True
+    
+    # Check if user owns all 10 purchasable skins
+    owned_purchasable = set(owned_skin_ids) & set(PURCHASABLE_SKIN_IDS)
+    
+    if len(owned_purchasable) >= len(PURCHASABLE_SKIN_IDS):
+        # User owns all purchasable skins - unlock Ethereal!
+        achievement_record = {
+            "id": str(uuid.uuid4()),
+            "wallet_address": wallet_address,
+            "skin_id": "ethereal",
+            "skin_name": "Ethereal",
+            "amount_sol": 0,
+            "tx_signature": "ACHIEVEMENT_UNLOCK",
+            "status": "completed",
+            "achievement": True,
+            "purchased_at": datetime.now(timezone.utc).isoformat(),
+            "unlock_reason": "Collected all 10 purchasable skins"
+        }
+        
+        await db.skin_purchases.insert_one(achievement_record)
+        
+        # Send notification
+        await send_notification(
+            wallet_address,
+            "Achievement Unlocked: Ethereal!",
+            "Congratulations! You've collected all skins and unlocked the mythic Ethereal skin with +10% bonus points!",
+            "achievement"
+        )
+        
+        logger.info(f"Ethereal achievement unlocked for wallet {wallet_address[:8]}...")
+        return True
+    
+    return False
+
+
+@api_router.get("/skins/achievement-status/{wallet_address}")
+async def get_achievement_status(wallet_address: str):
+    """Get achievement skin unlock status for a wallet"""
+    owned = await db.skin_purchases.find(
+        {"wallet_address": wallet_address, "status": "completed"},
+        {"_id": 0, "skin_id": 1}
+    ).to_list(100)
+    
+    owned_skin_ids = [p["skin_id"] for p in owned]
+    owned_purchasable = set(owned_skin_ids) & set(PURCHASABLE_SKIN_IDS)
+    
+    # Check if Ethereal is unlocked
+    ethereal_unlocked = "ethereal" in owned_skin_ids
+    
+    # If not unlocked, check if eligible
+    if not ethereal_unlocked:
+        ethereal_unlocked = await check_and_unlock_ethereal(wallet_address, owned_skin_ids)
+    
+    return {
+        "ethereal": {
+            "unlocked": ethereal_unlocked,
+            "progress": len(owned_purchasable),
+            "required": len(PURCHASABLE_SKIN_IDS),
+            "missing_skins": list(set(PURCHASABLE_SKIN_IDS) - owned_purchasable) if not ethereal_unlocked else [],
+            "bonus_percent": 10,
+            "rarity": "mythic"
+        }
+    }
 
 
 @api_router.post("/skins/purchase")
