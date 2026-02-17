@@ -4,8 +4,8 @@ from fastapi import APIRouter
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from ..models.schemas import LeaderboardSubmitRequest
-from ..utils.database import db
+from models.schemas import LeaderboardSubmitRequest
+from utils.database import db
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
