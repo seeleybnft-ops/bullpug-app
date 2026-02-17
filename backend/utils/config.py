@@ -19,6 +19,9 @@ RAKE_PERCENT = 2.5
 DISTRIBUTION_WALLET = "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT"
 ESCROW_WALLET = DISTRIBUTION_WALLET
 
+# Store wallet for skin purchases
+STORE_WALLET = DISTRIBUTION_WALLET
+
 # Admin wallets
 ADMIN_WALLETS = [
     "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",  # Fee wallet
@@ -27,3 +30,8 @@ ADMIN_WALLETS = [
 
 # CORS
 CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')
+
+# Helper function
+def is_admin(wallet_address: str) -> bool:
+    """Check if a wallet address is an admin."""
+    return wallet_address in ADMIN_WALLETS
