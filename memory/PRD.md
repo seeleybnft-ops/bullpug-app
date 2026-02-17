@@ -11,92 +11,68 @@ Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic g
 
 ---
 
-## Latest Update: Feb 17, 2026 - Cosmic Runner P0 Enhancements COMPLETE
+## Latest Update: Feb 17, 2026 - Skin Images, Speed & Animation Updates
 
-### P0 Enhancements Implemented
+### Changes Implemented This Session
 
-#### 1. Obstacle/Mooncake Spawning Fix (COMPLETE)
-- Added `isPositionClear()` function to prevent overlapping
-- Uses 0.18 depth separation minimum between objects
-- Checks both obstacles AND collectibles before spawning
+#### 1. Original Library Images for Skins (COMPLETE)
+All 12 skins now use original library images instead of generated ones:
 
-#### 2. Consistent Obstacle Speed (COMPLETE)
-- All objects now use unified `depthSpeed = g.speed * 0.008`
-- Obstacles and collectibles move at identical rates
-- Progressive speed increase from 2.5 to 12 over 60 seconds
+| Skin | Image File |
+|------|------------|
+| Guardian | bullpug_default.png |
+| Ethereal | ethereal.jpg |
+| Diamond | diamond.jpg |
+| Gold | gold.jpg |
+| Silver | silver.jpg |
+| Heatmap | heatmap.jpg |
+| Radioactive | radioactive.jpg |
+| Zombie | zombie.jpg |
+| Aqua | water.jpg |
+| Inferno | fire.jpg |
+| Cyber | robot.jpg |
+| Phantom | skeletal.jpg |
 
-#### 3. Enhanced Obstacle Visuals (COMPLETE)
-| Obstacle | Enhancements |
-|----------|-------------|
-| **Meteor** | Outer fire aura (pulsing), white-hot core gradient, 3 fire trails, 4 ember particles |
-| **Debris** | Fire edge glow, 3 ember spots |
-| **Black Hole** | Outer purple danger glow, 4-ring enhanced accretion disk |
-| **Satellite** | Red danger glow, blinking warning light |
-| **Alien Ship** | Cyan aura, 6 animated lights, enhanced beam |
+#### 2. Speed Reduction (COMPLETE)
+- **minSpeed:** 1.25 (was 2.5 - halved)
+- **maxSpeed:** 4.8 (was 12, now 20% less then halved: 12 * 0.8 * 0.5)
+- **Progression:** Still over 120 seconds
+- Game feels more manageable and less frantic
 
-#### 4. Sparkly Mooncakes (COMPLETE)
-- Pulsing outer sparkle glow
-- 4-pointed star rays (rotating)
-- 8-pointed secondary rays
-- 5 orbiting sparkle particles
-- Enhanced golden gradient body
+#### 3. Subway Surfers Style Animation (COMPLETE)
+Full character animation system implemented:
 
-#### 5. Unified Skin Renders (COMPLETE)
-All 12 skins regenerated with consistent muscular bull style:
+**Running Animation:**
+- Legs pump back and forth with `legSwing` amplitude
+- Upper and lower leg segments with knee bend
+- Arms pump opposite to legs using `armCycle`
+- Body bounce synchronized with leg movement
 
-| Skin | File | Style |
-|------|------|-------|
-| Guardian | guardian_unified.png | Heroic bulldog with blue cape |
-| Ethereal | ethereal_unified.png | Ghostly white translucent |
-| Diamond | diamond_unified.png | Cyan crystal creature |
-| Gold | gold_unified.png | Golden metallic bull |
-| Silver | silver_unified.png | Chrome metallic bull |
-| Heatmap | heatmap_unified.png | Red/orange thermal |
-| Radioactive | radioactive_unified.png | Green nuclear glow |
-| Zombie | zombie_unified.png | Teal undead bull |
-| Aqua | water_unified.png | Water elemental |
-| Inferno | fire_unified.png | Fire creature |
-| Cyber | robot_unified.png | Steampunk mechanical |
-| Phantom | skeletal_unified.png | Ghostly skeleton |
+**Jump Animation:**
+- Legs tuck up based on jump velocity
+- Arms raise during jump
+- Squash/stretch effects on rising/falling
 
-#### 6. Enhanced Character Animation (COMPLETE)
-- **Running bob:** Amplitude increases with speed
-- **Lean forward:** Angle increases proportional to speed
-- **Jump animation:** Stretch up, squash on landing
-- **Speed lines:** Motion blur effect when speed > 6
-- **Afterimage trail:** Ghost images when speed > 8
-- **Dynamic shadow:** Shrinks when jumping
-- **Intensified glow:** Gets stronger at higher speeds
-- **Running particles:** Dust + colored energy at speed > 6
+**Code Location:** SpeedRunGame.js lines 914-1170
 
 ---
 
-## Game Features
+## Previous Session Features
 
-### Gameplay
-- **3-Lane System:** A/D or Arrow keys to switch lanes
-- **Jump:** Space or ArrowUp to jump over obstacles
-- **5 Stages:** Progressive difficulty with new obstacle types
-- **Progressive Speed:** 2.5 to 12 over 60 seconds
+### Obstacle/Mooncake Improvements
+- `isPositionClear()` prevents spawning overlap
+- Fiery obstacles with glowing auras
+- Cake-shaped mooncakes (distinct from obstacles)
 
-### Obstacle Types
-| Stage | Score | New Obstacles |
-|-------|-------|---------------|
-| 1 | 0+ | Meteors (fiery, with fire trails) |
-| 2 | 250+ | Space Debris (burning chunks) |
-| 3 | 500+ | Black Holes (danger glow) |
-| 4 | 1000+ | Satellites (warning lights) |
-| 5 | 1500+ | Alien Ships (UFOs with beam) |
-
-### Visual Design
-- Deep space background with nebulas and twinkling stars
-- 3D perspective track with converging lane lines
-- Glowing edge borders in teal/green
-- Grid lines moving toward player for speed effect
+### Game Mechanics
+- 3-lane system (A/D to switch)
+- Jump (Space/ArrowUp)
+- 5 progressive stages
+- 120-second speed progression
 
 ---
 
-## Backend Architecture (Unchanged)
+## Backend Architecture
 
 ### server.py: 212 lines
 All business logic in 20 modular routers:
@@ -109,15 +85,11 @@ All business logic in 20 modular routers:
 
 ## Testing Status
 
-### Latest: iteration_20.json - 100% pass rate
-All P0 features verified:
-- Obstacles/mooncakes don't overlap
-- Consistent speed across all lanes
-- Enhanced fiery obstacle visuals
-- Sparkly mooncake effects
-- Unified skin renders in store
-- Character animation effects
-- Game mechanics working
+### Latest: iteration_21.json - 100% pass rate
+- Original library images verified
+- Speed reduction verified (1.25 to 4.8)
+- Subway Surfers animation verified
+- All game mechanics working
 
 ---
 
@@ -126,11 +98,12 @@ All P0 features verified:
 ```
 /app/frontend/
 ├── public/images/
-│   ├── *_unified.png       # 12 unified skin renders
+│   ├── bullpug_default.png  # Guardian (original)
+│   ├── *.jpg                # Original library skins
 │   └── mooncake.png
 ├── src/
-│   ├── pages/SpeedRunGame.js  # Main game (~1200 lines)
-│   ├── config/skins.js        # Skin configuration
+│   ├── pages/SpeedRunGame.js  # Game + animation (~1200 lines)
+│   ├── config/skins.js        # Uses original .jpg images
 │   └── components/SkinStore.js
 ```
 
@@ -139,12 +112,9 @@ All P0 features verified:
 ## Task Status
 
 ### COMPLETED (This Session)
-1. Obstacle spawning - no overlap (isPositionClear function)
-2. Consistent speed across lanes (unified depthSpeed)
-3. Enhanced fiery obstacle visuals
-4. Sparkly mooncakes with star effect
-5. 12 unified muscular bull skin renders
-6. Enhanced character animation system
+1. Skins use original library images
+2. Speed halved, top speed -20%
+3. Subway Surfers animation (legs/arms pumping)
 
 ### Upcoming (P1)
 - Deployment to bullpug.com
@@ -152,13 +122,12 @@ All P0 features verified:
 ### Backlog (P2)
 - Re-enable Plushie Sales shop page
 - Re-enable NFT Gallery page
-- Power-ups implementation (Shield, Magnet, 2x Score)
+- Power-ups (Shield, Magnet, 2x Score)
 - Mobile swipe controls
 - P2P Betting Arena
 - Exit Simulator
 - Trading Journal
-- Forum
-- DMs
+- Forum, DMs
 
 ---
 
