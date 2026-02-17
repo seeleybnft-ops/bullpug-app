@@ -144,8 +144,9 @@ New routers created in `/app/backend/routers/`:
 ---
 
 ## Testing
-- **Latest:** `/app/test_reports/iteration_10.json`
-- 100% pass rate (8/8 backend + all frontend tests)
+- **Latest:** `/app/test_reports/iteration_11.json`
+- 100% pass rate (backend + frontend tests)
+- Ethereal achievement skin fully tested
 
 ## Store/Gift Wallet
 `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
