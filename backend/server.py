@@ -845,11 +845,22 @@ async def join_pot(request: Request, data: P2PPotJoinRequest):
     active_pot["entries"].append(entry)
     active_pot["total_amount_sol"] += data.bet_amount_sol
     
+    # Start 60-second countdown when 2nd participant joins
+    countdown_just_started = False
+    if len(active_pot["entries"]) == 2 and not active_pot["countdown_started"]:
+        active_pot["countdown_started"] = True
+        active_pot["draw_at"] = (datetime.now(timezone.utc) + timedelta(seconds=60)).isoformat()
+        countdown_just_started = True
+        logger.info(f"Pot countdown started! Draw at: {active_pot['draw_at']}")
+    
     resp = {
         "message": f"Joined pot with {data.bet_amount_sol} SOL!",
         "probability": round(data.bet_amount_sol / active_pot["total_amount_sol"] * 100, 1),
         "total_pot_sol": active_pot["total_amount_sol"],
-        "entry_count": len(active_pot["entries"])
+        "entry_count": len(active_pot["entries"]),
+        "countdown_started": active_pot["countdown_started"],
+        "countdown_just_started": countdown_just_started,
+        "draw_at": active_pot["draw_at"]
     }
     await pot_ws_manager.broadcast({"type": "pot_update", "data": await _get_pot_data()})
     return resp
