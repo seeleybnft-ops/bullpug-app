@@ -256,7 +256,37 @@ export default function SpeedRunGame() {
         return false;
       }
     }
+    // Check power-ups
+    for (const p of g.powerups) {
+      if (p.lane === lane && Math.abs(p.depth - depth) < minSeparation) {
+        return false;
+      }
+    }
     return true;
+  };
+
+  // Spawn power-up - shiny cosmic items
+  const spawnPowerup = (g) => {
+    const types = Object.keys(POWERUP_TYPES);
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    // Find clear lane
+    let lane = Math.floor(Math.random() * LANE_COUNT);
+    for (let attempts = 0; attempts < 5; attempts++) {
+      if (isPositionClear(g, lane, 0, 0.25)) break;
+      lane = Math.floor(Math.random() * LANE_COUNT);
+    }
+    
+    return {
+      type,
+      lane,
+      depth: 0,
+      collected: false,
+      floatOffset: 35 + Math.random() * 15,
+      glow: Math.random() * Math.PI * 2,
+      sparklePhase: Math.random() * Math.PI * 2,
+      rotation: 0
+    };
   };
 
   const spawnObstacle = (g) => {
