@@ -316,6 +316,22 @@ export default function ExitSimulator() {
                     </div>
                   </TabsContent>
                 </Tabs>
+
+                {/* AI Suggestion Bubble */}
+                <AISuggestionBubble 
+                  type="exit-simulator"
+                  context={{
+                    token_symbol: "SOL",
+                    entry_price: parseFloat(entryPrice),
+                    volatility: volatility[0],
+                    simulated_outcomes: {
+                      probability_profit: results.prob_profit,
+                      median_final_price: results.median_price,
+                      pnl_percentiles: results.pnl_percentiles
+                    }
+                  }}
+                  walletAddress={connected ? publicKey?.toBase58() : null}
+                />
               </>
             ) : (
               <div className="glass-card rounded-2xl p-16 text-center">
