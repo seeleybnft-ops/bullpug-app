@@ -397,30 +397,7 @@ def verify_request_signature(wallet_address: str, signature: Optional[str], mess
     return verify_wallet_signature(wallet_address, message, signature)
 
 
-# ========== WebSocket Manager ==========
-class PotWSManager:
-    def __init__(self):
-        self.connections: List[WebSocket] = []
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self.connections.append(ws)
-
-    def disconnect(self, ws: WebSocket):
-        if ws in self.connections:
-            self.connections.remove(ws)
-
-    async def broadcast(self, data: dict):
-        dead = []
-        for ws in self.connections:
-            try:
-                await ws.send_json(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws)
-
-pot_ws_manager = PotWSManager()
+# PotWSManager imported from utils.websocket_managers
 
 
 # ========== Products ==========
