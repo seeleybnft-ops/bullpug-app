@@ -121,7 +121,7 @@ export default function HomePage() {
             {[
               { icon: <Shield className="w-7 h-7 text-[#00FFA3]" />, title: "The Collision", desc: "The mighty Bull constellation collided with a whimsical pug-shaped nebula, infusing raw power with endearing loyalty." },
               { icon: <Moon className="w-7 h-7 text-[#D946EF]" />, title: "The Guardian Rises", desc: "Bullpug patrols the blockchain, shielding holders from bearish threats and guiding them toward bullish horizons." },
-              { icon: <Zap className="w-7 h-7 text-[#F5D300]" />, title: "Become a Guardian", desc: "Holders become 'Guardians,' earning rewards through participation. Staking tokens unlocks chapters of evolving lore." },
+              { icon: <Zap className="w-7 h-7 text-[#F5D300]" />, title: "Become a Guardian (Coming Soon)", desc: "Holders become 'Guardians,' earning rewards through participation. Staking tokens unlocks chapters of evolving lore." },
             ].map((item, i) => (
               <div key={i} className="glass-card rounded-2xl p-8 hover:-translate-y-1 transition-all duration-300">
                 <div className="mb-4">{item.icon}</div>
