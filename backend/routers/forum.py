@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import Optional
 
-from ..utils.database import db
+from utils.database import db
 
 router = APIRouter(prefix="/forum", tags=["forum"])
 
