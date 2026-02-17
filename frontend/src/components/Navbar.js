@@ -32,7 +32,7 @@ export default function Navbar() {
     { name: t('nav.reflections'), path: "/reflections" },
     { name: t('nav.journal'), path: "/journal" },
     { name: t('nav.forum'), path: "/forum" },
-    { name: t('nav.wallet'), path: "/wallet" },
+    // { name: t('nav.wallet'), path: "/wallet" },  // Hidden until coin launch
   ];
 
   return (
