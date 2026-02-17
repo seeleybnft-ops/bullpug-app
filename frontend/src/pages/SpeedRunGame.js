@@ -549,6 +549,41 @@ export default function SpeedRunGame() {
         }
       });
       
+      // Spawn shooting stars periodically (more at higher speeds)
+      g.shootingStarTimer++;
+      const shootingStarChance = 60 - Math.min(g.speed * 5, 40); // faster spawn at higher speed
+      if (g.shootingStarTimer > shootingStarChance && Math.random() < 0.3) {
+        g.shootingStars.push({
+          x: W + 20,
+          y: Math.random() * HORIZON_Y * 0.8,
+          length: 40 + Math.random() * 80,
+          speed: 8 + Math.random() * 12 + g.speed * 2,
+          angle: Math.PI + (Math.random() - 0.5) * 0.3, // slightly varied angle
+          alpha: 0.6 + Math.random() * 0.4,
+          hue: Math.random() > 0.7 ? 180 + Math.random() * 60 : 30 + Math.random() * 30 // cyan or orange
+        });
+        g.shootingStarTimer = 0;
+      }
+      
+      // Move shooting stars
+      g.shootingStars = g.shootingStars.filter(ss => {
+        ss.x += Math.cos(ss.angle) * ss.speed;
+        ss.y += Math.sin(ss.angle) * ss.speed * 0.3;
+        ss.alpha -= 0.008;
+        return ss.x > -ss.length && ss.alpha > 0;
+      });
+      
+      // Update speed lines (warp effect) - faster movement at higher game speeds
+      g.speedLines.forEach(line => {
+        line.distance += line.speed * (1 + g.speed * 0.3);
+        if (line.distance > 350) {
+          line.distance = 0;
+          line.angle = (Math.random() - 0.5) * Math.PI * 0.6;
+          line.length = 20 + Math.random() * 80;
+          line.alpha = 0.1 + Math.random() * 0.3;
+        }
+      });
+      
       // Update background hue based on stage
       const stageTheme = STAGE_BACKGROUNDS[g.stage];
       if (stageTheme.hue === -1) {
