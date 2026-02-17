@@ -191,6 +191,7 @@ export default function SpeedRunGame() {
             if (g.score > highScore) { 
               setHighScore(g.score); 
               localStorage.setItem("bullpugHighScore", String(g.score));
+              winFeedback();
               playSoundIfEnabled('newHighScore');
             } else {
               playSoundIfEnabled('gameover');
