@@ -270,12 +270,12 @@ export default function SpeedRunGame() {
       
       g.frame++;
       
-      // Progressive speed over 120 seconds (extended from 60)
-      // Start at 2.5, max at 12 after 120 seconds
+      // Progressive speed over 120 seconds
+      // SLOWED DOWN: Start at 1.25 (was 2.5), max at 4.8 (was 12, now 20% less = 9.6, then halved = 4.8)
       const elapsedSeconds = (Date.now() - g.startTime) / 1000;
       const speedProgress = Math.min(elapsedSeconds / 120, 1); // 0 to 1 over 120 seconds
-      const minSpeed = 2.5;
-      const maxSpeed = 12;
+      const minSpeed = 1.25;  // Halved from 2.5
+      const maxSpeed = 4.8;   // 12 * 0.8 * 0.5 = 4.8 (20% slower, then halved)
       g.speed = minSpeed + (maxSpeed - minSpeed) * speedProgress;
       
       // HALVED points: baseScore is now /6 instead of /3
