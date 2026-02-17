@@ -233,7 +233,7 @@ export default function Showcase() {
                           <Button onClick={() => setEditing(true)} size="sm" variant="outline" className="border-white/20 text-white">
                             <Edit2 className="w-4 h-4 mr-1" /> Edit
                           </Button>
-                          <Button onClick={shareShowcase} size="sm" className="bg-[#D946EF] text-white">
+                          <Button onClick={openShareModal} size="sm" className="bg-[#D946EF] text-white" data-testid="share-btn">
                             <Share2 className="w-4 h-4 mr-1" /> Share
                           </Button>
                         </>
