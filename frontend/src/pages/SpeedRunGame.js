@@ -647,7 +647,9 @@ export default function SpeedRunGame() {
             if (playerY < colY + 40 && playerY + playerH > colY - 10) {
               c.collected = true;
               g.mooncakes++;
-              g.score += Math.floor(25 * (1 + g.skinBonus)); // HALVED from 50 to 25
+              // Check for double score power-up
+              const scoreMultiplier = (g.activePowerups.doubleScore && Date.now() < g.activePowerups.doubleScore.endTime) ? 2 : 1;
+              g.score += Math.floor(25 * (1 + g.skinBonus) * scoreMultiplier);
               collectFeedback();
               
               const colX = getLaneX(c.lane, c.depth);
@@ -659,6 +661,41 @@ export default function SpeedRunGame() {
                   vy: Math.sin(angle) * 5 - 2,
                   life: 35,
                   color: `hsl(${45 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)`
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Power-up collision
+      for (const p of g.powerups) {
+        if (!p.collected && p.depth >= 0.8 && p.depth <= 1.1) {
+          if (Math.abs(p.lane - Math.round(playerLane)) < 0.5) {
+            const scale = getDepthScale(p.depth);
+            const powY = getDepthY(p.depth) - p.floatOffset * scale - 20;
+            if (playerY < powY + 50 && playerY + playerH > powY - 15) {
+              p.collected = true;
+              
+              // Activate power-up for 10 seconds
+              const powerupConfig = POWERUP_TYPES[p.type];
+              g.activePowerups[p.type] = {
+                endTime: Date.now() + powerupConfig.duration
+              };
+              
+              collectFeedback();
+              playSoundIfEnabled('collect');
+              
+              // Sparkle burst effect
+              const powX = getLaneX(p.lane, p.depth);
+              for (let i = 0; i < 25; i++) {
+                const angle = (Math.PI * 2 / 25) * i;
+                g.particles.push({
+                  x: powX, y: powY + 15,
+                  vx: Math.cos(angle) * 7,
+                  vy: Math.sin(angle) * 7 - 3,
+                  life: 45,
+                  color: powerupConfig.color
                 });
               }
             }
