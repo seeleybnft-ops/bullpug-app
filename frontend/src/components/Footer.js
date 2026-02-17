@@ -38,7 +38,6 @@ export default function Footer() {
                 className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1">
                 Telegram <ExternalLink size={11} />
               </a>
-              <Link to="/nft" className="text-sm text-slate-500 hover:text-white transition-colors">NFT Gallery</Link>
               <Link to="/showcase" className="text-sm text-slate-500 hover:text-white transition-colors">Skin Showcase</Link>
             </div>
           </div>
