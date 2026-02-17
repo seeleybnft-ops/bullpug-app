@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User, Volume2, VolumeX } from "lucide-react";
-import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled } from "@/utils/sounds";
+import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, collectFeedback, winFeedback } from "@/utils/sounds";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
