@@ -1,2 +1,2 @@
 """Models package."""
-from .schemas import *
+from models.schemas import *
