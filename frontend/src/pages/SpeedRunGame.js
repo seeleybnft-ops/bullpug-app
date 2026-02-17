@@ -367,8 +367,8 @@ export default function SpeedRunGame() {
         : g.player.lane;
       const playerX = getLaneX(playerLane, 1);
       const playerY = g.player.y;
-      const playerW = 50;
-      const playerH = 70;
+      const playerW = 70;  // Match render size
+      const playerH = 90;  // Match render size
 
       // Collision detection - check when obstacles reach player depth (~0.85-1.0)
       for (const o of g.obstacles) {
