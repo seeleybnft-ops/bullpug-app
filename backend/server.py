@@ -2486,6 +2486,10 @@ class SkinGiftRequest(BaseModel):
 @api_router.post("/skins/gift")
 async def gift_skin(data: SkinGiftRequest):
     """Gift a skin to another user"""
+    # Cannot gift achievement skins
+    if data.skin_id == "ethereal":
+        raise HTTPException(status_code=400, detail="Cannot gift achievement skins")
+    
     # Validate skin exists
     if data.skin_id not in SKINS_CATALOG and data.skin_id != "default":
         raise HTTPException(status_code=400, detail="Invalid skin ID")
