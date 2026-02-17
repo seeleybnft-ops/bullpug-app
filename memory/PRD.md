@@ -164,3 +164,44 @@ All features verified:
 | NFT Gallery | 🔄 Hidden | Ready for implementation |
 | Plushie Shop | 🔄 Hidden | Ready for implementation |
 | Deployment | ⏳ Pending | Ready for bullpug.com |
+
+---
+
+## Latest Update: Feb 17, 2026 - Prize Pool Reward System
+
+### Prize Pool System (COMPLETE)
+**Revenue Sources (25% each goes to prize pool):**
+- P2P Betting rake (coin flip + pot)
+- Skin purchases
+
+**Distribution:**
+- Every 3 days, top 10 leaderboard players receive SOL prizes
+- Prize split:
+  1. 1st: 25%
+  2. 2nd: 15%
+  3. 3rd: 12%
+  4. 4th: 10%
+  5. 5th: 9%
+  6. 6th: 8%
+  7. 7th: 7%
+  8. 8th: 6%
+  9. 9th: 5%
+  10. 10th: 3%
+
+**Features Implemented:**
+- Live jackpot display on game page with countdown timer
+- Prize breakdown showing SOL amounts per rank
+- Recent winners section on home page (auto-refreshes)
+- Automatic payouts via APScheduler (checks every 5 mins)
+- Payout history tracking in database
+
+**New Files:**
+- `backend/routers/prize_pool.py` - Prize pool management & payouts
+- `backend/utils/scheduler.py` - APScheduler for auto-payouts
+- `frontend/src/components/JackpotDisplay.js` - Jackpot UI
+- `frontend/src/components/RecentWinners.js` - Winners display
+
+**API Endpoints:**
+- `GET /api/prize-pool/status` - Pool total, countdown, breakdown
+- `GET /api/prize-pool/recent-winners` - Last payout winners
+- `POST /api/prize-pool/execute-payout` - Manual/auto payout trigger
