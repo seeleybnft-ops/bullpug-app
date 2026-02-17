@@ -153,7 +153,16 @@ New routers created in `/app/backend/routers/`:
 - ✅ All routers connected via `api_router.include_router()`
 - ✅ WebSocket managers moved to `utils/websocket_managers.py`
 - ✅ Duplicate WebSocket class definitions removed from server.py
-- ⏳ Some duplicate API routes still exist (server.py + routers)
+- ✅ Duplicate API routes removed (660 lines, 19 routes removed)
+- ✅ server.py reduced: 2800 → 2140 lines, 77 → 58 routes
+
+### Cleanup Summary (Feb 2026)
+Routes removed from server.py (now in modular routers):
+- Skins routes (catalog, owned, purchase, gift, stats, achievement-status)
+- Forum routes (posts, categories, replies, likes)
+- Messages routes (send, inbox, conversations, unread)
+- Journal routes (trades, dashboard, export, backup, restore)
+- Leaderboard routes (get, submit)
 
 ---
 
