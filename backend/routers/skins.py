@@ -5,8 +5,8 @@ import uuid
 import logging
 from datetime import datetime, timezone
 
-from ..utils.database import db
-from ..utils.config import STORE_WALLET
+from utils.database import db
+from utils.config import STORE_WALLET
 
 router = APIRouter(prefix="/skins", tags=["skins"])
 logger = logging.getLogger(__name__)
