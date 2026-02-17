@@ -103,6 +103,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* RECENT JACKPOT WINNERS */}
+      <RecentWinners />
+
       {/* LORE */}
       <section className="py-24 md:py-32" data-testid="lore-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
