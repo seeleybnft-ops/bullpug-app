@@ -15,24 +15,26 @@ import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Game dimensions - wider for 3-lane perspective
-const W = 800, H = 450;
+// Game dimensions
+const W = 800, H = 500;
 const LANE_COUNT = 3;
-const LANE_WIDTH = 120;
-const LANE_SPACING = 140;
-const PLAYER_W = 60, PLAYER_H = 80;
+const LANE_WIDTH = 100;
 
 // Physics
-const GRAVITY = 0.6;
-const JUMP_FORCE = -14;
-const LANE_SWITCH_SPEED = 12;
+const GRAVITY = 0.8;
+const JUMP_FORCE = -16;
 
-// Perspective settings for 3D effect
-const HORIZON_Y = 80;
-const GROUND_Y = 380;
-const VANISHING_POINT_X = W / 2;
+// 3D Perspective settings
+const HORIZON_Y = 120;
+const GROUND_Y = 420;
+const VANISHING_X = W / 2;
+const PLAYER_BASE_Y = GROUND_Y - 80;
 
-// Obstacle types by stage
+// Character animation frames
+const ANIM_RUN_FRAMES = 8;
+const ANIM_JUMP_FRAMES = 4;
+
+// Obstacle stages
 const OBSTACLE_STAGES = {
   1: { score: 0, types: ['meteor'] },
   2: { score: 500, types: ['meteor', 'debris'] },
@@ -77,13 +79,11 @@ export default function SpeedRunGame() {
     localStorage.setItem("bullpugSkin", skinId);
   };
 
-  // Preload character sprite (already has transparent background)
+  // Preload character sprite
   useEffect(() => {
     const img = new Image();
     img.src = currentSkin.image;
-    img.onload = () => { 
-      spriteRef.current = img;
-    };
+    img.onload = () => { spriteRef.current = img; };
   }, [currentSkin.image]);
 
   const fetchLeaderboard = async () => {
@@ -91,28 +91,20 @@ export default function SpeedRunGame() {
       const { data } = await axios.get(`${API}/leaderboard?limit=10`);
       setLeaderboard(data.leaderboard);
       setLeaderboardMeta({ days_until_reset: data.days_until_reset, next_reset: data.next_reset });
-    } catch (e) {
-      console.error("Failed to fetch leaderboard");
-    }
+    } catch (e) { console.error("Leaderboard fetch failed"); }
   };
 
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+  useEffect(() => { fetchLeaderboard(); }, []);
 
   const submitScore = async (finalScore, finalMooncakes) => {
     if (finalScore <= 0) return;
     try {
       const { data } = await axios.post(`${API}/leaderboard/submit`, {
-        player_name: playerName,
-        score: finalScore,
-        mooncakes: finalMooncakes
+        player_name: playerName, score: finalScore, mooncakes: finalMooncakes
       });
       toast.success(`Rank #${data.rank} this week!`);
       fetchLeaderboard();
-    } catch (e) {
-      console.error("Failed to submit score");
-    }
+    } catch (e) { console.error("Score submit failed"); }
   };
 
   const savePlayerName = (name) => {
@@ -123,7 +115,6 @@ export default function SpeedRunGame() {
     toast.success(`Name set to ${trimmed}`);
   };
 
-  // Get current stage based on score
   const getCurrentStage = (score) => {
     for (let i = 5; i >= 1; i--) {
       if (score >= OBSTACLE_STAGES[i].score) return i;
@@ -131,127 +122,99 @@ export default function SpeedRunGame() {
     return 1;
   };
 
-  // Get lane X position with perspective
-  const getLaneX = (lane, depth = 1) => {
-    const centerX = VANISHING_POINT_X;
-    const offset = (lane - 1) * LANE_SPACING;
-    return centerX + offset * depth;
+  // Get lane X position based on perspective depth (0 = horizon, 1 = player level)
+  const getLaneX = (lane, depth) => {
+    const spreadAtBottom = LANE_WIDTH * 1.8;
+    const spreadAtHorizon = 20;
+    const spread = spreadAtHorizon + (spreadAtBottom - spreadAtHorizon) * depth;
+    return VANISHING_X + (lane - 1) * spread;
+  };
+
+  // Get Y position based on depth
+  const getDepthY = (depth) => {
+    return HORIZON_Y + (GROUND_Y - HORIZON_Y) * depth;
+  };
+
+  // Get scale based on depth
+  const getDepthScale = (depth) => {
+    return 0.15 + depth * 0.85;
   };
 
   const initGame = () => ({
     player: {
-      lane: 1, // 0 = left, 1 = center, 2 = right
+      lane: 1,
       targetLane: 1,
-      x: getLaneX(1),
-      y: GROUND_Y - PLAYER_H,
+      y: PLAYER_BASE_Y,
       vy: 0,
       isJumping: false,
-      laneProgress: 0
+      animFrame: 0,
+      animTimer: 0,
+      laneTransition: 0
     },
     obstacles: [],
     collectibles: [],
-    asteroidBelt: [],
     particles: [],
-    stars: Array.from({ length: 100 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * (HORIZON_Y + 100),
-      size: Math.random() * 2 + 0.5,
-      speed: Math.random() * 0.5 + 0.2,
-      brightness: Math.random()
-    })),
-    nebulaClouds: Array.from({ length: 5 }, () => ({
+    stars: Array.from({ length: 150 }, () => ({
       x: Math.random() * W,
       y: Math.random() * HORIZON_Y,
-      size: 80 + Math.random() * 120,
-      hue: Math.random() * 60 + 240, // Purple-blue range
-      alpha: 0.1 + Math.random() * 0.15
+      size: Math.random() * 2 + 0.5,
+      twinkle: Math.random() * Math.PI * 2
+    })),
+    nebulas: Array.from({ length: 8 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * (HORIZON_Y - 20),
+      size: 60 + Math.random() * 100,
+      hue: 240 + Math.random() * 80,
+      alpha: 0.08 + Math.random() * 0.12
     })),
     frame: 0,
-    speed: 5,
+    speed: 6,
     score: 0,
     mooncakes: 0,
     running: true,
     stage: 1,
-    groundOffset: 0,
+    trackOffset: 0,
     skinBonus: currentSkin.bonusPercent / 100,
     skinColor: currentSkin.color
   });
 
-  // Spawn obstacle based on current stage
   const spawnObstacle = (g) => {
     const stage = getCurrentStage(g.score);
     const types = OBSTACLE_STAGES[stage].types;
     const type = types[Math.floor(Math.random() * types.length)];
     const lane = Math.floor(Math.random() * LANE_COUNT);
     
-    let height = 40;
-    let width = 50;
+    let size = 40;
     let isFlying = false;
     
     switch (type) {
-      case 'meteor':
-        height = 45 + Math.random() * 20;
-        width = 40 + Math.random() * 15;
-        break;
-      case 'debris':
-        height = 30 + Math.random() * 15;
-        width = 35 + Math.random() * 20;
-        break;
-      case 'blackhole':
-        height = 60;
-        width = 60;
-        break;
-      case 'satellite':
-        height = 50;
-        width = 70;
-        isFlying = Math.random() > 0.5;
-        break;
-      case 'alienship':
-        height = 40;
-        width = 80;
-        isFlying = true;
-        break;
-      default:
-        break;
+      case 'meteor': size = 35 + Math.random() * 15; break;
+      case 'debris': size = 25 + Math.random() * 15; break;
+      case 'blackhole': size = 50; break;
+      case 'satellite': size = 45; isFlying = Math.random() > 0.5; break;
+      case 'alienship': size = 55; isFlying = true; break;
+      default: break;
     }
     
     return {
-      type,
-      lane,
-      z: 1000, // Distance from player (decreases as it approaches)
-      width,
-      height,
+      type, lane, 
+      depth: 0, // Start at horizon (0), move to player (1)
+      size,
       isFlying,
-      flyHeight: isFlying ? 80 + Math.random() * 40 : 0,
-      rotation: 0,
-      pulsePhase: Math.random() * Math.PI * 2
+      flyOffset: isFlying ? 40 + Math.random() * 30 : 0,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.15,
+      pulse: Math.random() * Math.PI * 2
     };
   };
 
-  // Spawn collectible (mooncake)
-  const spawnCollectible = (g) => {
-    const lane = Math.floor(Math.random() * LANE_COUNT);
-    const isFloating = Math.random() > 0.3;
+  const spawnCollectible = () => {
     return {
-      lane,
-      z: 1000,
+      lane: Math.floor(Math.random() * LANE_COUNT),
+      depth: 0,
       collected: false,
-      floatHeight: isFloating ? 60 + Math.random() * 40 : 20,
-      glowPhase: Math.random() * Math.PI * 2
-    };
-  };
-
-  // Spawn asteroid belt obstacle (high area)
-  const spawnAsteroidBelt = () => {
-    return {
-      z: 1000,
-      asteroids: Array.from({ length: 5 + Math.floor(Math.random() * 5) }, () => ({
-        xOffset: (Math.random() - 0.5) * 300,
-        yOffset: HORIZON_Y + 20 + Math.random() * 60,
-        size: 15 + Math.random() * 25,
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.1
-      }))
+      floatOffset: 30 + Math.random() * 20,
+      glow: Math.random() * Math.PI * 2
     };
   };
 
@@ -275,28 +238,27 @@ export default function SpeedRunGame() {
       g.frame++;
       const baseScore = Math.floor(g.frame / 3);
       g.score = Math.floor(baseScore * (1 + g.skinBonus));
-      g.speed = 5 + Math.min(g.score / 500, 8);
-      g.groundOffset = (g.groundOffset + g.speed) % 100;
+      g.speed = 6 + Math.min(g.score / 400, 10);
+      g.trackOffset = (g.trackOffset + g.speed * 0.02) % 1;
       
       // Update stage
       const newStage = getCurrentStage(g.score);
       if (newStage !== g.stage) {
         g.stage = newStage;
         setCurrentStage(newStage);
-        // Stage up particles
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 25; i++) {
           g.particles.push({
-            x: W / 2 + (Math.random() - 0.5) * 200,
+            x: W / 2 + (Math.random() - 0.5) * 300,
             y: H / 2,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.5) * 8,
-            life: 60,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 50,
             color: `hsl(${280 + Math.random() * 60}, 100%, 70%)`
           });
         }
       }
 
-      // Handle lane switching
+      // Handle controls
       const keys = keysRef.current;
       if (keys.left && g.player.targetLane > 0) {
         g.player.targetLane--;
@@ -310,13 +272,12 @@ export default function SpeedRunGame() {
       }
       
       // Smooth lane transition
-      const targetX = getLaneX(g.player.targetLane);
-      const dx = targetX - g.player.x;
-      if (Math.abs(dx) > 1) {
-        g.player.x += dx * 0.2;
-      } else {
-        g.player.x = targetX;
-        g.player.lane = g.player.targetLane;
+      if (g.player.lane !== g.player.targetLane) {
+        g.player.laneTransition += 0.15;
+        if (g.player.laneTransition >= 1) {
+          g.player.lane = g.player.targetLane;
+          g.player.laneTransition = 0;
+        }
       }
 
       // Jump physics
@@ -325,14 +286,13 @@ export default function SpeedRunGame() {
         g.player.isJumping = true;
         keys.jump = false;
         playSoundIfEnabled('jump');
-        // Jump particles
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 10; i++) {
           g.particles.push({
-            x: g.player.x + PLAYER_W / 2,
+            x: getLaneX(g.player.lane, 1) + (Math.random() - 0.5) * 40,
             y: GROUND_Y,
-            vx: (Math.random() - 0.5) * 4,
-            vy: -Math.random() * 3,
-            life: 20,
+            vx: (Math.random() - 0.5) * 5,
+            vy: -Math.random() * 4,
+            life: 25,
             color: g.skinColor || '#00FFA3'
           });
         }
@@ -341,106 +301,92 @@ export default function SpeedRunGame() {
       g.player.vy += GRAVITY;
       g.player.y += g.player.vy;
       
-      if (g.player.y >= GROUND_Y - PLAYER_H) {
-        g.player.y = GROUND_Y - PLAYER_H;
+      if (g.player.y >= PLAYER_BASE_Y) {
+        g.player.y = PLAYER_BASE_Y;
         g.player.vy = 0;
         g.player.isJumping = false;
       }
 
+      // Update player animation
+      g.player.animTimer++;
+      if (g.player.animTimer >= 4) {
+        g.player.animTimer = 0;
+        g.player.animFrame = (g.player.animFrame + 1) % (g.player.isJumping ? ANIM_JUMP_FRAMES : ANIM_RUN_FRAMES);
+      }
+
       // Spawn obstacles
-      const spawnRate = Math.max(40, 80 - g.stage * 8);
+      const spawnRate = Math.max(35, 70 - g.stage * 7);
       if (g.frame % spawnRate === 0) {
         g.obstacles.push(spawnObstacle(g));
       }
 
       // Spawn collectibles
-      if (g.frame % 60 === 0) {
-        g.collectibles.push(spawnCollectible(g));
+      if (g.frame % 50 === 0) {
+        g.collectibles.push(spawnCollectible());
       }
 
-      // Spawn asteroid belt sections occasionally
-      if (g.frame % 300 === 0 && g.stage >= 3) {
-        g.asteroidBelt.push(spawnAsteroidBelt());
-      }
-
-      // Move obstacles (z decreases as they approach)
+      // Move obstacles DOWN the lane (depth increases from 0 to 1+)
+      const depthSpeed = g.speed * 0.012;
       g.obstacles = g.obstacles.filter(o => {
-        o.z -= g.speed * 8;
-        o.rotation += 0.02;
-        o.pulsePhase += 0.1;
-        return o.z > -100;
+        o.depth += depthSpeed;
+        o.rotation += o.rotSpeed;
+        o.pulse += 0.1;
+        return o.depth < 1.3;
       });
 
       // Move collectibles
       g.collectibles = g.collectibles.filter(c => {
-        c.z -= g.speed * 8;
-        c.glowPhase += 0.15;
-        return c.z > -100 && !c.collected;
-      });
-
-      // Move asteroid belts
-      g.asteroidBelt = g.asteroidBelt.filter(ab => {
-        ab.z -= g.speed * 6;
-        ab.asteroids.forEach(a => {
-          a.rotation += a.rotationSpeed;
-        });
-        return ab.z > -200;
-      });
-
-      // Update stars
-      g.stars.forEach(s => {
-        s.y += s.speed;
-        if (s.y > HORIZON_Y + 100) {
-          s.y = 0;
-          s.x = Math.random() * W;
-        }
-        s.brightness = 0.5 + Math.sin(g.frame * 0.05 + s.x) * 0.5;
+        c.depth += depthSpeed;
+        c.glow += 0.15;
+        return c.depth < 1.3 && !c.collected;
       });
 
       // Update particles
       g.particles = g.particles.filter(p => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.1;
+        p.vy += 0.15;
         p.life--;
         return p.life > 0;
       });
 
-      // Collision detection
-      const playerHitbox = {
-        left: g.player.x + 10,
-        right: g.player.x + PLAYER_W - 10,
-        top: g.player.y + 10,
-        bottom: g.player.y + PLAYER_H
-      };
+      // Get player's current lane considering transition
+      const playerLane = g.player.laneTransition > 0 
+        ? g.player.lane + (g.player.targetLane - g.player.lane) * g.player.laneTransition
+        : g.player.lane;
+      const playerX = getLaneX(playerLane, 1);
+      const playerY = g.player.y;
+      const playerW = 50;
+      const playerH = 70;
 
-      // Check obstacle collisions
+      // Collision detection - check when obstacles reach player depth (~0.85-1.0)
       for (const o of g.obstacles) {
-        if (o.z > 0 && o.z < 150) { // Near the player
-          const scale = 1 - o.z / 1000;
-          const obsX = getLaneX(o.lane, scale);
-          const obsY = o.isFlying ? GROUND_Y - o.flyHeight - o.height : GROUND_Y - o.height * scale;
-          const obsW = o.width * scale;
-          const obsH = o.height * scale;
+        if (o.depth >= 0.82 && o.depth <= 1.05) {
+          const scale = getDepthScale(o.depth);
+          const obsX = getLaneX(o.lane, o.depth);
+          const obsY = getDepthY(o.depth) - o.size * scale - (o.isFlying ? o.flyOffset * scale : 0);
+          const obsW = o.size * scale * 1.2;
+          const obsH = o.size * scale;
           
-          if (o.lane === g.player.lane) {
-            const obstacleHitbox = {
-              left: obsX - obsW / 2 + 5,
-              right: obsX + obsW / 2 - 5,
-              top: obsY,
-              bottom: obsY + obsH
-            };
+          // Check same lane collision
+          if (Math.abs(o.lane - Math.round(playerLane)) < 0.5) {
+            // Player can jump over ground obstacles
+            if (!o.isFlying && playerY + playerH < obsY + obsH * 0.3) continue;
+            // Player must jump over flying obstacles
+            if (o.isFlying && playerY + playerH < obsY) continue;
             
-            // Skip if player jumped over flying obstacle
-            if (o.isFlying && g.player.y > obsY + obsH) continue;
-            // Skip if player is jumping over ground obstacle
-            if (!o.isFlying && g.player.y + PLAYER_H < obsY + 10) continue;
+            // Bounding box collision
+            const px1 = playerX - playerW / 2 + 8;
+            const px2 = playerX + playerW / 2 - 8;
+            const py1 = playerY + 5;
+            const py2 = playerY + playerH - 5;
             
-            if (playerHitbox.right > obstacleHitbox.left &&
-                playerHitbox.left < obstacleHitbox.right &&
-                playerHitbox.bottom > obstacleHitbox.top &&
-                playerHitbox.top < obstacleHitbox.bottom) {
-              // Collision!
+            const ox1 = obsX - obsW / 2;
+            const ox2 = obsX + obsW / 2;
+            const oy1 = obsY;
+            const oy2 = obsY + obsH;
+            
+            if (px2 > ox1 && px1 < ox2 && py2 > oy1 && py1 < oy2) {
               g.running = false;
               setGameState("over");
               setScore(g.score);
@@ -463,30 +409,29 @@ export default function SpeedRunGame() {
         }
       }
 
-      // Check collectible collisions
+      // Collectible collision
       for (const c of g.collectibles) {
-        if (!c.collected && c.z > 0 && c.z < 150 && c.lane === g.player.lane) {
-          const scale = 1 - c.z / 1000;
-          const colY = GROUND_Y - c.floatHeight * scale - 30;
-          
-          if (g.player.y < colY + 40 && g.player.y + PLAYER_H > colY) {
-            c.collected = true;
-            g.mooncakes++;
-            const bonus = Math.floor(50 * (1 + g.skinBonus));
-            g.score += bonus;
-            collectFeedback();
-            
-            // Collection particles
-            for (let i = 0; i < 12; i++) {
-              const angle = (Math.PI * 2 / 12) * i;
-              g.particles.push({
-                x: getLaneX(c.lane, scale),
-                y: colY + 15,
-                vx: Math.cos(angle) * 4,
-                vy: Math.sin(angle) * 4 - 2,
-                life: 30,
-                color: `hsl(${45 + Math.random() * 15}, 100%, ${60 + Math.random() * 30}%)`
-              });
+        if (!c.collected && c.depth >= 0.8 && c.depth <= 1.1) {
+          if (Math.abs(c.lane - Math.round(playerLane)) < 0.5) {
+            const scale = getDepthScale(c.depth);
+            const colY = getDepthY(c.depth) - c.floatOffset * scale - 20;
+            if (playerY < colY + 40 && playerY + playerH > colY - 10) {
+              c.collected = true;
+              g.mooncakes++;
+              g.score += Math.floor(50 * (1 + g.skinBonus));
+              collectFeedback();
+              
+              const colX = getLaneX(c.lane, c.depth);
+              for (let i = 0; i < 15; i++) {
+                const angle = (Math.PI * 2 / 15) * i;
+                g.particles.push({
+                  x: colX, y: colY + 15,
+                  vx: Math.cos(angle) * 5,
+                  vy: Math.sin(angle) * 5 - 2,
+                  life: 35,
+                  color: `hsl(${45 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)`
+                });
+              }
             }
           }
         }
@@ -495,413 +440,404 @@ export default function SpeedRunGame() {
       setScore(g.score);
       setMooncakes(g.mooncakes);
 
-      // ===== DRAW =====
-      // Clear and draw deep space background
+      // ===== RENDERING =====
+      // Deep space background
       const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-      bgGrad.addColorStop(0, '#000005');
-      bgGrad.addColorStop(0.3, '#050510');
-      bgGrad.addColorStop(1, '#0a0a15');
+      bgGrad.addColorStop(0, '#000008');
+      bgGrad.addColorStop(0.4, '#0a0520');
+      bgGrad.addColorStop(1, '#0f0a25');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Draw nebula clouds
-      g.nebulaClouds.forEach(cloud => {
-        const grad = ctx.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, cloud.size);
-        grad.addColorStop(0, `hsla(${cloud.hue}, 70%, 40%, ${cloud.alpha})`);
-        grad.addColorStop(0.5, `hsla(${cloud.hue + 20}, 60%, 30%, ${cloud.alpha * 0.5})`);
+      // Nebulas
+      g.nebulas.forEach(n => {
+        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size);
+        grad.addColorStop(0, `hsla(${n.hue}, 60%, 35%, ${n.alpha})`);
+        grad.addColorStop(0.6, `hsla(${n.hue + 30}, 50%, 25%, ${n.alpha * 0.5})`);
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.fillRect(cloud.x - cloud.size, cloud.y - cloud.size, cloud.size * 2, cloud.size * 2);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+        ctx.fill();
       });
 
-      // Draw stars
+      // Stars with twinkling
       g.stars.forEach(s => {
-        ctx.fillStyle = `rgba(255, 255, 255, ${s.brightness * 0.8})`;
+        s.twinkle += 0.03;
+        const brightness = 0.4 + Math.sin(s.twinkle) * 0.4;
+        ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      // Draw horizon glow
-      const horizonGrad = ctx.createLinearGradient(0, HORIZON_Y - 30, 0, HORIZON_Y + 50);
-      horizonGrad.addColorStop(0, 'transparent');
-      horizonGrad.addColorStop(0.5, 'rgba(100, 50, 150, 0.15)');
-      horizonGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = horizonGrad;
-      ctx.fillRect(0, HORIZON_Y - 30, W, 80);
-
-      // Draw asteroid belt in background
-      g.asteroidBelt.forEach(ab => {
-        if (ab.z > 200) {
-          const scale = Math.max(0.2, 1 - ab.z / 1500);
-          ab.asteroids.forEach(a => {
-            const ax = VANISHING_POINT_X + a.xOffset * scale;
-            const ay = a.yOffset;
-            const size = a.size * scale;
-            
-            ctx.save();
-            ctx.translate(ax, ay);
-            ctx.rotate(a.rotation);
-            
-            // Asteroid shape
-            ctx.fillStyle = '#4a4a5a';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, size, size * 0.7, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Crater details
-            ctx.fillStyle = '#3a3a4a';
-            ctx.beginPath();
-            ctx.arc(size * 0.3, -size * 0.2, size * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
-          });
-        }
-      });
-
-      // Draw 3D perspective ground (space runway)
-      // Vanishing point lines
-      ctx.strokeStyle = 'rgba(100, 50, 200, 0.3)';
+      // 3D Track/Ground
+      // Draw track lanes with perspective
+      ctx.strokeStyle = 'rgba(100, 60, 180, 0.4)';
       ctx.lineWidth = 1;
       
-      for (let i = 0; i < LANE_COUNT + 1; i++) {
-        const startX = VANISHING_POINT_X + (i - 1.5) * 20;
-        const endX = VANISHING_POINT_X + (i - 1.5) * LANE_SPACING;
+      // Lane dividers
+      for (let i = 0; i <= LANE_COUNT; i++) {
+        const topX = VANISHING_X + (i - 1.5) * 15;
+        const bottomX = VANISHING_X + (i - 1.5) * LANE_WIDTH * 1.8;
         ctx.beginPath();
-        ctx.moveTo(startX, HORIZON_Y);
-        ctx.lineTo(endX, GROUND_Y);
+        ctx.moveTo(topX, HORIZON_Y);
+        ctx.lineTo(bottomX, GROUND_Y);
         ctx.stroke();
       }
 
-      // Ground plane with grid
-      ctx.fillStyle = 'rgba(20, 10, 40, 0.8)';
+      // Ground plane
+      const groundGrad = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
+      groundGrad.addColorStop(0, 'rgba(30, 15, 60, 0.3)');
+      groundGrad.addColorStop(1, 'rgba(40, 20, 80, 0.7)');
+      ctx.fillStyle = groundGrad;
       ctx.beginPath();
-      ctx.moveTo(VANISHING_POINT_X - 30, HORIZON_Y);
-      ctx.lineTo(0, GROUND_Y);
-      ctx.lineTo(W, GROUND_Y);
-      ctx.lineTo(VANISHING_POINT_X + 30, HORIZON_Y);
+      ctx.moveTo(VANISHING_X - 25, HORIZON_Y);
+      ctx.lineTo(VANISHING_X - LANE_WIDTH * 2.7, GROUND_Y);
+      ctx.lineTo(VANISHING_X + LANE_WIDTH * 2.7, GROUND_Y);
+      ctx.lineTo(VANISHING_X + 25, HORIZON_Y);
       ctx.closePath();
       ctx.fill();
 
-      // Energy grid lines
-      ctx.strokeStyle = 'rgba(150, 100, 255, 0.2)';
-      for (let z = 0; z < 10; z++) {
-        const depth = ((z * 100 + g.groundOffset) % 1000) / 1000;
-        const y = HORIZON_Y + (GROUND_Y - HORIZON_Y) * depth;
-        const spread = (W / 2) * depth;
-        
+      // Horizontal grid lines moving toward player
+      ctx.strokeStyle = 'rgba(120, 80, 200, 0.25)';
+      for (let i = 0; i < 15; i++) {
+        const baseDepth = (i / 15 + g.trackOffset) % 1;
+        const y = getDepthY(baseDepth);
+        const spread = (W * 0.4) * baseDepth + 20;
         ctx.beginPath();
-        ctx.moveTo(VANISHING_POINT_X - spread, y);
-        ctx.lineTo(VANISHING_POINT_X + spread, y);
+        ctx.moveTo(VANISHING_X - spread, y);
+        ctx.lineTo(VANISHING_X + spread, y);
         ctx.stroke();
       }
 
-      // Glowing edge lines
+      // Edge glow lines
       const edgeGrad = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
-      edgeGrad.addColorStop(0, 'rgba(0, 255, 163, 0.1)');
-      edgeGrad.addColorStop(1, 'rgba(0, 255, 163, 0.5)');
+      edgeGrad.addColorStop(0, 'rgba(0, 255, 163, 0.2)');
+      edgeGrad.addColorStop(1, 'rgba(0, 255, 163, 0.7)');
       ctx.strokeStyle = edgeGrad;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       
-      // Left edge
       ctx.beginPath();
-      ctx.moveTo(VANISHING_POINT_X - 30, HORIZON_Y);
-      ctx.lineTo(VANISHING_POINT_X - LANE_SPACING * 1.5, GROUND_Y);
+      ctx.moveTo(VANISHING_X - 25, HORIZON_Y);
+      ctx.lineTo(VANISHING_X - LANE_WIDTH * 2.7, GROUND_Y);
       ctx.stroke();
       
-      // Right edge
       ctx.beginPath();
-      ctx.moveTo(VANISHING_POINT_X + 30, HORIZON_Y);
-      ctx.lineTo(VANISHING_POINT_X + LANE_SPACING * 1.5, GROUND_Y);
+      ctx.moveTo(VANISHING_X + 25, HORIZON_Y);
+      ctx.lineTo(VANISHING_X + LANE_WIDTH * 2.7, GROUND_Y);
       ctx.stroke();
 
-      // Draw obstacles (sorted by z for proper depth)
-      const sortedObstacles = [...g.obstacles].sort((a, b) => b.z - a.z);
+      // Draw obstacles (sorted by depth for proper rendering - far first)
+      const sortedObstacles = [...g.obstacles].sort((a, b) => a.depth - b.depth);
       
       sortedObstacles.forEach(o => {
-        if (o.z > 0 && o.z < 1000) {
-          const scale = Math.max(0.1, 1 - o.z / 1000);
-          const x = getLaneX(o.lane, scale);
-          const baseY = o.isFlying ? GROUND_Y - o.flyHeight * scale - o.height * scale : GROUND_Y - o.height * scale;
-          const w = o.width * scale;
-          const h = o.height * scale;
-          
-          ctx.save();
-          ctx.translate(x, baseY + h / 2);
-          
-          switch (o.type) {
-            case 'meteor':
-              // Fiery meteor
-              ctx.rotate(o.rotation);
-              const meteorGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w);
-              meteorGrad.addColorStop(0, '#ff6600');
-              meteorGrad.addColorStop(0.5, '#cc3300');
-              meteorGrad.addColorStop(1, '#661100');
-              ctx.fillStyle = meteorGrad;
+        if (o.depth < 0.05 || o.depth > 1.2) return;
+        
+        const scale = getDepthScale(o.depth);
+        const x = getLaneX(o.lane, o.depth);
+        const baseY = getDepthY(o.depth);
+        const y = baseY - o.size * scale - (o.isFlying ? o.flyOffset * scale : 0);
+        const w = o.size * scale * 1.2;
+        const h = o.size * scale;
+        
+        ctx.save();
+        ctx.translate(x, y + h / 2);
+        
+        switch (o.type) {
+          case 'meteor':
+            ctx.rotate(o.rotation);
+            // Fiery core
+            const mGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.6);
+            mGrad.addColorStop(0, '#ffcc00');
+            mGrad.addColorStop(0.4, '#ff6600');
+            mGrad.addColorStop(0.8, '#cc2200');
+            mGrad.addColorStop(1, '#440000');
+            ctx.fillStyle = mGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w * 0.5, h * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Fire trail going UP (toward horizon since meteor comes down)
+            ctx.fillStyle = `rgba(255, 100, 0, ${0.4 + Math.sin(o.pulse) * 0.2})`;
+            ctx.beginPath();
+            ctx.moveTo(-w * 0.3, -h * 0.2);
+            ctx.quadraticCurveTo(0, -h * 1.2, w * 0.3, -h * 0.2);
+            ctx.closePath();
+            ctx.fill();
+            break;
+            
+          case 'debris':
+            ctx.rotate(o.rotation * 1.5);
+            ctx.fillStyle = '#5a5a6a';
+            ctx.beginPath();
+            ctx.moveTo(-w * 0.4, -h * 0.2);
+            ctx.lineTo(-w * 0.2, -h * 0.45);
+            ctx.lineTo(w * 0.3, -h * 0.35);
+            ctx.lineTo(w * 0.45, h * 0.2);
+            ctx.lineTo(0, h * 0.4);
+            ctx.lineTo(-w * 0.35, h * 0.25);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#8a8a9a';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            break;
+            
+          case 'blackhole':
+            // Event horizon
+            const bhGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.6);
+            bhGrad.addColorStop(0, '#000000');
+            bhGrad.addColorStop(0.5, '#1a0030');
+            bhGrad.addColorStop(0.8, '#4a0080');
+            bhGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = bhGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, w * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            // Accretion disk
+            ctx.strokeStyle = `rgba(200, 120, 255, ${0.6 + Math.sin(o.pulse * 2) * 0.3})`;
+            ctx.lineWidth = 2 * scale;
+            for (let ring = 0; ring < 3; ring++) {
               ctx.beginPath();
-              ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+              ctx.ellipse(0, 0, w * (0.45 + ring * 0.1), h * (0.15 + ring * 0.05), o.rotation * 2, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            break;
+            
+          case 'satellite':
+            // Body
+            ctx.fillStyle = '#7799bb';
+            ctx.fillRect(-w * 0.2, -h * 0.35, w * 0.4, h * 0.7);
+            // Solar panels
+            ctx.fillStyle = '#2255aa';
+            ctx.fillRect(-w * 0.5, -h * 0.15, w * 0.25, h * 0.3);
+            ctx.fillRect(w * 0.25, -h * 0.15, w * 0.25, h * 0.3);
+            // Antenna
+            ctx.strokeStyle = '#aaccdd';
+            ctx.lineWidth = 2 * scale;
+            ctx.beginPath();
+            ctx.moveTo(0, -h * 0.35);
+            ctx.lineTo(0, -h * 0.55);
+            ctx.stroke();
+            // Blinking light
+            if (Math.sin(o.pulse * 3) > 0) {
+              ctx.fillStyle = '#ff0000';
+              ctx.beginPath();
+              ctx.arc(0, -h * 0.55, 3 * scale, 0, Math.PI * 2);
               ctx.fill();
-              
-              // Fire trail
-              ctx.fillStyle = `rgba(255, 100, 0, ${0.3 + Math.sin(o.pulsePhase) * 0.2})`;
+            }
+            break;
+            
+          case 'alienship':
+            // UFO body
+            ctx.fillStyle = '#40e0d0';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, w * 0.5, h * 0.25, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Dome
+            ctx.fillStyle = 'rgba(200, 255, 255, 0.5)';
+            ctx.beginPath();
+            ctx.ellipse(0, -h * 0.15, w * 0.25, h * 0.2, 0, Math.PI, 0);
+            ctx.fill();
+            // Lights
+            for (let i = 0; i < 5; i++) {
+              const lightPhase = o.pulse + (i / 5) * Math.PI * 2;
+              ctx.fillStyle = `rgba(255, 255, 100, ${0.5 + Math.sin(lightPhase * 2) * 0.5})`;
               ctx.beginPath();
-              ctx.moveTo(-w / 2, 0);
-              ctx.quadraticCurveTo(-w, -h / 4, -w * 1.5, 0);
-              ctx.quadraticCurveTo(-w, h / 4, -w / 2, 0);
+              ctx.arc((i - 2) * (w / 5), h * 0.15, 3 * scale, 0, Math.PI * 2);
               ctx.fill();
-              break;
-              
-            case 'debris':
-              // Space debris - rocky chunks
-              ctx.rotate(o.rotation * 2);
-              ctx.fillStyle = '#5a5a6a';
+            }
+            // Beam
+            if (Math.sin(o.pulse) > 0.6) {
+              ctx.fillStyle = 'rgba(100, 255, 200, 0.25)';
               ctx.beginPath();
-              ctx.moveTo(-w / 2, -h / 4);
-              ctx.lineTo(-w / 4, -h / 2);
-              ctx.lineTo(w / 4, -h / 3);
-              ctx.lineTo(w / 2, h / 4);
-              ctx.lineTo(0, h / 2);
-              ctx.lineTo(-w / 3, h / 4);
+              ctx.moveTo(-w * 0.2, h * 0.25);
+              ctx.lineTo(-w * 0.4, h * 0.8);
+              ctx.lineTo(w * 0.4, h * 0.8);
+              ctx.lineTo(w * 0.2, h * 0.25);
               ctx.closePath();
               ctx.fill();
-              ctx.strokeStyle = '#7a7a8a';
-              ctx.lineWidth = 1;
-              ctx.stroke();
-              break;
-              
-            case 'blackhole':
-              // Swirling black hole
-              const bhGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w);
-              bhGrad.addColorStop(0, '#000000');
-              bhGrad.addColorStop(0.4, '#1a0030');
-              bhGrad.addColorStop(0.7, '#3a0060');
-              bhGrad.addColorStop(1, 'transparent');
-              ctx.fillStyle = bhGrad;
-              ctx.beginPath();
-              ctx.arc(0, 0, w, 0, Math.PI * 2);
-              ctx.fill();
-              
-              // Accretion disk
-              ctx.strokeStyle = `rgba(200, 100, 255, ${0.5 + Math.sin(o.pulsePhase * 2) * 0.3})`;
-              ctx.lineWidth = 3;
-              for (let ring = 0; ring < 3; ring++) {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, w * (0.6 + ring * 0.15), w * (0.2 + ring * 0.05), o.rotation * 3, 0, Math.PI * 2);
-                ctx.stroke();
-              }
-              break;
-              
-            case 'satellite':
-              // Space satellite
-              ctx.fillStyle = '#8899aa';
-              ctx.fillRect(-w / 4, -h / 3, w / 2, h / 1.5);
-              
-              // Solar panels
-              ctx.fillStyle = '#2244aa';
-              ctx.fillRect(-w / 2, -h / 6, w / 4, h / 3);
-              ctx.fillRect(w / 4, -h / 6, w / 4, h / 3);
-              
-              // Antenna
-              ctx.strokeStyle = '#aabbcc';
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.moveTo(0, -h / 3);
-              ctx.lineTo(0, -h / 2);
-              ctx.stroke();
-              
-              // Blinking light
-              if (Math.sin(o.pulsePhase * 3) > 0) {
-                ctx.fillStyle = '#ff0000';
-                ctx.beginPath();
-                ctx.arc(0, -h / 2, 3, 0, Math.PI * 2);
-                ctx.fill();
-              }
-              break;
-              
-            case 'alienship':
-              // UFO-style alien ship
-              ctx.fillStyle = '#40e0d0';
-              ctx.beginPath();
-              ctx.ellipse(0, 0, w / 2, h / 4, 0, 0, Math.PI * 2);
-              ctx.fill();
-              
-              // Dome
-              ctx.fillStyle = 'rgba(200, 255, 255, 0.6)';
-              ctx.beginPath();
-              ctx.ellipse(0, -h / 6, w / 4, h / 4, 0, Math.PI, 0);
-              ctx.fill();
-              
-              // Lights
-              const numLights = 5;
-              for (let i = 0; i < numLights; i++) {
-                const lightPhase = o.pulsePhase + (i / numLights) * Math.PI * 2;
-                const alpha = 0.5 + Math.sin(lightPhase * 2) * 0.5;
-                ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
-                const lx = (i - 2) * (w / 5);
-                ctx.beginPath();
-                ctx.arc(lx, h / 8, 3, 0, Math.PI * 2);
-                ctx.fill();
-              }
-              
-              // Beam (occasionally)
-              if (Math.sin(o.pulsePhase) > 0.7) {
-                ctx.fillStyle = 'rgba(100, 255, 200, 0.2)';
-                ctx.beginPath();
-                ctx.moveTo(-w / 4, h / 4);
-                ctx.lineTo(-w / 2, h);
-                ctx.lineTo(w / 2, h);
-                ctx.lineTo(w / 4, h / 4);
-                ctx.closePath();
-                ctx.fill();
-              }
-              break;
-              
-            default:
-              ctx.fillStyle = '#ff0000';
-              ctx.fillRect(-w / 2, -h / 2, w, h);
-          }
-          
-          ctx.restore();
-        }
-      });
-
-      // Draw collectibles (mooncakes)
-      g.collectibles.forEach(c => {
-        if (!c.collected && c.z > 0 && c.z < 1000) {
-          const scale = Math.max(0.1, 1 - c.z / 1000);
-          const x = getLaneX(c.lane, scale);
-          const y = GROUND_Y - c.floatHeight * scale - 15;
-          const size = 25 * scale;
-          
-          // Glow
-          const glowSize = size * (1.5 + Math.sin(c.glowPhase) * 0.3);
-          const glow = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
-          glow.addColorStop(0, 'rgba(245, 211, 0, 0.4)');
-          glow.addColorStop(1, 'transparent');
-          ctx.fillStyle = glow;
-          ctx.beginPath();
-          ctx.arc(x, y, glowSize, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Mooncake
-          ctx.fillStyle = '#F5D300';
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Inner detail
-          ctx.fillStyle = '#E5C300';
-          ctx.beginPath();
-          ctx.arc(x, y, size * 0.6, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Sparkle
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(x - size * 0.3, y - size * 0.3, size * 0.15, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-
-      // Draw player with 3D effect
-      const playerX = g.player.x;
-      const playerY = g.player.y;
-      
-      // Player shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.beginPath();
-      ctx.ellipse(playerX + PLAYER_W / 2, GROUND_Y - 5, PLAYER_W / 2, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Player glow based on skin color
-      const playerGlow = ctx.createRadialGradient(
-        playerX + PLAYER_W / 2, playerY + PLAYER_H / 2, 0,
-        playerX + PLAYER_W / 2, playerY + PLAYER_H / 2, PLAYER_W
-      );
-      playerGlow.addColorStop(0, `${g.skinColor}40`);
-      playerGlow.addColorStop(1, 'transparent');
-      ctx.fillStyle = playerGlow;
-      ctx.beginPath();
-      ctx.arc(playerX + PLAYER_W / 2, playerY + PLAYER_H / 2, PLAYER_W, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Draw sprite or fallback
-      if (spriteRef.current) {
-        // Apply skin color tint
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(spriteRef.current, playerX, playerY, PLAYER_W, PLAYER_H);
-        
-        // Color overlay for skin variation
-        if (currentSkinId !== 'default') {
-          ctx.globalCompositeOperation = 'overlay';
-          ctx.fillStyle = g.skinColor;
-          ctx.globalAlpha = 0.4;
-          ctx.fillRect(playerX, playerY, PLAYER_W, PLAYER_H);
+            }
+            break;
         }
         ctx.restore();
-      } else {
-        // Fallback 3D character
-        ctx.fillStyle = g.skinColor || '#D946EF';
+      });
+
+      // Draw collectibles
+      g.collectibles.forEach(c => {
+        if (c.collected || c.depth < 0.05 || c.depth > 1.15) return;
+        
+        const scale = getDepthScale(c.depth);
+        const x = getLaneX(c.lane, c.depth);
+        const y = getDepthY(c.depth) - c.floatOffset * scale - 15;
+        const size = 20 * scale;
+        
+        // Glow
+        const glowSize = size * (1.6 + Math.sin(c.glow) * 0.3);
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+        glow.addColorStop(0, 'rgba(255, 215, 0, 0.5)');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.roundRect(playerX, playerY, PLAYER_W, PLAYER_H, 10);
+        ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Mooncake
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFC000';
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.3, y - size * 0.3, size * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw 3D animated player character
+      const pX = playerX;
+      const pY = playerY;
+      const pW = playerW;
+      const pH = playerH;
+      
+      // Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(pX, GROUND_Y - 3, pW * 0.5, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Character glow
+      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW);
+      charGlow.addColorStop(0, `${g.skinColor}50`);
+      charGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = charGlow;
+      ctx.beginPath();
+      ctx.arc(pX, pY + pH / 2, pW, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Animated 3D character rendering
+      if (spriteRef.current) {
+        // Draw sprite with animation bob
+        const bobOffset = g.player.isJumping ? 0 : Math.sin(g.player.animFrame * 0.8) * 3;
+        const stretchY = g.player.isJumping && g.player.vy < 0 ? 1.1 : 1;
+        const squashY = g.player.isJumping && g.player.vy > 5 ? 0.9 : 1;
+        
+        ctx.save();
+        ctx.translate(pX, pY + pH / 2 + bobOffset);
+        ctx.scale(1, stretchY * squashY);
+        
+        // Draw sprite
+        ctx.drawImage(spriteRef.current, -pW / 2, -pH / 2, pW, pH);
+        ctx.restore();
+        
+        // Running particles
+        if (!g.player.isJumping && g.frame % 6 === 0) {
+          g.particles.push({
+            x: pX + (Math.random() - 0.5) * 20,
+            y: GROUND_Y - 5,
+            vx: (Math.random() - 0.5) * 2,
+            vy: -Math.random() * 2,
+            life: 15,
+            color: 'rgba(100, 80, 150, 0.5)'
+          });
+        }
+      } else {
+        // Fallback 3D box character with animation
+        const bobOffset = g.player.isJumping ? 0 : Math.sin(g.player.animFrame * 0.8) * 4;
+        
+        ctx.save();
+        ctx.translate(pX, pY + pH / 2 + bobOffset);
+        
+        // Body (3D-ish box)
+        const grad = ctx.createLinearGradient(-pW / 2, -pH / 2, pW / 2, pH / 2);
+        grad.addColorStop(0, g.skinColor);
+        grad.addColorStop(1, shadeColor(g.skinColor, -30));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(-pW / 2, -pH / 2, pW, pH, 12);
         ctx.fill();
         
         // Face
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = '#000';
         ctx.beginPath();
-        ctx.arc(playerX + PLAYER_W * 0.35, playerY + PLAYER_H * 0.35, 5, 0, Math.PI * 2);
-        ctx.arc(playerX + PLAYER_W * 0.65, playerY + PLAYER_H * 0.35, 5, 0, Math.PI * 2);
+        ctx.arc(-pW * 0.2, -pH * 0.15, 5, 0, Math.PI * 2);
+        ctx.arc(pW * 0.2, -pH * 0.15, 5, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Mouth
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, pH * 0.05, 10, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+        
+        // Legs animation
+        const legAngle = g.player.isJumping ? 0.3 : Math.sin(g.player.animFrame * 1.2) * 0.4;
+        ctx.fillStyle = shadeColor(g.skinColor, -50);
+        ctx.save();
+        ctx.translate(-pW * 0.2, pH * 0.35);
+        ctx.rotate(legAngle);
+        ctx.fillRect(-5, 0, 10, 20);
+        ctx.restore();
+        ctx.save();
+        ctx.translate(pW * 0.2, pH * 0.35);
+        ctx.rotate(-legAngle);
+        ctx.fillRect(-5, 0, 10, 20);
+        ctx.restore();
+        
+        ctx.restore();
       }
 
       // Draw particles
       g.particles.forEach(p => {
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life / 30;
-        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+        ctx.globalAlpha = p.life / 50;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
       });
       ctx.globalAlpha = 1;
 
-      // Draw HUD
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 16px Orbitron, monospace';
+      // HUD
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 18px Orbitron, monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(`SCORE: ${g.score}`, 20, 30);
-      ctx.fillStyle = '#F5D300';
-      ctx.fillText(`MOONCAKES: ${g.mooncakes}`, 20, 55);
+      ctx.fillText(`SCORE: ${g.score}`, 20, 35);
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText(`MOONCAKES: ${g.mooncakes}`, 20, 60);
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '12px monospace';
-      ctx.fillText(`STAGE ${g.stage}`, 20, 75);
+      ctx.font = '13px monospace';
+      ctx.fillText(`STAGE ${g.stage}`, 20, 82);
       
-      // Stage indicator
+      // Stage bar
       const stageColors = ['#00FFA3', '#00CED1', '#D946EF', '#FF6B35', '#FF3B30'];
-      ctx.fillStyle = stageColors[g.stage - 1] || '#FFFFFF';
-      ctx.fillRect(20, 80, 80 * (g.stage / 5), 4);
+      ctx.fillStyle = stageColors[g.stage - 1] || '#FFF';
+      ctx.fillRect(20, 88, 90 * (g.stage / 5), 5);
       ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctx.strokeRect(20, 80, 80, 4);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(20, 88, 90, 5);
       
-      // Best score
       ctx.textAlign = 'right';
       ctx.fillStyle = '#64748b';
       ctx.font = '12px monospace';
-      ctx.fillText(`BEST: ${Math.max(g.score, highScore)}`, W - 20, 30);
+      ctx.fillText(`BEST: ${Math.max(g.score, highScore)}`, W - 20, 35);
 
-      // Lane indicators at bottom
+      // Lane indicators
       ctx.textAlign = 'center';
-      ctx.font = '10px monospace';
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '12px monospace';
       for (let i = 0; i < LANE_COUNT; i++) {
-        const lx = getLaneX(i);
-        ctx.fillText(i === g.player.lane ? '●' : '○', lx, H - 10);
+        const lx = getLaneX(i, 1);
+        ctx.fillStyle = Math.round(playerLane) === i ? '#00FFA3' : 'rgba(255,255,255,0.3)';
+        ctx.fillText(Math.round(playerLane) === i ? '●' : '○', lx, H - 15);
       }
 
       // Controls hint
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('← A/D → to switch lanes | SPACE to jump', W / 2, H - 25);
+      ctx.font = '11px sans-serif';
+      ctx.fillText('← A/D → switch lanes  |  SPACE jump', W / 2, H - 35);
 
       animRef.current = requestAnimationFrame(loop);
     };
@@ -909,6 +845,16 @@ export default function SpeedRunGame() {
     animRef.current = requestAnimationFrame(loop);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highScore, totalMooncakes, playerName, currentSkin, currentSkinId]);
+
+  // Helper function to shade colors
+  const shadeColor = (color, percent) => {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+    const G = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amt));
+    const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+    return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+  };
 
   // Keyboard controls
   useEffect(() => {
@@ -947,7 +893,7 @@ export default function SpeedRunGame() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, startGame]);
 
-  // Touch controls for mobile
+  // Touch controls
   const handleTouchStart = (e) => {
     if (gameState !== "playing") {
       startGame();
@@ -959,20 +905,13 @@ export default function SpeedRunGame() {
     const x = touch.clientX - rect.left;
     const third = rect.width / 3;
     
-    if (x < third) {
-      keysRef.current.left = true;
-    } else if (x > third * 2) {
-      keysRef.current.right = true;
-    } else {
-      keysRef.current.jump = true;
-    }
+    if (x < third) keysRef.current.left = true;
+    else if (x > third * 2) keysRef.current.right = true;
+    else keysRef.current.jump = true;
   };
 
-  // Cleanup animation on unmount
   useEffect(() => {
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, []);
 
   return (
@@ -992,27 +931,16 @@ export default function SpeedRunGame() {
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="game-title">
               COSMIC <span className="text-[#D946EF]">RUNNER</span>
             </h1>
-            <button
-              onClick={() => setShowSkinStore(true)}
-              data-testid="skin-store-btn"
-              className="p-2 rounded-full bg-[#D946EF]/10 border border-[#D946EF]/30 text-[#D946EF] hover:bg-[#D946EF]/20 transition-all"
-              title="Skin Store"
-            >
+            <button onClick={() => setShowSkinStore(true)} data-testid="skin-store-btn"
+              className="p-2 rounded-full bg-[#D946EF]/10 border border-[#D946EF]/30 text-[#D946EF] hover:bg-[#D946EF]/20 transition-all" title="Skin Store">
               <Store size={18} />
             </button>
-            <Link
-              to={connected ? `/showcase/${publicKey?.toBase58()}` : "/showcase"}
-              data-testid="showcase-btn"
-              className="p-2 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[#00FFA3] hover:bg-[#00FFA3]/20 transition-all"
-              title="My Collection"
-            >
+            <Link to={connected ? `/showcase/${publicKey?.toBase58()}` : "/showcase"} data-testid="showcase-btn"
+              className="p-2 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[#00FFA3] hover:bg-[#00FFA3]/20 transition-all" title="My Collection">
               <Award size={18} />
             </Link>
-            <button
-              onClick={toggleSound}
-              data-testid="game-sound-toggle"
-              className="p-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all"
-            >
+            <button onClick={toggleSound} data-testid="game-sound-toggle"
+              className="p-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all">
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
           </div>
@@ -1036,9 +964,7 @@ export default function SpeedRunGame() {
                   <User className="w-4 h-4 text-[#00FFA3]" />
                   {showNameInput ? (
                     <div className="flex items-center gap-2">
-                      <Input 
-                        defaultValue={playerName}
-                        maxLength={20}
+                      <Input defaultValue={playerName} maxLength={20}
                         className="w-28 h-7 bg-black/50 border-white/10 text-white text-sm"
                         onKeyDown={(e) => { if (e.key === "Enter") savePlayerName(e.target.value); }}
                         autoFocus
@@ -1046,9 +972,7 @@ export default function SpeedRunGame() {
                       <button onClick={(e) => savePlayerName(e.target.previousSibling.value)} className="text-xs text-[#00FFA3]">Save</button>
                     </div>
                   ) : (
-                    <button onClick={() => setShowNameInput(true)} className="text-sm text-white hover:text-[#00FFA3]">
-                      {playerName}
-                    </button>
+                    <button onClick={() => setShowNameInput(true)} className="text-sm text-white hover:text-[#00FFA3]">{playerName}</button>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -1056,26 +980,21 @@ export default function SpeedRunGame() {
                     Stage {currentStage}/5
                   </Badge>
                   <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Resets in {leaderboardMeta.days_until_reset}d
+                    <Clock className="w-3 h-3 mr-1" /> Resets in {leaderboardMeta.days_until_reset}d
                   </Badge>
                 </div>
               </div>
 
               <div className="relative mx-auto" style={{ maxWidth: W }}>
-                <canvas 
-                  ref={canvasRef} 
-                  width={W} 
-                  height={H}
-                  onTouchStart={handleTouchStart}
-                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000005]"
+                <canvas ref={canvasRef} width={W} height={H} onTouchStart={handleTouchStart}
+                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008]"
                   data-testid="game-canvas" 
                 />
 
                 {gameState === "idle" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl">
                     <div className="relative mb-4">
-                      <img src={currentSkin.image} alt="Bullpug" className="w-24 h-24 rounded-xl border-2" style={{ borderColor: currentSkin.color }} />
+                      <img src={currentSkin.image} alt="Character" className="w-24 h-24 rounded-xl border-2 object-cover" style={{ borderColor: currentSkin.color }} />
                       <div className="absolute inset-0 rounded-xl" style={{ boxShadow: `0 0 30px ${currentSkin.color}40` }} />
                     </div>
                     <h2 className="text-2xl font-black text-white mb-2" style={{ fontFamily: 'Orbitron' }}>COSMIC RUNNER</h2>
@@ -1095,12 +1014,12 @@ export default function SpeedRunGame() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 rounded-xl" data-testid="game-over-screen">
                     <p className="text-4xl font-black text-red-400 mb-2" style={{ fontFamily: 'Orbitron' }}>GAME OVER</p>
                     <p className="text-2xl font-bold text-white mb-1">Score: {score}</p>
-                    <p className="text-lg text-[#F5D300] mb-2">Stage {currentStage} Reached</p>
+                    <p className="text-lg text-[#D946EF] mb-2">Stage {currentStage} Reached</p>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[#F5D300] font-bold">+{mooncakes} Mooncakes</span>
+                      <span className="text-[#FFD700] font-bold">+{mooncakes} Mooncakes</span>
                     </div>
                     {score >= highScore && score > 0 && (
-                      <Badge className="bg-[#F5D300]/20 text-[#F5D300] border-[#F5D300]/40 mb-3 text-sm">
+                      <Badge className="bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/40 mb-3 text-sm">
                         <Sparkles className="w-4 h-4 mr-1" /> NEW HIGH SCORE!
                       </Badge>
                     )}
@@ -1109,12 +1028,10 @@ export default function SpeedRunGame() {
                         className="bg-[#00FFA3] text-black font-bold rounded-full px-6 py-3 uppercase hover:scale-105 transition-transform">
                         <RotateCcw className="w-4 h-4 mr-2" /> RETRY
                       </Button>
-                      <Button 
-                        onClick={() => {
-                          const text = `I scored ${score} points in Cosmic Runner and reached Stage ${currentStage}!\n\nPlay now at bullpug.com #Bullpug #CosmicRunner #Solana`;
-                          window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-                        }}
-                        className="bg-black text-white border border-white/30 font-bold rounded-full px-5 py-3 uppercase hover:bg-white/10">
+                      <Button onClick={() => {
+                        const text = `I scored ${score} points in Cosmic Runner and reached Stage ${currentStage}! 🚀\n\nPlay now at bullpug.com #Bullpug #CosmicRunner #Solana`;
+                        window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+                      }} className="bg-black text-white border border-white/30 font-bold rounded-full px-5 py-3 uppercase hover:bg-white/10">
                         Share 𝕏
                       </Button>
                     </div>
@@ -1130,11 +1047,11 @@ export default function SpeedRunGame() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">High Score</p>
-                    <p className="text-xl font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron' }}>{highScore}</p>
+                    <p className="text-xl font-black text-[#FFD700]" style={{ fontFamily: 'Orbitron' }}>{highScore}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <p className="text-xs text-slate-500">Mooncakes</p>
-                    <p className="text-lg font-bold text-[#F5D300]">{totalMooncakes}</p>
+                    <p className="text-lg font-bold text-[#FFD700]">{totalMooncakes}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -1150,13 +1067,13 @@ export default function SpeedRunGame() {
           <div className="lg:col-span-1">
             <div className="glass-card rounded-2xl p-4">
               <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <span className="text-[#F5D300]">🏆</span> WEEKLY LEADERBOARD
+                <span className="text-[#FFD700]">🏆</span> WEEKLY LEADERBOARD
               </h3>
               <div className="space-y-2">
                 {leaderboard.slice(0, 8).map((entry, i) => (
-                  <div key={i} className={`flex items-center justify-between p-2 rounded-lg ${i < 3 ? 'bg-gradient-to-r from-[#F5D300]/10 to-transparent' : 'bg-white/5'}`}>
+                  <div key={i} className={`flex items-center justify-between p-2 rounded-lg ${i < 3 ? 'bg-gradient-to-r from-[#FFD700]/10 to-transparent' : 'bg-white/5'}`}>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${i === 0 ? 'text-[#F5D300]' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-slate-500'}`}>
+                      <span className={`text-xs font-bold ${i === 0 ? 'text-[#FFD700]' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-slate-500'}`}>
                         {i + 1}
                       </span>
                       <span className="text-sm text-white truncate max-w-[80px]">{entry.player_name}</span>
