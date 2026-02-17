@@ -707,19 +707,55 @@ export default function SpeedRunGame() {
       setMooncakes(g.mooncakes);
 
       // ===== RENDERING =====
-      // Deep space background
+      // Deep space background - color changes with stage
+      const stageTheme = STAGE_BACKGROUNDS[g.stage];
       const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-      bgGrad.addColorStop(0, '#000008');
-      bgGrad.addColorStop(0.4, '#0a0520');
-      bgGrad.addColorStop(1, '#0f0a25');
+      const hue = g.backgroundHue;
+      bgGrad.addColorStop(0, `hsl(${hue}, 40%, 2%)`);
+      bgGrad.addColorStop(0.4, `hsl(${hue}, 50%, 6%)`);
+      bgGrad.addColorStop(1, `hsl(${hue}, 45%, 8%)`);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Nebulas
+      // Cosmic objects (distant galaxies and planets)
+      g.cosmicObjects.forEach(obj => {
+        ctx.save();
+        ctx.translate(obj.x, obj.y);
+        ctx.rotate(obj.rotation);
+        
+        if (obj.type === 'galaxy') {
+          // Spiral galaxy
+          const galaxyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, obj.size);
+          galaxyGrad.addColorStop(0, `hsla(${obj.hue}, 70%, 80%, 0.4)`);
+          galaxyGrad.addColorStop(0.3, `hsla(${obj.hue + 30}, 60%, 50%, 0.2)`);
+          galaxyGrad.addColorStop(0.7, `hsla(${obj.hue + 60}, 50%, 30%, 0.1)`);
+          galaxyGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = galaxyGrad;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, obj.size, obj.size * 0.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Planet
+          const planetGrad = ctx.createRadialGradient(-obj.size * 0.2, -obj.size * 0.2, 0, 0, 0, obj.size * 0.8);
+          planetGrad.addColorStop(0, `hsla(${obj.hue}, 50%, 60%, 0.6)`);
+          planetGrad.addColorStop(0.6, `hsla(${obj.hue + 20}, 40%, 40%, 0.4)`);
+          planetGrad.addColorStop(1, `hsla(${obj.hue + 40}, 30%, 20%, 0.2)`);
+          ctx.fillStyle = planetGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, obj.size * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+
+      // Nebulas - moving with parallax
       g.nebulas.forEach(n => {
+        // Use stage-influenced hue
+        const nebulaHue = stageTheme.hue === -1 ? (n.hue + g.frame * 0.3) % 360 : (stageTheme.hue + n.hue * 0.3) % 360;
         const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size);
-        grad.addColorStop(0, `hsla(${n.hue}, 60%, 35%, ${n.alpha})`);
-        grad.addColorStop(0.6, `hsla(${n.hue + 30}, 50%, 25%, ${n.alpha * 0.5})`);
+        grad.addColorStop(0, `hsla(${nebulaHue}, 70%, 40%, ${n.alpha * stageTheme.nebulaDensity * 0.15})`);
+        grad.addColorStop(0.4, `hsla(${nebulaHue + 30}, 60%, 30%, ${n.alpha * stageTheme.nebulaDensity * 0.08})`);
+        grad.addColorStop(0.7, `hsla(${nebulaHue + 60}, 50%, 20%, ${n.alpha * stageTheme.nebulaDensity * 0.04})`);
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -727,13 +763,14 @@ export default function SpeedRunGame() {
         ctx.fill();
       });
 
-      // Stars with twinkling
+      // Stars with twinkling and parallax movement
       g.stars.forEach(s => {
-        s.twinkle += 0.03;
-        const brightness = 0.4 + Math.sin(s.twinkle) * 0.4;
-        ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+        const brightness = (0.4 + Math.sin(s.twinkle) * 0.4) * stageTheme.starBrightness;
+        // Slight color variation based on stage
+        const starHue = stageTheme.hue === -1 ? (g.frame * 2 + s.twinkle * 50) % 360 : (stageTheme.hue + 60 + Math.sin(s.twinkle) * 30);
+        ctx.fillStyle = `hsla(${starHue}, 20%, 100%, ${brightness})`;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, s.size * (0.8 + Math.sin(s.twinkle) * 0.2), 0, Math.PI * 2);
         ctx.fill();
       });
 
