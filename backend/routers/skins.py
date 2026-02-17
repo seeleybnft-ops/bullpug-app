@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 
 from utils.database import db
+from routers.prize_pool import add_to_prize_pool
 
 router = APIRouter(prefix="/skins", tags=["skins"])
 logger = logging.getLogger(__name__)
