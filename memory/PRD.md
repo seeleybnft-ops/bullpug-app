@@ -11,89 +11,103 @@ Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic g
 
 ---
 
-## Latest Update: Feb 17, 2026 - Power-ups, Dynamic Background & Mobile Controls
+## Latest Update: Feb 17, 2026 - Game Guide & Enhanced Mooncakes + Refactoring
 
 ### New Features Implemented
 
-#### 1. Power-ups (COMPLETE)
-Three lore-themed power-ups that spawn every 12 seconds and last 10 seconds:
+#### 1. Game Guide Section (COMPLETE)
+Below the game canvas, a comprehensive guide displays:
+- **COLLECTIBLES**: Mooncake (🥮) - +25 points each
+- **POWER-UPS**: Guardian Shield (🛡️), Mooncake Magnet (🧲), Star Power (⭐)
+- **OBSTACLES**: Meteor (☄️), Space Debris (🪨), Black Hole (🕳️), Satellite (🛰️), Alien Ship (🛸)
+- **CONTROLS**: A/←, D/→, SPACE/↑, Mobile Swipe
 
-| Power-up | Name | Effect | Color |
-|----------|------|--------|-------|
-| 🛡️ | Guardian Shield | Absorbs one obstacle hit | Cyan (#00FFFF) |
-| 🧲 | Mooncake Magnet | Attracts mooncakes from all lanes | Gold (#FFD700) |
-| ⭐ | Star Power | Doubles score from mooncakes | Magenta (#FF00FF) |
+#### 2. Enhanced Mooncake Visuals (COMPLETE)
+Made mooncakes shinier and brighter with:
+- **Larger Outer Glow**: 2.8x size with pulsing animation
+- **Star-burst Rays**: 8 rays emanating outward with animation
+- **Orbiting Sparkles**: 8 sparkles with individual glow effects
+- **Brighter Golden Core**: #FFFFD0 → #E0A040 gradient
+- **Multiple Highlights**: Main shine (0.8 alpha) + secondary shine (0.5 alpha)
+- **Animated Shimmer Spot**: Circular motion based on glow phase
+- **Double-ring Pulsing Outline**: Inner + outer glow rings
 
-**Visuals:**
-- Shiny orb with radial gradient
-- 8-pointed sparkle rays (rotating)
-- Glowing aura (pulsing)
-- 6 orbiting sparkle particles
-- HUD indicator with icon + countdown timer
-
-#### 2. Bullpug Orientation (FIXED)
-- Applied `ctx.scale(-1, 1)` to flip sprite horizontally
-- Character now faces DOWN the lane (into the screen)
-- Animation effects preserved (gallop, bounce, motion trail)
-
-#### 3. Dynamic Moving Background (COMPLETE)
-**Elements:**
-- 200 stars with parallax movement and twinkling
-- 12 nebulas with depth-based parallax
-- 5 cosmic objects (galaxies/planets) with slow rotation
-
-**Stage-based Themes:**
-| Stage | Name | Hue | Effect |
-|-------|------|-----|--------|
-| 1 | Deep Space | 240 (Blue) | Default space |
-| 2 | Blue Nebula | 200 (Cyan) | Brighter nebulas |
-| 3 | Purple Galaxy | 280 (Purple) | Dense nebulas |
-| 4 | Cosmic Fire | 20 (Orange) | Warm colors |
-| 5 | Multiverse | Rainbow | Cycling hue |
-
-#### 4. Mobile Controls (COMPLETE)
-- **Swipe left/right:** Change lane
-- **Swipe up:** Jump
-- **Tap left third:** Move left
-- **Tap center:** Jump
-- **Tap right third:** Move right
-- Touch hint displays on mobile devices
+#### 3. Code Refactoring Foundation (COMPLETE)
+Created modular files for future refactoring:
+- `/app/frontend/src/game/constants.js` - All game constants
+- `/app/frontend/src/hooks/usePlayerControls.js` - Input handling hook
+- `/app/frontend/src/components/GameGuide.js` - Extracted guide component
 
 ---
 
 ## Previous Session Changes
-- Original Guardian skin (fluffy pug with horns)
-- Speed halved (minSpeed 1.25, maxSpeed 4.8)
-- 120-second speed progression
-- Cake-shaped mooncakes
-- Fiery obstacle visual effects
+- Power-ups (Shield, Magnet, 2x Score) with spawn/collection/effects
+- Dynamic moving background with parallax and stage themes
+- Mobile swipe controls
+- Bullpug orientation fixed (faces down the lane)
+- Original Guardian skin with fluffy pug
 
 ---
 
 ## Testing Status
 
-### Latest: iteration_22.json - 100% pass rate
+### Latest: iteration_23.json - 100% pass rate
 All features verified:
-- Power-up spawning, collection, effects
-- Shield absorbs hits, Magnet attracts, DoubleScore doubles
-- HUD indicators with countdown
-- Bullpug facing down lane
-- Dynamic background with parallax
-- Stage-based color themes
-- Mobile swipe/tap controls
+- Game Guide section with all items documented
+- Enhanced mooncake visuals working
+- Star-burst rays, sparkles, shimmer effects confirmed
+- Game mechanics (start, lane change, jump, score) all working
+- Leaderboard displaying correctly
 
 ---
 
-## Key Files
+## Code Architecture
+
+```
+/app/
+├── backend/
+│   ├── routers/
+│   │   ├── betting.py       # P2P betting (coin flip, pot)
+│   │   ├── forum.py         # Community forum
+│   │   ├── journal.py       # Trading journal
+│   │   ├── messages.py      # Direct messages (DMs)
+│   │   ├── simulator.py     # Exit simulator (Monte Carlo)
+│   │   └── ...
+│   └── server.py
+├── frontend/
+│   ├── src/
+│   │   ├── game/
+│   │   │   └── constants.js    # Game constants (NEW)
+│   │   ├── hooks/
+│   │   │   └── usePlayerControls.js  # Input handling (NEW)
+│   │   ├── components/
+│   │   │   ├── GameGuide.js    # Guide component (NEW)
+│   │   │   └── SkinStore.js
+│   │   ├── pages/
+│   │   │   ├── SpeedRunGame.js    # Main game (2032 lines)
+│   │   │   ├── BettingArena.js    # P2P betting
+│   │   │   ├── ExitSimulator.js   # Monte Carlo sim
+│   │   │   ├── TradingJournal.js  # Trade logging
+│   │   │   ├── Forum.js           # Community posts
+│   │   │   └── Messages.js        # DMs
+│   │   └── config/
+│   │       └── skins.js
+│   └── package.json
+└── memory/
+    └── PRD.md
+```
+
+---
+
+## Key Files Reference
 
 ```
 /app/frontend/src/pages/SpeedRunGame.js
-  - Lines 20-65: POWERUP_TYPES, STAGE_BACKGROUNDS
+  - Lines 1064-1233: Enhanced mooncake rendering (shiny effects)
+  - Lines 1904-2028: Game Guide section inline
+  - Lines 37-74: POWERUP_TYPES, STAGE_BACKGROUNDS constants
   - Lines 268-290: spawnPowerup()
   - Lines 498-550: Background element movement
-  - Lines 1173-1252: Power-up rendering
-  - Lines 1333: ctx.scale(-1,1) for orientation
-  - Lines 1468-1512: Power-up HUD indicators
   - Lines 1592-1660: Mobile touch controls
 ```
 
@@ -102,23 +116,51 @@ All features verified:
 ## Task Status
 
 ### COMPLETED (This Session)
-1. Power-ups with shiny sparkle effects
-2. Bullpug oriented to face down lane
-3. Dynamic moving background
-4. Stage-based color themes
-5. Mobile swipe/tap controls
+1. ✅ Game Guide section with all items documented
+2. ✅ Enhanced mooncake visuals (shinier, brighter)
+3. ✅ Refactoring foundation (constants, hooks, components)
+
+### COMPLETED (Previous Sessions)
+1. ✅ Power-ups with shiny sparkle effects
+2. ✅ Bullpug oriented to face down lane
+3. ✅ Dynamic moving background with parallax
+4. ✅ Stage-based color themes
+5. ✅ Mobile swipe/tap controls
+6. ✅ Betting Arena (P2P Coin Flip, Pot System)
+7. ✅ Exit Simulator (Monte Carlo GBM)
+8. ✅ Trading Journal with dashboard/CSV/PDF export
+9. ✅ Community Forum with posts/replies
+10. ✅ Direct Messages (DMs) with WebSocket
 
 ### Upcoming (P1)
 - Deployment to bullpug.com
 
 ### Backlog (P2)
-- NFT Gallery, Plushie Sales
-- P2P Betting Arena
-- Exit Simulator
-- Trading Journal
+- NFT Gallery page
+- Plushie Sales shop page
+- Further game refactoring (split SpeedRunGame.js into modules)
 
 ---
 
 ## Admin Wallets
 - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
 - `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
+
+---
+
+## PRD Feature Completion Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Cosmic Runner Game | ✅ Complete | Power-ups, backgrounds, guide, controls |
+| P2P Betting Arena | ✅ Complete | Coin flip, pot system, 2.5% rake |
+| Exit Simulator | ✅ Complete | Monte Carlo GBM, PDF export |
+| Trading Journal | ✅ Complete | Dashboard, CSV/PDF, cloud backup |
+| Community Forum | ✅ Complete | Posts, replies, categories |
+| Direct Messages | ✅ Complete | Real-time WebSocket DMs |
+| Tokenomics Display | ✅ Complete | Token info page |
+| Reflections Calculator | ✅ Complete | Calculator tool |
+| Wallet Integration | ✅ Complete | Solana wallet adapter |
+| NFT Gallery | 🔄 Hidden | Ready for implementation |
+| Plushie Shop | 🔄 Hidden | Ready for implementation |
+| Deployment | ⏳ Pending | Ready for bullpug.com |
