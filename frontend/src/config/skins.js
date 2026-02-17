@@ -6,11 +6,11 @@ export const SKINS = [
     id: "default",
     name: "Guardian",
     description: "The original Bullpug Guardian - protector of the cosmos",
-    image: "/images/bullpug_default.png",
+    image: "/images/guardian_original.png",
     bonusPercent: 0,
     price: 0,
     rarity: "common",
-    color: "#00FFA3",
+    color: "#D4956A",
     glowIntensity: 0.3
   },
   {
