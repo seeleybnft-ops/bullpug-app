@@ -54,6 +54,8 @@ function App() {
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/admin" element={<AdminPanel />} />
                 <Route path="/messages" element={<Messages />} />
+                <Route path="/showcase" element={<Showcase />} />
+                <Route path="/showcase/:walletAddress" element={<Showcase />} />
               </Routes>
               <Footer />
               <Toaster theme="dark" />
