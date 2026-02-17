@@ -1731,8 +1731,11 @@ export default function SpeedRunGame() {
               </div>
 
               <div className="relative mx-auto" style={{ maxWidth: W }}>
-                <canvas ref={canvasRef} width={W} height={H} onTouchStart={handleTouchStart}
-                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008]"
+                <canvas ref={canvasRef} width={W} height={H} 
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008] touch-none"
                   data-testid="game-canvas" 
                 />
 
