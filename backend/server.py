@@ -33,7 +33,6 @@ from sendgrid.helpers.mail import Mail
 
 # Import routers - using sys.path hack for development
 import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from routers import (
