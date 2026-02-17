@@ -12,6 +12,17 @@ const sounds = {
   gameover: { frequency: 150, duration: 0.5, type: 'sawtooth', gain: 0.2 },
   jump: { frequency: 300, duration: 0.1, type: 'square', gain: 0.1 },
   newHighScore: { frequency: 1000, duration: 0.4, type: 'sine', gain: 0.3 },
+  // New sounds
+  betPlaced: { frequency: 520, duration: 0.15, type: 'triangle', gain: 0.2 },
+  challengeCreated: { frequency: 700, duration: 0.2, type: 'sine', gain: 0.25 },
+  potJoin: { frequency: 400, duration: 0.2, type: 'triangle', gain: 0.2 },
+  notification: { frequency: 800, duration: 0.15, type: 'sine', gain: 0.15 },
+  coinLand: { frequency: 350, duration: 0.25, type: 'square', gain: 0.2 },
+  countdown: { frequency: 500, duration: 0.1, type: 'sine', gain: 0.15 },
+  success: { frequency: 750, duration: 0.2, type: 'sine', gain: 0.2 },
+  error: { frequency: 200, duration: 0.3, type: 'sawtooth', gain: 0.15 },
+  hover: { frequency: 450, duration: 0.03, type: 'sine', gain: 0.05 },
+  swoosh: { frequency: 300, duration: 0.15, type: 'sawtooth', gain: 0.1 },
 };
 
 // Play a tone
