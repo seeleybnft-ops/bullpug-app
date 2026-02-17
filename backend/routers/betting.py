@@ -8,9 +8,9 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 
-from ..models.schemas import CreateChallengeRequest, AcceptChallengeRequest, P2PPotJoinRequest
-from ..utils.database import db
-from ..utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
+from models.schemas import CreateChallengeRequest, AcceptChallengeRequest, P2PPotJoinRequest
+from utils.database import db
+from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 limiter = Limiter(key_func=get_remote_address)
