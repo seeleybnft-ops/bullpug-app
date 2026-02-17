@@ -2055,6 +2055,11 @@ api_router.include_router(forum_router)
 api_router.include_router(messages_router)
 api_router.include_router(journal_router)
 api_router.include_router(showcase_router)
+api_router.include_router(pot_router)
+api_router.include_router(simulator_router)
+api_router.include_router(reflections_router)
+api_router.include_router(notifications_router)
+api_router.include_router(admin_router)
 
 # Now register the complete api_router with the app
 app.include_router(api_router)
