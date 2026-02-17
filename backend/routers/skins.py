@@ -166,6 +166,17 @@ async def purchase_skin(wallet_address: str, skin_id: str, tx_signature: str, am
     
     await db.skin_purchases.insert_one(purchase)
     
+    # === CONTRIBUTE TO PRIZE POOL (25% of skin purchase) ===
+    try:
+        await add_to_prize_pool(
+            amount_sol=amount_sol,
+            source="skin_purchase",
+            details={"skin_id": skin_id, "wallet": wallet_address}
+        )
+        logger.info(f"Added 25% of {amount_sol} SOL skin purchase to prize pool")
+    except Exception as e:
+        logger.error(f"Failed to add skin purchase to prize pool: {e}")
+    
     from ..utils.notifications import send_notification
     await send_notification(
         wallet_address,
