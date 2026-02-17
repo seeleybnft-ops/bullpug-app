@@ -2381,6 +2381,140 @@ async def get_skins_stats():
     }
 
 
+# Skin Gift Model
+class SkinGiftRequest(BaseModel):
+    sender_wallet: str
+    recipient_wallet: str
+    skin_id: str
+
+
+@api_router.post("/skins/gift")
+async def gift_skin(data: SkinGiftRequest):
+    """Gift a skin to another user"""
+    # Validate skin exists
+    if data.skin_id not in SKINS_CATALOG and data.skin_id != "default":
+        raise HTTPException(status_code=400, detail="Invalid skin ID")
+    
+    if data.skin_id == "default":
+        raise HTTPException(status_code=400, detail="Cannot gift default skin")
+    
+    # Check if sender owns the skin
+    sender_ownership = await db.skin_purchases.find_one({
+        "wallet_address": data.sender_wallet,
+        "skin_id": data.skin_id,
+        "status": "completed"
+    })
+    
+    if not sender_ownership:
+        raise HTTPException(status_code=400, detail="You don't own this skin")
+    
+    # Check recipient isn't sender
+    if data.sender_wallet == data.recipient_wallet:
+        raise HTTPException(status_code=400, detail="Cannot gift to yourself")
+    
+    skin = SKINS_CATALOG[data.skin_id]
+    
+    # Transfer ownership: Update sender's record to gifted status
+    await db.skin_purchases.update_one(
+        {"id": sender_ownership["id"]},
+        {"$set": {
+            "status": "gifted",
+            "gifted_to": data.recipient_wallet,
+            "gifted_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create new ownership record for recipient
+    recipient_purchase = {
+        "id": str(uuid.uuid4()),
+        "wallet_address": data.recipient_wallet,
+        "skin_id": data.skin_id,
+        "skin_name": skin["name"],
+        "amount_sol": 0,
+        "tx_signature": None,
+        "status": "completed",
+        "received_as_gift": True,
+        "gift_from": data.sender_wallet,
+        "purchased_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.skin_purchases.insert_one(recipient_purchase)
+    
+    # Record gift in gift history
+    gift_record = {
+        "id": str(uuid.uuid4()),
+        "sender_wallet": data.sender_wallet,
+        "recipient_wallet": data.recipient_wallet,
+        "skin_id": data.skin_id,
+        "skin_name": skin["name"],
+        "gifted_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.skin_gifts.insert_one(gift_record)
+    
+    # Send notifications to both parties
+    await send_notification(
+        data.recipient_wallet,
+        f"Gift Received: {skin['name']}",
+        f"You received a {skin['name']} skin from {data.sender_wallet[:8]}...!",
+        "gift"
+    )
+    
+    await send_notification(
+        data.sender_wallet,
+        f"Gift Sent: {skin['name']}",
+        f"You gifted {skin['name']} to {data.recipient_wallet[:8]}...",
+        "gift"
+    )
+    
+    return {
+        "message": f"Successfully gifted {skin['name']} to {data.recipient_wallet[:8]}...!",
+        "skin_id": data.skin_id,
+        "recipient": data.recipient_wallet
+    }
+
+
+@api_router.get("/skins/gifts/{wallet_address}")
+async def get_gift_history(wallet_address: str):
+    """Get gift history for a wallet (sent and received)"""
+    # Get sent gifts
+    sent = await db.skin_gifts.find(
+        {"sender_wallet": wallet_address},
+        {"_id": 0}
+    ).sort("gifted_at", -1).to_list(20)
+    
+    # Get received gifts
+    received = await db.skin_purchases.find(
+        {"wallet_address": wallet_address, "received_as_gift": True},
+        {"_id": 0, "gift_from": 1, "skin_id": 1, "skin_name": 1, "purchased_at": 1}
+    ).sort("purchased_at", -1).to_list(20)
+    
+    # Combine and format
+    gifts = []
+    for g in sent:
+        gifts.append({
+            "type": "sent",
+            "skin_id": g["skin_id"],
+            "skin_name": g["skin_name"],
+            "recipient_wallet": g["recipient_wallet"],
+            "date": g["gifted_at"]
+        })
+    
+    for g in received:
+        gifts.append({
+            "type": "received",
+            "skin_id": g["skin_id"],
+            "skin_name": g.get("skin_name", ""),
+            "sender_wallet": g["gift_from"],
+            "date": g["purchased_at"]
+        })
+    
+    # Sort by date
+    gifts.sort(key=lambda x: x["date"], reverse=True)
+    
+    return {"gifts": gifts[:20], "wallet": wallet_address}
+
+
 # ========== EMAIL ENDPOINTS ==========
 class EmailSubscribeRequest(BaseModel):
     email: str
