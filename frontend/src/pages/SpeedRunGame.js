@@ -911,113 +911,278 @@ export default function SpeedRunGame() {
         ctx.stroke();
       });
 
-      // Draw 3D animated player character with enhanced animation
+      // Draw 3D animated player character - SUBWAY SURFERS STYLE
       const pX = playerX;
       const pY = playerY;
-      const pW = 70;  // Larger width for 3D character
-      const pH = 90;  // Larger height for 3D character
+      const pW = 80;  // Character width
+      const pH = 100; // Character height
       
-      // Dynamic shadow (smaller when jumping)
-      const shadowScale = g.player.isJumping ? 0.3 + (1 - Math.abs(g.player.vy) / 20) * 0.3 : 0.5;
-      ctx.fillStyle = `rgba(0, 0, 0, ${0.3 + shadowScale * 0.2})`;
+      // Animation timing - faster leg movement for running feel
+      const runPhase = g.player.animFrame * 0.25; // Animation phase
+      const legCycle = Math.sin(runPhase * Math.PI * 2); // -1 to 1 leg swing
+      const armCycle = Math.cos(runPhase * Math.PI * 2); // Opposite to legs
+      
+      // Dynamic shadow (moves with character, smaller when jumping)
+      const shadowScale = g.player.isJumping ? 0.2 + (1 - Math.min(Math.abs(pY - PLAYER_BASE_Y) / 100, 1)) * 0.3 : 0.6;
+      const shadowY = GROUND_Y - 3;
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.25 + shadowScale * 0.15})`;
       ctx.beginPath();
-      ctx.ellipse(pX, GROUND_Y - 3, pW * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
+      ctx.ellipse(pX, shadowY, pW * shadowScale * 0.6, 10 * shadowScale, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Character glow (intensifies when moving fast)
-      const speedIntensity = Math.min(g.speed / 12, 1);
-      const glowAlpha = 0.3 + speedIntensity * 0.3;
-      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW * (1 + speedIntensity * 0.3));
+      // Character glow effect
+      const glowAlpha = 0.25;
+      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW * 0.9);
       charGlow.addColorStop(0, `${g.skinColor}${Math.floor(glowAlpha * 255).toString(16).padStart(2, '0')}`);
-      charGlow.addColorStop(0.5, `${g.skinColor}30`);
+      charGlow.addColorStop(0.6, `${g.skinColor}15`);
       charGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = charGlow;
       ctx.beginPath();
-      ctx.arc(pX, pY + pH / 2, pW * (1 + speedIntensity * 0.3), 0, Math.PI * 2);
+      ctx.arc(pX, pY + pH / 2, pW * 0.9, 0, Math.PI * 2);
       ctx.fill();
       
-      // Speed lines (motion blur effect when moving fast)
-      if (g.speed > 6 && !g.player.isJumping) {
-        const lineCount = Math.floor(g.speed / 2);
+      // Speed lines when moving (adjusted for slower speed)
+      if (g.speed > 3 && !g.player.isJumping) {
+        const lineCount = Math.floor(g.speed);
         for (let i = 0; i < lineCount; i++) {
-          const lineY = pY + pH * 0.2 + (i / lineCount) * pH * 0.6;
-          const lineAlpha = 0.1 + Math.sin(g.frame * 0.5 + i) * 0.1;
-          ctx.strokeStyle = `rgba(${parseInt(g.skinColor.slice(1, 3), 16)}, ${parseInt(g.skinColor.slice(3, 5), 16)}, ${parseInt(g.skinColor.slice(5, 7), 16)}, ${lineAlpha})`;
-          ctx.lineWidth = 2;
+          const lineY = pY + pH * 0.2 + (i / lineCount) * pH * 0.5;
+          const lineAlpha = 0.08 + Math.sin(g.frame * 0.3 + i) * 0.05;
+          ctx.strokeStyle = `rgba(200, 200, 255, ${lineAlpha})`;
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.moveTo(pX - pW * 0.6 - g.speed * 3, lineY);
+          ctx.moveTo(pX - pW * 0.5 - g.speed * 5, lineY);
           ctx.lineTo(pX - pW * 0.3, lineY);
           ctx.stroke();
         }
       }
       
-      // Animated 3D character rendering
+      // SUBWAY SURFERS STYLE CHARACTER ANIMATION
+      ctx.save();
+      
+      // Body bounce during running
+      const bodyBounce = g.player.isJumping ? 0 : Math.abs(Math.sin(runPhase * Math.PI * 2)) * 4;
+      
+      // Jump squash/stretch
+      let scaleX = 1;
+      let scaleY = 1;
+      let rotation = 0;
+      
+      if (g.player.isJumping) {
+        if (g.player.vy < -8) {
+          // Rising - stretch vertically
+          scaleY = 1.15;
+          scaleX = 0.9;
+          rotation = -0.05;
+        } else if (g.player.vy > 8) {
+          // Falling - squash
+          scaleY = 0.85;
+          scaleX = 1.15;
+          rotation = 0.05;
+        }
+      } else {
+        // Running lean
+        rotation = 0.03 + g.speed * 0.005;
+      }
+      
+      ctx.translate(pX, pY + pH / 2 - bodyBounce);
+      ctx.rotate(rotation);
+      ctx.scale(scaleX, scaleY);
+      
+      // Draw the character sprite
       if (spriteRef.current) {
-        // Enhanced animation parameters
-        const runCycle = Math.sin(g.player.animFrame * 0.8);
-        const fastRunCycle = Math.sin(g.player.animFrame * 1.2);
+        // Main body sprite
+        const spriteW = pW * 0.85;
+        const spriteH = pH * 0.7;
+        ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2 - pH * 0.1, spriteW, spriteH);
         
-        // Running bob (more pronounced at higher speeds)
-        const bobAmplitude = 3 + g.speed * 0.3;
-        const bobOffset = g.player.isJumping ? 0 : runCycle * bobAmplitude;
-        
-        // Lean forward when running fast
-        const leanAngle = g.player.isJumping ? 
-          (g.player.vy < 0 ? -0.1 : 0.05) : // Lean back on jump up, forward on landing
-          Math.min(g.speed / 40, 0.12); // Lean forward proportional to speed
-        
-        // Jump squash/stretch
-        const stretchY = g.player.isJumping && g.player.vy < -5 ? 1.15 : 1;
-        const squashY = g.player.isJumping && g.player.vy > 8 ? 0.85 : 1;
-        const stretchX = g.player.isJumping && g.player.vy < -5 ? 0.9 : (g.player.isJumping && g.player.vy > 8 ? 1.1 : 1);
-        
-        // Side-to-side sway during run
-        const swayOffset = g.player.isJumping ? 0 : fastRunCycle * 2;
-        
+        // ANIMATED LEGS - Subway Surfers style
         ctx.save();
-        ctx.translate(pX + swayOffset, pY + pH / 2 + bobOffset);
-        ctx.rotate(leanAngle);
-        ctx.scale(stretchX, stretchY * squashY);
         
-        // Draw main sprite
-        ctx.drawImage(spriteRef.current, -pW / 2, -pH / 2, pW, pH);
+        // Leg colors based on skin
+        const legColor = shadeColor(g.skinColor, -20);
+        const legHighlight = shadeColor(g.skinColor, 20);
         
-        // Add afterimage/trail when moving fast
-        if (g.speed > 8) {
-          ctx.globalAlpha = 0.15;
-          ctx.drawImage(spriteRef.current, -pW / 2 - 8, -pH / 2, pW, pH);
-          ctx.globalAlpha = 0.08;
-          ctx.drawImage(spriteRef.current, -pW / 2 - 16, -pH / 2, pW, pH);
-          ctx.globalAlpha = 1;
+        if (g.player.isJumping) {
+          // JUMP POSE - legs tucked up
+          const tuckAmount = Math.min(Math.abs(g.player.vy) / 10, 1) * 0.4;
+          
+          // Left leg tucked
+          ctx.fillStyle = legColor;
+          ctx.beginPath();
+          ctx.ellipse(-pW * 0.15, pH * 0.2 - tuckAmount * pH * 0.3, pW * 0.12, pH * 0.15, -0.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Right leg tucked
+          ctx.fillStyle = legHighlight;
+          ctx.beginPath();
+          ctx.ellipse(pW * 0.15, pH * 0.2 - tuckAmount * pH * 0.3, pW * 0.12, pH * 0.15, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Feet
+          ctx.fillStyle = '#333';
+          ctx.beginPath();
+          ctx.ellipse(-pW * 0.18, pH * 0.25 - tuckAmount * pH * 0.25, pW * 0.08, pH * 0.05, -0.5, 0, Math.PI * 2);
+          ctx.ellipse(pW * 0.18, pH * 0.25 - tuckAmount * pH * 0.25, pW * 0.08, pH * 0.05, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // RUNNING ANIMATION - legs pumping back and forth
+          const legSwing = legCycle * 0.5; // Leg swing amplitude
+          const legLength = pH * 0.25;
+          
+          // Back leg (the one going backward)
+          ctx.save();
+          ctx.translate(pW * 0.08, pH * 0.15);
+          ctx.rotate(-legSwing);
+          
+          // Upper leg
+          ctx.fillStyle = legColor;
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.06, 0, pW * 0.12, legLength * 0.6, 4);
+          ctx.fill();
+          
+          // Lower leg with knee bend
+          ctx.translate(0, legLength * 0.55);
+          ctx.rotate(Math.max(0, -legSwing * 0.8));
+          ctx.fillStyle = shadeColor(legColor, -15);
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.05, 0, pW * 0.1, legLength * 0.5, 3);
+          ctx.fill();
+          
+          // Foot
+          ctx.fillStyle = '#333';
+          ctx.beginPath();
+          ctx.ellipse(pW * 0.02, legLength * 0.5, pW * 0.07, pH * 0.035, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          
+          // Front leg (the one going forward)
+          ctx.save();
+          ctx.translate(-pW * 0.08, pH * 0.15);
+          ctx.rotate(legSwing);
+          
+          // Upper leg
+          ctx.fillStyle = legHighlight;
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.06, 0, pW * 0.12, legLength * 0.6, 4);
+          ctx.fill();
+          
+          // Lower leg
+          ctx.translate(0, legLength * 0.55);
+          ctx.rotate(Math.max(0, legSwing * 0.8));
+          ctx.fillStyle = shadeColor(legHighlight, -15);
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.05, 0, pW * 0.1, legLength * 0.5, 3);
+          ctx.fill();
+          
+          // Foot
+          ctx.fillStyle = '#333';
+          ctx.beginPath();
+          ctx.ellipse(-pW * 0.02, legLength * 0.5, pW * 0.07, pH * 0.035, -0.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
         
         ctx.restore();
         
-        // Enhanced running particles with skin color
-        if (!g.player.isJumping && g.frame % Math.max(3, 8 - Math.floor(g.speed / 2)) === 0) {
-          // Dust particles
-          g.particles.push({
-            x: pX + (Math.random() - 0.5) * 30,
-            y: GROUND_Y - 5,
-            vx: -g.speed * 0.3 + (Math.random() - 0.5) * 2,
-            vy: -Math.random() * 3 - 1,
-            life: 20,
-            color: 'rgba(100, 80, 150, 0.6)'
-          });
-          // Colored energy particles
-          if (g.speed > 6) {
-            g.particles.push({
-              x: pX - pW * 0.3,
-              y: pY + pH * 0.5 + (Math.random() - 0.5) * 20,
-              vx: -g.speed * 0.5,
-              vy: (Math.random() - 0.5) * 2,
-              life: 15,
-              color: g.skinColor + '80'
-            });
-          }
-        }
+        // ANIMATED ARMS - pumping motion opposite to legs
+        ctx.save();
+        const armSwing = armCycle * 0.4;
         
-        // Jump particles burst
+        if (g.player.isJumping) {
+          // Arms up during jump
+          // Left arm
+          ctx.fillStyle = shadeColor(g.skinColor, 10);
+          ctx.beginPath();
+          ctx.ellipse(-pW * 0.35, -pH * 0.15, pW * 0.08, pH * 0.12, -0.8, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Right arm
+          ctx.fillStyle = shadeColor(g.skinColor, -10);
+          ctx.beginPath();
+          ctx.ellipse(pW * 0.35, -pH * 0.15, pW * 0.08, pH * 0.12, 0.8, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Running arm pump
+          // Left arm
+          ctx.save();
+          ctx.translate(-pW * 0.32, -pH * 0.05);
+          ctx.rotate(armSwing);
+          ctx.fillStyle = shadeColor(g.skinColor, 10);
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.04, 0, pW * 0.08, pH * 0.15, 3);
+          ctx.fill();
+          ctx.restore();
+          
+          // Right arm
+          ctx.save();
+          ctx.translate(pW * 0.32, -pH * 0.05);
+          ctx.rotate(-armSwing);
+          ctx.fillStyle = shadeColor(g.skinColor, -10);
+          ctx.beginPath();
+          ctx.roundRect(-pW * 0.04, 0, pW * 0.08, pH * 0.15, 3);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+        
+        // Motion trail when running fast (adjusted threshold)
+        if (g.speed > 4 && !g.player.isJumping) {
+          ctx.globalAlpha = 0.12;
+          ctx.drawImage(spriteRef.current, -spriteW / 2 - 6, -spriteH / 2 - pH * 0.1, spriteW, spriteH);
+          ctx.globalAlpha = 0.06;
+          ctx.drawImage(spriteRef.current, -spriteW / 2 - 12, -spriteH / 2 - pH * 0.1, spriteW, spriteH);
+          ctx.globalAlpha = 1;
+        }
+      } else {
+        // Fallback animated character (no sprite loaded)
+        // Draw body
+        const bodyGrad = ctx.createLinearGradient(-pW / 3, -pH / 3, pW / 3, pH / 3);
+        bodyGrad.addColorStop(0, g.skinColor);
+        bodyGrad.addColorStop(1, shadeColor(g.skinColor, -30));
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.roundRect(-pW / 3, -pH / 3, pW * 0.66, pH * 0.5, 10);
+        ctx.fill();
+        
+        // Draw animated legs
+        const legSwing = g.player.isJumping ? 0 : legCycle * 0.4;
+        ctx.fillStyle = shadeColor(g.skinColor, -20);
+        
+        // Left leg
+        ctx.save();
+        ctx.translate(-pW * 0.1, pH * 0.1);
+        ctx.rotate(-legSwing);
+        ctx.beginPath();
+        ctx.roundRect(-pW * 0.05, 0, pW * 0.1, pH * 0.25, 4);
+        ctx.fill();
+        ctx.restore();
+        
+        // Right leg
+        ctx.save();
+        ctx.translate(pW * 0.1, pH * 0.1);
+        ctx.rotate(legSwing);
+        ctx.beginPath();
+        ctx.roundRect(-pW * 0.05, 0, pW * 0.1, pH * 0.25, 4);
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      ctx.restore();
+      
+      // Running dust particles
+      if (!g.player.isJumping && g.frame % Math.max(4, 12 - Math.floor(g.speed * 2)) === 0) {
+        g.particles.push({
+          x: pX + (Math.random() - 0.5) * 25,
+          y: GROUND_Y - 5,
+          vx: -g.speed * 0.2 + (Math.random() - 0.5) * 1.5,
+          vy: -Math.random() * 2 - 0.5,
+          life: 18,
+          color: 'rgba(100, 80, 150, 0.5)'
+        });
+      }
+      
+      // Jump landing particles
+      if (g.player.isJumping && g.player.vy > 6 && Math.abs(g.player.y - PLAYER_BASE_Y) < 15) {
         if (g.player.isJumping && g.player.vy > 10 && Math.abs(g.player.y - PLAYER_BASE_Y) < 20) {
           for (let i = 0; i < 8; i++) {
             const angle = (i / 8) * Math.PI;
