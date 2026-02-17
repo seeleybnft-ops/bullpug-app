@@ -45,14 +45,10 @@ from routers import (
     forum_router,
     messages_router,
     journal_router,
-    showcase_router,
-    pot_router,
-    simulator_router,
-    reflections_router,
-    notifications_router,
-    admin_router
+    showcase_router
 )
-from routers.pot import _get_pot_data as get_pot_data_for_ws
+# Note: pot_router, simulator_router, reflections_router, notifications_router, admin_router
+# are available in routers/ but not imported due to conflicts with existing server.py endpoints
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, ConnectionManager, BroadcastManager
 
 # Rate Limiter setup
