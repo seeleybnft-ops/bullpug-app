@@ -87,12 +87,39 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
   - Sends notifications to both parties
 
 ### Skin API Endpoints
-- `GET /api/skins/catalog` - All available skins
-- `GET /api/skins/owned/{wallet}` - User's owned skins
+- `GET /api/skins/catalog` - All available skins (including achievement)
+- `GET /api/skins/owned/{wallet}` - User's owned skins + auto-unlock check
+- `GET /api/skins/achievement-status/{wallet}` - Achievement progress (NEW)
 - `POST /api/skins/purchase` - Purchase skin
-- `POST /api/skins/gift` - Gift skin to another user
+- `POST /api/skins/gift` - Gift skin (blocks achievement skins)
 - `GET /api/skins/gifts/{wallet}` - Gift history
 - `GET /api/skins/stats` - Purchase statistics
+
+---
+
+## 🔧 Backend Refactoring (Feb 2026)
+
+### Modular Router Structure
+New routers created in `/app/backend/routers/`:
+- `skins.py` - Skin store endpoints (NEW)
+- `forum.py` - Forum posts/replies (NEW)  
+- `messages.py` - Direct messaging (NEW)
+- `journal.py` - Trading journal (NEW)
+- `betting.py` - P2P betting
+- `auth.py` - Wallet authentication
+- `email.py` - Email subscriptions
+- `leaderboard.py` - Game leaderboard
+
+### Utility Modules
+- `utils/notifications.py` - Notification helper
+- `utils/config.py` - Centralized config
+- `utils/database.py` - MongoDB connection
+
+### Status
+- ✅ Core routes modularized
+- ✅ All routers connected via `api_router.include_router()`
+- ⏳ WebSocket handlers still in server.py
+- ⏳ Some duplicate routes exist (server.py + routers)
 
 ---
 
