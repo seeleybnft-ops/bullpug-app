@@ -41,8 +41,8 @@ const TOKEN_DIST = [
 ];
 
 const ROADMAP = [
-  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Fair launch via Blowfishbot", "Initial lore reveal", "Community building", "Website launch"], status: "current" },
-  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Speed-run game rollout", "Plushie store launch", "Staking activation", "Betting arena beta"], status: "upcoming" },
+  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Initial lore reveal", "Community building", "Website launch", "Fair launch via Blowfishbot"], status: "current" },
+  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Speed-run game rollout", "Betting arena beta", "Plushie store launch", "Staking activation"], status: "upcoming" },
   { phase: "Phase 3", title: "Expansion", date: "Q4 2026+", items: ["NFT collection", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
 ];
 
