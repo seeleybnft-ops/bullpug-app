@@ -93,13 +93,50 @@ export default function Showcase() {
     }
   };
 
-  const shareShowcase = async () => {
+  const openShareModal = async () => {
+    try {
+      const { data } = await axios.get(`${API}/showcase/share-text/${displayWallet}`);
+      setShareData(data);
+      setShowShareModal(true);
+    } catch (e) {
+      console.error("Failed to fetch share data:", e);
+      // Fallback share data
+      setShareData({
+        share_text: `Check out my Bullpug skin collection! 🚀\n\n${window.location.origin}/showcase/${displayWallet}\n\n#Bullpug #Solana`,
+        stats: showcase?.stats || {}
+      });
+      setShowShareModal(true);
+    }
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(shareData?.share_text || "Check out my Bullpug collection!");
+    const url = encodeURIComponent(`${window.location.origin}/showcase/${displayWallet}`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank", "width=550,height=420");
+  };
+
+  const shareToTelegram = () => {
+    const text = encodeURIComponent(shareData?.share_text || "Check out my Bullpug collection!");
+    const url = encodeURIComponent(`${window.location.origin}/showcase/${displayWallet}`);
+    window.open(`https://t.me/share/url?url=${url}&text=${text}`, "_blank");
+  };
+
+  const copyShareLink = async () => {
     try {
       const url = `${window.location.origin}/showcase/${displayWallet}`;
       await navigator.clipboard.writeText(url);
-      toast.success("Showcase link copied to clipboard!");
+      toast.success("Showcase link copied!");
     } catch (e) {
       toast.error("Failed to copy link");
+    }
+  };
+
+  const copyShareText = async () => {
+    try {
+      await navigator.clipboard.writeText(shareData?.share_text || "");
+      toast.success("Share text copied!");
+    } catch (e) {
+      toast.error("Failed to copy text");
     }
   };
 
