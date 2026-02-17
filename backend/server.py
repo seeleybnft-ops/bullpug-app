@@ -2715,9 +2715,7 @@ async def test_email_config():
     return {"configured": False, "message": "SENDGRID_API_KEY not set"}
 
 
-app.include_router(api_router)
-
-# Include modular routers
+# Include modular routers BEFORE registering api_router with app
 api_router.include_router(betting_router)
 api_router.include_router(auth_router)
 api_router.include_router(email_router)
@@ -2727,6 +2725,9 @@ api_router.include_router(forum_router)
 api_router.include_router(messages_router)
 api_router.include_router(journal_router)
 api_router.include_router(showcase_router)
+
+# Now register the complete api_router with the app
+app.include_router(api_router)
 
 
 # WebSocket for pot real-time updates
