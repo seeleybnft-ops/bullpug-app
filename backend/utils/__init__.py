@@ -1,3 +1,3 @@
 """Utils package."""
-from .database import db, mongo_client, get_db, get_client
-from .config import *
+from utils.database import db, mongo_client, get_db, get_client
+from utils.config import *
