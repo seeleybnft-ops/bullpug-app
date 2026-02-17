@@ -819,6 +819,64 @@ export default function SpeedRunGame() {
         ctx.fill();
       });
 
+      // Shooting stars - dramatic streaks across the sky
+      g.shootingStars.forEach(ss => {
+        const tailX = ss.x - Math.cos(ss.angle) * ss.length;
+        const tailY = ss.y - Math.sin(ss.angle) * ss.length * 0.3;
+        
+        // Glowing trail
+        const trailGrad = ctx.createLinearGradient(tailX, tailY, ss.x, ss.y);
+        trailGrad.addColorStop(0, 'transparent');
+        trailGrad.addColorStop(0.5, `hsla(${ss.hue}, 80%, 70%, ${ss.alpha * 0.3})`);
+        trailGrad.addColorStop(0.8, `hsla(${ss.hue}, 90%, 80%, ${ss.alpha * 0.7})`);
+        trailGrad.addColorStop(1, `hsla(${ss.hue}, 100%, 95%, ${ss.alpha})`);
+        
+        ctx.strokeStyle = trailGrad;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(ss.x, ss.y);
+        ctx.stroke();
+        
+        // Bright head
+        ctx.fillStyle = `hsla(${ss.hue}, 100%, 95%, ${ss.alpha})`;
+        ctx.beginPath();
+        ctx.arc(ss.x, ss.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Speed lines (warp effect) - emanate from vanishing point
+      ctx.save();
+      ctx.translate(VANISHING_X, HORIZON_Y);
+      g.speedLines.forEach(line => {
+        const startDist = line.distance;
+        const endDist = line.distance + line.length * (1 + g.speed * 0.2);
+        
+        // Calculate alpha based on distance (fade out as they get further)
+        const distAlpha = Math.max(0, 1 - line.distance / 350) * line.alpha * (g.speed / 4);
+        
+        if (distAlpha > 0.02) {
+          const startX = Math.cos(line.angle) * startDist;
+          const startY = Math.sin(line.angle) * startDist * 0.6;
+          const endX = Math.cos(line.angle) * endDist;
+          const endY = Math.sin(line.angle) * endDist * 0.6;
+          
+          const lineGrad = ctx.createLinearGradient(startX, startY, endX, endY);
+          lineGrad.addColorStop(0, 'transparent');
+          lineGrad.addColorStop(0.5, `rgba(150, 180, 255, ${distAlpha * 0.5})`);
+          lineGrad.addColorStop(1, `rgba(200, 220, 255, ${distAlpha})`);
+          
+          ctx.strokeStyle = lineGrad;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
+      });
+      ctx.restore();
+
       // 3D Track/Ground
       // Draw track lanes with perspective
       ctx.strokeStyle = 'rgba(100, 60, 180, 0.4)';
