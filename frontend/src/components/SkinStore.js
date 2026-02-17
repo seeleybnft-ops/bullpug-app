@@ -252,16 +252,19 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
                 >
                   {/* Image with Animation */}
                   <div 
-                    className="aspect-square relative overflow-hidden"
+                    className="aspect-square relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800"
                     onMouseEnter={() => setPreviewSkin(skin)}
                     onMouseLeave={() => setPreviewSkin(null)}
                   >
                     <img 
                       src={skin.image} 
                       alt={skin.name}
-                      className={`w-full h-full object-cover transition-transform duration-300 ${
+                      className={`w-full h-full object-contain transition-transform duration-300 ${
                         previewSkin?.id === skin.id ? "scale-110" : ""
                       } ${!owned && isAchievement ? "grayscale" : ""}`}
+                      style={{ 
+                        filter: owned ? `drop-shadow(0 0 8px ${skin.color}40)` : undefined
+                      }}
                     />
                     
                     {/* Animated Glow Effect on Hover */}
