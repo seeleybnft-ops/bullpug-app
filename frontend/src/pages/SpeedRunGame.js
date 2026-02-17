@@ -428,7 +428,7 @@ export default function SpeedRunGame() {
             if (playerY < colY + 40 && playerY + playerH > colY - 10) {
               c.collected = true;
               g.mooncakes++;
-              g.score += Math.floor(50 * (1 + g.skinBonus));
+              g.score += Math.floor(25 * (1 + g.skinBonus)); // HALVED from 50 to 25
               collectFeedback();
               
               const colX = getLaneX(c.lane, c.depth);
