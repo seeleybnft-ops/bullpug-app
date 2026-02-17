@@ -168,7 +168,8 @@ export default function SpeedRunGame() {
       alpha: 0.08 + Math.random() * 0.12
     })),
     frame: 0,
-    speed: 6,
+    speed: 2.5, // Start much slower (was 6)
+    startTime: Date.now(), // Track game start time for progressive speed
     score: 0,
     mooncakes: 0,
     running: true,
