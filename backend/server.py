@@ -930,27 +930,7 @@ async def draw_pot_winner():
     return result
 
 
-async def _get_pot_data():
-    entries_display = []
-    for e in active_pot["entries"]:
-        prob = round(e["amount_sol"] / active_pot["total_amount_sol"] * 100, 1) if active_pot["total_amount_sol"] > 0 else 0
-        entries_display.append({
-            "display_name": e["display_name"],
-            "wallet_address": e["wallet_address"][:8] + "..." if e.get("wallet_address") else "???",
-            "amount_sol": e["amount_sol"],
-            "probability": prob
-        })
-    return {
-        "id": active_pot["id"],
-        "total_amount_sol": active_pot["total_amount_sol"],
-        "entry_count": len(active_pot["entries"]),
-        "entries": entries_display,
-        "status": active_pot["status"],
-        "draw_at": active_pot["draw_at"],
-        "rake_percent": active_pot["rake_percent"],
-        "distribution_wallet": DISTRIBUTION_WALLET,
-        "winner": active_pot["winner"]
-    }
+# _get_pot_data defined earlier in this file (line ~781)
 
 
 @api_router.get("/governance/proposals")
