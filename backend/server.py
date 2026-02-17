@@ -1112,59 +1112,6 @@ class TradeEntry(BaseModel):
     status: str = "open"
 
 
-# ========== Leaderboard Routes ==========
-@api_router.get("/leaderboard")
-async def get_leaderboard(limit: int = 20):
-    # Get the current week's start date (Monday)
-    today = datetime.now(timezone.utc)
-    days_since_monday = today.weekday()
-    week_start = (today - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Fetch scores from this week only
-    scores = await db.leaderboard.find(
-        {"created_at": {"$gte": week_start.isoformat()}},
-        {"_id": 0}
-    ).sort("score", -1).to_list(limit)
-    
-    # Calculate time until reset (next Monday)
-    days_until_reset = 7 - days_since_monday
-    next_reset = week_start + timedelta(days=7)
-    
-    return {
-        "leaderboard": scores,
-        "week_start": week_start.isoformat(),
-        "next_reset": next_reset.isoformat(),
-        "days_until_reset": days_until_reset
-    }
-
-
-@api_router.post("/leaderboard/submit")
-async def submit_score(data: LeaderboardEntry):
-    if data.score <= 0:
-        raise HTTPException(status_code=400, detail="Score must be positive")
-    
-    entry = {
-        "id": str(uuid.uuid4()),
-        "player_name": data.player_name[:20],
-        "score": data.score,
-        "mooncakes": data.mooncakes,
-        "wallet_address": data.wallet_address,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.leaderboard.insert_one(entry)
-    
-    # Get player's rank
-    today = datetime.now(timezone.utc)
-    days_since_monday = today.weekday()
-    week_start = (today - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    higher_scores = await db.leaderboard.count_documents({
-        "created_at": {"$gte": week_start.isoformat()},
-        "score": {"$gt": data.score}
-    })
-    
-    return {"message": "Score submitted!", "rank": higher_scores + 1, "entry_id": entry["id"]}
-
 
 # ========== Reflections Calculator Route ==========
 @api_router.post("/reflections/calculate")
