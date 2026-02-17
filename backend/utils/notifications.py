@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from .database import db
+from utils.database import db
 
 
 # WebSocket notification manager (will be set by server.py)
