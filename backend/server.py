@@ -2712,6 +2712,16 @@ async def test_email_config():
 
 app.include_router(api_router)
 
+# Include modular routers
+api_router.include_router(betting_router)
+api_router.include_router(auth_router)
+api_router.include_router(email_router)
+api_router.include_router(leaderboard_router)
+api_router.include_router(skins_router)
+api_router.include_router(forum_router)
+api_router.include_router(messages_router)
+api_router.include_router(journal_router)
+
 
 # WebSocket for pot real-time updates
 @app.websocket("/ws/pot")
