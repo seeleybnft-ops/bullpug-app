@@ -134,7 +134,9 @@ export default function SpeedRunGame() {
       g.frame++;
       g.difficulty = 1 + g.frame * 0.0003;
       g.speed = 4.5 + g.difficulty * 1.5;
-      g.score = Math.floor(g.frame / 4);
+      // Apply skin bonus to base score
+      const baseScore = Math.floor(g.frame / 4);
+      g.score = Math.floor(baseScore * (1 + g.skinBonus));
       g.groundOffset = (g.groundOffset + g.speed) % 40;
       if (g.comboTimer > 0) g.comboTimer--;
       else g.combo = 0;
