@@ -47,10 +47,12 @@ from routers import (
     journal_router,
     showcase_router,
     notifications_router,
-    reflections_router
+    reflections_router,
+    pot_router,
+    admin_router
 )
-# Note: pot_router, simulator_router, admin_router created but not registered
-# These share state with server.py or have different API formats
+from routers.pot import get_pot_data
+from state.pot_state import get_pot
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, ConnectionManager, BroadcastManager
 
 # Rate Limiter setup
