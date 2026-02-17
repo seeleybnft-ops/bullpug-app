@@ -197,3 +197,61 @@ Routes removed from server.py (now in modular routers):
 ## Admin Wallets
 - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
 - `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
+
+---
+
+## 🆕 Latest Updates (Feb 17, 2026)
+
+### ✅ Completed Features
+
+#### 1. Pot Game 60-Second Countdown Timer
+- **Trigger:** Countdown starts automatically when 2nd participant joins the pot
+- **Backend:** `active_pot["countdown_started"]` flag, `draw_at` timestamp
+- **Frontend:** Timer display in P2PPotSystem component with animated countdown
+- **WebSocket:** Broadcasts `remaining_seconds` to all connected clients
+- **Files:** `backend/server.py` (lines 850-860), `frontend/src/pages/BettingArena.js` (P2PPotSystem)
+
+#### 2. Wallet Page Hidden
+- **Navbar:** "Wallet" link commented out in NAV_LINKS array (line 35)
+- **Footer:** No wallet link in Features section
+- **Reason:** Hidden until coin launch per user request
+- **Files:** `frontend/src/components/Navbar.js`, `frontend/src/components/Footer.js`
+
+#### 3. Reflections Calculator - Blowfish Fee Structure
+- **Trading Fee:** 1% on all buys/sells
+- **To Holders:** 80% of fees distributed to token holders
+- **To Blowfish:** 20% to platform
+- **Effective Reflection Rate:** 0.8% (1% × 80%)
+- **Frontend:** Complete UI overhaul with info card explaining Blowfish distribution
+- **Files:** `frontend/src/pages/ReflectionsCalculator.js` (complete rewrite)
+
+### Backend Refactoring Progress
+
+#### New Routers Created (Not Yet Integrated)
+Located in `/app/backend/routers/`:
+- `pot.py` - Pot game endpoints (conflicts with server.py)
+- `simulator.py` - Exit simulator endpoints (conflicts with server.py)
+- `reflections.py` - Reflections calculator (conflicts with server.py)
+- `notifications.py` - Push notifications (conflicts with server.py)
+- `admin.py` - Admin panel endpoints (conflicts with server.py)
+
+**Note:** These routers are prepared but not registered to avoid conflicts with existing server.py endpoints. Future task: Remove duplicates from server.py and enable these routers.
+
+### Testing Status
+- **Test Report:** `/app/test_reports/iteration_15.json`
+- **Backend:** 100% pass rate (10/10 tests)
+- **Frontend:** 100% pass rate (all UI verifications passed)
+- **Features Verified:** Pot countdown, hidden wallet, Blowfish reflections
+
+---
+
+## 📋 P0 Tasks - Immediate Priority
+- None currently
+
+## 📋 P1 Tasks - In Progress
+- **Backend Refactoring:** Continue slimming down server.py by enabling modular routers
+
+## 📋 P2 Tasks - Future/Backlog
+- Re-enable Plushie Sales (Shop.js)
+- Re-enable NFT Gallery (NFTGallery.js)
+- Complete modular router migration for pot, simulator, reflections, notifications, admin
