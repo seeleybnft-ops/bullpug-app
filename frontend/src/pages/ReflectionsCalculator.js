@@ -5,14 +5,20 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Coins, TrendingUp, Calendar, DollarSign, Percent, Sparkles, RefreshCw } from "lucide-react";
+import { Coins, TrendingUp, Calendar, DollarSign, Percent, Sparkles, RefreshCw, Info, ExternalLink } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Blowfish fee structure constants
+const BLOWFISH_FEE_STRUCTURE = {
+  tradingFeePercent: 1.0,     // 1% trading fee on buys/sells
+  creatorSharePercent: 80,    // 80% of fees go to token creator/holders
+  platformSharePercent: 20,   // 20% goes to Blowfish platform
+};
 
 export default function ReflectionsCalculator() {
   const [holdings, setHoldings] = useState("10000000");
   const [volume, setVolume] = useState([89000]);
-  const [reflectionRate, setReflectionRate] = useState([2]);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +31,7 @@ export default function ReflectionsCalculator() {
       const { data } = await axios.post(`${API}/reflections/calculate`, {
         token_holdings: parseFloat(holdings),
         volume_24h: volume[0],
-        reflection_rate: reflectionRate[0],
+        reflection_rate: BLOWFISH_FEE_STRUCTURE.tradingFeePercent * (BLOWFISH_FEE_STRUCTURE.creatorSharePercent / 100),
       });
       setResults(data);
       toast.success("Reflections calculated!");
@@ -41,6 +47,9 @@ export default function ReflectionsCalculator() {
     return num.toLocaleString();
   };
 
+  // Calculate effective reflection rate (1% fee × 80% to holders = 0.8%)
+  const effectiveReflectionRate = BLOWFISH_FEE_STRUCTURE.tradingFeePercent * (BLOWFISH_FEE_STRUCTURE.creatorSharePercent / 100);
+
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
@@ -49,8 +58,52 @@ export default function ReflectionsCalculator() {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase mb-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             Reflections <span className="text-[#D946EF]">Calculator</span>
           </h1>
-          <p className="text-slate-500 text-sm">Calculate your passive income from 2% token redistribution</p>
-          <Badge className="mt-2 bg-[#D946EF]/10 text-[#D946EF] border-[#D946EF]/30 text-[10px]">2% Reflections</Badge>
+          <p className="text-slate-500 text-sm">Calculate your passive income from Blowfish trading fees</p>
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <Badge className="bg-[#D946EF]/10 text-[#D946EF] border-[#D946EF]/30 text-[10px]">
+              {BLOWFISH_FEE_STRUCTURE.creatorSharePercent}% Fee Share
+            </Badge>
+            <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px]">
+              Powered by Blowfish
+            </Badge>
+          </div>
+        </div>
+
+        {/* Blowfish Fee Structure Info */}
+        <div className="glass-card rounded-2xl p-4 mb-6 border border-[#00FFA3]/20">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#00FFA3]/10 flex items-center justify-center flex-shrink-0">
+              <Info className="w-5 h-5 text-[#00FFA3]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white mb-1">Blowfish Fee Distribution</h3>
+              <p className="text-xs text-slate-400 mb-2">
+                $BULLPUG is deployed via Blowfish with automatic fee distribution. Every trade generates fees that are distributed to token holders.
+              </p>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-2 rounded-lg bg-white/5">
+                  <p className="text-lg font-bold text-[#D946EF]">{BLOWFISH_FEE_STRUCTURE.tradingFeePercent}%</p>
+                  <p className="text-[10px] text-slate-500">Trading Fee</p>
+                </div>
+                <div className="p-2 rounded-lg bg-white/5">
+                  <p className="text-lg font-bold text-[#00FFA3]">{BLOWFISH_FEE_STRUCTURE.creatorSharePercent}%</p>
+                  <p className="text-[10px] text-slate-500">To Holders</p>
+                </div>
+                <div className="p-2 rounded-lg bg-white/5">
+                  <p className="text-lg font-bold text-slate-400">{BLOWFISH_FEE_STRUCTURE.platformSharePercent}%</p>
+                  <p className="text-[10px] text-slate-500">To Blowfish</p>
+                </div>
+              </div>
+              <a 
+                href="https://blowfish.neuko.ai/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-[#00FFA3] hover:underline mt-2"
+              >
+                Learn more about Blowfish <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -85,7 +138,7 @@ export default function ReflectionsCalculator() {
 
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>24h Volume (USD)</span>
+                <span>24h Trading Volume (USD)</span>
                 <span className="text-[#00FFA3] font-bold">${formatNumber(volume[0])}</span>
               </div>
               <Slider 
@@ -99,19 +152,14 @@ export default function ReflectionsCalculator() {
               <p className="text-[10px] text-slate-600 mt-1">Adjust based on market activity</p>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Reflection Rate</span>
-                <span className="text-[#D946EF] font-bold">{reflectionRate[0]}%</span>
+            <div className="p-3 rounded-lg bg-[#D946EF]/10 border border-[#D946EF]/30">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Effective Reflection Rate</span>
+                <span className="text-sm font-bold text-[#D946EF]">{effectiveReflectionRate}%</span>
               </div>
-              <Slider 
-                value={reflectionRate} 
-                onValueChange={setReflectionRate} 
-                min={1} 
-                max={5} 
-                step={0.5}
-                data-testid="rate-slider"
-              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                {BLOWFISH_FEE_STRUCTURE.tradingFeePercent}% fee × {BLOWFISH_FEE_STRUCTURE.creatorSharePercent}% to holders
+              </p>
             </div>
 
             <Button 
