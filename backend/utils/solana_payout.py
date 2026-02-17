@@ -68,11 +68,15 @@ async def send_sol_payout(
     
     Args:
         recipient_wallet: Recipient's Solana wallet address (base58)
-        amount_sol: Amount in SOL to send
+        amount_sol: Amount in SOL to send (this is what recipient receives)
         memo: Transaction memo/description
         
     Returns:
         Tuple of (success: bool, message: str with tx signature or error)
+    
+    Note:
+        Transaction fees are paid FROM the escrow wallet, separate from payout amount.
+        Escrow needs: payout_amount + tx_fee (0.00001 SOL buffer)
     """
     try:
         # Load escrow keypair
@@ -86,9 +90,9 @@ async def send_sol_payout(
         except Exception as e:
             return False, f"Invalid recipient wallet address: {e}"
         
-        # Convert SOL to lamports
-        lamports = int(amount_sol * LAMPORTS_PER_SOL)
-        if lamports <= 0:
+        # Convert SOL to lamports (this is the exact amount recipient receives)
+        payout_lamports = int(amount_sol * LAMPORTS_PER_SOL)
+        if payout_lamports <= 0:
             return False, "Amount must be positive"
         
         # Create Solana client
@@ -100,11 +104,16 @@ async def send_sol_payout(
             return False, "Could not fetch escrow balance"
         
         escrow_balance = balance_resp.value
-        # Need lamports + fee buffer (5000 lamports for transaction fee)
-        required = lamports + 5000
         
-        if escrow_balance < required:
-            return False, f"Insufficient escrow balance. Have: {escrow_balance/LAMPORTS_PER_SOL:.6f} SOL, Need: {required/LAMPORTS_PER_SOL:.6f} SOL"
+        # Calculate total required: payout + transaction fee
+        total_required = payout_lamports + TOTAL_TX_FEE_LAMPORTS
+        
+        logger.info(f"Payout calculation: payout={payout_lamports} lamports, fee={TOTAL_TX_FEE_LAMPORTS} lamports, total={total_required} lamports")
+        logger.info(f"Escrow balance: {escrow_balance} lamports ({escrow_balance/LAMPORTS_PER_SOL:.6f} SOL)")
+        
+        if escrow_balance < total_required:
+            deficit = total_required - escrow_balance
+            return False, f"Insufficient escrow balance. Have: {escrow_balance/LAMPORTS_PER_SOL:.6f} SOL, Need: {total_required/LAMPORTS_PER_SOL:.6f} SOL (payout: {payout_lamports/LAMPORTS_PER_SOL:.6f} + fee: {TOTAL_TX_FEE_LAMPORTS/LAMPORTS_PER_SOL:.6f}). Deficit: {deficit/LAMPORTS_PER_SOL:.6f} SOL"
         
         # Get recent blockhash
         blockhash_resp = client.get_latest_blockhash()
