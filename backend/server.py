@@ -770,15 +770,16 @@ active_pot = {
     "entries": [],
     "status": "open",
     "created_at": datetime.now(timezone.utc).isoformat(),
-    "draw_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+    "draw_at": None,  # Will be set when 2 participants join
+    "countdown_started": False,
+    "countdown_seconds": 60,
     "rake_percent": RAKE_PERCENT,
     "winner": None
 }
 
 
-@api_router.get("/betting/pot")
-async def get_pot_status():
-    """Get current P2P pot status"""
+async def _get_pot_data():
+    """Get pot data for broadcasts"""
     entries_display = []
     for e in active_pot["entries"]:
         prob = round(e["amount_sol"] / active_pot["total_amount_sol"] * 100, 1) if active_pot["total_amount_sol"] > 0 else 0
@@ -788,6 +789,15 @@ async def get_pot_status():
             "amount_sol": e["amount_sol"],
             "probability": prob
         })
+    
+    # Calculate remaining seconds if countdown started
+    remaining_seconds = None
+    if active_pot["countdown_started"] and active_pot["draw_at"]:
+        draw_time = datetime.fromisoformat(active_pot["draw_at"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        remaining = (draw_time - now).total_seconds()
+        remaining_seconds = max(0, int(remaining))
+    
     return {
         "id": active_pot["id"],
         "total_amount_sol": active_pot["total_amount_sol"],
@@ -795,10 +805,19 @@ async def get_pot_status():
         "entries": entries_display,
         "status": active_pot["status"],
         "draw_at": active_pot["draw_at"],
+        "countdown_started": active_pot["countdown_started"],
+        "countdown_seconds": active_pot["countdown_seconds"],
+        "remaining_seconds": remaining_seconds,
         "rake_percent": active_pot["rake_percent"],
         "distribution_wallet": DISTRIBUTION_WALLET,
         "winner": active_pot["winner"]
     }
+
+
+@api_router.get("/betting/pot")
+async def get_pot_status():
+    """Get current P2P pot status"""
+    return await _get_pot_data()
 
 
 @api_router.post("/betting/pot/join")
