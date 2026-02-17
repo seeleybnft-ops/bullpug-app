@@ -1,7 +1,7 @@
 // Skin configuration for Cosmic Runner game
 // Each skin applies a color tint overlay to the base character sprite
 
-const BULLPUG_DEFAULT_IMG = "/images/bullpug_default.png";
+const BULLPUG_SPRITE_IMG = "/images/bullpug_sprite.png";
 
 export const SKINS = [
   {
