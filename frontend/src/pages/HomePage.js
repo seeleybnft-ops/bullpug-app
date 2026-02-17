@@ -34,16 +34,13 @@ const GALLERY = [
 ];
 
 const TOKEN_DIST = [
-  { name: "Community & Liquidity", value: 80, color: "#00FFA3" },
-  { name: "Marketing", value: 10, color: "#D946EF" },
-  { name: "Developer Team", value: 5, color: "#F5D300" },
-  { name: "Ecosystem Reserve", value: 5, color: "#00C2FF" },
+  { name: "Liquidity Pool", value: 100, color: "#00FFA3" },
 ];
 
 const ROADMAP = [
   { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Initial lore reveal", "Community building", "Website launch", "Fair launch via Blowfishbot"], status: "current" },
-  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Speed-run game rollout", "Betting arena beta", "Plushie store launch", "Staking activation"], status: "upcoming" },
-  { phase: "Phase 3", title: "Expansion", date: "Q4 2026+", items: ["NFT collection", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
+  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Speed-run game rollout", "Betting arena beta", "Staking activation"], status: "upcoming" },
+  { phase: "Phase 3", title: "Expansion", date: "Q4 2026+", items: ["NFT collection", "Plushie store launch", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
 ];
 
 export default function HomePage() {
