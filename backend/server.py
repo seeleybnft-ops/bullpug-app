@@ -52,6 +52,7 @@ from routers import (
     notifications_router,
     admin_router
 )
+from routers.pot import _get_pot_data as get_pot_data_for_ws
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, ConnectionManager, BroadcastManager
 
 # Rate Limiter setup
