@@ -31,8 +31,12 @@ from emergentintegrations.payments.stripe.checkout import (
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
-# Import routers
-from backend.routers import (
+# Import routers - using sys.path hack for development
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from routers import (
     betting_router,
     auth_router,
     email_router,
