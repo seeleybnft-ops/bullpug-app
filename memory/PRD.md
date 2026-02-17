@@ -1,7 +1,7 @@
 # Bullpug.com - PRD & Implementation Tracker
 
 ## Original Problem Statement
-Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com), based on a detailed whitepaper. Space-themed with cosmic guardian lore.
+Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com), space-themed with cosmic guardian lore.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Solana Web3.js, react-i18next
@@ -14,7 +14,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ## Implementation Status - December 2025
 
-### ✅ All P0/P1/P2 Features Complete
+### ✅ All Features Complete
 
 #### Core Features
 - ✅ P2P Betting Arena (Coin Flip & Pot with real SOL)
@@ -29,114 +29,109 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 #### Multi-Language (i18next)
 - ✅ English/Spanish translations
 - ✅ Language switcher in navbar
-- ✅ LocalStorage persistence
 
 #### Email Notifications (SendGrid)
 - ✅ SENDGRID_API_KEY configured
-- ✅ Welcome email template
-- ✅ Weekly summary template
-- ✅ Subscribe/unsubscribe endpoints
+- ✅ Welcome email + Weekly summary templates
 
 #### Security
 - ✅ Rate limiting (slowapi)
 - ✅ Wallet signature verification
-- ✅ Auth nonce system
 
 #### UX Improvements
-- ✅ 19 sound effects (Web Audio API)
-- ✅ Haptic feedback for mobile
-- ✅ CSS animations (coin flip, confetti, pulse effects)
-- ✅ Sound toggle buttons
+- ✅ 19 sound effects + haptic feedback
+- ✅ CSS animations (coin flip, confetti, etc.)
 
 #### Backend Refactoring
-- ✅ Modular structure created
-- ✅ `models/schemas.py` - Pydantic models
-- ✅ `services/email_service.py` - SendGrid
-- ✅ `services/auth_service.py` - Wallet verification
-- ✅ `utils/config.py` - Centralized config
-- ✅ `utils/database.py` - MongoDB
-- ✅ `routers/` - Ready-to-use module routers
+- ✅ Modular structure: models/, services/, utils/, routers/
+
+---
+
+## 🎮 NEW: In-Game Skin Store
+
+### Skins Available (10 purchasable + 1 default)
+
+| Skin | Bonus | Price | Rarity |
+|------|-------|-------|--------|
+| Guardian | 0% | Free | Default |
+| Diamond | +5% | 0.05 SOL | Legendary |
+| Gold | +5% | 0.05 SOL | Legendary |
+| Silver | +4% | 0.04 SOL | Epic |
+| Heatmap | +3% | 0.03 SOL | Rare |
+| Radioactive | +3% | 0.03 SOL | Rare |
+| Zombie | +3% | 0.03 SOL | Rare |
+| Water | +2% | 0.02 SOL | Uncommon |
+| Fire | +2% | 0.02 SOL | Uncommon |
+| Robot | +1% | 0.01 SOL | Common |
+| Skeletal | +1% | 0.01 SOL | Common |
+
+### Skin Store Features
+- Modal accessible from Game page (pink store icon)
+- Solana wallet payment integration
+- Purchase validation (price, duplicates)
+- Skin bonus applied to game score
+- Selection persisted to localStorage
+- Rarity badges and visual indicators
+
+### Skin API Endpoints
+- `GET /api/skins/catalog` - All available skins
+- `GET /api/skins/owned/{wallet}` - User's owned skins
+- `POST /api/skins/purchase` - Record purchase
+- `GET /api/skins/stats` - Purchase statistics
 
 ---
 
 ## File Structure
 ```
 /app/backend/
-├── server.py              # Main app (all routes)
-├── requirements.txt
-├── .env                   # SENDGRID_API_KEY configured
-├── models/schemas.py      # Pydantic models
+├── server.py              # Main app with SKINS_CATALOG
+├── .env                   # SendGrid configured
+├── models/schemas.py
 ├── services/
-│   ├── email_service.py   # SendGrid
-│   └── auth_service.py    # Wallet verification
 ├── utils/
-│   ├── config.py          # Constants
-│   └── database.py        # MongoDB
-├── routers/               # Modular routes (ready for migration)
-│   ├── betting.py
-│   ├── auth.py
-│   ├── email.py
-│   └── leaderboard.py
-└── tests/
+└── routers/
 
 /app/frontend/
 ├── src/
-│   ├── i18n/config.js         # i18next
-│   ├── utils/sounds.js        # 19 sounds + haptic
-│   ├── styles/animations.css  # CSS animations
+│   ├── config/skins.js    # 11 skin definitions
 │   ├── components/
-│   │   ├── LanguageSwitcher.js
+│   │   ├── SkinStore.js   # Skin store modal
 │   │   └── ...
 │   └── pages/
-│       ├── BettingArena.js    # With sounds/haptic
-│       ├── SpeedRunGame.js    # With sounds/particles
-│       └── ...
+│       └── SpeedRunGame.js # With skin integration
 └── package.json
 ```
 
 ---
 
-## Sound Effects Available
-**Original:** win, lose, flip, click, collect, powerup, gameover, jump, newHighScore
-**New:** betPlaced, challengeCreated, potJoin, notification, coinLand, countdown, success, error, hover, swoosh
+## API Summary
 
-## Haptic Patterns
-light, medium, heavy, success, error, win, lose, click, collect
-
----
-
-## API Endpoints Summary
+### Skins (NEW)
+- `GET /api/skins/catalog` - 10 skins with pricing
+- `GET /api/skins/owned/{wallet}` - Owned skins
+- `POST /api/skins/purchase` - Purchase validation
 
 ### Betting
-- `GET /api/betting/config` - Config (rake, limits)
-- `POST /api/betting/challenge/create` - Create challenge (rate limited)
-- `POST /api/betting/challenge/accept` - Accept challenge
-- `GET /api/betting/challenges` - List open challenges
-- `GET /api/betting/pot` - Pot status
-- `POST /api/betting/pot/join` - Join pot (rate limited)
+- `GET /api/betting/config`
+- `POST /api/betting/challenge/create` (rate limited)
+- `POST /api/betting/pot/join` (rate limited)
 
 ### Email
-- `POST /api/email/subscribe` - Subscribe
-- `POST /api/email/test` - Test config ✅ configured: true
+- `POST /api/email/subscribe`
+- `POST /api/email/test` ✅ configured: true
 
-### Auth
-- `GET /api/auth/sign-message/{wallet}` - Generate signing message
-
-### Leaderboard
-- `GET /api/leaderboard` - Weekly leaderboard
-- `POST /api/leaderboard/submit` - Submit score
+### Game
+- `GET /api/leaderboard`
+- `POST /api/leaderboard/submit`
 
 ---
 
 ## Testing
-- **Latest:** `/app/test_reports/iteration_8.json` - 24/24 tests passed (100%)
+- **Latest:** `/app/test_reports/iteration_9.json` - 100% pass rate
+- Skin store: All 8 backend + frontend tests passed
 
-## Configuration
-```env
-# /app/backend/.env
-SENDGRID_API_KEY=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
-SENDER_EMAIL=noreply@bullpug.com
-```
+## Store Wallet
+Skin purchases sent to: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
 
 ## Admin Wallets
 - `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
