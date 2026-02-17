@@ -208,11 +208,14 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
         <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <img 
-                src={getSkinById(selectedSkin).image} 
-                alt={getSkinById(selectedSkin).name}
-                className="w-16 h-16 rounded-xl border-2 border-[#00FFA3]/50 object-cover skin-pulse"
-              />
+              <div className="w-16 h-16 rounded-xl border-2 border-[#00FFA3]/50 overflow-hidden bg-gradient-to-b from-slate-800 to-slate-900">
+                <img 
+                  src={getSkinById(selectedSkin).image} 
+                  alt={getSkinById(selectedSkin).name}
+                  className="w-full h-full object-contain skin-pulse"
+                  style={{ filter: `drop-shadow(0 0 10px ${getSkinById(selectedSkin).color}50)` }}
+                />
+              </div>
             </div>
             <div>
               <p className="text-xs text-slate-500">Currently Equipped</p>
