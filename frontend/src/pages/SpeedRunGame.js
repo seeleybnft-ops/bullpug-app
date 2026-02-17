@@ -1526,10 +1526,15 @@ export default function SpeedRunGame() {
         ctx.fillText(Math.round(playerLane) === i ? '●' : '○', lx, H - 15);
       }
 
-      // Controls hint
+      // Controls hint (detect mobile)
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '11px sans-serif';
-      ctx.fillText('← A/D → switch lanes  |  SPACE jump', W / 2, H - 35);
+      const isMobile = 'ontouchstart' in window;
+      if (isMobile) {
+        ctx.fillText('Swipe ← → to change lanes  |  Swipe ↑ or Tap center to jump', W / 2, H - 35);
+      } else {
+        ctx.fillText('← A/D → switch lanes  |  SPACE jump', W / 2, H - 35);
+      }
 
       animRef.current = requestAnimationFrame(loop);
     };
