@@ -122,16 +122,9 @@ export default function SpeedRunGame() {
 
   const startGame = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.error("Canvas not found!");
-      return;
-    }
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      console.error("Could not get 2d context!");
-      return;
-    }
-    console.log("Starting game, canvas:", canvas.width, canvas.height);
+    if (!ctx) return;
     gameRef.current = initGame();
     setGameState("playing");
     setScore(0);
