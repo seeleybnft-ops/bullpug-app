@@ -137,6 +137,43 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         }}
     )
     
+    # === AUTOMATIC PAYOUT ===
+    payout_success = False
+    payout_tx = None
+    payout_error = None
+    
+    try:
+        payout_amount = challenge["payout_sol"]
+        logger.info(f"Initiating automatic payout: {payout_amount} SOL to {winner_wallet}")
+        
+        success, result = await send_sol_payout(
+            recipient_wallet=winner_wallet,
+            amount_sol=payout_amount,
+            memo=f"Bullpug CoinFlip Win - Challenge {data.challenge_id[:8]}"
+        )
+        
+        if success:
+            payout_success = True
+            payout_tx = result
+            logger.info(f"Payout successful! TX: {payout_tx}")
+        else:
+            payout_error = result
+            logger.error(f"Payout failed: {payout_error}")
+            
+    except Exception as e:
+        payout_error = str(e)
+        logger.error(f"Payout exception: {payout_error}")
+    
+    # Update challenge with payout status
+    await db.p2p_challenges.update_one(
+        {"id": data.challenge_id},
+        {"$set": {
+            "payout_sent": payout_success,
+            "payout_tx": payout_tx,
+            "payout_error": payout_error
+        }}
+    )
+    
     # Record in history
     history_entry = {
         "id": str(uuid.uuid4()),
@@ -147,6 +184,8 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         "winner_name": winner_name,
         "payout_sol": challenge["payout_sol"],
         "rake_sol": challenge["rake_sol"],
+        "payout_sent": payout_success,
+        "payout_tx": payout_tx,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await db.betting_history.insert_one(history_entry)
@@ -159,7 +198,10 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         "rake_sol": challenge["rake_sol"],
         "server_seed": server_seed,
         "client_seed": data.client_seed,
-        "result_hash": result_hash
+        "result_hash": result_hash,
+        "payout_sent": payout_success,
+        "payout_tx": payout_tx,
+        "payout_error": payout_error
     }
 
 
