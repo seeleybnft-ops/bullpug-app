@@ -2726,6 +2726,7 @@ api_router.include_router(skins_router)
 api_router.include_router(forum_router)
 api_router.include_router(messages_router)
 api_router.include_router(journal_router)
+api_router.include_router(showcase_router)
 
 
 # WebSocket for pot real-time updates
