@@ -21,7 +21,7 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Features</h4>
             <div className="flex flex-col gap-2">
-              {[{t:"Betting Arena",p:"/betting"},{t:"Speed Run",p:"/game"},{t:"Exit Simulator",p:"/exit-simulator"},{t:"Wallet",p:"/wallet"}].map(l=>(
+              {[{t:"Betting Arena",p:"/betting"},{t:"Speed Run",p:"/game"},{t:"Exit Simulator",p:"/exit-simulator"},{t:"Reflections",p:"/reflections"}].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}
             </div>
@@ -39,7 +39,7 @@ export default function Footer() {
                 Telegram <ExternalLink size={11} />
               </a>
               <Link to="/nft" className="text-sm text-slate-500 hover:text-white transition-colors">NFT Gallery</Link>
-              <Link to="/wallet" className="text-sm text-slate-500 hover:text-white transition-colors">Wallet Dashboard</Link>
+              <Link to="/showcase" className="text-sm text-slate-500 hover:text-white transition-colors">Skin Showcase</Link>
             </div>
           </div>
 
