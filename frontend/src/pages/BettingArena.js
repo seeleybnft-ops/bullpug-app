@@ -128,10 +128,11 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
     if (!connected) return toast.error(t('common.connectWallet'));
     const amount = parseFloat(betAmount);
     if (amount < config.min_bet_sol || amount > config.max_bet_sol) {
+      playSoundIfEnabled('error');
       return toast.error(`Bet must be between ${config.min_bet_sol} and ${config.max_bet_sol} SOL`);
     }
 
-    playSoundIfEnabled('click');
+    clickFeedback();
     setCreating(true);
     try {
       await axios.post(`${API}/betting/challenge/create`, {
@@ -140,12 +141,13 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
         wallet_address: walletAddress,
         display_name: displayName
       });
+      challengeCreatedFeedback();
       toast.success("Challenge created!");
       localStorage.setItem("bullpugName", displayName);
       fetchChallenges();
       setResult(null);
     } catch (e) {
-      playSoundIfEnabled('lose');
+      playSoundIfEnabled('error');
       toast.error(e.response?.data?.detail || "Failed to create challenge");
     }
     setCreating(false);
@@ -153,6 +155,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
 
   const acceptChallenge = async (challenge) => {
     if (!connected) return toast.error(t('common.connectWallet'));
+    clickFeedback();
     setAccepting(challenge.id);
     setIsFlipping(true);
 
@@ -167,13 +170,13 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
 
       const won = data.winner_wallet === walletAddress;
       
-      // Play coin flip animation sequence
+      // Play coin flip animation sequence with haptic
       playCoinFlipSequence(won, () => {
         setIsFlipping(false);
         setResult({ ...data, won, my_wallet: walletAddress });
         
         if (won) {
-          playSoundIfEnabled('win');
+          winFeedback();
           spawnConfetti();
           toast.success(t('betting.coinFlip.youWon', { amount: data.payout_sol }));
         } else {
