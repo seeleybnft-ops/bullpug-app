@@ -10,9 +10,8 @@ from routers.journal import router as journal_router
 from routers.showcase import router as showcase_router
 from routers.notifications import router as notifications_router
 from routers.reflections import router as reflections_router
-
-# Note: pot_router, simulator_router, admin_router exist but are not exported
-# They share state with server.py or have different API formats
+from routers.pot import router as pot_router
+from routers.admin import router as admin_router
 
 __all__ = [
     'betting_router', 
@@ -25,5 +24,7 @@ __all__ = [
     'journal_router',
     'showcase_router',
     'notifications_router',
-    'reflections_router'
+    'reflections_router',
+    'pot_router',
+    'admin_router'
 ]
