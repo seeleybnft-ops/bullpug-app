@@ -60,9 +60,11 @@ export default function SpeedRunGame() {
   };
 
   useEffect(() => {
-    const img = new Image(); img.crossOrigin = "anonymous"; img.src = GAME_IMG;
+    const img = new Image(); 
+    img.src = GAME_IMG;
     img.onload = () => { spriteRef.current = img; };
-    const mc = new Image(); mc.crossOrigin = "anonymous"; mc.src = MOONCAKE_IMG;
+    const mc = new Image(); 
+    mc.src = MOONCAKE_IMG;
     mc.onload = () => { mooncakeRef.current = mc; };
     fetchLeaderboard();
   }, [GAME_IMG]);
