@@ -97,6 +97,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug" (bullpug.com),
 
 ---
 
+## 🏆 Skin Collection Showcase (Feb 2026)
+
+### Features
+- **User Profile Card:** Avatar, display name, bio, editable settings
+- **Collection Stats:** Skins owned, completion %, total bonus, missing for Ethereal
+- **Skin Grid:** Shows all 12 skins with owned/locked visual indicators
+- **Collector Leaderboard:** Top collectors ranked by skin count and rarity score
+- **Recent Acquisitions:** Live feed of skin purchases, gifts, and achievement unlocks
+- **Share Link:** Generate shareable link to your showcase
+
+### API Endpoints
+- `GET /api/showcase/{wallet}` - Full collection data with stats
+- `GET /api/showcase/leaderboard/collectors` - Ranked collector leaderboard  
+- `GET /api/showcase/recent-acquisitions` - Recent skin acquisitions feed
+- `POST /api/showcase/settings` - Update display name, bio, privacy
+- `POST /api/showcase/share/{wallet}` - Generate share link
+
+### Frontend Routes
+- `/showcase` - Prompt to connect wallet
+- `/showcase/:walletAddress` - Full collection view
+
+---
+
 ## 🔧 Backend Refactoring (Feb 2026)
 
 ### Modular Router Structure
