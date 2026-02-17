@@ -10,7 +10,7 @@ import axios from "axios";
 import { 
   Trophy, Star, Crown, User, Share2, Settings, Lock, 
   Check, Sparkles, Gift, Award, TrendingUp, Eye, Edit2,
-  ExternalLink, Copy, ChevronRight
+  ExternalLink, Copy, ChevronRight, Twitter, MessageCircle, Link2
 } from "lucide-react";
 import { SKINS, RARITY_COLORS, getSkinById } from "@/config/skins";
 import Navbar from "@/components/Navbar";
@@ -27,6 +27,8 @@ export default function Showcase() {
   const [settings, setSettings] = useState({ display_name: "", bio: "", is_public: true });
   const [leaderboard, setLeaderboard] = useState([]);
   const [recentAcquisitions, setRecentAcquisitions] = useState([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareData, setShareData] = useState(null);
 
   const isOwnShowcase = connected && publicKey && walletAddress === publicKey.toBase58();
   const displayWallet = walletAddress || (connected && publicKey?.toBase58());
