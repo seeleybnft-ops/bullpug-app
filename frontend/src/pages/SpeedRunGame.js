@@ -115,24 +115,14 @@ export default function SpeedRunGame() {
     localStorage.setItem("bullpugSkin", skinId);
   };
 
-  // Preload character sprite and process to remove white background
+  // Preload character sprite (already has transparent background)
   useEffect(() => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.src = currentSkin.image;
     img.onload = () => { 
-      const processed = processSprite(img);
-      processed.onload = () => {
-        spriteRef.current = processed;
-      };
-      // Fallback if processedImg.onload doesn't fire
-      setTimeout(() => {
-        if (!spriteRef.current) {
-          spriteRef.current = processed;
-        }
-      }, 100);
+      spriteRef.current = img;
     };
-  }, [currentSkin.image, processSprite]);
+  }, [currentSkin.image]);
 
   const fetchLeaderboard = async () => {
     try {
