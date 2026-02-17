@@ -953,15 +953,14 @@ export default function SpeedRunGame() {
         }
       }
       
-      // ANIMATE THE BULLPUG SPRITE
+      // ANIMATE THE BULLPUG SPRITE - FACING DOWN THE LANE
       if (spriteRef.current) {
         ctx.save();
         
         // === RUNNING ANIMATION ===
-        const bounce = g.player.isJumping ? 0 : gallopAbs * 8;     // Vertical bounce
-        const tilt = g.player.isJumping ? 0 : gallop * 0.1;         // Body rock
-        const stretch = g.player.isJumping ? 0 : gallopAbs * 0.06;  // Vertical stretch
-        const horizPush = g.player.isJumping ? 0 : gallop * 3;      // Forward/back push
+        const bounce = g.player.isJumping ? 0 : gallopAbs * 6;     // Vertical bounce
+        const tilt = g.player.isJumping ? 0 : gallop * 0.06;        // Gentle body rock
+        const scaleBreath = 1 + (g.player.isJumping ? 0 : gallopAbs * 0.04); // Breathing/pumping effect
         
         // === JUMP ANIMATION ===
         let jumpStretchX = 1;
@@ -970,97 +969,90 @@ export default function SpeedRunGame() {
         
         if (g.player.isJumping) {
           if (g.player.vy < -6) {
-            // Rising - stretch up, nose tilts up
-            jumpStretchY = 1.15;
-            jumpStretchX = 0.9;
-            jumpRotation = -0.12;
+            // Rising - stretch up, curl body
+            jumpStretchY = 1.12;
+            jumpStretchX = 0.92;
+            jumpRotation = -0.1;
           } else if (g.player.vy > 6) {
-            // Falling - stretch forward, nose down
-            jumpStretchY = 0.88;
-            jumpStretchX = 1.12;
-            jumpRotation = 0.1;
+            // Falling - stretch forward, prepare to land
+            jumpStretchY = 0.9;
+            jumpStretchX = 1.1;
+            jumpRotation = 0.08;
           } else {
-            // Apex - curl up slightly
-            jumpStretchX = 1.08;
-            jumpStretchY = 0.92;
-            jumpRotation = 0;
+            // Apex - slight curl
+            jumpStretchX = 1.05;
+            jumpStretchY = 0.95;
           }
         }
         
-        // Apply transforms
-        ctx.translate(pX + horizPush, pY + pH / 2 - bounce);
+        // Position and transform
+        ctx.translate(pX, pY + pH / 2 - bounce);
+        
+        // ORIENT TO FACE DOWN THE LANE (rotate sprite to face into screen)
+        // Flip horizontally so pug faces forward, slight 3D perspective tilt
+        ctx.scale(-1, 1); // Flip horizontally to face forward direction
+        
+        // Apply animation transforms
         ctx.rotate(tilt + jumpRotation);
-        ctx.scale(jumpStretchX, (1 + stretch) * jumpStretchY);
+        ctx.scale(jumpStretchX * scaleBreath, jumpStretchY);
         
         const spriteW = pW;
         const spriteH = pH;
         
-        // === LEG ANIMATION using clipping ===
-        if (!g.player.isJumping) {
-          // FRONT LEGS - clip and offset lower-left part of sprite
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(-spriteW * 0.5, spriteH * 0.05, spriteW * 0.4, spriteH * 0.45);
-          ctx.clip();
-          // Offset based on gallop phase
-          const frontLegOffset = gallop * 10;
-          ctx.translate(frontLegOffset, Math.abs(frontLegOffset) * 0.3);
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
-          ctx.restore();
+        // Draw the full sprite (no clipping - fixes missing pixels)
+        ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
+        
+        // Galloping leg motion effect - draw slightly offset copies for motion blur
+        if (!g.player.isJumping && g.speed > 1.5) {
+          const legMotion = gallop * 4;
           
-          // BACK LEGS - clip and offset lower-right part of sprite
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(spriteW * 0.1, spriteH * 0.05, spriteW * 0.4, spriteH * 0.45);
-          ctx.clip();
-          // Opposite phase for back legs
-          const backLegOffset = -gallop * 10;
-          ctx.translate(backLegOffset, Math.abs(backLegOffset) * 0.3);
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
-          ctx.restore();
-          
-          // BODY - clip middle/upper part (no leg offset)
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(-spriteW * 0.5, -spriteH * 0.5, spriteW, spriteH * 0.6);
-          ctx.clip();
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
-          ctx.restore();
-        } else {
-          // JUMP POSE - draw full sprite with tucked effect
-          // Slight overlay effect for curled body
+          // Motion blur for front legs area
           ctx.globalAlpha = 0.15;
           ctx.save();
-          ctx.scale(1.03, 0.94);
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2 + 3, spriteW, spriteH);
+          ctx.translate(legMotion, gallopAbs * 2);
+          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
+          ctx.restore();
+          
+          // Opposite blur for back legs area  
+          ctx.save();
+          ctx.translate(-legMotion, gallopAbs * 2);
+          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
           ctx.restore();
           ctx.globalAlpha = 1;
-          
-          // Main jump sprite
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
         }
         
-        // Motion trail at higher speeds
-        if (g.speed > 2.5) {
+        // Jump curled body overlay effect
+        if (g.player.isJumping) {
           ctx.globalAlpha = 0.1;
-          ctx.translate(-8, 0);
-          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
-          if (g.speed > 3.5) {
-            ctx.globalAlpha = 0.05;
-            ctx.translate(-8, 0);
-            ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
-          }
+          ctx.scale(1.02, 0.96);
+          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2 + 2, spriteW, spriteH);
           ctx.globalAlpha = 1;
         }
         
         ctx.restore();
         
+        // Motion trail when moving (drawn in world space, not flipped)
+        if (g.speed > 2.5 && !g.player.isJumping) {
+          ctx.save();
+          ctx.translate(pX, pY + pH / 2 - bounce);
+          ctx.scale(-1, 1);
+          ctx.globalAlpha = 0.1;
+          ctx.translate(10, 0);
+          ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
+          if (g.speed > 3.5) {
+            ctx.globalAlpha = 0.05;
+            ctx.translate(10, 0);
+            ctx.drawImage(spriteRef.current, -spriteW / 2, -spriteH / 2, spriteW, spriteH);
+          }
+          ctx.restore();
+        }
+        
         // Dust particles from running
         if (!g.player.isJumping && g.frame % Math.max(6, 16 - Math.floor(g.speed * 3)) === 0) {
           g.particles.push({
-            x: pX + (gallop > 0 ? -1 : 1) * pW * 0.25,
+            x: pX + (gallop > 0 ? -1 : 1) * pW * 0.2,
             y: GROUND_Y - 3,
-            vx: -g.speed * 0.2 + (Math.random() - 0.5),
+            vx: -g.speed * 0.15 + (Math.random() - 0.5),
             vy: -Math.random() * 1.5 - 0.5,
             life: 14,
             color: 'rgba(180, 150, 120, 0.4)'
@@ -1070,9 +1062,9 @@ export default function SpeedRunGame() {
         // Fur wisps flying off
         if (!g.player.isJumping && g.speed > 2 && g.frame % 12 === 0) {
           g.particles.push({
-            x: pX - pW * 0.35,
+            x: pX + pW * 0.3,
             y: pY + pH * 0.1 + Math.random() * pH * 0.3,
-            vx: -g.speed * 0.5 - Math.random(),
+            vx: g.speed * 0.4 + Math.random(),
             vy: (Math.random() - 0.5) * 1.5,
             life: 10,
             color: 'rgba(212, 180, 150, 0.35)'
