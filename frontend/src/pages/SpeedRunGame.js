@@ -470,6 +470,14 @@ export default function SpeedRunGame() {
             >
               <Store size={18} />
             </button>
+            <Link
+              to={connected ? `/showcase/${publicKey?.toBase58()}` : "/showcase"}
+              data-testid="showcase-btn"
+              className="p-2 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[#00FFA3] hover:bg-[#00FFA3]/20 hover:border-[#00FFA3]/50 transition-all"
+              title="My Collection"
+            >
+              <Award size={18} />
+            </Link>
             <button
               onClick={toggleSound}
               data-testid="game-sound-toggle"
