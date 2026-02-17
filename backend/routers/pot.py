@@ -14,6 +14,7 @@ from utils.config import DISTRIBUTION_WALLET
 from utils.websocket_managers import pot_ws_manager
 from utils.solana_payout import send_sol_payout
 from state.pot_state import get_pot, reset_pot
+from routers.prize_pool import add_to_prize_pool
 
 router = APIRouter(prefix="/betting/pot", tags=["pot"])
 limiter = Limiter(key_func=get_remote_address)
