@@ -900,52 +900,125 @@ export default function SpeedRunGame() {
         }
       });
 
-      // Draw 3D animated player character
+      // Draw 3D animated player character with enhanced animation
       const pX = playerX;
       const pY = playerY;
       const pW = 70;  // Larger width for 3D character
       const pH = 90;  // Larger height for 3D character
       
-      // Shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      // Dynamic shadow (smaller when jumping)
+      const shadowScale = g.player.isJumping ? 0.3 + (1 - Math.abs(g.player.vy) / 20) * 0.3 : 0.5;
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.3 + shadowScale * 0.2})`;
       ctx.beginPath();
-      ctx.ellipse(pX, GROUND_Y - 3, pW * 0.5, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(pX, GROUND_Y - 3, pW * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Character glow
-      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW);
-      charGlow.addColorStop(0, `${g.skinColor}50`);
+      // Character glow (intensifies when moving fast)
+      const speedIntensity = Math.min(g.speed / 12, 1);
+      const glowAlpha = 0.3 + speedIntensity * 0.3;
+      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW * (1 + speedIntensity * 0.3));
+      charGlow.addColorStop(0, `${g.skinColor}${Math.floor(glowAlpha * 255).toString(16).padStart(2, '0')}`);
+      charGlow.addColorStop(0.5, `${g.skinColor}30`);
       charGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = charGlow;
       ctx.beginPath();
-      ctx.arc(pX, pY + pH / 2, pW, 0, Math.PI * 2);
+      ctx.arc(pX, pY + pH / 2, pW * (1 + speedIntensity * 0.3), 0, Math.PI * 2);
       ctx.fill();
+      
+      // Speed lines (motion blur effect when moving fast)
+      if (g.speed > 6 && !g.player.isJumping) {
+        const lineCount = Math.floor(g.speed / 2);
+        for (let i = 0; i < lineCount; i++) {
+          const lineY = pY + pH * 0.2 + (i / lineCount) * pH * 0.6;
+          const lineAlpha = 0.1 + Math.sin(g.frame * 0.5 + i) * 0.1;
+          ctx.strokeStyle = `rgba(${parseInt(g.skinColor.slice(1, 3), 16)}, ${parseInt(g.skinColor.slice(3, 5), 16)}, ${parseInt(g.skinColor.slice(5, 7), 16)}, ${lineAlpha})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(pX - pW * 0.6 - g.speed * 3, lineY);
+          ctx.lineTo(pX - pW * 0.3, lineY);
+          ctx.stroke();
+        }
+      }
       
       // Animated 3D character rendering
       if (spriteRef.current) {
-        // Draw sprite with animation bob
-        const bobOffset = g.player.isJumping ? 0 : Math.sin(g.player.animFrame * 0.8) * 3;
-        const stretchY = g.player.isJumping && g.player.vy < 0 ? 1.1 : 1;
-        const squashY = g.player.isJumping && g.player.vy > 5 ? 0.9 : 1;
+        // Enhanced animation parameters
+        const runCycle = Math.sin(g.player.animFrame * 0.8);
+        const fastRunCycle = Math.sin(g.player.animFrame * 1.2);
+        
+        // Running bob (more pronounced at higher speeds)
+        const bobAmplitude = 3 + g.speed * 0.3;
+        const bobOffset = g.player.isJumping ? 0 : runCycle * bobAmplitude;
+        
+        // Lean forward when running fast
+        const leanAngle = g.player.isJumping ? 
+          (g.player.vy < 0 ? -0.1 : 0.05) : // Lean back on jump up, forward on landing
+          Math.min(g.speed / 40, 0.12); // Lean forward proportional to speed
+        
+        // Jump squash/stretch
+        const stretchY = g.player.isJumping && g.player.vy < -5 ? 1.15 : 1;
+        const squashY = g.player.isJumping && g.player.vy > 8 ? 0.85 : 1;
+        const stretchX = g.player.isJumping && g.player.vy < -5 ? 0.9 : (g.player.isJumping && g.player.vy > 8 ? 1.1 : 1);
+        
+        // Side-to-side sway during run
+        const swayOffset = g.player.isJumping ? 0 : fastRunCycle * 2;
         
         ctx.save();
-        ctx.translate(pX, pY + pH / 2 + bobOffset);
-        ctx.scale(1, stretchY * squashY);
+        ctx.translate(pX + swayOffset, pY + pH / 2 + bobOffset);
+        ctx.rotate(leanAngle);
+        ctx.scale(stretchX, stretchY * squashY);
         
-        // Draw sprite
+        // Draw main sprite
         ctx.drawImage(spriteRef.current, -pW / 2, -pH / 2, pW, pH);
+        
+        // Add afterimage/trail when moving fast
+        if (g.speed > 8) {
+          ctx.globalAlpha = 0.15;
+          ctx.drawImage(spriteRef.current, -pW / 2 - 8, -pH / 2, pW, pH);
+          ctx.globalAlpha = 0.08;
+          ctx.drawImage(spriteRef.current, -pW / 2 - 16, -pH / 2, pW, pH);
+          ctx.globalAlpha = 1;
+        }
+        
         ctx.restore();
         
-        // Running particles
-        if (!g.player.isJumping && g.frame % 6 === 0) {
+        // Enhanced running particles with skin color
+        if (!g.player.isJumping && g.frame % Math.max(3, 8 - Math.floor(g.speed / 2)) === 0) {
+          // Dust particles
           g.particles.push({
-            x: pX + (Math.random() - 0.5) * 20,
+            x: pX + (Math.random() - 0.5) * 30,
             y: GROUND_Y - 5,
-            vx: (Math.random() - 0.5) * 2,
-            vy: -Math.random() * 2,
-            life: 15,
-            color: 'rgba(100, 80, 150, 0.5)'
+            vx: -g.speed * 0.3 + (Math.random() - 0.5) * 2,
+            vy: -Math.random() * 3 - 1,
+            life: 20,
+            color: 'rgba(100, 80, 150, 0.6)'
           });
+          // Colored energy particles
+          if (g.speed > 6) {
+            g.particles.push({
+              x: pX - pW * 0.3,
+              y: pY + pH * 0.5 + (Math.random() - 0.5) * 20,
+              vx: -g.speed * 0.5,
+              vy: (Math.random() - 0.5) * 2,
+              life: 15,
+              color: g.skinColor + '80'
+            });
+          }
+        }
+        
+        // Jump particles burst
+        if (g.player.isJumping && g.player.vy > 10 && Math.abs(g.player.y - PLAYER_BASE_Y) < 20) {
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI;
+            g.particles.push({
+              x: pX + Math.cos(angle) * 20,
+              y: GROUND_Y - 5,
+              vx: Math.cos(angle) * 4,
+              vy: -Math.random() * 4 - 2,
+              life: 25,
+              color: g.skinColor + '60'
+            });
+          }
         }
       } else {
         // Fallback 3D box character with animation
