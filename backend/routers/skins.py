@@ -65,7 +65,7 @@ async def check_and_unlock_ethereal(wallet_address: str, owned_skin_ids: list) -
         await db.skin_purchases.insert_one(achievement_record)
         
         # Import send_notification at call time to avoid circular imports
-        from ..utils.notifications import send_notification
+        from utils.notifications import send_notification
         await send_notification(
             wallet_address,
             "Achievement Unlocked: Ethereal!",
