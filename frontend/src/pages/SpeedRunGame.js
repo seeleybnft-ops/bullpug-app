@@ -324,19 +324,20 @@ export default function SpeedRunGame() {
         g.player.animFrame = (g.player.animFrame + 1) % (g.player.isJumping ? ANIM_JUMP_FRAMES : ANIM_RUN_FRAMES);
       }
 
-      // Spawn obstacles
-      const spawnRate = Math.max(35, 70 - g.stage * 7);
+      // Spawn obstacles - adjust rate based on current speed
+      const baseSpawnRate = 70;
+      const spawnRate = Math.max(25, Math.floor(baseSpawnRate - g.speed * 3));
       if (g.frame % spawnRate === 0) {
         g.obstacles.push(spawnObstacle(g));
       }
 
       // Spawn collectibles
-      if (g.frame % 50 === 0) {
+      if (g.frame % 60 === 0) {
         g.collectibles.push(spawnCollectible());
       }
 
-      // Move obstacles DOWN the lane (depth increases from 0 to 1+)
-      const depthSpeed = g.speed * 0.012;
+      // Move obstacles DOWN the lane - speed based on game speed
+      const depthSpeed = g.speed * 0.008; // Slower depth movement
       g.obstacles = g.obstacles.filter(o => {
         o.depth += depthSpeed;
         o.rotation += o.rotSpeed;
