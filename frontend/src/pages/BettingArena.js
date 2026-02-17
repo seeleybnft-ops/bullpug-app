@@ -637,12 +637,140 @@ function P2PPotSystem({ walletAddress, connected, config }) {
           )}
 
           {pot.entries && pot.entries.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
+              {/* SPIN WHEEL - Live Odds Spinner like Solpot */}
+              <div className="relative flex justify-center mb-6">
+                <div className="relative w-64 h-64">
+                  {/* Outer glow ring */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#D946EF]/30 via-[#00FFA3]/30 to-[#D946EF]/30 blur-xl animate-spin" style={{ animationDuration: '8s' }} />
+                  
+                  {/* Main wheel container */}
+                  <div className="absolute inset-2 rounded-full bg-black/80 border-4 border-[#D946EF]/50 overflow-hidden">
+                    <svg viewBox="0 0 100 100" className="w-full h-full" style={{ animation: pot.countdown_started && countdown && countdown <= 10 ? 'spin 0.5s linear infinite' : 'spin 3s linear infinite' }}>
+                      <defs>
+                        {pot.entries.map((entry, i) => (
+                          <linearGradient key={`grad-${i}`} id={`segment-grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 50%)`} />
+                            <stop offset="100%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 80%, 35%)`} />
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      
+                      {pot.entries.map((entry, i) => {
+                        const total = pot.entries.length;
+                        const startAngle = (i / total) * 360 - 90;
+                        const endAngle = ((i + 1) / total) * 360 - 90;
+                        const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+                        
+                        const startRad = (startAngle * Math.PI) / 180;
+                        const endRad = (endAngle * Math.PI) / 180;
+                        
+                        const x1 = 50 + 45 * Math.cos(startRad);
+                        const y1 = 50 + 45 * Math.sin(startRad);
+                        const x2 = 50 + 45 * Math.cos(endRad);
+                        const y2 = 50 + 45 * Math.sin(endRad);
+                        
+                        return (
+                          <path
+                            key={i}
+                            d={`M 50 50 L ${x1} ${y1} A 45 45 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                            fill={`url(#segment-grad-${i})`}
+                            stroke="rgba(255,255,255,0.3)"
+                            strokeWidth="0.5"
+                          />
+                        );
+                      })}
+                      
+                      {/* Center circle */}
+                      <circle cx="50" cy="50" r="12" fill="url(#center-grad)" stroke="#D946EF" strokeWidth="1" />
+                      <defs>
+                        <radialGradient id="center-grad">
+                          <stop offset="0%" stopColor="#1a1a2e" />
+                          <stop offset="100%" stopColor="#0a0a15" />
+                        </radialGradient>
+                      </defs>
+                      
+                      {/* Player initials on segments */}
+                      {pot.entries.map((entry, i) => {
+                        const total = pot.entries.length;
+                        const midAngle = ((i + 0.5) / total) * 360 - 90;
+                        const midRad = (midAngle * Math.PI) / 180;
+                        const textX = 50 + 28 * Math.cos(midRad);
+                        const textY = 50 + 28 * Math.sin(midRad);
+                        
+                        return (
+                          <text
+                            key={`text-${i}`}
+                            x={textX}
+                            y={textY}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fill="white"
+                            fontSize="6"
+                            fontWeight="bold"
+                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+                          >
+                            {entry.display_name?.slice(0, 3).toUpperCase() || '???'}
+                          </text>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                  
+                  {/* Pointer/Arrow at top */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
+                    <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[20px] border-t-[#00FFA3] drop-shadow-lg" />
+                  </div>
+                  
+                  {/* Center pot amount */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-[#D946EF]" style={{ fontFamily: 'Orbitron', textShadow: '0 0 10px rgba(217,70,239,0.5)' }}>
+                        {pot.total_amount_sol?.toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-slate-400 uppercase">SOL</p>
+                    </div>
+                  </div>
+                  
+                  {/* Spinning particles around wheel */}
+                  <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
+                    {[...Array(8)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full bg-[#00FFA3]"
+                        style={{
+                          top: '50%',
+                          left: '50%',
+                          transform: `rotate(${i * 45}deg) translateY(-130px)`,
+                          animation: `pulse 1.5s ease-in-out ${i * 0.2}s infinite`,
+                          opacity: 0.6
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <style>{`
+                @keyframes spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+                @keyframes pulse {
+                  0%, 100% { opacity: 0.3; transform: scale(0.8) rotate(var(--rotation)) translateY(-130px); }
+                  50% { opacity: 1; transform: scale(1.2) rotate(var(--rotation)) translateY(-130px); }
+                }
+              `}</style>
+              
+              {/* Participant list */}
               <p className="text-xs text-slate-500 uppercase mb-2">{t('betting.pot.participants')}</p>
               {pot.entries.map((e, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#D946EF]/10 flex items-center justify-center text-[#D946EF] text-xs font-bold">
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ backgroundColor: `hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 40%)` }}
+                    >
                       {e.display_name?.charAt(0) || "?"}
                     </div>
                     <div>
