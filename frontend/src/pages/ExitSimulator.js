@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Line, Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,14 @@ import { toast } from "sonner";
 import axios from "axios";
 import jsPDF from "jspdf";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Calculator, Download, Activity, Percent } from "lucide-react";
+import AISuggestionBubble from "@/components/AISuggestionBubble";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function ExitSimulator() {
+  const { publicKey, connected } = useWallet();
   const [tokenAmount, setTokenAmount] = useState("1000000");
   const [entryPrice, setEntryPrice] = useState("0.00042");
   const [volatility, setVolatility] = useState([80]);
