@@ -409,24 +409,51 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
 
 function P2PPotSystem({ walletAddress, connected, config }) {
   const { t } = useTranslation();
-  const [pot, setPot] = useState({ total_amount_sol: 0, entries: [], status: "open", rake_percent: 2.5 });
+  const [pot, setPot] = useState({ total_amount_sol: 0, entries: [], status: "open", rake_percent: 2.5, countdown_started: false, remaining_seconds: null });
   const [betAmount, setBetAmount] = useState("0.1");
   const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
   const [joining, setJoining] = useState(false);
+  const [countdown, setCountdown] = useState(null);
 
   useEffect(() => {
     const wsUrl = process.env.REACT_APP_BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
     const socket = new WebSocket(`${wsUrl}/ws/pot`);
     socket.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      if (msg.type === "pot_update") setPot(msg.data);
+      if (msg.type === "pot_update") {
+        setPot(msg.data);
+        if (msg.data.remaining_seconds !== null) {
+          setCountdown(msg.data.remaining_seconds);
+        }
+      }
       if (msg.type === "pot_winner") {
         toast.success(t('betting.pot.won', { name: msg.data.winner_name, amount: msg.data.payout_sol }));
+        setCountdown(null);
       }
     };
-    axios.get(`${API}/betting/pot`).then(r => setPot(r.data)).catch(() => {});
+    axios.get(`${API}/betting/pot`).then(r => {
+      setPot(r.data);
+      if (r.data.remaining_seconds !== null) {
+        setCountdown(r.data.remaining_seconds);
+      }
+    }).catch(() => {});
     return () => socket.close();
   }, [t]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   const joinPot = async () => {
     if (!connected) return toast.error(t('common.connectWallet'));
@@ -442,10 +469,22 @@ function P2PPotSystem({ walletAddress, connected, config }) {
       });
       toast.success(data.message);
       localStorage.setItem("bullpugName", displayName);
+      // Start countdown if it just started
+      if (data.countdown_just_started && data.countdown_started) {
+        setCountdown(60);
+        toast.info("⏱️ 60 second countdown started! Draw imminent!");
+      }
     } catch (e) {
       toast.error(e.response?.data?.detail || "Failed to join pot");
     }
     setJoining(false);
+  };
+
+  const formatCountdown = (seconds) => {
+    if (seconds === null || seconds === undefined) return null;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
