@@ -363,9 +363,9 @@ export default function SpeedRunGame() {
         g.obstacles.push(spawnObstacle(g));
       }
 
-      // Spawn collectibles
+      // Spawn collectibles - pass g for collision checking
       if (g.frame % 60 === 0) {
-        g.collectibles.push(spawnCollectible());
+        g.collectibles.push(spawnCollectible(g));
       }
 
       // Move obstacles DOWN the lane - speed based on game speed
