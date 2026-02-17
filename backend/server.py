@@ -45,7 +45,12 @@ from routers import (
     forum_router,
     messages_router,
     journal_router,
-    showcase_router
+    showcase_router,
+    pot_router,
+    simulator_router,
+    reflections_router,
+    notifications_router,
+    admin_router
 )
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, ConnectionManager, BroadcastManager
 
