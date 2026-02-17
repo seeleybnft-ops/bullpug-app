@@ -138,6 +138,17 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         }}
     )
     
+    # === CONTRIBUTE TO PRIZE POOL (25% of rake) ===
+    try:
+        rake_amount = challenge["rake_sol"]
+        await add_to_prize_pool(
+            amount_sol=rake_amount,
+            source="coinflip_rake",
+            details={"challenge_id": data.challenge_id, "total_pot": challenge["bet_amount_sol"] * 2}
+        )
+    except Exception as e:
+        logger.error(f"Failed to add to prize pool: {e}")
+    
     # === AUTOMATIC PAYOUT ===
     payout_success = False
     payout_tx = None
