@@ -1543,57 +1543,7 @@ async def get_escrow_wallet():
     }
 
 
-# ========== NOTIFICATIONS ==========
-@api_router.get("/notifications/{wallet_address}")
-async def get_notifications(wallet_address: str, limit: int = 50):
-    """Get notifications for a user"""
-    notifications = await db.notifications.find(
-        {"to_wallet": wallet_address},
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(limit)
-    
-    unread = sum(1 for n in notifications if not n.get("read"))
-    
-    return {"notifications": notifications, "unread_count": unread}
-
-
-@api_router.post("/notifications/read/{notification_id}")
-async def mark_notification_read(notification_id: str):
-    """Mark a notification as read"""
-    await db.notifications.update_one(
-        {"id": notification_id},
-        {"$set": {"read": True}}
-    )
-    return {"message": "Marked as read"}
-
-
-@api_router.post("/notifications/read-all/{wallet_address}")
-async def mark_all_notifications_read(wallet_address: str):
-    """Mark all notifications as read"""
-    await db.notifications.update_many(
-        {"to_wallet": wallet_address, "read": False},
-        {"$set": {"read": True}}
-    )
-    return {"message": "All notifications marked as read"}
-
-
-@api_router.post("/notifications/subscribe")
-async def subscribe_push(data: PushSubscription):
-    """Subscribe to push notifications"""
-    subscription = {
-        "wallet_address": data.wallet_address,
-        "subscription": data.subscription,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    # Upsert - update if exists, insert if not
-    await db.push_subscriptions.update_one(
-        {"wallet_address": data.wallet_address},
-        {"$set": subscription},
-        upsert=True
-    )
-    
-    return {"message": "Subscribed to push notifications"}
+# ========== NOTIFICATIONS - MOVED TO routers/notifications.py ==========
 
 
 # ========== ADMIN PANEL ==========
