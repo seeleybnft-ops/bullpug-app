@@ -595,6 +595,27 @@ export default function SpeedRunGame() {
             const oy2 = obsY + obsH;
             
             if (px2 > ox1 && px1 < ox2 && py2 > oy1 && py1 < oy2) {
+              // Check if shield is active
+              if (g.activePowerups.shield && Date.now() < g.activePowerups.shield.endTime) {
+                // Shield absorbs hit
+                g.activePowerups.shield = null;
+                // Shield break effect
+                for (let i = 0; i < 20; i++) {
+                  const angle = (Math.PI * 2 / 20) * i;
+                  g.particles.push({
+                    x: playerX, y: playerY + playerH / 2,
+                    vx: Math.cos(angle) * 8,
+                    vy: Math.sin(angle) * 8,
+                    life: 40,
+                    color: `rgba(0, 255, 255, ${0.8 - i * 0.03})`
+                  });
+                }
+                // Remove the obstacle
+                o.depth = 2; // Mark for removal
+                playSoundIfEnabled('collect');
+                continue;
+              }
+              
               g.running = false;
               setGameState("over");
               setScore(g.score);
