@@ -1492,7 +1492,7 @@ app.include_router(api_router)
 async def pot_websocket(ws: WebSocket):
     await pot_ws_manager.connect(ws)
     try:
-        await ws.send_json({"type": "pot_update", "data": await _get_pot_data()})
+        await ws.send_json({"type": "pot_update", "data": await get_pot_data()})
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
