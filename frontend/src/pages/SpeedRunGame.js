@@ -270,10 +270,10 @@ export default function SpeedRunGame() {
       
       g.frame++;
       
-      // Progressive speed over 60 seconds
-      // Start at 2.5, max at 12 after 60 seconds (3600 frames at 60fps)
+      // Progressive speed over 120 seconds (extended from 60)
+      // Start at 2.5, max at 12 after 120 seconds
       const elapsedSeconds = (Date.now() - g.startTime) / 1000;
-      const speedProgress = Math.min(elapsedSeconds / 60, 1); // 0 to 1 over 60 seconds
+      const speedProgress = Math.min(elapsedSeconds / 120, 1); // 0 to 1 over 120 seconds
       const minSpeed = 2.5;
       const maxSpeed = 12;
       g.speed = minSpeed + (maxSpeed - minSpeed) * speedProgress;
