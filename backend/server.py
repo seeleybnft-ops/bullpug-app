@@ -219,5 +219,7 @@ app.add_middleware(
 # ========== Shutdown Handler ==========
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    """Close database connection on shutdown."""
+    """Close database connection and scheduler on shutdown."""
+    stop_scheduler()
     mongo_client.close()
+    logger.info("Shutdown complete")
