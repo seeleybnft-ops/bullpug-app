@@ -70,7 +70,7 @@ async def create_challenge(request: Request, data: CreateChallengeRequest):
         "creator_choice": challenge["creator_choice"],
         "server_seed_hash": challenge["server_seed_hash"],
         "status": "open",
-        "message": f"Challenge created! Waiting for opponent."
+        "message": "Challenge created! Waiting for opponent."
     }
 
 
