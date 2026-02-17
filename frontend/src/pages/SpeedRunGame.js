@@ -233,7 +233,9 @@ export default function SpeedRunGame() {
           g.comboTimer = 60;
           collectFeedback();
           const pts = g.activePowerups.doubleScore > 0 ? 2 : 1;
-          g.score += 25 * pts * Math.min(g.combo, 5);
+          // Apply skin bonus to collectible points
+          const collectPoints = Math.floor(25 * pts * Math.min(g.combo, 5) * (1 + g.skinBonus));
+          g.score += collectPoints;
           // Enhanced particle burst - circular explosion
           for (let i = 0; i < 12; i++) {
             const angle = (Math.PI * 2 / 12) * i;
