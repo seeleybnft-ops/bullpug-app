@@ -707,8 +707,7 @@ export default function SpeedRunGame() {
       setMooncakes(g.mooncakes);
 
       // ===== RENDERING =====
-      // Deep space background - color changes with stage
-      const stageTheme = STAGE_BACKGROUNDS[g.stage];
+      // Deep space background - color changes with stage (stageTheme already declared above)
       const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
       const hue = g.backgroundHue;
       bgGrad.addColorStop(0, `hsl(${hue}, 40%, 2%)`);
