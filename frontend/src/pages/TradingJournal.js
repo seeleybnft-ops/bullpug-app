@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import jsPDF from "jspdf";
+import AISuggestionBubble from "@/components/AISuggestionBubble";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
