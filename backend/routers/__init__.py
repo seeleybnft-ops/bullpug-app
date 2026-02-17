@@ -7,6 +7,7 @@ from routers.skins import router as skins_router
 from routers.forum import router as forum_router
 from routers.messages import router as messages_router
 from routers.journal import router as journal_router
+from routers.showcase import router as showcase_router
 
 __all__ = [
     'betting_router', 
@@ -16,5 +17,6 @@ __all__ = [
     'skins_router',
     'forum_router',
     'messages_router',
-    'journal_router'
+    'journal_router',
+    'showcase_router'
 ]
