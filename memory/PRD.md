@@ -238,10 +238,10 @@ Located in `/app/backend/routers/`:
 **Note:** These routers are prepared but not registered to avoid conflicts with existing server.py endpoints. Future task: Remove duplicates from server.py and enable these routers.
 
 ### Testing Status
-- **Test Report:** `/app/test_reports/iteration_15.json`
-- **Backend:** 100% pass rate (10/10 tests)
+- **Test Report:** `/app/test_reports/iteration_16.json`
+- **Backend:** 100% pass rate (20/20 tests)
 - **Frontend:** 100% pass rate (all UI verifications passed)
-- **Features Verified:** Pot countdown, hidden wallet, Blowfish reflections
+- **Features Verified:** Pot countdown, hidden wallet, Blowfish reflections, enhanced pot waiting UI, modular routers
 
 ---
 
@@ -249,9 +249,42 @@ Located in `/app/backend/routers/`:
 - None currently
 
 ## 📋 P1 Tasks - In Progress
-- **Backend Refactoring:** Continue slimming down server.py by enabling modular routers
+- ✅ **Backend Refactoring (Partial Complete):** 
+  - Migrated: notifications, reflections routers
+  - Remaining: pot, simulator, admin (share state with server.py)
 
 ## 📋 P2 Tasks - Future/Backlog
 - Re-enable Plushie Sales (Shop.js)
 - Re-enable NFT Gallery (NFTGallery.js)
-- Complete modular router migration for pot, simulator, reflections, notifications, admin
+- Complete modular router migration for pot, simulator, admin (requires state sharing refactor)
+
+---
+
+## 📊 Backend Refactoring Status
+
+### Routers Migrated and Active
+| Router | Location | Endpoints | Status |
+|--------|----------|-----------|--------|
+| betting | `routers/betting.py` | challenges, history | ✅ Active |
+| auth | `routers/auth.py` | sign-message, verify | ✅ Active |
+| email | `routers/email.py` | subscribe, unsubscribe | ✅ Active |
+| leaderboard | `routers/leaderboard.py` | get, submit | ✅ Active |
+| skins | `routers/skins.py` | catalog, owned, purchase, gift | ✅ Active |
+| forum | `routers/forum.py` | posts, replies, categories | ✅ Active |
+| messages | `routers/messages.py` | send, inbox, conversations | ✅ Active |
+| journal | `routers/journal.py` | trades, dashboard, backup | ✅ Active |
+| showcase | `routers/showcase.py` | collection, leaderboard, share | ✅ Active |
+| notifications | `routers/notifications.py` | list, read, subscribe | ✅ Active |
+| reflections | `routers/reflections.py` | calculate | ✅ Active |
+
+### Routers Created But Not Active (Share State)
+| Router | Location | Reason |
+|--------|----------|--------|
+| pot | `routers/pot.py` | Uses `active_pot` shared with admin |
+| simulator | `routers/simulator.py` | Different API model from existing |
+| admin | `routers/admin.py` | Uses `active_pot` from server.py |
+
+### server.py Reduction Progress
+- **Original:** ~2800 lines
+- **Current:** 2068 lines  
+- **Removed:** 732 lines (26% reduction)
