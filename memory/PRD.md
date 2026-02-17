@@ -245,25 +245,26 @@ Located in `/app/backend/routers/`:
 **Note:** These routers are prepared but not registered to avoid conflicts with existing server.py endpoints. Future task: Remove duplicates from server.py and enable these routers.
 
 ### Testing Status
-- **Test Report:** `/app/test_reports/iteration_16.json`
-- **Backend:** 100% pass rate (20/20 tests)
+- **Test Report:** `/app/test_reports/iteration_17.json`
+- **Backend:** 100% pass rate (18/18 tests)
 - **Frontend:** 100% pass rate (all UI verifications passed)
-- **Features Verified:** Pot countdown, hidden wallet, Blowfish reflections, enhanced pot waiting UI, modular routers
+- **Features Verified:** All pot game, admin panel, shared state, and modular routers working
 
 ---
 
 ## 📋 P0 Tasks - Immediate Priority
 - None currently
 
-## 📋 P1 Tasks - In Progress
-- ✅ **Backend Refactoring (Partial Complete):** 
-  - Migrated: notifications, reflections routers
-  - Remaining: pot, simulator, admin (share state with server.py)
+## 📋 P1 Tasks - COMPLETED ✅
+- ✅ **Backend Refactoring Complete:** 
+  - All major endpoints migrated to modular routers
+  - Shared state module created for pot game
+  - server.py reduced by 43% (from ~2800 to 1585 lines)
 
 ## 📋 P2 Tasks - Future/Backlog
 - Re-enable Plushie Sales (Shop.js)
 - Re-enable NFT Gallery (NFTGallery.js)
-- Complete modular router migration for pot, simulator, admin (requires state sharing refactor)
+- Migrate remaining endpoints (governance, exit-simulator, escrow) to routers
 
 ---
 
