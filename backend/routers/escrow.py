@@ -101,15 +101,26 @@ async def get_escrow_balance(wallet_address: str):
 
 @router.get("/wallet")
 async def get_escrow_wallet():
-    """Get the escrow wallet address for deposits."""
-    from utils.solana_payout import get_escrow_balance, get_escrow_pubkey
+    """Get the escrow wallet address, balance, and fee info."""
+    from utils.solana_payout import get_escrow_balance, get_escrow_pubkey, get_tx_fee_sol, TOTAL_TX_FEE_LAMPORTS, LAMPORTS_PER_SOL
     
     balance = get_escrow_balance()
     pubkey = get_escrow_pubkey()
+    tx_fee = get_tx_fee_sol()
+    
+    # Calculate how many payouts can be made with current balance
+    if balance and balance > tx_fee:
+        max_single_payout = balance - tx_fee
+    else:
+        max_single_payout = 0
     
     return {
         "escrow_wallet": pubkey or ESCROW_WALLET,
         "balance_sol": balance,
+        "balance_lamports": int(balance * LAMPORTS_PER_SOL) if balance else 0,
+        "tx_fee_sol": tx_fee,
+        "tx_fee_lamports": TOTAL_TX_FEE_LAMPORTS,
+        "max_single_payout_sol": round(max_single_payout, 6) if max_single_payout > 0 else 0,
         "message": "Send SOL to this address for P2P betting"
     }
 
