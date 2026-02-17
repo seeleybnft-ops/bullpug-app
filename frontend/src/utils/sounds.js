@@ -110,10 +110,74 @@ export function playSoundIfEnabled(soundName) {
   }
 }
 
+// Haptic feedback for mobile devices
+export function vibrate(pattern = [50]) {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {
+      // Vibration not supported or permission denied
+    }
+  }
+}
+
+// Combined sound + haptic feedback
+export function feedback(soundName, vibratePattern = [30]) {
+  playSoundIfEnabled(soundName);
+  vibrate(vibratePattern);
+}
+
+// Haptic patterns
+export const hapticPatterns = {
+  light: [20],
+  medium: [50],
+  heavy: [100],
+  success: [50, 30, 50],
+  error: [100, 50, 100],
+  win: [50, 30, 100, 30, 150],
+  lose: [200],
+  click: [10],
+  collect: [30, 20, 30],
+};
+
+// Feedback presets combining sound + haptic
+export function winFeedback() {
+  feedback('win', hapticPatterns.win);
+}
+
+export function loseFeedback() {
+  feedback('lose', hapticPatterns.lose);
+}
+
+export function collectFeedback() {
+  feedback('collect', hapticPatterns.collect);
+}
+
+export function clickFeedback() {
+  feedback('click', hapticPatterns.click);
+}
+
+export function betPlacedFeedback() {
+  feedback('betPlaced', hapticPatterns.medium);
+}
+
+export function challengeCreatedFeedback() {
+  feedback('challengeCreated', hapticPatterns.success);
+}
+
 export default {
   playTone,
   playCoinFlipSequence,
   isSoundEnabled,
   setSoundEnabled,
   playSoundIfEnabled,
+  vibrate,
+  feedback,
+  hapticPatterns,
+  winFeedback,
+  loseFeedback,
+  collectFeedback,
+  clickFeedback,
+  betPlacedFeedback,
+  challengeCreatedFeedback,
 };
