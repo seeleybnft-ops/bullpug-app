@@ -102,7 +102,38 @@ async def get_escrow_balance(wallet_address: str):
 @router.get("/wallet")
 async def get_escrow_wallet():
     """Get the escrow wallet address for deposits."""
+    from utils.solana_payout import get_escrow_balance, get_escrow_pubkey
+    
+    balance = get_escrow_balance()
+    pubkey = get_escrow_pubkey()
+    
     return {
-        "escrow_wallet": ESCROW_WALLET,
+        "escrow_wallet": pubkey or ESCROW_WALLET,
+        "balance_sol": balance,
         "message": "Send SOL to this address for P2P betting"
     }
+
+
+@router.post("/manual-payout")
+async def manual_payout(wallet_address: str, amount_sol: float, admin_key: str):
+    """Manually trigger a payout (admin only)."""
+    from utils.solana_payout import send_sol_payout
+    from utils.config import ADMIN_WALLETS
+    
+    # Simple admin check - in production use proper auth
+    if admin_key not in ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    if amount_sol <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
+    success, result = await send_sol_payout(
+        recipient_wallet=wallet_address,
+        amount_sol=amount_sol,
+        memo="Bullpug Manual Payout"
+    )
+    
+    if success:
+        return {"success": True, "tx_signature": result, "amount_sol": amount_sol}
+    else:
+        raise HTTPException(status_code=500, detail=result)
