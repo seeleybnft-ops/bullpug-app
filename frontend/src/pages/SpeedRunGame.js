@@ -1183,64 +1183,17 @@ export default function SpeedRunGame() {
       
       // Jump landing particles
       if (g.player.isJumping && g.player.vy > 6 && Math.abs(g.player.y - PLAYER_BASE_Y) < 15) {
-        if (g.player.isJumping && g.player.vy > 10 && Math.abs(g.player.y - PLAYER_BASE_Y) < 20) {
-          for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI;
-            g.particles.push({
-              x: pX + Math.cos(angle) * 20,
-              y: GROUND_Y - 5,
-              vx: Math.cos(angle) * 4,
-              vy: -Math.random() * 4 - 2,
-              life: 25,
-              color: g.skinColor + '60'
-            });
-          }
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI;
+          g.particles.push({
+            x: pX + Math.cos(angle) * 15,
+            y: GROUND_Y - 5,
+            vx: Math.cos(angle) * 3,
+            vy: -Math.random() * 3 - 1,
+            life: 20,
+            color: g.skinColor + '50'
+          });
         }
-      } else {
-        // Fallback 3D box character with animation
-        const bobOffset = g.player.isJumping ? 0 : Math.sin(g.player.animFrame * 0.8) * 4;
-        
-        ctx.save();
-        ctx.translate(pX, pY + pH / 2 + bobOffset);
-        
-        // Body (3D-ish box)
-        const grad = ctx.createLinearGradient(-pW / 2, -pH / 2, pW / 2, pH / 2);
-        grad.addColorStop(0, g.skinColor);
-        grad.addColorStop(1, shadeColor(g.skinColor, -30));
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.roundRect(-pW / 2, -pH / 2, pW, pH, 12);
-        ctx.fill();
-        
-        // Face
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(-pW * 0.2, -pH * 0.15, 5, 0, Math.PI * 2);
-        ctx.arc(pW * 0.2, -pH * 0.15, 5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Mouth
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, pH * 0.05, 10, 0.1 * Math.PI, 0.9 * Math.PI);
-        ctx.stroke();
-        
-        // Legs animation
-        const legAngle = g.player.isJumping ? 0.3 : Math.sin(g.player.animFrame * 1.2) * 0.4;
-        ctx.fillStyle = shadeColor(g.skinColor, -50);
-        ctx.save();
-        ctx.translate(-pW * 0.2, pH * 0.35);
-        ctx.rotate(legAngle);
-        ctx.fillRect(-5, 0, 10, 20);
-        ctx.restore();
-        ctx.save();
-        ctx.translate(pW * 0.2, pH * 0.35);
-        ctx.rotate(-legAngle);
-        ctx.fillRect(-5, 0, 10, 20);
-        ctx.restore();
-        
-        ctx.restore();
       }
 
       // Draw particles
