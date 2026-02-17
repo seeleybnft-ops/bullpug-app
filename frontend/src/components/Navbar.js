@@ -124,6 +124,19 @@ export default function Navbar() {
                   <MessageSquare size={14} />
                 </Link>
               )}
+              {connected && (
+                <Link to="/profile"
+                  data-testid="nav-profile-link"
+                  className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#00FFA3]/30 hover:border-[#00FFA3] transition-all">
+                  {profileImage ? (
+                    <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                      <User size={14} className="text-slate-400" />
+                    </div>
+                  )}
+                </Link>
+              )}
               <NotificationBell />
               <LanguageSwitcher />
             </div>
