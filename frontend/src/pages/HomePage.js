@@ -203,12 +203,12 @@ export default function HomePage() {
                 </div>
               ))}
               <div className="col-span-2 glass-card rounded-2xl p-5">
-                <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Transaction Tax: 5%</h4>
-                <div className="grid grid-cols-3 gap-4">
+                <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Trading Fee: 1%</h4>
+                <p className="text-xs text-slate-500 mb-4">Powered by Blowfish - automatic fee distribution on every trade</p>
+                <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: "Burn", value: "2%", color: "#FF3B30" },
-                    { label: "Reflections", value: "2%", color: "#00FFA3" },
-                    { label: "Liquidity", value: "1%", color: "#00C2FF" },
+                    { label: "To Holders", value: "80%", color: "#00FFA3" },
+                    { label: "To Blowfish", value: "20%", color: "#D946EF" },
                   ].map((t, i) => (
                     <div key={i} className="text-center">
                       <div className="text-xl font-black" style={{ color: t.color, fontFamily: 'Orbitron, sans-serif' }}>{t.value}</div>
