@@ -446,12 +446,29 @@ export default function SpeedRunGame() {
   return (
     <div className="pt-20 pb-16 min-h-screen">
       <div className="stars-bg fixed inset-0 -z-10" />
+      
+      {/* Skin Store Modal */}
+      <SkinStore 
+        isOpen={showSkinStore} 
+        onClose={() => setShowSkinStore(false)}
+        onSkinSelect={handleSkinSelect}
+        currentSkinId={currentSkinId}
+      />
+
       <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="game-title">
               {t('game.title').split(' ')[0]} <span className="text-[#F5D300]">{t('game.title').split(' ')[1] || 'Run'}</span>
             </h1>
+            <button
+              onClick={() => setShowSkinStore(true)}
+              data-testid="skin-store-btn"
+              className="p-2 rounded-full bg-[#D946EF]/10 border border-[#D946EF]/30 text-[#D946EF] hover:bg-[#D946EF]/20 hover:border-[#D946EF]/50 transition-all"
+              title="Skin Store"
+            >
+              <Store size={18} />
+            </button>
             <button
               onClick={toggleSound}
               data-testid="game-sound-toggle"
@@ -462,6 +479,17 @@ export default function SpeedRunGame() {
             </button>
           </div>
           <p className="text-slate-500 text-sm">{t('game.subtitle')}</p>
+          
+          {/* Current Skin Indicator */}
+          {currentSkin.bonusPercent > 0 && (
+            <div className="inline-flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/30">
+              <img src={currentSkin.image} alt={currentSkin.name} className="w-5 h-5 rounded-full object-cover" />
+              <span className="text-xs text-[#00FFA3] font-bold">{currentSkin.name}</span>
+              <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 text-[10px]">
+                <Sparkles className="w-3 h-3 mr-1" /> +{currentSkin.bonusPercent}% Bonus
+              </Badge>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
