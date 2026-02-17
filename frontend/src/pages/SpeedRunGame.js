@@ -229,6 +229,17 @@ export default function SpeedRunGame() {
       rotation: Math.random() * Math.PI * 2,
       speed: 0.1 + Math.random() * 0.2
     })),
+    // Shooting stars for dramatic space traversal effect
+    shootingStars: [],
+    shootingStarTimer: 0,
+    // Speed lines (warp effect) emanating from horizon
+    speedLines: Array.from({ length: 30 }, () => ({
+      angle: (Math.random() - 0.5) * Math.PI * 0.6, // spread around center
+      length: 20 + Math.random() * 80,
+      speed: 2 + Math.random() * 4,
+      distance: Math.random() * 200, // distance from horizon
+      alpha: 0.1 + Math.random() * 0.3
+    })),
     backgroundHue: 240,
     frame: 0,
     speed: 2.5,
