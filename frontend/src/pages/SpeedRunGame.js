@@ -1838,6 +1838,132 @@ export default function SpeedRunGame() {
             </div>
           </div>
         </div>
+        
+        {/* Game Guide Section */}
+        <div className="mt-8 max-w-4xl mx-auto">
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <span className="text-[#00FFA3]">📖</span> GAME GUIDE
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Collectibles */}
+              <div>
+                <h4 className="text-sm font-bold text-[#FFD700] mb-3 flex items-center gap-2">
+                  <span>✨</span> COLLECTIBLES
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🥮</span>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Mooncake</p>
+                      <p className="text-xs text-slate-400">Collect for +25 points. The cosmic currency of the Bullpug universe!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Power-ups */}
+              <div>
+                <h4 className="text-sm font-bold text-[#D946EF] mb-3 flex items-center gap-2">
+                  <span>⚡</span> POWER-UPS
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🛡️</span>
+                    <div>
+                      <p className="text-sm font-semibold text-cyan-400">Guardian Shield</p>
+                      <p className="text-xs text-slate-400">Protects from one obstacle hit. 10 sec duration.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🧲</span>
+                    <div>
+                      <p className="text-sm font-semibold text-yellow-400">Mooncake Magnet</p>
+                      <p className="text-xs text-slate-400">Attracts mooncakes from all lanes. 10 sec duration.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">⭐</span>
+                    <div>
+                      <p className="text-sm font-semibold text-fuchsia-400">Star Power</p>
+                      <p className="text-xs text-slate-400">Doubles points from mooncakes. 10 sec duration.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Obstacles */}
+              <div>
+                <h4 className="text-sm font-bold text-[#FF6B35] mb-3 flex items-center gap-2">
+                  <span>⚠️</span> OBSTACLES
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">☄️</span>
+                    <div>
+                      <p className="text-sm font-semibold text-orange-400">Meteor</p>
+                      <p className="text-xs text-slate-400">Fiery space rock. Jump or dodge!</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🪨</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-400">Space Debris</p>
+                      <p className="text-xs text-slate-400">Floating wreckage. Appears in Stage 2+.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🕳️</span>
+                    <div>
+                      <p className="text-sm font-semibold text-purple-400">Black Hole</p>
+                      <p className="text-xs text-slate-400">Dangerous gravity well. Stage 3+.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🛰️</span>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-400">Satellite</p>
+                      <p className="text-xs text-slate-400">Can be flying! Stage 4+.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
+                    <span className="text-2xl">🛸</span>
+                    <div>
+                      <p className="text-sm font-semibold text-teal-400">Alien Ship</p>
+                      <p className="text-xs text-slate-400">UFO with beam. Always flying! Stage 5.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Controls */}
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                <span>🎮</span> CONTROLS
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 rounded-lg bg-white/5">
+                  <div className="text-lg font-mono text-[#00FFA3]">A / ←</div>
+                  <div className="text-xs text-slate-400">Move Left</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-white/5">
+                  <div className="text-lg font-mono text-[#00FFA3]">D / →</div>
+                  <div className="text-xs text-slate-400">Move Right</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-white/5">
+                  <div className="text-lg font-mono text-[#00FFA3]">SPACE / ↑</div>
+                  <div className="text-xs text-slate-400">Jump</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-white/5">
+                  <div className="text-lg text-[#00FFA3]">📱 Swipe</div>
+                  <div className="text-xs text-slate-400">Mobile Controls</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
