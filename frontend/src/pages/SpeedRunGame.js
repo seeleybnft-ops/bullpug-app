@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User, Volume2, VolumeX } from "lucide-react";
+import { Gamepad2, Play, RotateCcw, Trophy, Shield, Magnet, Zap, Clock, Medal, User, Volume2, VolumeX, Store, Sparkles } from "lucide-react";
 import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, collectFeedback, winFeedback } from "@/utils/sounds";
+import { getSkinById } from "@/config/skins";
+import SkinStore from "@/components/SkinStore";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const GAME_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/kynwxxke_image%20-%202026-02-17T063523.593.jpg";
 const MOONCAKE_IMG = "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/d1oc5e6f_image%20-%202026-02-17T071657.526.jpg";
 
 const W = 800, H = 340, GROUND_Y = 270, PLAYER_W = 50, PLAYER_H = 50;
@@ -18,6 +20,7 @@ const GRAVITY = 0.7, JUMP_FORCE = -13, DOUBLE_JUMP_FORCE = -11;
 
 export default function SpeedRunGame() {
   const { t } = useTranslation();
+  const { publicKey, connected } = useWallet();
   const canvasRef = useRef(null);
   const [gameState, setGameState] = useState("idle");
   const [score, setScore] = useState(0);
@@ -29,10 +32,15 @@ export default function SpeedRunGame() {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
   const [showNameInput, setShowNameInput] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [showSkinStore, setShowSkinStore] = useState(false);
+  const [currentSkinId, setCurrentSkinId] = useState(() => localStorage.getItem("bullpugSkin") || "default");
   const gameRef = useRef(null);
   const animRef = useRef(null);
   const spriteRef = useRef(null);
   const mooncakeRef = useRef(null);
+
+  const currentSkin = getSkinById(currentSkinId);
+  const GAME_IMG = currentSkin.image;
 
   const toggleSound = () => {
     const newValue = !soundOn;
@@ -41,13 +49,22 @@ export default function SpeedRunGame() {
     if (newValue) playSoundIfEnabled('click');
   };
 
+  const handleSkinSelect = (skinId) => {
+    setCurrentSkinId(skinId);
+    // Reload sprite image
+    const img = new Image(); 
+    img.crossOrigin = "anonymous"; 
+    img.src = getSkinById(skinId).image;
+    img.onload = () => { spriteRef.current = img; };
+  };
+
   useEffect(() => {
     const img = new Image(); img.crossOrigin = "anonymous"; img.src = GAME_IMG;
     img.onload = () => { spriteRef.current = img; };
     const mc = new Image(); mc.crossOrigin = "anonymous"; mc.src = MOONCAKE_IMG;
     mc.onload = () => { mooncakeRef.current = mc; };
     fetchLeaderboard();
-  }, []);
+  }, [GAME_IMG]);
 
   const fetchLeaderboard = async () => {
     try {
