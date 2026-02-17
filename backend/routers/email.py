@@ -4,10 +4,10 @@ from fastapi import APIRouter
 import uuid
 from datetime import datetime, timezone
 
-from ..models.schemas import EmailSubscribeRequest, SendWelcomeEmailRequest
-from ..utils.database import db
-from ..utils.config import SENDGRID_API_KEY, SENDER_EMAIL
-from ..services.email_service import send_welcome_email
+from models.schemas import EmailSubscribeRequest, SendWelcomeEmailRequest
+from utils.database import db
+from utils.config import SENDGRID_API_KEY, SENDER_EMAIL
+from services.email_service import send_welcome_email
 
 router = APIRouter(prefix="/email", tags=["email"])
 
