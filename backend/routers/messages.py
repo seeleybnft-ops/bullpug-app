@@ -5,8 +5,8 @@ import uuid
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
-from ..utils.database import db
-from ..utils.notifications import send_notification
+from utils.database import db
+from utils.notifications import send_notification
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
