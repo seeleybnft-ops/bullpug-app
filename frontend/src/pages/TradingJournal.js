@@ -392,6 +392,15 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
           </div>
         </div>
       )}
+
+      {/* AI Daily Insight */}
+      {walletAddress && (
+        <AISuggestionBubble 
+          type="journal"
+          walletAddress={walletAddress}
+          data-testid="journal-ai-bubble"
+        />
+      )}
     </div>
   );
 }
