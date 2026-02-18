@@ -333,6 +333,11 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* Badges Section */}
+            <div className="pt-4 border-t border-white/10">
+              <BadgeShowcase walletAddress={publicKey?.toBase58()} />
+            </div>
+
             {/* Save Button */}
             <Button
               onClick={handleSave}
