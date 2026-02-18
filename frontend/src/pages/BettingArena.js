@@ -127,7 +127,7 @@ export default function BettingArena() {
   );
 }
 
-function P2PCoinFlip({ walletAddress, connected, config }) {
+function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
   const { t } = useTranslation();
   const [challenges, setChallenges] = useState([]);
   const [betAmount, setBetAmount] = useState("0.1");
@@ -139,6 +139,7 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
   const [history, setHistory] = useState([]);
   const [isFlipping, setIsFlipping] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [transferStep, setTransferStep] = useState(null); // 'prompting', 'signing', 'confirming'
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -170,13 +171,32 @@ function P2PCoinFlip({ walletAddress, connected, config }) {
 
     clickFeedback();
     setCreating(true);
+    setTransferStep('prompting');
+    
     try {
+      // Step 1: Prompt wallet to transfer SOL to escrow
+      toast.info("Please approve the SOL transfer in your wallet...");
+      setTransferStep('signing');
+      
+      const signature = await sendSolToEscrow(
+        connection,
+        wallet,
+        config.distribution_wallet,
+        amount
+      );
+      
+      setTransferStep('confirming');
+      toast.success("Transfer confirmed! Creating challenge...");
+      
+      // Step 2: Register challenge on backend with tx signature
       await axios.post(`${API}/betting/challenge/create`, {
         bet_amount_sol: amount,
         choice,
         wallet_address: walletAddress,
-        display_name: displayName
+        display_name: displayName,
+        tx_signature: signature
       });
+      
       challengeCreatedFeedback();
       toast.success("Challenge created!");
       localStorage.setItem("bullpugName", displayName);
