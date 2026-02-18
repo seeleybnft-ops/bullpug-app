@@ -202,8 +202,22 @@ All features verified:
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Cosmic Runner Game | ✅ Complete | Power-ups, backgrounds, guide, controls |
-| P2P Betting Arena | ✅ Complete | Coin flip, pot system, 2.5% rake |
+| P2P Betting Arena | ✅ Complete | Coin flip, pot, wallet transfers, 2.5% rake |
 | Exit Simulator | ✅ Complete | Monte Carlo GBM, PDF export, AI insights |
+| Trading Journal | ✅ Complete | Dashboard, CSV/PDF, cloud backup, AI daily pulse |
+| Community Forum | ✅ Complete | Posts, replies, categories |
+| Direct Messages | ✅ Complete | Real-time WebSocket DMs |
+| Tokenomics Display | ✅ Complete | Token info page |
+| Reflections Calculator | ✅ Complete | Calculator tool |
+| Wallet Integration | ✅ Complete | Solana wallet adapter with transfers |
+| User Profiles | ✅ Complete | Profile page, skins as avatar, social links |
+| AI Suggestions | ✅ Complete | GPT-4o powered trading insights |
+| Badge System | ✅ Complete | 12 badges, 4 tiers, auto-award |
+| Game Refactoring | ✅ Complete | Modular files: constants, engine, hooks |
+| Solana Smart Contract | ✅ Code Ready | Anchor program, deploy.sh for devnet |
+| NFT Gallery | 🔄 Hidden | Ready for implementation |
+| Plushie Shop | 🔄 Hidden | Ready for implementation |
+| Deployment | ⏳ Pending | Ready for bullpug.com |
 | Trading Journal | ✅ Complete | Dashboard, CSV/PDF, cloud backup, AI daily pulse |
 | Community Forum | ✅ Complete | Posts, replies, categories |
 | Direct Messages | ✅ Complete | Real-time WebSocket DMs |
