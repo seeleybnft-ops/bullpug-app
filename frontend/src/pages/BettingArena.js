@@ -1,17 +1,53 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
+import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX } from "lucide-react";
+import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence, winFeedback, loseFeedback, challengeCreatedFeedback, clickFeedback } from "@/utils/sounds";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+/**
+ * Send SOL to escrow wallet with wallet prompt
+ */
+async function sendSolToEscrow(connection, wallet, escrowAddress, amountSol) {
+  if (!wallet.publicKey || !wallet.signTransaction) {
+    throw new Error("Wallet not connected");
+  }
+
+  const escrowPubkey = new PublicKey(escrowAddress);
+  const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
+
+  // Create transfer instruction
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: wallet.publicKey,
+      toPubkey: escrowPubkey,
+      lamports,
+    })
+  );
+
+  // Get recent blockhash
+  const { blockhash } = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = wallet.publicKey;
+
+  // Sign and send
+  const signed = await wallet.signTransaction(transaction);
+  const signature = await connection.sendRawTransaction(signed.serialize());
+  
+  // Wait for confirmation
+  await connection.confirmTransaction(signature, 'confirmed');
+  
+  return signature;
+}
 
 export default function BettingArena() {
   const { publicKey, connected } = useWallet();
