@@ -491,13 +491,14 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
   );
 }
 
-function P2PPotSystem({ walletAddress, connected, config }) {
+function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) {
   const { t } = useTranslation();
   const [pot, setPot] = useState({ total_amount_sol: 0, entries: [], status: "open", rake_percent: 2.5, countdown_started: false, remaining_seconds: null });
   const [betAmount, setBetAmount] = useState("0.1");
   const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
   const [joining, setJoining] = useState(false);
   const [countdown, setCountdown] = useState(null);
+  const [transferStep, setTransferStep] = useState(null);
 
   useEffect(() => {
     const wsUrl = process.env.REACT_APP_BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
@@ -545,11 +546,29 @@ function P2PPotSystem({ walletAddress, connected, config }) {
     if (amount < config.min_bet_sol) return toast.error(`Minimum bet is ${config.min_bet_sol} SOL`);
 
     setJoining(true);
+    setTransferStep('prompting');
+    
     try {
+      // Step 1: Prompt wallet to transfer SOL to pot escrow
+      toast.info("Please approve the SOL transfer to join the pot...");
+      setTransferStep('signing');
+      
+      const signature = await sendSolToEscrow(
+        connection,
+        wallet,
+        config.distribution_wallet,
+        amount
+      );
+      
+      setTransferStep('confirming');
+      toast.success("Transfer confirmed! Joining pot...");
+      
+      // Step 2: Register entry on backend with tx signature
       const { data } = await axios.post(`${API}/betting/pot/join`, {
         bet_amount_sol: amount,
         wallet_address: walletAddress,
-        display_name: displayName
+        display_name: displayName,
+        tx_signature: signature
       });
       toast.success(data.message);
       localStorage.setItem("bullpugName", displayName);
@@ -559,9 +578,14 @@ function P2PPotSystem({ walletAddress, connected, config }) {
         toast.info("⏱️ 60 second countdown started! Draw imminent!");
       }
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Failed to join pot");
+      if (e.message?.includes('User rejected')) {
+        toast.error("Transaction cancelled by user");
+      } else {
+        toast.error(e.response?.data?.detail || e.message || "Failed to join pot");
+      }
     }
     setJoining(false);
+    setTransferStep(null);
   };
 
   const formatCountdown = (seconds) => {
