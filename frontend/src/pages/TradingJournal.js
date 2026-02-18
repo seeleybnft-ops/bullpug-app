@@ -24,6 +24,7 @@ const GRADES = ["A+", "A", "B+", "B", "C+", "C", "D", "F"];
 const MARKET_CONDITIONS = ["Bullish", "Bearish", "Ranging", "High Volatility", "Low Volatility", "Uncertain"];
 
 export default function TradingJournal() {
+  const { publicKey, connected } = useWallet();
   const [tab, setTab] = useState("dashboard");
   const [dashboard, setDashboard] = useState(null);
   const [trades, setTrades] = useState([]);
