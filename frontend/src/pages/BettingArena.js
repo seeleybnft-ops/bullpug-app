@@ -116,10 +116,10 @@ export default function BettingArena() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="coin-toss">
-            <P2PCoinFlip walletAddress={publicKey?.toBase58()} connected={connected} config={config} />
+            <P2PCoinFlip walletAddress={publicKey?.toBase58()} connected={connected} config={config} wallet={{ publicKey, signTransaction: useWallet().signTransaction }} connection={useConnection().connection} />
           </TabsContent>
           <TabsContent value="pot">
-            <P2PPotSystem walletAddress={publicKey?.toBase58()} connected={connected} config={config} />
+            <P2PPotSystem walletAddress={publicKey?.toBase58()} connected={connected} config={config} wallet={{ publicKey, signTransaction: useWallet().signTransaction }} connection={useConnection().connection} />
           </TabsContent>
         </Tabs>
       </div>
