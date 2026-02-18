@@ -204,24 +204,47 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
       setResult(null);
     } catch (e) {
       playSoundIfEnabled('error');
-      toast.error(e.response?.data?.detail || "Failed to create challenge");
+      if (e.message?.includes('User rejected')) {
+        toast.error("Transaction cancelled by user");
+      } else {
+        toast.error(e.response?.data?.detail || e.message || "Failed to create challenge");
+      }
     }
     setCreating(false);
+    setTransferStep(null);
   };
 
   const acceptChallenge = async (challenge) => {
     if (!connected) return toast.error(t('common.connectWallet'));
     clickFeedback();
     setAccepting(challenge.id);
-    setIsFlipping(true);
+    setTransferStep('prompting');
 
     try {
+      // Step 1: Prompt wallet to transfer SOL to escrow (matching bet amount)
+      toast.info("Please approve the SOL transfer to match the bet...");
+      setTransferStep('signing');
+      
+      const signature = await sendSolToEscrow(
+        connection,
+        wallet,
+        config.distribution_wallet,
+        challenge.bet_amount_sol
+      );
+      
+      setTransferStep('confirming');
+      toast.success("Transfer confirmed! Flipping coin...");
+      
+      setIsFlipping(true);
+      
+      // Step 2: Accept challenge on backend with tx signature
       const clientSeed = Math.random().toString(36).slice(2, 18);
       const { data } = await axios.post(`${API}/betting/challenge/accept`, {
         challenge_id: challenge.id,
         wallet_address: walletAddress,
         display_name: displayName,
-        client_seed: clientSeed
+        client_seed: clientSeed,
+        tx_signature: signature
       });
 
       const won = data.winner_wallet === walletAddress;
@@ -247,9 +270,14 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
     } catch (e) {
       setIsFlipping(false);
       playSoundIfEnabled('error');
-      toast.error(e.response?.data?.detail || "Failed to accept challenge");
+      if (e.message?.includes('User rejected')) {
+        toast.error("Transaction cancelled by user");
+      } else {
+        toast.error(e.response?.data?.detail || e.message || "Failed to accept challenge");
+      }
     }
     setAccepting(null);
+    setTransferStep(null);
   };
 
   const cancelChallenge = async (challengeId) => {
