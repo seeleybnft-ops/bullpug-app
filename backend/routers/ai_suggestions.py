@@ -47,7 +47,7 @@ async def get_live_crypto_price(symbol: str) -> Optional[Dict]:
         
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"https://api.coingecko.com/api/v3/simple/price",
+                "https://api.coingecko.com/api/v3/simple/price",
                 params={"ids": coin_id, "vs_currencies": "usd", "include_24hr_change": "true"},
                 timeout=10.0
             )
@@ -254,7 +254,6 @@ def generate_fallback_exit_suggestion(context: SimulationContext, journal_summar
     outcomes = context.simulated_outcomes
     prob_profit = outcomes.get("probability_profit", 50)
     
-    current = live_price.get("price", context.entry_price) if live_price else context.entry_price
     change_24h = live_price.get("change_24h", 0) if live_price else 0
     
     if change_24h > 5:
