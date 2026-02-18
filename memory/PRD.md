@@ -4,39 +4,65 @@
 Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic guardian lore.
 
 ## Tech Stack
-- **Frontend:** React, Tailwind CSS, Solana Web3.js, react-i18next
-- **Backend:** FastAPI, WebSockets, Pydantic, slowapi
+- **Frontend:** React, Tailwind CSS, Solana Web3.js, react-i18next, react-markdown
+- **Backend:** FastAPI, WebSockets, Pydantic, slowapi, emergentintegrations (LLM)
 - **Database:** MongoDB
 - **Email:** SendGrid
+- **AI/LLM:** GPT-4o via Emergent LLM Key
 
 ---
 
-## Latest Update: Feb 17, 2026 - Game Guide & Enhanced Mooncakes + Refactoring
+## Latest Update: Feb 18, 2026 - User Profile & AI Suggestions System
 
 ### New Features Implemented
 
-#### 1. Game Guide Section (COMPLETE)
-Below the game canvas, a comprehensive guide displays:
-- **COLLECTIBLES**: Mooncake (🥮) - +25 points each
-- **POWER-UPS**: Guardian Shield (🛡️), Mooncake Magnet (🧲), Star Power (⭐)
-- **OBSTACLES**: Meteor (☄️), Space Debris (🪨), Black Hole (🕳️), Satellite (🛰️), Alien Ship (🛸)
-- **CONTROLS**: A/←, D/→, SPACE/↑, Mobile Swipe
+#### 1. User Profile System (COMPLETE)
+Full profile management with wallet-based authentication:
+- **Profile CRUD:** GET/PUT /api/profile/{wallet_address}
+- **Profile Fields:** display_name, bio, twitter_handle, telegram_handle, discord_handle, website_url
+- **Profile Pictures:** Upload custom image OR select from owned game skins
+- **Game Stats Display:** high_score, total_mooncakes, games_played
+- **Owned Skins:** Shows all skins available as profile pictures
 
-#### 2. Enhanced Mooncake Visuals (COMPLETE)
-Made mooncakes shinier and brighter with:
-- **Larger Outer Glow**: 2.8x size with pulsing animation
-- **Star-burst Rays**: 8 rays emanating outward with animation
-- **Orbiting Sparkles**: 8 sparkles with individual glow effects
-- **Brighter Golden Core**: #FFFFD0 → #E0A040 gradient
-- **Multiple Highlights**: Main shine (0.8 alpha) + secondary shine (0.5 alpha)
-- **Animated Shimmer Spot**: Circular motion based on glow phase
-- **Double-ring Pulsing Outline**: Inner + outer glow rings
+**API Endpoints:**
+- `GET /api/profile/{wallet_address}` - Get or create profile
+- `PUT /api/profile/{wallet_address}` - Update profile
+- `POST /api/profile/{wallet_address}/upload-image` - Upload custom image
+- `GET /api/profile/{wallet_address}/skins` - Get available skins
 
-#### 3. Code Refactoring Foundation (COMPLETE)
-Created modular files for future refactoring:
-- `/app/frontend/src/game/constants.js` - All game constants
-- `/app/frontend/src/hooks/usePlayerControls.js` - Input handling hook
-- `/app/frontend/src/components/GameGuide.js` - Extracted guide component
+#### 2. AI-Powered Trading Suggestions (COMPLETE)
+Real GPT-4o integration via Emergent LLM Key:
+
+**Exit Simulator AI Insight:**
+- Analyzes Monte Carlo simulation results
+- Provides personalized trading advice based on:
+  - Simulation probability percentiles
+  - Live market prices (CoinGecko)
+  - User's trading journal history
+- Markdown-formatted responses with actionable tips
+
+**Trading Journal Daily Pulse:**
+- Daily AI-generated insights for traders
+- Analyzes user's trade history for patterns
+- Tracks overnight market changes for held assets
+- Provides personalized focus areas
+
+**API Endpoints:**
+- `POST /api/ai-suggestions/exit-simulator` - Get AI insight after simulation
+- `GET /api/ai-suggestions/journal-daily/{wallet_address}` - Daily journal insight
+
+#### 3. Solana Smart Contract (COMPLETE)
+Trustless P2P betting smart contract using Anchor framework:
+- **Coinflip:** 1v1 provably fair betting with commit-reveal scheme
+- **Pot Game:** Winner-takes-all multi-player with slot hash randomness
+- **PDAs:** All funds escrowed in Program Derived Addresses
+- **Automatic Payouts:** Winners receive SOL directly on-chain
+- **2.5% Rake:** Sent to treasury PDA
+
+**Files:**
+- `/app/solana-program/programs/bullpug-betting/src/lib.rs`
+- `/app/solana-program/client/bullpug-betting-client.ts`
+- `/app/solana-program/README.md`
 
 ---
 
