@@ -93,32 +93,41 @@ All features verified:
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── betting.py       # P2P betting (coin flip, pot)
-│   │   ├── forum.py         # Community forum
-│   │   ├── journal.py       # Trading journal
-│   │   ├── messages.py      # Direct messages (DMs)
-│   │   ├── simulator.py     # Exit simulator (Monte Carlo)
+│   │   ├── ai_suggestions.py  # GPT-4o AI suggestions (NEW)
+│   │   ├── betting.py         # P2P betting + auto-payout
+│   │   ├── profile.py         # User profile CRUD (NEW)
+│   │   ├── forum.py           # Community forum
+│   │   ├── journal.py         # Trading journal
+│   │   ├── messages.py        # Direct messages (DMs)
+│   │   ├── prize_pool.py      # Jackpot system
+│   │   ├── simulator.py       # Exit simulator (Monte Carlo)
 │   │   └── ...
 │   └── server.py
 ├── frontend/
 │   ├── src/
-│   │   ├── game/
-│   │   │   └── constants.js    # Game constants (NEW)
-│   │   ├── hooks/
-│   │   │   └── usePlayerControls.js  # Input handling (NEW)
 │   │   ├── components/
-│   │   │   ├── GameGuide.js    # Guide component (NEW)
+│   │   │   ├── AISuggestionBubble.js  # AI insight component (NEW)
+│   │   │   ├── JackpotDisplay.js      # Jackpot UI
+│   │   │   ├── RecentWinners.js       # Winners display
 │   │   │   └── SkinStore.js
 │   │   ├── pages/
-│   │   │   ├── SpeedRunGame.js    # Main game (2032 lines)
-│   │   │   ├── BettingArena.js    # P2P betting
-│   │   │   ├── ExitSimulator.js   # Monte Carlo sim
-│   │   │   ├── TradingJournal.js  # Trade logging
-│   │   │   ├── Forum.js           # Community posts
-│   │   │   └── Messages.js        # DMs
+│   │   │   ├── ProfilePage.js      # User profile page (NEW)
+│   │   │   ├── SpeedRunGame.js     # Main game
+│   │   │   ├── BettingArena.js     # P2P betting
+│   │   │   ├── ExitSimulator.js    # Monte Carlo sim + AI
+│   │   │   ├── TradingJournal.js   # Trade logging + AI
+│   │   │   ├── Forum.js            # Community posts
+│   │   │   └── Messages.js         # DMs
 │   │   └── config/
 │   │       └── skins.js
 │   └── package.json
+├── solana-program/                    # Smart contract (NEW)
+│   ├── programs/bullpug-betting/
+│   │   └── src/lib.rs               # Anchor program
+│   ├── client/
+│   │   └── bullpug-betting-client.ts
+│   ├── Anchor.toml
+│   └── README.md
 └── memory/
     └── PRD.md
 ```
