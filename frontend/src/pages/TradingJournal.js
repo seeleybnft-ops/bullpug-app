@@ -234,7 +234,7 @@ export default function TradingJournal() {
   );
 }
 
-function Dashboard({ dashboard, trades, loading, formatCurrency }) {
+function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }) {
   if (loading) {
     return (
       <div className="glass-card rounded-2xl p-16 text-center">
