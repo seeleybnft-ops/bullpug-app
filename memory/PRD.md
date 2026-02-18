@@ -9,60 +9,68 @@ Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic g
 - **Database:** MongoDB
 - **Email:** SendGrid
 - **AI/LLM:** GPT-4o via Emergent LLM Key
+- **Blockchain:** Solana (Anchor framework)
 
 ---
 
-## Latest Update: Feb 18, 2026 - User Profile & AI Suggestions System
+## Latest Update: Feb 18, 2026 - Badge System, Game Refactoring, Wallet Integration
 
 ### New Features Implemented
 
-#### 1. User Profile System (COMPLETE)
-Full profile management with wallet-based authentication:
-- **Profile CRUD:** GET/PUT /api/profile/{wallet_address}
-- **Profile Fields:** display_name, bio, twitter_handle, telegram_handle, discord_handle, website_url
-- **Profile Pictures:** Upload custom image OR select from owned game skins
-- **Game Stats Display:** high_score, total_mooncakes, games_played
-- **Owned Skins:** Shows all skins available as profile pictures
+#### 1. Leaderboard Badge System (COMPLETE)
+12 achievement badges with 4 tiers:
+
+**Legendary Tier (Gold)**
+- 🥇 Gold Champion - Top 1 weekly leaderboard
+- 🏆 Jackpot Winner - Won a prize pool jackpot
+
+**Epic Tier (Purple)**
+- 🥈 Silver Elite - Top 2-3 weekly
+- 🎮 Game Master - 100+ games played
+- 💎 Whale - Bet 10+ SOL total
+- 💰 High Roller - Won 5+ SOL in single bet
+
+**Rare Tier (Blue)**
+- 🥉 Bronze Star - Top 4-10 weekly
+- 🔥 On Fire - 10+ consecutive wins
+- 🥮 Mooncake Hunter - 1000+ mooncakes collected
+- 🚀 Early Adopter - First month player
+
+**Common Tier (Gray)**
+- 🦋 Social Butterfly - 50+ forum posts
+- 👕 Skin Collector - Own 5+ skins
 
 **API Endpoints:**
-- `GET /api/profile/{wallet_address}` - Get or create profile
-- `PUT /api/profile/{wallet_address}` - Update profile
-- `POST /api/profile/{wallet_address}/upload-image` - Upload custom image
-- `GET /api/profile/{wallet_address}/skins` - Get available skins
-
-#### 2. AI-Powered Trading Suggestions (COMPLETE)
-Real GPT-4o integration via Emergent LLM Key:
-
-**Exit Simulator AI Insight:**
-- Analyzes Monte Carlo simulation results
-- Provides personalized trading advice based on:
-  - Simulation probability percentiles
-  - Live market prices (CoinGecko)
-  - User's trading journal history
-- Markdown-formatted responses with actionable tips
-
-**Trading Journal Daily Pulse:**
-- Daily AI-generated insights for traders
-- Analyzes user's trade history for patterns
-- Tracks overnight market changes for held assets
-- Provides personalized focus areas
-
-**API Endpoints:**
-- `POST /api/ai-suggestions/exit-simulator` - Get AI insight after simulation
-- `GET /api/ai-suggestions/journal-daily/{wallet_address}` - Daily journal insight
-
-#### 3. Solana Smart Contract (COMPLETE)
-Trustless P2P betting smart contract using Anchor framework:
-- **Coinflip:** 1v1 provably fair betting with commit-reveal scheme
-- **Pot Game:** Winner-takes-all multi-player with slot hash randomness
-- **PDAs:** All funds escrowed in Program Derived Addresses
-- **Automatic Payouts:** Winners receive SOL directly on-chain
-- **2.5% Rake:** Sent to treasury PDA
+- `GET /api/badges/all` - List all available badges
+- `GET /api/badges/user/{wallet}` - Get user's earned badges
+- `POST /api/badges/check/{wallet}` - Check and award achievements
+- `GET /api/badges/info/{badge_id}` - Get badge details
 
 **Files:**
-- `/app/solana-program/programs/bullpug-betting/src/lib.rs`
-- `/app/solana-program/client/bullpug-betting-client.ts`
-- `/app/solana-program/README.md`
+- `backend/utils/badges.py` - Badge definitions and award logic
+- `backend/routers/badges.py` - API routes
+- `frontend/src/components/BadgeDisplay.js` - Badge UI components
+
+#### 2. Game Refactoring (COMPLETE)
+SpeedRunGame.js (~2140 lines) modularized into:
+- `/app/frontend/src/game/constants.js` - All game configuration
+- `/app/frontend/src/game/GameEngine.js` - Core logic, physics, collision
+- `/app/frontend/src/game/useGameState.js` - React state management hook
+- `/app/frontend/src/game/GameGuide.js` - In-game guide component
+
+#### 3. Wallet Transfer Integration (COMPLETE)
+P2P Betting now prompts wallet for SOL transfer to escrow:
+- Uses `sendSolToEscrow()` function with wallet adapter
+- Shows transfer steps: prompting → signing → confirming
+- Transaction signature sent to backend for verification
+- Works for both Coin Flip and Winner Pot games
+
+#### 4. Solana Smart Contract (CODE READY - PENDING DEPLOY)
+Trustless P2P betting smart contract at `/app/solana-program/`:
+- Coinflip: 1v1 provably fair (commit-reveal scheme)
+- Pot Game: Multi-player winner-takes-all (slot hash randomness)
+- Deploy script: `./deploy.sh devnet` (requires Anchor CLI)
+- Vanity address generation with "PUG" prefix
 
 ---
 
