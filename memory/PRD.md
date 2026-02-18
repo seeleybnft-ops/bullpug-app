@@ -158,10 +158,13 @@ All features verified:
 
 ## Task Status
 
-### COMPLETED (This Session)
-1. ✅ Game Guide section with all items documented
-2. ✅ Enhanced mooncake visuals (shinier, brighter)
-3. ✅ Refactoring foundation (constants, hooks, components)
+### COMPLETED (This Session - Feb 18, 2026)
+1. ✅ Leaderboard Badge System (12 badges, 4 tiers)
+2. ✅ Game Refactoring (modular files: constants, engine, hooks, guide)
+3. ✅ Wallet Transfer Integration for P2P Betting
+4. ✅ Solana Smart Contract Code (ready for devnet deploy)
+5. ✅ User Profile System with badge display
+6. ✅ AI Suggestions (GPT-4o) for Exit Sim & Journal
 
 ### COMPLETED (Previous Sessions)
 1. ✅ Power-ups with shiny sparkle effects
@@ -174,14 +177,17 @@ All features verified:
 8. ✅ Trading Journal with dashboard/CSV/PDF export
 9. ✅ Community Forum with posts/replies
 10. ✅ Direct Messages (DMs) with WebSocket
+11. ✅ Prize Pool Jackpot with auto-payouts
+12. ✅ Skin Store with transparent cutouts
 
 ### Upcoming (P1)
+- Deploy Solana smart contract to devnet (requires Anchor CLI locally)
 - Deployment to bullpug.com
 
 ### Backlog (P2)
 - NFT Gallery page
 - Plushie Sales shop page
-- Further game refactoring (split SpeedRunGame.js into modules)
+- Frontend integration with deployed smart contract
 
 ---
 
