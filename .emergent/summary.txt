@@ -6,12 +6,12 @@ The user wants to build a full-stack, responsive website for the memecoin Bullpu
 -   **Tokenomics:** Interactive display of token details, supply distribution, and a reflections calculator.
 -   **Solana Wallet Integration:** Connect to the Solana blockchain for features like staking, balance display, and real SOL betting.
 -   **Revenue & Engagement Features:**
-    -   **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with a 2.5% house rake.
-    -   **Exit Simulator:** A tool for users to simulate crypto trading outcomes with Monte Carlo simulations and a PDF export feature.
-    -   **Bullpug Speed-Run Game (Cosmic Runner):** An endless runner game with collectibles, a weekly leaderboard, an in-game store with purchasable skins (using SOL), skin gifting, and an achievement-based unlockable skin.
-    -   **Crypto Trading Journal:** A comprehensive feature for logging trades with a dashboard, CSV/PDF export, and cloud backup.
-    -   **Community Forum:** A section for users to create posts, reply, and filter.
-    -   **Direct Messaging (DMs):** Real-time chat between users.
+    -   **P2P Betting Arena:** Player-vs-Player Coin Flip and Pot games using real SOL, with a 2.5% house rake and automatic on-chain payouts.
+    -   **Exit Simulator:** A tool for users to simulate crypto trading outcomes with AI-driven suggestions.
+    -   **Bullpug Speed-Run Game (Cosmic Runner):** An endless runner game with collectibles, power-ups, a weekly leaderboard with a SOL prize pool, an in-game store with purchasable skins (using SOL), and skin gifting.
+    -   **Crypto Trading Journal:** A comprehensive feature for logging trades with a dashboard, CSV/PDF export, cloud backup, and daily AI-driven suggestions.
+    -   **Community Forum & Direct Messaging (DMs).**
+    -   **User Profiles:** Editable profiles with custom pictures, bios, social links, and the ability to use unlocked game skins as profile pictures.
 -   **Admin & Notifications:** An admin panel, push notifications, and email notifications.
 -   **Internationalization:** Multi-language support.
 -   **Tech Stack:** React frontend, FastAPI backend, Tailwind CSS, MongoDB, and Solana Web3.js.
@@ -19,38 +19,46 @@ The user wants to build a full-stack, responsive website for the memecoin Bullpu
 **User's preferred language**: English
 
 **what currently exists?**
-A stable full-stack application with a React frontend and a refactored FastAPI backend. The centerpiece is the Cosmic Runner game, a 3D-perspective Subway Surfers-style runner built on the HTML5 Canvas.
-
-The game has been heavily developed and now includes:
--   **Core Gameplay:** A 3-lane runner with procedurally spawned obstacles and collectibles.
--   **Advanced Features:** A power-up system (Shield, Magnet, 2x Score), a dynamic background with moving nebulas that change as the player progresses, and mobile swipe controls.
--   **Visuals & Animation:** Multiple iterations on character skin designs have been completed, settling on user-provided original assets. The static character sprites are animated using canvas transforms to simulate running and jumping, and their orientation is fixed to face down the track.
--   **Game Balance:** The game's speed, progression curve, and object designs (e.g., cake-shaped mooncakes) have been iteratively adjusted based on user feedback.
+A comprehensive full-stack application featuring a React frontend and a FastAPI backend. The core features are substantially implemented:
+-   **Cosmic Runner Game:** A fully developed 3D-perspective canvas game with procedural obstacles, power-ups, a dynamic background, mobile controls, and transparent character skins.
+-   **Automatic Payout System:** The backend securely uses a private key to automatically process SOL payouts for the P2P Betting Arena and Winner Pot games, accounting for transaction fees.
+-   **Leaderboard Prize Pool:** A fully automated 3-day jackpot system is live. It's funded by 25% of game rakes and skin sales, and features a jackpot display on the game page with a live countdown timer. It automatically pays out to the top 10 players.
+-   **Core App Features:** The P2P Betting Arena, Exit Simulator, Trading Journal, Forum, and DMs are all implemented.
+-   **In-Progress Features:** The backend and basic frontend structures for a User Profile system and AI-driven suggestion bubbles have been created but are not yet fully functional.
 
 **Last working item**:
-The agent was actively working on implementing two new user requests for the Cosmic Runner game.
+The agent was in the middle of implementing a large, multi-part user request involving UI bug fixes, a new user profile system, and an AI suggestions feature.
 
--   **Last item agent was working:** The agent was in the process of adding a descriptive guide for all in-game items and obstacles to be displayed below the game canvas. Simultaneously, the agent was tasked with enhancing the visual effect of the mooncakes to make them shinier and brighter.
+-   **Last item agent was working:** Implementing the frontend and backend for the User Profile and AI Suggestions systems. The agent had just finished adding the placeholder  component to the Trading Journal dashboard page after creating the necessary backend routers, database models, and frontend pages/components for both features.
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** A screenshot should be taken after implementation to visually verify the new guide section and the updated mooncake visuals. Afterward, the frontend testing agent can be used to perform a full regression test.
+-   **Which testing method agent to use?** both. The frontend testing agent is needed to verify the UI of the new profile page and suggestion bubbles. The backend needs to be tested via  to ensure the new API endpoints for profiles and AI suggestions are working, especially after the LLM integration is complete.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Implement Game Guide and Enhance Mooncake Visuals (P0)**
-    -   **Description:** The user has requested a guide section below the game screen to explain all items and obstacles. Additionally, the mooncakes (collectibles) need to be visually updated to be more shiny and bright.
-    -   **Attempted fixes:** The agent has viewed the  file and was preparing to add the necessary JSX for the guide and modify the canvas rendering logic for the mooncakes.
+-   **Issue 1: Complete User Profile & AI Suggestions System (P0)**
+    -   **Description:** The user requested four features simultaneously: fixing a live mooncake counter, adding AI suggestions to the Exit Simulator and Trading Journal, and building a comprehensive user profile system. The mooncake counter fix is implemented, but the Profile and AI features are only partially built.
+    -   **Attempted fixes:** The agent successfully fixed the mooncake counter in . For the other features, it created backend routers (, ), new frontend components (, ), and placed them in the UI. However, the core logic is missing.
     -   **Next debug checklist:**
-        1.  Edit .
-        2.  Add a new JSX  element below the main game container to serve as the guide.
-        3.  Style the guide using Tailwind CSS to create a descriptive list of all obstacles (Meteors, Black Holes, etc.) and power-ups (Shield, Magnet, 2x Score), showing an image and a short description for each.
-        4.  Locate the mooncake drawing function within the canvas rendering logic.
-        5.  Modify its  to use a  for a stronger glow and increase the brightness and particle count of its sparkle effect.
-    -   **Why fix this issue and what will be achieved with the fix?** This will improve the user experience by clarifying game mechanics and will enhance the visual appeal of the primary collectible.
+        1.  **Verify Mooncake Counter:** Start the game and confirm the mooncake count in the HUD increases in real-time as they are collected.
+        2.  **Implement Profile Page ():**
+            -   Wire up logic to fetch profile data from  on load.
+            -   Implement state management and  handlers for the bio and social link form fields.
+            -   Implement image upload functionality for the profile picture.
+            -   Fetch unlocked skins and display them as selectable profile picture options.
+            -   Implement the  function to submit form data via a  request to .
+        3.  **Implement AI Suggestion Bubbles:**
+            -   In , after a simulation runs, call  with simulation data and display the response.
+            -   In , on page load, call  and display the response.
+        4.  **Implement Backend AI Logic ():**
+            -   The current endpoints return placeholder text. This needs to be replaced with actual AI logic.
+            -   **CRITICAL:** Use the  tool to integrate an LLM (e.g., GPT-4o).
+            -   Craft prompts for the LLM that use the context provided (market data, simulation results, journal entries) to generate insightful suggestions.
+    -   **Why fix this issue and what will be achieved with the fix?** This will complete a major user-requested feature set, adding significant value through personalization (profiles) and intelligent, dynamic feedback (AI suggestions).
     -   **Status:** IN PROGRESS
     -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** frontend
-    -   **Blocked on other issue:** None
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** The AI suggestions are blocked pending an LLM integration.
 
 **In progress Task List**:
 None.
@@ -61,17 +69,15 @@ None.
 -   **Future Tasks:**
     -   **Re-enable Plushie Sales (P2):** Un-hide and implement the shop page.
     -   **Re-enable NFT Gallery (P2):** Build out the NFT gallery page.
-    -   **Complete remaining PRD features (P2):** P2P Betting Arena, Exit Simulator, Trading Journal, Forum, and DMs.
+    -   **Implement Solana Smart Contract (P2):** As a more secure, trustless alternative to the current private key-based escrow system for P2P betting.
 
 **Completed work in this session**
--   **MAJOR: Cosmic Runner Game Overhaul (Multiple Iterations):**
-    -   **Power-ups Implemented:** Added Shield, Coin Magnet, and 2x Score power-ups, complete with spawning logic, on-screen timers, and gameplay effects.
-    -   **Dynamic Background Created:** Implemented a moving, multi-layered parallax background with procedurally generated stars and nebulas that change color and density based on game progression.
-    -   **Mobile Controls Added:** Enhanced the controls to include swipe gestures for lane changes and jumping on mobile devices.
-    -   **Character Skins Finalized:** Went through several cycles of generating and replacing character skin art, ultimately reverting to the user's original  images and a specific user-provided Guardian sprite.
-    -   **Character Animation System:** Built and refined a pseudo-animation system that animates static character images using canvas transforms (skewing, scaling, clipping) to create a Subway Surfers-style running and jumping illusion.
-    -   **Game Feel & Balance Tuned:** Iteratively adjusted game speed, object designs (making mooncakes look like cakes), obstacle visuals (fiery effects), and fixed object spawning logic to prevent overlaps.
-    -   **Character Orientation Fixed:** Corrected the player model's orientation to face down the lane (into the screen), maintaining the 3D perspective.
+-   **Automatic P2P/Pot Payout System:** Implemented a backend service () that uses a private key to automatically transfer SOL winnings to players, including logic to account for transaction fees.
+-   **Leaderboard Prize Pool System:** Built a recurring 3-day jackpot funded by game revenue. Includes a backend scheduler () for automatic payouts and frontend components (, ) to show the live jackpot, countdown timer, and past winners.
+-   **Cosmic Runner Game Enhancements:** Visually enhanced the mooncake collectibles to be shinier and added shooting stars/speed lines to the background for a better sense of motion.
+-   **Skins Background Removal:** Used  to create transparent cutout versions of all 12 original skin images for a cleaner in-game look.
+-   **P2P Betting UI:** Added a -style spin wheel animation to the Winner Pot UI.
+-   **Initial Refactoring:** Began modularizing the monolithic  file by extracting constants, hooks, and the Game Guide component into separate files.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -84,64 +90,78 @@ N/A
 
 **Key Technical Concepts**
 -   **Frontend:** React, HTML5 Canvas API, Tailwind CSS.
--   **Backend:** FastAPI with a modular router architecture.
--   **Game Engine:** A custom engine built entirely within the  React component using the Canvas API for all rendering and game loop management.
--   **Animation:** Pseudo-animation of static images using canvas transforms to create the illusion of movement, avoiding the need for sprite sheets or a 3D library.
+-   **Backend:** FastAPI, APScheduler for background jobs.
+-   **Database:** MongoDB.
+-   **Blockchain:**  library for backend SOL transfers using a private key.
+-   **AI/LLM Integration:** An LLM integration is **required** to complete the pending AI suggestions feature.
 
 **key DB schema**
-No changes made.
+-   : 
+-   : 
 
 **changes in tech stack**
-No new technologies were added.
+-   ****: Added to the backend for programmatic SOL transfers.
+-   ****: Added to the backend for running scheduled jobs (prize pool payouts).
 
 **All files of reference**
--   **Heavily Modified:**
-    -   : This file was the exclusive focus of the session and has grown significantly in complexity. It handles gameplay, power-ups, rendering, animation, and controls.
-    -   : Updated multiple times to switch between different sets of skin assets.
--   **New Files:**
-    -   Numerous image files for character skins were generated and stored in .
+-   **New Backend Logic:** , , , , 
+-   **New Frontend Pages/Components:** , , , 
+-   **Heavily Modified:** , , , 
 
 **Areas that need refactoring**:
--   The  file is now critically oversized (over 2000 lines) and has become a god component. It urgently needs to be broken down into smaller, manageable pieces. A refactor should introduce custom hooks (, , ) and separate components (, , , ) to improve readability, maintainability, and performance.
+-    remains a large monolithic file that would benefit from further decomposition into custom hooks and smaller components.
+-   The AI suggestion endpoints in  contain placeholder logic and must be refactored to integrate a real LLM.
 
 **key api endpoints**
-No changes were made to API endpoints.
+-   : (New) Get AI suggestion for exit simulator.
+-   : (New) Get daily AI suggestion for trading journal.
+-   : (New) Get current user's profile.
+-   : (New) Update current user's profile.
+-   : (New) Get current jackpot status and countdown.
+-   : (New) Get list of last jackpot winners.
+-   : (New) Get escrow wallet balance.
 
 **Critical Info for New Agent**
--   Your immediate task is to complete the user's latest request: add a game guide below the game canvas and make the mooncake collectibles shinier. All work will be in .
--   The user provides very specific, iterative visual feedback. Expect to make multiple small adjustments to match their vision.
--   **Technical Debt:** Be aware that  is extremely large and complex. While your current task is small, you should be prepared to recommend a refactor of this file as the next logical step to ensure the project's long-term health.
--   **Animation Method:** The current animation technique (manipulating a static sprite with canvas transforms) is clever but fragile. If more complex animations are requested, suggest moving to a sprite-sheet-based approach for a more robust and scalable solution.
+-   Your immediate task is to complete the **User Profile and AI Suggestions system (P0)**.
+-   **AI Suggestion Implementation:** The backend endpoints for AI suggestions are just placeholders. You **MUST** use the  tool to integrate an LLM (e.g., GPT-4o or Gemini) to provide the actual suggestions. The user expects these suggestions to be intelligent and context-aware.
+-   **User Profile Implementation:** The frontend profile page needs to be fully wired up. This includes state management for the form, handling profile picture uploads, and saving the data to the backend API.
+-   **Blockchain Interaction:** The backend controls an escrow wallet with a private key stored in . Be mindful of this when working with payout logic in , , and .
 
 **documents and test reports created in this job**
 -    (Updated)
--    (Latest report confirming success of power-ups, dynamic background, and mobile controls)
+-    (This report is from before the current Profile/AI work began)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  User: Add power-ups, mobile controls, fix orientation, and add a dynamic moving background. (COMPLETED)
-2.  User: Add a guide as to what each item/obstacle is/does and display it under the game screen. (IN PROGRESS)
-3.  User: Continue [with the guide] and also make the mooncakes more shiny and bright. (IN PROGRESS - LATEST REQUEST)
+1.  **Request:** Make background animation more visible, add spin wheel to pot, confirm escrow flow. (Status: COMPLETED)
+2.  **Request:** How are rewards released from escrow? (Status: COMPLETED - This led to the automatic payout implementation).
+3.  **Request:** User provided private key to enable automatic payouts. (Status: COMPLETED)
+4.  **Request:** Ensure transaction fees are accounted for and check wallet balance. (Status: COMPLETED)
+5.  **Request:** Remove backgrounds from game skins. (Status: COMPLETED)
+6.  **Request:** Redo skin cutouts from original images; ensure skin purchase funds go to escrow. (Status: COMPLETED)
+7.  **Request:** Implement a 3-day leaderboard prize pool system with a live jackpot display, countdown, and automatic payouts. (Status: COMPLETED)
+8.  **Request:** Add seconds to the countdown timer. (Status: COMPLETED)
+9.  **Request:** Fix mooncake counter, add AI suggestion bubbles to the simulator and journal, and create a full user profile system with an editable page and profile picture options using unlocked skins. (Status: IN PROGRESS - LATEST REQUEST)
 
 **Project Health Check:**
--   **Broken:** None. The application is stable.
--   **Mocked/Partially Implemented:** The game guide requested by the user is not yet implemented.
+-   **Broken:** The User Profile and AI Suggestion features are non-functional. The UI components may render, but they are not connected to any working logic and the AI endpoints return placeholder data.
+-   **Mocked:** The entire AI suggestion feature is mocked at the API level.
 
 **3rd Party Integrations**
--   **Solana:** , 
--   **MongoDB:** via 
+-   **Solana:** ,  (Frontend),  (Backend).
+-   **MongoDB:** via .
 -   **SendGrid:** For emails.
+-   **APScheduler:** For backend background jobs.
+-   **LLM Integration (Emergent LLM Key Applicability: YES):** An LLM integration (e.g., OpenAI, Gemini, Claude) is **required** to implement the AI suggestion feature. The  tool must be used. This is a candidate for the Emergent LLM Key.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent was used successfully after implementing the batch of features including power-ups and the dynamic background.
+-   **Testing agent used after significant changes:** YES, but the last run was before the current Profile/AI features were started. A new test run is needed.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None.
--   **Known regressions:** None.
+-   **Known regressions:** None currently, but the agent should be mindful of frontend routing after a previous minor issue.
 
 **Credentials to test flow:**
--   **Admin Wallets:**
-    -   
-    -   
--   Authentication is via Solana wallet; no user/password needed.
+-   **Escrow Wallet Private Key:** Stored in  as .
+-   **Admin Wallets:** Stored in .
 
 **What agent forgot to execute**
-The agent has followed all user instructions and did not forget to execute any requested tasks.</analysis>
+The agent started the large, multi-part request to build the Profile and AI Suggestion systems but did not complete it. It created the necessary file structures and backend routes but left the core implementation (form handling, data fetching, image uploads, and actual LLM integration) unfinished. The work is mid-flight and is the highest priority for the next agent.</analysis>
