@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import axios from "axios";
 import { 
   User, Camera, Twitter, Send, Globe, Save, 
-  Gamepad2, Trophy, Coins, ArrowLeft, Check, X 
+  Gamepad2, Trophy, Coins, ArrowLeft, Check, X, Sparkles 
 } from "lucide-react";
+import { BadgeShowcase, BadgeRow } from "@/components/BadgeDisplay";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
