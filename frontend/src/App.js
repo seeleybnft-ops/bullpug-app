@@ -23,6 +23,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
+import Lore from "@/pages/Lore";
 
 function App() {
   const endpoint = useMemo(
