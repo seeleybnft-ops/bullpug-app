@@ -435,10 +435,7 @@ export default function JournalAIAssistant({ walletAddress }) {
             {activeTab === "recommendations" && (
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <div>
-                    <h4 className="text-xs font-medium text-slate-400 uppercase">Top 3 Coin Picks</h4>
-                    <p className="text-[10px] text-slate-600">Based on liquidity, volume &gt;50k, bonded status</p>
-                  </div>
+                  <h4 className="text-xs font-medium text-slate-400 uppercase">Top 3 Coin Picks</h4>
                   <button 
                     onClick={fetchRecommendations}
                     disabled={recsLoading}
