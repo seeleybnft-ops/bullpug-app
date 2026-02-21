@@ -151,6 +151,7 @@ const esTranslations = {
   // Navbar
   nav: {
     home: 'Inicio',
+    lore: 'Historia',
     arena: 'Arena',
     game: 'Juego',
     exitSim: 'Simulador',
