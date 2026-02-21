@@ -45,15 +45,16 @@ function App() {
               <Navbar />
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/betting" element={<BettingArena />} />
-                <Route path="/shop" element={<Shop />} />
+                <Route path="/lore" element={<Lore />} />
+                <Route path="/journal" element={<TradingJournal />} />
                 <Route path="/exit-simulator" element={<ExitSimulator />} />
+                <Route path="/game" element={<SpeedRunGame />} />
+                <Route path="/betting" element={<BettingArena />} />
+                <Route path="/reflections" element={<ReflectionsCalculator />} />
+                <Route path="/forum" element={<Forum />} />
+                <Route path="/shop" element={<Shop />} />
                 <Route path="/nft" element={<NFTGallery />} />
                 <Route path="/wallet" element={<WalletDashboard />} />
-                <Route path="/game" element={<SpeedRunGame />} />
-                <Route path="/reflections" element={<ReflectionsCalculator />} />
-                <Route path="/journal" element={<TradingJournal />} />
-                <Route path="/forum" element={<Forum />} />
                 <Route path="/admin" element={<AdminPanel />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/showcase" element={<Showcase />} />
