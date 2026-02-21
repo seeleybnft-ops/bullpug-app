@@ -229,6 +229,8 @@ Keep it under 100 words. Use markdown formatting."""
 {recent_trades_str}
 Recent Notes/Lessons: {', '.join(journal_summary.get('recent_notes', [])[:2]) or 'None recorded'}
 
+{lang_instruction}
+
 Generate a personalized 100-150 word daily insight that includes:
 1. Time-appropriate greeting with emoji
 2. Quick portfolio/performance summary
