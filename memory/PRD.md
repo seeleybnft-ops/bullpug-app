@@ -13,64 +13,51 @@ Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic g
 
 ---
 
-## Latest Update: Feb 18, 2026 - Badge System, Game Refactoring, Wallet Integration
+## Latest Update: Feb 18, 2026 - Enhanced Journal AI Assistant & Lore Page
 
 ### New Features Implemented
 
-#### 1. Leaderboard Badge System (COMPLETE)
-12 achievement badges with 4 tiers:
+#### 1. Enhanced Journal AI Assistant (COMPLETE)
+Full-featured AI trading assistant with 4 tabs (reordered):
 
-**Legendary Tier (Gold)**
-- 🥇 Gold Champion - Top 1 weekly leaderboard
-- 🏆 Jackpot Winner - Won a prize pool jackpot
+**Tab Order:** Holdings → Top Picks → Insights → Chat
 
-**Epic Tier (Purple)**
-- 🥈 Silver Elite - Top 2-3 weekly
-- 🎮 Game Master - 100+ games played
-- 💎 Whale - Bet 10+ SOL total
-- 💰 High Roller - Won 5+ SOL in single bet
+**Holdings Tab:**
+- Auto-detects wallet holdings from journal trades
+- Live price updates via CoinGecko
+- 24h change indicators with colors
+- AI-powered suggestions always available (with fallback)
+- Auto-refresh every 60 seconds
 
-**Rare Tier (Blue)**
-- 🥉 Bronze Star - Top 4-10 weekly
-- 🔥 On Fire - 10+ consecutive wins
-- 🥮 Mooncake Hunter - 1000+ mooncakes collected
-- 🚀 Early Adopter - First month player
+**Top Picks Tab:**
+- Top 3 coin recommendations
+- Based on volume >50k, liquidity, bonded status
+- AI-generated reasons for each pick
+- Fallback recommendations always available
+- Auto-refresh every 5 minutes
 
-**Common Tier (Gray)**
-- 🦋 Social Butterfly - 50+ forum posts
-- 👕 Skin Collector - Own 5+ skins
+**Insights Tab:**
+- Daily AI-powered trading insights
+- Analyzes user's trading patterns
+- Multi-language support (10 languages)
 
-**API Endpoints:**
-- `GET /api/badges/all` - List all available badges
-- `GET /api/badges/user/{wallet}` - Get user's earned badges
-- `POST /api/badges/check/{wallet}` - Check and award achievements
-- `GET /api/badges/info/{badge_id}` - Get badge details
+**Chat Tab:**
+- Interactive chat with AI assistant
+- Context-aware responses using journal data
+- Multi-language support
 
-**Files:**
-- `backend/utils/badges.py` - Badge definitions and award logic
-- `backend/routers/badges.py` - API routes
-- `frontend/src/components/BadgeDisplay.js` - Badge UI components
+**Multi-Language Support:**
+🇺🇸 English, 🇪🇸 Español, 🇨🇳 中文, 🇯🇵 日本語, 🇰🇷 한국어, 🇫🇷 Français, 🇩🇪 Deutsch, 🇧🇷 Português, 🇷🇺 Русский, 🇸🇦 العربية
 
-#### 2. Game Refactoring (COMPLETE)
-SpeedRunGame.js (~2140 lines) modularized into:
-- `/app/frontend/src/game/constants.js` - All game configuration
-- `/app/frontend/src/game/GameEngine.js` - Core logic, physics, collision
-- `/app/frontend/src/game/useGameState.js` - React state management hook
-- `/app/frontend/src/game/GameGuide.js` - In-game guide component
+#### 2. Lore/Origins Page (COMPLETE)
+New `/lore` page with complete Bullpug backstory:
+- Animated stars background
+- 7 chapters of lore content
+- The Cosmic Birth, Guardian's Mission, Era of Bullpughans
+- Newpug City, Guardians of PugChain, Festival of Barks, Legacy
 
-#### 3. Wallet Transfer Integration (COMPLETE)
-P2P Betting now prompts wallet for SOL transfer to escrow:
-- Uses `sendSolToEscrow()` function with wallet adapter
-- Shows transfer steps: prompting → signing → confirming
-- Transaction signature sent to backend for verification
-- Works for both Coin Flip and Winner Pot games
-
-#### 4. Solana Smart Contract (CODE READY - PENDING DEPLOY)
-Trustless P2P betting smart contract at `/app/solana-program/`:
-- Coinflip: 1v1 provably fair (commit-reveal scheme)
-- Pot Game: Multi-player winner-takes-all (slot hash randomness)
-- Deploy script: `./deploy.sh devnet` (requires Anchor CLI)
-- Vanity address generation with "PUG" prefix
+#### 3. Updated Menu Order (COMPLETE)
+New navigation: Home → Lore → Journal → Exit Sim → Game → Arena → Reflections → Forum
 
 ---
 
