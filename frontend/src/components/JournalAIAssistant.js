@@ -237,10 +237,10 @@ export default function JournalAIAssistant({ walletAddress }) {
           {/* Tabs */}
           <div className="flex border-b border-white/10">
             {[
-              { id: "insights", icon: Sparkles, label: "Insights" },
-              { id: "chat", icon: MessageSquare, label: "Chat" },
               { id: "holdings", icon: Wallet, label: "Holdings" },
               { id: "recommendations", icon: TrendingUp, label: "Top Picks" },
+              { id: "insights", icon: Sparkles, label: "Insights" },
+              { id: "chat", icon: MessageSquare, label: "Chat" },
             ].map(tab => (
               <button
                 key={tab.id}
