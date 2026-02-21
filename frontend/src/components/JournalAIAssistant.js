@@ -446,7 +446,10 @@ export default function JournalAIAssistant({ walletAddress }) {
             {activeTab === "recommendations" && (
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-xs font-medium text-slate-400 uppercase">Top 3 Coin Picks</h4>
+                  <div>
+                    <h4 className="text-xs font-medium text-slate-400 uppercase">Solana Memecoins</h4>
+                    <p className="text-[10px] text-[#00FFA3]">From Pump.fun, Raydium, Orca, Meteora & more</p>
+                  </div>
                   <button 
                     onClick={fetchRecommendations}
                     disabled={recsLoading}
@@ -460,7 +463,7 @@ export default function JournalAIAssistant({ walletAddress }) {
                 {recsLoading ? (
                   <div className="space-y-3">
                     {[1,2,3].map(i => (
-                      <div key={i} className="h-20 bg-white/5 rounded-lg animate-pulse" />
+                      <div key={i} className="h-24 bg-white/5 rounded-lg animate-pulse" />
                     ))}
                   </div>
                 ) : recommendations.length === 0 ? (
@@ -484,12 +487,19 @@ export default function JournalAIAssistant({ walletAddress }) {
                               {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
                             </span>
                             <div>
-                              <p className="font-bold text-white">{coin.symbol}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-white">{coin.symbol}</p>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#D946EF]/20 text-[#D946EF] font-medium">
+                                  {coin.platform}
+                                </span>
+                              </div>
                               <p className="text-xs text-slate-500">{coin.name}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-mono text-sm text-white">${coin.price?.toFixed(6)}</p>
+                            <p className="font-mono text-sm text-white">
+                              ${coin.price < 0.001 ? coin.price?.toFixed(8) : coin.price?.toFixed(4)}
+                            </p>
                             <p className={`text-xs ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
                               {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(2)}%
                             </p>
@@ -497,33 +507,36 @@ export default function JournalAIAssistant({ walletAddress }) {
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div className="bg-black/20 rounded px-2 py-1">
-                            <span className="text-slate-500">Volume</span>
-                            <p className="text-white font-mono">${(coin.volume_24h / 1000).toFixed(0)}K</p>
+                            <span className="text-slate-500">24h Vol</span>
+                            <p className="text-white font-mono">
+                              ${coin.volume_24h >= 1000000 
+                                ? (coin.volume_24h / 1000000).toFixed(1) + 'M' 
+                                : (coin.volume_24h / 1000).toFixed(0) + 'K'}
+                            </p>
                           </div>
                           <div className="bg-black/20 rounded px-2 py-1">
                             <span className="text-slate-500">Liquidity</span>
-                            <p className={`font-medium ${coin.liquidity_locked ? 'text-[#00FFA3]' : 'text-yellow-400'}`}>
-                              {coin.liquidity_locked ? '🔒 Locked' : '⚠️ Open'}
+                            <p className="text-white font-mono">
+                              ${coin.liquidity_usd >= 1000000 
+                                ? (coin.liquidity_usd / 1000000).toFixed(1) + 'M' 
+                                : (coin.liquidity_usd / 1000).toFixed(0) + 'K'}
                             </p>
                           </div>
                           <div className="bg-black/20 rounded px-2 py-1">
                             <span className="text-slate-500">Status</span>
-                            <p className={`font-medium ${coin.bonded ? 'text-[#00FFA3]' : 'text-slate-400'}`}>
-                              {coin.bonded ? '✓ Bonded' : 'Not Bonded'}
+                            <p className={`font-medium ${coin.bonded ? 'text-[#00FFA3]' : 'text-yellow-400'}`}>
+                              {coin.bonded ? '✓ Strong' : '⚡ New'}
                             </p>
                           </div>
                         </div>
                         <p className="text-xs text-slate-400 mt-2">{coin.reason}</p>
-                        {coin.platform && (
-                          <p className="text-[10px] text-slate-600 mt-1">Launched on: {coin.platform}</p>
-                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
                 <p className="text-[10px] text-slate-600 mt-4 text-center">
-                  ⚠️ Not financial advice. Always DYOR before investing.
+                  ⚠️ Memecoins are highly volatile. Not financial advice. Always DYOR.
                 </p>
               </div>
             )}
