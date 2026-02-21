@@ -552,167 +552,154 @@ Keep each suggestion to one sentence. Focus on risk management and position sizi
 async def get_coin_recommendations(language: str = "en"):
     """Get top 3 Solana memecoin recommendations from specific platforms."""
     
-    # Allowed platforms for Solana memecoins
-    ALLOWED_PLATFORMS = [
-        "pumpfun", "pump.fun", "pump",
-        "raydium",
-        "orca",
-        "meteora",
-        "moonshot", "moonit",
-        "launchlab",
-        "blowfish", "blowfishbot",
-        "bags"
-    ]
-    
-    # Platform display names
-    PLATFORM_DISPLAY = {
-        "pumpfun": "Pump.fun",
-        "pump.fun": "Pump.fun",
-        "pump": "Pump.fun",
+    # Platform identifiers and display names
+    PLATFORM_CONFIG = {
         "raydium": "Raydium",
         "orca": "Orca",
         "meteora": "Meteora",
-        "moonshot": "Moonit",
-        "moonit": "Moonit",
-        "launchlab": "LaunchLab",
-        "blowfish": "Blowfishbot",
-        "blowfishbot": "Blowfishbot",
-        "bags": "Bags"
+        "pumpfun": "Pump.fun",
+        "pump": "Pump.fun",
     }
     
     try:
+        all_pairs = []
+        
         async with httpx.AsyncClient() as client:
-            # Fetch trending Solana tokens from DexScreener
-            resp = await client.get(
-                "https://api.dexscreener.com/latest/dex/search",
-                params={"q": "solana"},
-                headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
-                timeout=15.0
-            )
+            # Search for trending Solana tokens across platforms
+            search_terms = ["raydium", "orca", "meteora", "pump", "solana meme"]
             
-            if resp.status_code != 200:
-                raise Exception(f"DexScreener API error: {resp.status_code}")
-            
-            data = resp.json()
-            pairs = data.get("pairs", [])
-            
-            # Filter for Solana chain and allowed platforms
-            qualified_coins = []
-            seen_symbols = set()
-            
-            for pair in pairs:
-                # Must be Solana chain
-                if pair.get("chainId") != "solana":
-                    continue
-                
-                # Get DEX/platform info
-                dex_id = (pair.get("dexId", "") or "").lower()
-                
-                # Check if from allowed platform
-                platform_match = None
-                for allowed in ALLOWED_PLATFORMS:
-                    if allowed in dex_id:
-                        platform_match = PLATFORM_DISPLAY.get(allowed, allowed.title())
-                        break
-                
-                if not platform_match:
-                    continue
-                
-                # Get token info
-                base_token = pair.get("baseToken", {})
-                symbol = base_token.get("symbol", "?").upper()
-                
-                # Skip duplicates and stablecoins
-                if symbol in seen_symbols:
-                    continue
-                if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD"]:
-                    continue
-                
-                seen_symbols.add(symbol)
-                
-                # Get metrics
-                volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
-                liquidity_usd = float(pair.get("liquidity", {}).get("usd", 0) or 0)
-                price_usd = float(pair.get("priceUsd", 0) or 0)
-                price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
-                fdv = float(pair.get("fdv", 0) or 0)
-                
-                # Criteria: Volume > 50k, has liquidity
-                if volume_24h < 50000:
-                    continue
-                if liquidity_usd < 10000:
-                    continue
-                
-                qualified_coins.append({
-                    "symbol": symbol,
-                    "name": base_token.get("name", symbol),
-                    "price": price_usd,
-                    "change_24h": price_change_24h,
-                    "volume_24h": volume_24h,
-                    "liquidity_usd": liquidity_usd,
-                    "fdv": fdv,
-                    "liquidity_locked": liquidity_usd > 100000,
-                    "bonded": fdv > 500000,
-                    "platform": platform_match,
-                    "pair_address": pair.get("pairAddress", ""),
-                    "token_address": base_token.get("address", ""),
-                    "reason": "",
-                    "_score": 0
-                })
-            
-            # Score and sort coins
-            for coin in qualified_coins:
-                coin["_score"] = (
-                    (coin["volume_24h"] / 100000) * 0.35 +
-                    (max(0, coin["change_24h"]) * 0.25) +
-                    (coin["liquidity_usd"] / 50000) * 0.2 +
-                    (1 if coin["liquidity_locked"] else 0) * 10 +
-                    (1 if coin["bonded"] else 0) * 10
-                )
-            
-            qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
-            top_coins = qualified_coins[:3]
-            
-            # Generate AI reasons for each
-            if EMERGENT_LLM_KEY and top_coins:
+            for term in search_terms:
                 try:
-                    lang_instruction = f"Respond in {language}." if language != "en" else ""
+                    resp = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/search",
+                        params={"q": term},
+                        headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
+                        timeout=10.0
+                    )
                     
-                    for coin in top_coins:
-                        prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} is worth watching.
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        pairs = data.get("pairs", []) or []
+                        all_pairs.extend(pairs)
+                except Exception as e:
+                    logger.warning(f"Search for {term} failed: {e}")
+                    continue
+        
+        # Filter for Solana chain and allowed platforms
+        qualified_coins = []
+        seen_symbols = set()
+        
+        for pair in all_pairs:
+            # Must be Solana chain
+            if pair.get("chainId") != "solana":
+                continue
+            
+            # Get DEX/platform info
+            dex_id = (pair.get("dexId", "") or "").lower()
+            
+            # Check if from allowed platform
+            platform_match = None
+            for key, display_name in PLATFORM_CONFIG.items():
+                if key in dex_id:
+                    platform_match = display_name
+                    break
+            
+            if not platform_match:
+                continue
+            
+            # Get token info
+            base_token = pair.get("baseToken", {})
+            symbol = base_token.get("symbol", "?").upper()
+            
+            # Skip duplicates and major tokens
+            if symbol in seen_symbols:
+                continue
+            if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA"]:
+                continue
+            
+            seen_symbols.add(symbol)
+            
+            # Get metrics
+            volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
+            liquidity_usd = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+            price_usd = float(pair.get("priceUsd", 0) or 0)
+            price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+            fdv = float(pair.get("fdv", 0) or 0)
+            
+            # Criteria: Volume > 50k, has liquidity
+            if volume_24h < 50000:
+                continue
+            if liquidity_usd < 10000:
+                continue
+            
+            qualified_coins.append({
+                "symbol": symbol,
+                "name": base_token.get("name", symbol),
+                "price": price_usd,
+                "change_24h": price_change_24h,
+                "volume_24h": volume_24h,
+                "liquidity_usd": liquidity_usd,
+                "fdv": fdv,
+                "liquidity_locked": liquidity_usd > 100000,
+                "bonded": fdv > 500000,
+                "platform": platform_match,
+                "reason": "",
+                "_score": 0
+            })
+        
+        # Score and sort coins
+        for coin in qualified_coins:
+            coin["_score"] = (
+                (coin["volume_24h"] / 100000) * 0.35 +
+                (max(0, coin["change_24h"]) * 0.25) +
+                (coin["liquidity_usd"] / 50000) * 0.2 +
+                (1 if coin["liquidity_locked"] else 0) * 10 +
+                (1 if coin["bonded"] else 0) * 10
+            )
+        
+        qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
+        top_coins = qualified_coins[:3]
+        
+        # Generate AI reasons for each
+        if EMERGENT_LLM_KEY and top_coins:
+            try:
+                lang_instruction = f"Respond in {language}." if language != "en" else ""
+                
+                for coin in top_coins:
+                    prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} is worth watching.
 Volume: ${coin['volume_24h']:,.0f}, Liquidity: ${coin['liquidity_usd']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
 {lang_instruction}
 Focus on the metrics and momentum. This is a Solana memecoin."""
 
-                        llm_chat = LlmChat(
-                            api_key=EMERGENT_LLM_KEY,
-                            session_id=f"rec-{uuid.uuid4()}"
-                        ).with_model("openai", "gpt-4o")
-                        
-                        reason = await llm_chat.send_message(UserMessage(text=prompt))
-                        coin["reason"] = reason.strip()[:150]
-                        
-                except Exception as e:
-                    logger.error(f"Recommendation reason error: {e}")
-                    for coin in top_coins:
-                        coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
-            else:
+                    llm_chat = LlmChat(
+                        api_key=EMERGENT_LLM_KEY,
+                        session_id=f"rec-{uuid.uuid4()}"
+                    ).with_model("openai", "gpt-4o")
+                    
+                    reason = await llm_chat.send_message(UserMessage(text=prompt))
+                    coin["reason"] = reason.strip()[:150]
+                    
+            except Exception as e:
+                logger.error(f"Recommendation reason error: {e}")
                 for coin in top_coins:
                     coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
-            
-            # Clean up response
+        else:
             for coin in top_coins:
-                coin.pop("_score", None)
-                coin.pop("pair_address", None)
-                coin.pop("token_address", None)
-            
-            return {
-                "recommendations": top_coins,
-                "source": "DexScreener",
-                "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile."
-            }
+                coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
+        
+        # Clean up response
+        for coin in top_coins:
+            coin.pop("_score", None)
+        
+        logger.info(f"Found {len(qualified_coins)} qualified coins, returning top {len(top_coins)}")
+        
+        return {
+            "recommendations": top_coins,
+            "source": "DexScreener",
+            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile."
+        }
         
     except Exception as e:
         logger.error(f"Recommendations error: {e}")
