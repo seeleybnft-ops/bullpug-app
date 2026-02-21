@@ -169,7 +169,7 @@ Use markdown formatting with **bold** for emphasis. Be conversational but data-d
         return generate_fallback_exit_suggestion(context, journal_summary, live_price)
 
 
-async def generate_llm_journal_insight(journal_summary: Dict, holdings_overnight: List[Dict]) -> str:
+async def generate_llm_journal_insight(journal_summary: Dict, holdings_overnight: List[Dict], language: str = "en") -> str:
     """Generate daily insight using LLM for journal dashboard."""
     
     if not EMERGENT_LLM_KEY:
@@ -177,18 +177,23 @@ async def generate_llm_journal_insight(journal_summary: Dict, holdings_overnight
         return generate_fallback_journal_insight(journal_summary, holdings_overnight)
     
     try:
+        lang_instruction = f"Respond entirely in {language} language." if language != "en" else ""
+        
         if not journal_summary.get("has_trades"):
-            return """Good morning! ☀️
+            welcome_prompt = f"""Generate a welcoming message for a new user of a trading journal app.
+{lang_instruction}
+Include:
+- A warm greeting with emoji
+- Brief list of features they can unlock by logging trades
+- Encouraging call to action to log their first trade
+Keep it under 100 words. Use markdown formatting."""
 
-**Welcome to your Trading Journal!**
-
-You haven't logged any trades yet. Start tracking your trades to unlock:
-- 📊 Performance analytics and win rate tracking
-- 🧠 AI-powered insights tailored to your trading style
-- 📈 P&L visualization and trend analysis
-- 💡 Daily personalized suggestions
-
-**Tip:** Log your first trade to begin your journey to better trading! The more data you provide, the smarter your insights become."""
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"journal-welcome-{uuid.uuid4()}"
+            ).with_model("openai", "gpt-4o")
+            
+            return await chat.send_message(UserMessage(text=welcome_prompt))
 
         hour = datetime.now().hour
         if hour < 12:
