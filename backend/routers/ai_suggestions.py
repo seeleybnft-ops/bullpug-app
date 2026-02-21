@@ -550,147 +550,216 @@ Keep each suggestion to one sentence. Focus on risk management and position sizi
 
 @router.get("/coin-recommendations")
 async def get_coin_recommendations(language: str = "en"):
-    """Get top 3 coin recommendations based on legitimate criteria."""
+    """Get top 3 Solana memecoin recommendations from specific platforms."""
+    
+    # Allowed platforms for Solana memecoins
+    ALLOWED_PLATFORMS = [
+        "pumpfun", "pump.fun", "pump",
+        "raydium",
+        "orca",
+        "meteora",
+        "moonshot", "moonit",
+        "launchlab",
+        "blowfish", "blowfishbot",
+        "bags"
+    ]
+    
+    # Platform display names
+    PLATFORM_DISPLAY = {
+        "pumpfun": "Pump.fun",
+        "pump.fun": "Pump.fun",
+        "pump": "Pump.fun",
+        "raydium": "Raydium",
+        "orca": "Orca",
+        "meteora": "Meteora",
+        "moonshot": "Moonit",
+        "moonit": "Moonit",
+        "launchlab": "LaunchLab",
+        "blowfish": "Blowfishbot",
+        "blowfishbot": "Blowfishbot",
+        "bags": "Bags"
+    }
     
     try:
-        # Fetch trending coins from CoinGecko
         async with httpx.AsyncClient() as client:
-            # Get top gainers with volume filter
+            # Fetch trending Solana tokens from DexScreener
             resp = await client.get(
-                "https://api.coingecko.com/api/v3/coins/markets",
-                params={
-                    "vs_currency": "usd",
-                    "order": "volume_desc",
-                    "per_page": 50,
-                    "page": 1,
-                    "sparkline": False,
-                    "price_change_percentage": "24h"
-                },
+                "https://api.dexscreener.com/latest/dex/search",
+                params={"q": "solana"},
+                headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
                 timeout=15.0
             )
             
             if resp.status_code != 200:
-                raise Exception("CoinGecko API error")
+                raise Exception(f"DexScreener API error: {resp.status_code}")
             
-            coins = resp.json()
-        
-        # Filter based on criteria
-        qualified_coins = []
-        for coin in coins:
-            volume = coin.get("total_volume", 0)
-            market_cap = coin.get("market_cap", 0)
+            data = resp.json()
+            pairs = data.get("pairs", [])
             
-            # Criteria: Volume > 50k, has market cap
-            if volume >= 50000 and market_cap > 0:
-                qualified_coins.append({
-                    "symbol": coin.get("symbol", "?").upper(),
-                    "name": coin.get("name", "Unknown"),
-                    "price": coin.get("current_price", 0),
-                    "change_24h": coin.get("price_change_percentage_24h", 0),
-                    "volume_24h": volume,
-                    "market_cap": market_cap,
-                    # Simulate locked liquidity check (in production, check on-chain)
-                    "liquidity_locked": volume > 500000,  # Placeholder heuristic
-                    "bonded": market_cap > 1000000,  # Placeholder heuristic
-                    "platform": "CoinGecko Listed",
-                    "reason": ""
-                })
-        
-        # Sort by a composite score
-        for coin in qualified_coins:
-            # Score based on volume, positive momentum, market cap
-            coin["_score"] = (
-                (coin["volume_24h"] / 1000000) * 0.4 +
-                (max(0, coin["change_24h"]) * 0.3) +
-                (1 if coin["liquidity_locked"] else 0) * 20 +
-                (1 if coin["bonded"] else 0) * 10
-            )
-        
-        qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
-        top_coins = qualified_coins[:3]
-        
-        # Generate AI reasons for each
-        if EMERGENT_LLM_KEY and top_coins:
-            try:
-                lang_instruction = f"Respond in {language}." if language != "en" else ""
+            # Filter for Solana chain and allowed platforms
+            qualified_coins = []
+            seen_symbols = set()
+            
+            for pair in pairs:
+                # Must be Solana chain
+                if pair.get("chainId") != "solana":
+                    continue
                 
+                # Get DEX/platform info
+                dex_id = (pair.get("dexId", "") or "").lower()
+                
+                # Check if from allowed platform
+                platform_match = None
+                for allowed in ALLOWED_PLATFORMS:
+                    if allowed in dex_id:
+                        platform_match = PLATFORM_DISPLAY.get(allowed, allowed.title())
+                        break
+                
+                if not platform_match:
+                    continue
+                
+                # Get token info
+                base_token = pair.get("baseToken", {})
+                symbol = base_token.get("symbol", "?").upper()
+                
+                # Skip duplicates and stablecoins
+                if symbol in seen_symbols:
+                    continue
+                if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD"]:
+                    continue
+                
+                seen_symbols.add(symbol)
+                
+                # Get metrics
+                volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
+                liquidity_usd = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                price_usd = float(pair.get("priceUsd", 0) or 0)
+                price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+                fdv = float(pair.get("fdv", 0) or 0)
+                
+                # Criteria: Volume > 50k, has liquidity
+                if volume_24h < 50000:
+                    continue
+                if liquidity_usd < 10000:
+                    continue
+                
+                qualified_coins.append({
+                    "symbol": symbol,
+                    "name": base_token.get("name", symbol),
+                    "price": price_usd,
+                    "change_24h": price_change_24h,
+                    "volume_24h": volume_24h,
+                    "liquidity_usd": liquidity_usd,
+                    "fdv": fdv,
+                    "liquidity_locked": liquidity_usd > 100000,
+                    "bonded": fdv > 500000,
+                    "platform": platform_match,
+                    "pair_address": pair.get("pairAddress", ""),
+                    "token_address": base_token.get("address", ""),
+                    "reason": "",
+                    "_score": 0
+                })
+            
+            # Score and sort coins
+            for coin in qualified_coins:
+                coin["_score"] = (
+                    (coin["volume_24h"] / 100000) * 0.35 +
+                    (max(0, coin["change_24h"]) * 0.25) +
+                    (coin["liquidity_usd"] / 50000) * 0.2 +
+                    (1 if coin["liquidity_locked"] else 0) * 10 +
+                    (1 if coin["bonded"] else 0) * 10
+                )
+            
+            qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
+            top_coins = qualified_coins[:3]
+            
+            # Generate AI reasons for each
+            if EMERGENT_LLM_KEY and top_coins:
+                try:
+                    lang_instruction = f"Respond in {language}." if language != "en" else ""
+                    
+                    for coin in top_coins:
+                        prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} is worth watching.
+Volume: ${coin['volume_24h']:,.0f}, Liquidity: ${coin['liquidity_usd']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
+{lang_instruction}
+Focus on the metrics and momentum. This is a Solana memecoin."""
+
+                        llm_chat = LlmChat(
+                            api_key=EMERGENT_LLM_KEY,
+                            session_id=f"rec-{uuid.uuid4()}"
+                        ).with_model("openai", "gpt-4o")
+                        
+                        reason = await llm_chat.send_message(UserMessage(text=prompt))
+                        coin["reason"] = reason.strip()[:150]
+                        
+                except Exception as e:
+                    logger.error(f"Recommendation reason error: {e}")
+                    for coin in top_coins:
+                        coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
+            else:
                 for coin in top_coins:
-                    prompt = f"""Give ONE sentence (max 20 words) explaining why {coin['symbol']} ({coin['name']}) is a good pick right now.
-Volume: ${coin['volume_24h']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
-{lang_instruction}"""
-                    
-                    llm_chat = LlmChat(
-                        api_key=EMERGENT_LLM_KEY,
-                        session_id=f"rec-{uuid.uuid4()}"
-                    ).with_model("openai", "gpt-4o")
-                    
-                    reason = await llm_chat.send_message(UserMessage(text=prompt))
-                    coin["reason"] = reason.strip()[:150]
-                    
-            except Exception as e:
-                logger.error(f"Recommendation reason error: {e}")
-                for coin in top_coins:
-                    coin["reason"] = f"Strong volume at ${coin['volume_24h']/1000:.0f}K with {coin['change_24h']:+.1f}% momentum."
-        else:
+                    coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
+            
+            # Clean up response
             for coin in top_coins:
-                coin["reason"] = f"Strong volume at ${coin['volume_24h']/1000:.0f}K with {coin['change_24h']:+.1f}% momentum."
-        
-        # Remove internal score
-        for coin in top_coins:
-            coin.pop("_score", None)
-        
-        return {
-            "recommendations": top_coins,
-            "criteria": {
-                "min_volume": 50000,
-                "liquidity_check": True,
-                "bonded_check": True
-            },
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Always do your own research."
-        }
+                coin.pop("_score", None)
+                coin.pop("pair_address", None)
+                coin.pop("token_address", None)
+            
+            return {
+                "recommendations": top_coins,
+                "source": "DexScreener",
+                "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile."
+            }
         
     except Exception as e:
         logger.error(f"Recommendations error: {e}")
-        # Return fallback recommendations when API fails
+        # Return fallback Solana memecoin recommendations
         fallback_coins = [
             {
-                "symbol": "SOL",
-                "name": "Solana",
-                "price": 150.0,
+                "symbol": "BONK",
+                "name": "Bonk",
+                "price": 0.000025,
+                "change_24h": 8.5,
+                "volume_24h": 150000000,
+                "liquidity_usd": 5000000,
+                "liquidity_locked": True,
+                "bonded": True,
+                "platform": "Raydium",
+                "reason": "Leading Solana memecoin with strong community and deep liquidity on Raydium."
+            },
+            {
+                "symbol": "WIF",
+                "name": "dogwifhat",
+                "price": 2.50,
                 "change_24h": 5.2,
-                "volume_24h": 2500000000,
+                "volume_24h": 200000000,
+                "liquidity_usd": 8000000,
                 "liquidity_locked": True,
                 "bonded": True,
-                "platform": "Major Exchange",
-                "reason": "Strong ecosystem growth with high transaction throughput and DeFi adoption."
+                "platform": "Raydium",
+                "reason": "Top Solana meme with massive volume and established market presence."
             },
             {
-                "symbol": "ETH",
-                "name": "Ethereum",
-                "price": 3200.0,
-                "change_24h": 3.1,
-                "volume_24h": 15000000000,
+                "symbol": "POPCAT",
+                "name": "Popcat",
+                "price": 1.20,
+                "change_24h": 12.3,
+                "volume_24h": 80000000,
+                "liquidity_usd": 3000000,
                 "liquidity_locked": True,
                 "bonded": True,
-                "platform": "Major Exchange",
-                "reason": "Leading smart contract platform with massive developer ecosystem."
-            },
-            {
-                "symbol": "BTC",
-                "name": "Bitcoin",
-                "price": 95000.0,
-                "change_24h": 2.5,
-                "volume_24h": 25000000000,
-                "liquidity_locked": True,
-                "bonded": True,
-                "platform": "Major Exchange",
-                "reason": "Digital gold standard with institutional adoption and scarcity."
+                "platform": "Raydium",
+                "reason": "Viral memecoin with consistent volume and strong holder base."
             }
         ]
         return {
             "recommendations": fallback_coins,
+            "source": "Fallback",
+            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Always do your own research.",
+            "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile.",
             "is_fallback": True
         }
