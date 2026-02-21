@@ -513,6 +513,29 @@ Keep each suggestion to one sentence. Focus on risk management and position sizi
                 suggestions = [s.strip() for s in response.split("\n") if s.strip() and len(s.strip()) > 10][:3]
             except Exception as e:
                 logger.error(f"Holdings suggestion error: {e}")
+                # Fallback suggestions based on holdings
+                if holdings:
+                    top_holding = holdings[0]
+                    suggestions = [
+                        f"Consider setting stop-losses for your {top_holding['symbol']} position to manage risk.",
+                        "Diversify across multiple assets to reduce portfolio volatility.",
+                        "Track your entry prices and set clear profit targets."
+                    ]
+        elif holdings:
+            # Provide default suggestions when no LLM available
+            top_holding = holdings[0]
+            suggestions = [
+                f"Your largest position is {top_holding['symbol']} - consider if this aligns with your risk tolerance.",
+                "Set price alerts for significant moves in your holdings.",
+                "Review positions regularly and adjust based on market conditions."
+            ]
+        else:
+            # Suggestions for users with no holdings
+            suggestions = [
+                "Start by logging your first trade to track your portfolio performance.",
+                "Use the Trading Journal to analyze your trading patterns over time.",
+                "Check the Top Picks tab for trending coins with strong fundamentals."
+            ]
         
         return {
             "holdings": sorted(holdings, key=lambda x: x["value"], reverse=True)[:10],
