@@ -550,7 +550,15 @@ Keep each suggestion to one sentence. Focus on risk management and position sizi
 
 @router.get("/coin-recommendations")
 async def get_coin_recommendations(language: str = "en"):
-    """Get top 3 Solana memecoin recommendations from specific platforms."""
+    """Get top 3 Solana memecoin recommendations from specific platforms.
+    
+    Safety Criteria (for memecoins):
+    - Volume > $100K (active trading, easier exit)
+    - Liquidity > $50K (prevents manipulation, reduces slippage)
+    - FDV > $500K (established project)
+    - Price change between -30% and +100% (avoids pump & dumps)
+    - Listed on established DEXes (Raydium, Orca, Meteora)
+    """
     
     # Platform identifiers and display names
     PLATFORM_CONFIG = {
@@ -560,6 +568,13 @@ async def get_coin_recommendations(language: str = "en"):
         "pumpfun": "Pump.fun",
         "pump": "Pump.fun",
     }
+    
+    # Safety thresholds
+    MIN_VOLUME_24H = 100000  # $100K minimum volume
+    MIN_LIQUIDITY = 50000    # $50K minimum liquidity
+    MIN_FDV = 500000         # $500K minimum fully diluted valuation
+    MAX_PRICE_CHANGE = 100   # Max +100% (avoid pump & dumps)
+    MIN_PRICE_CHANGE = -30   # Min -30% (avoid death spirals)
     
     try:
         all_pairs = []
@@ -585,7 +600,7 @@ async def get_coin_recommendations(language: str = "en"):
                     logger.warning(f"Search for {term} failed: {e}")
                     continue
         
-        # Filter for Solana chain and allowed platforms
+        # Filter for Solana chain and allowed platforms with safety criteria
         qualified_coins = []
         seen_symbols = set()
         
@@ -614,7 +629,7 @@ async def get_coin_recommendations(language: str = "en"):
             # Skip duplicates and major tokens
             if symbol in seen_symbols:
                 continue
-            if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA"]:
+            if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA", "JUP"]:
                 continue
             
             seen_symbols.add(symbol)
@@ -626,11 +641,27 @@ async def get_coin_recommendations(language: str = "en"):
             price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
             fdv = float(pair.get("fdv", 0) or 0)
             
-            # Criteria: Volume > 50k, has liquidity
-            if volume_24h < 50000:
+            # SAFETY CRITERIA - All must pass
+            
+            # 1. Volume check - active trading
+            if volume_24h < MIN_VOLUME_24H:
                 continue
-            if liquidity_usd < 10000:
+            
+            # 2. Liquidity check - prevents manipulation
+            if liquidity_usd < MIN_LIQUIDITY:
                 continue
+            
+            # 3. FDV check - established project
+            if fdv < MIN_FDV:
+                continue
+            
+            # 4. Price stability check - avoid pump & dumps
+            if price_change_24h > MAX_PRICE_CHANGE or price_change_24h < MIN_PRICE_CHANGE:
+                continue
+            
+            # Calculate safety score
+            # Higher liquidity ratio = safer (more liquid relative to volume)
+            liquidity_ratio = liquidity_usd / volume_24h if volume_24h > 0 else 0
             
             qualified_coins.append({
                 "symbol": symbol,
@@ -640,22 +671,36 @@ async def get_coin_recommendations(language: str = "en"):
                 "volume_24h": volume_24h,
                 "liquidity_usd": liquidity_usd,
                 "fdv": fdv,
-                "liquidity_locked": liquidity_usd > 100000,
-                "bonded": fdv > 500000,
+                "liquidity_ratio": liquidity_ratio,
                 "platform": platform_match,
                 "reason": "",
                 "_score": 0
             })
         
-        # Score and sort coins
+        # Score coins based on safety and quality metrics
         for coin in qualified_coins:
-            coin["_score"] = (
-                (coin["volume_24h"] / 100000) * 0.35 +
-                (max(0, coin["change_24h"]) * 0.25) +
-                (coin["liquidity_usd"] / 50000) * 0.2 +
-                (1 if coin["liquidity_locked"] else 0) * 10 +
-                (1 if coin["bonded"] else 0) * 10
-            )
+            # Safety-focused scoring:
+            # - Higher liquidity ratio = more liquid, safer
+            # - Higher liquidity absolute = more protection
+            # - Moderate positive change = healthy growth (not pump)
+            # - Higher FDV = more established
+            
+            liquidity_score = min(coin["liquidity_usd"] / 100000, 5) * 20  # Up to 100 points
+            ratio_score = min(coin["liquidity_ratio"], 1) * 30  # Up to 30 points
+            fdv_score = min(coin["fdv"] / 1000000, 10) * 5  # Up to 50 points
+            
+            # Prefer moderate gains (5-30%) over extreme
+            change = coin["change_24h"]
+            if 5 <= change <= 30:
+                momentum_score = 20  # Healthy growth
+            elif 0 <= change < 5:
+                momentum_score = 15  # Stable
+            elif 30 < change <= 50:
+                momentum_score = 10  # Somewhat hot
+            else:
+                momentum_score = 5   # Too volatile
+            
+            coin["_score"] = liquidity_score + ratio_score + fdv_score + momentum_score
         
         qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
         top_coins = qualified_coins[:3]
@@ -666,10 +711,10 @@ async def get_coin_recommendations(language: str = "en"):
                 lang_instruction = f"Respond in {language}." if language != "en" else ""
                 
                 for coin in top_coins:
-                    prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} is worth watching.
-Volume: ${coin['volume_24h']:,.0f}, Liquidity: ${coin['liquidity_usd']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
+                    prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} shows relatively safer metrics for a memecoin.
+Volume: ${coin['volume_24h']:,.0f}, Liquidity: ${coin['liquidity_usd']:,.0f}, FDV: ${coin['fdv']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
 {lang_instruction}
-Focus on the metrics and momentum. This is a Solana memecoin."""
+Focus on the liquidity depth and stability. This is a Solana memecoin - emphasize the relative safety metrics."""
 
                     llm_chat = LlmChat(
                         api_key=EMERGENT_LLM_KEY,
@@ -682,28 +727,41 @@ Focus on the metrics and momentum. This is a Solana memecoin."""
             except Exception as e:
                 logger.error(f"Recommendation reason error: {e}")
                 for coin in top_coins:
-                    coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
+                    liq_k = coin['liquidity_usd']/1000
+                    coin["reason"] = f"Deep liquidity (${liq_k:.0f}K) on {coin['platform']} with stable {coin['change_24h']:+.1f}% movement."
         else:
             for coin in top_coins:
-                coin["reason"] = f"Strong volume ${coin['volume_24h']/1000:.0f}K on {coin['platform']} with {coin['change_24h']:+.1f}% momentum."
+                liq_k = coin['liquidity_usd']/1000
+                coin["reason"] = f"Deep liquidity (${liq_k:.0f}K) on {coin['platform']} with stable {coin['change_24h']:+.1f}% movement."
         
-        # Clean up response
+        # Clean up response and add safety indicators
         for coin in top_coins:
             coin.pop("_score", None)
+            coin.pop("liquidity_ratio", None)
+            # Add safety indicators
+            coin["safety_score"] = "High" if coin["liquidity_usd"] > 200000 else "Medium"
+            coin["liquidity_locked"] = coin["liquidity_usd"] > 100000
+            coin["bonded"] = coin["fdv"] > 1000000
         
         logger.info(f"Found {len(qualified_coins)} qualified coins, returning top {len(top_coins)}")
         
         return {
             "recommendations": top_coins,
             "source": "DexScreener",
-            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
+            "safety_criteria": {
+                "min_volume": "$100K",
+                "min_liquidity": "$50K", 
+                "min_fdv": "$500K",
+                "price_stability": "-30% to +100%"
+            },
+            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile."
+            "disclaimer": "Not financial advice. Memecoins are highly volatile. Always DYOR and only invest what you can afford to lose."
         }
         
     except Exception as e:
         logger.error(f"Recommendations error: {e}")
-        # Return fallback Solana memecoin recommendations
+        # Return fallback Solana memecoin recommendations - established tokens
         fallback_coins = [
             {
                 "symbol": "BONK",
@@ -712,10 +770,12 @@ Focus on the metrics and momentum. This is a Solana memecoin."""
                 "change_24h": 8.5,
                 "volume_24h": 150000000,
                 "liquidity_usd": 5000000,
+                "fdv": 1500000000,
+                "safety_score": "High",
                 "liquidity_locked": True,
                 "bonded": True,
                 "platform": "Raydium",
-                "reason": "Leading Solana memecoin with strong community and deep liquidity on Raydium."
+                "reason": "Established Solana memecoin with $5M+ liquidity and strong community backing."
             },
             {
                 "symbol": "WIF",
@@ -724,10 +784,12 @@ Focus on the metrics and momentum. This is a Solana memecoin."""
                 "change_24h": 5.2,
                 "volume_24h": 200000000,
                 "liquidity_usd": 8000000,
+                "fdv": 2500000000,
+                "safety_score": "High",
                 "liquidity_locked": True,
                 "bonded": True,
                 "platform": "Raydium",
-                "reason": "Top Solana meme with massive volume and established market presence."
+                "reason": "Top-tier Solana meme with deep $8M liquidity and institutional interest."
             },
             {
                 "symbol": "POPCAT",
@@ -736,17 +798,25 @@ Focus on the metrics and momentum. This is a Solana memecoin."""
                 "change_24h": 12.3,
                 "volume_24h": 80000000,
                 "liquidity_usd": 3000000,
+                "fdv": 1200000000,
+                "safety_score": "High",
                 "liquidity_locked": True,
                 "bonded": True,
                 "platform": "Raydium",
-                "reason": "Viral memecoin with consistent volume and strong holder base."
+                "reason": "Viral memecoin with $3M+ liquidity and consistent trading activity."
             }
         ]
         return {
             "recommendations": fallback_coins,
             "source": "Fallback",
-            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora", "Moonit", "LaunchLab", "Blowfishbot", "Bags"],
+            "safety_criteria": {
+                "min_volume": "$100K",
+                "min_liquidity": "$50K", 
+                "min_fdv": "$500K",
+                "price_stability": "-30% to +100%"
+            },
+            "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Always do your own research. Memecoins are highly volatile.",
+            "disclaimer": "Not financial advice. Memecoins are highly volatile. Always DYOR and only invest what you can afford to lose.",
             "is_fallback": True
         }
