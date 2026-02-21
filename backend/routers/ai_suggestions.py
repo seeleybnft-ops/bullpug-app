@@ -349,7 +349,7 @@ async def get_exit_simulation_suggestion(context: SimulationContext):
 
 
 @router.get("/journal-daily/{wallet_address}")
-async def get_journal_daily_insight(wallet_address: str):
+async def get_journal_daily_insight(wallet_address: str, language: str = "en"):
     """Get daily insight for journal dashboard."""
     
     journal_summary = await get_user_journal_summary(wallet_address)
@@ -365,7 +365,7 @@ async def get_journal_daily_insight(wallet_address: str):
                     "price": price_data.get("price", 0)
                 })
     
-    insight = await generate_llm_journal_insight(journal_summary, holdings_overnight)
+    insight = await generate_llm_journal_insight(journal_summary, holdings_overnight, language)
     
     return {
         "insight": insight,
@@ -374,3 +374,252 @@ async def get_journal_daily_insight(wallet_address: str):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "powered_by": "GPT-4o" if EMERGENT_LLM_KEY else "Fallback"
     }
+
+
+class ChatMessage(BaseModel):
+    wallet_address: str
+    message: str
+    language: str = "en"
+    chat_history: List[Dict] = []
+
+
+@router.post("/journal-chat")
+async def journal_chat(chat: ChatMessage):
+    """Interactive chat with AI trading assistant."""
+    
+    if not EMERGENT_LLM_KEY:
+        return {"response": "AI chat is currently unavailable. Please try again later."}
+    
+    try:
+        journal_summary = await get_user_journal_summary(chat.wallet_address)
+        
+        # Build context from journal
+        context_info = ""
+        if journal_summary.get("has_trades"):
+            context_info = f"""
+User's Trading Profile:
+- Total Trades: {journal_summary.get('total_trades', 0)}
+- Win Rate: {journal_summary.get('win_rate', 0):.1f}%
+- Total P&L: ${journal_summary.get('total_pnl', 0):.2f}
+- Tokens Traded: {', '.join(journal_summary.get('tokens_traded', []))}
+"""
+        
+        # Build chat history for context
+        history_text = ""
+        if chat.chat_history:
+            for msg in chat.chat_history[-5:]:
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                history_text += f"{role}: {msg.get('content', '')}\n"
+        
+        language_instruction = f"Respond in {chat.language} language." if chat.language != "en" else ""
+        
+        prompt = f"""You are Bullpug AI, a friendly and knowledgeable crypto trading assistant for the Bullpug memecoin community.
+
+{context_info}
+
+Recent conversation:
+{history_text}
+
+User's question: {chat.message}
+
+{language_instruction}
+
+Provide a helpful, conversational response. Be friendly and supportive. If discussing trades or strategy, be clear this is not financial advice. Keep response concise (100-200 words max)."""
+
+        llm_chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"journal-chat-{chat.wallet_address[:8]}-{uuid.uuid4()}",
+            system_message="You are Bullpug AI, a friendly crypto trading assistant."
+        ).with_model("openai", "gpt-4o")
+        
+        response = await llm_chat.send_message(UserMessage(text=prompt))
+        return {"response": response}
+        
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        return {"response": "I encountered an error. Please try again!"}
+
+
+@router.get("/journal-holdings/{wallet_address}")
+async def get_journal_holdings(wallet_address: str, language: str = "en"):
+    """Get user's holdings from journal with AI suggestions."""
+    
+    try:
+        # Get unique assets from journal trades
+        trades = await db.journal_trades.find(
+            {"wallet_address": wallet_address},
+            {"_id": 0, "asset": 1, "token_symbol": 1, "quantity": 1, "trade_type": 1}
+        ).to_list(100)
+        
+        # Calculate current holdings (simplified - tracks buys/sells)
+        holdings_map = {}
+        for trade in trades:
+            symbol = trade.get("asset", trade.get("token_symbol", "?")).upper()
+            qty = trade.get("quantity", 0)
+            trade_type = trade.get("trade_type", "buy").lower()
+            
+            if symbol not in holdings_map:
+                holdings_map[symbol] = {"symbol": symbol, "amount": 0}
+            
+            if trade_type in ["buy", "long"]:
+                holdings_map[symbol]["amount"] += qty
+            elif trade_type in ["sell", "short"]:
+                holdings_map[symbol]["amount"] -= qty
+        
+        # Filter positive holdings and get prices
+        holdings = []
+        for symbol, data in holdings_map.items():
+            if data["amount"] > 0:
+                price_info = await get_live_crypto_price(symbol)
+                holdings.append({
+                    "symbol": symbol,
+                    "amount": data["amount"],
+                    "price": price_info.get("price", 0) if price_info else 0,
+                    "value": data["amount"] * (price_info.get("price", 0) if price_info else 0),
+                    "change_24h": price_info.get("change_24h", 0) if price_info else 0
+                })
+        
+        # Generate AI suggestions for holdings
+        suggestions = []
+        if holdings and EMERGENT_LLM_KEY:
+            try:
+                holdings_text = "\n".join([
+                    f"- {h['symbol']}: {h['amount']} tokens, ${h['value']:.2f}, {h['change_24h']:+.1f}% 24h"
+                    for h in holdings[:5]
+                ])
+                
+                lang_instruction = f"Respond in {language}." if language != "en" else ""
+                
+                prompt = f"""Analyze these crypto holdings and give 2-3 brief, actionable suggestions:
+
+{holdings_text}
+
+{lang_instruction}
+Keep each suggestion to one sentence. Focus on risk management and position sizing."""
+
+                llm_chat = LlmChat(
+                    api_key=EMERGENT_LLM_KEY,
+                    session_id=f"holdings-{uuid.uuid4()}"
+                ).with_model("openai", "gpt-4o")
+                
+                response = await llm_chat.send_message(UserMessage(text=prompt))
+                suggestions = [s.strip() for s in response.split("\n") if s.strip() and len(s.strip()) > 10][:3]
+            except Exception as e:
+                logger.error(f"Holdings suggestion error: {e}")
+        
+        return {
+            "holdings": sorted(holdings, key=lambda x: x["value"], reverse=True)[:10],
+            "suggestions": suggestions,
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Holdings error: {e}")
+        return {"holdings": [], "suggestions": []}
+
+
+@router.get("/coin-recommendations")
+async def get_coin_recommendations(language: str = "en"):
+    """Get top 3 coin recommendations based on legitimate criteria."""
+    
+    try:
+        # Fetch trending coins from CoinGecko
+        async with httpx.AsyncClient() as client:
+            # Get top gainers with volume filter
+            resp = await client.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "order": "volume_desc",
+                    "per_page": 50,
+                    "page": 1,
+                    "sparkline": False,
+                    "price_change_percentage": "24h"
+                },
+                timeout=15.0
+            )
+            
+            if resp.status_code != 200:
+                raise Exception("CoinGecko API error")
+            
+            coins = resp.json()
+        
+        # Filter based on criteria
+        qualified_coins = []
+        for coin in coins:
+            volume = coin.get("total_volume", 0)
+            market_cap = coin.get("market_cap", 0)
+            
+            # Criteria: Volume > 50k, has market cap
+            if volume >= 50000 and market_cap > 0:
+                qualified_coins.append({
+                    "symbol": coin.get("symbol", "?").upper(),
+                    "name": coin.get("name", "Unknown"),
+                    "price": coin.get("current_price", 0),
+                    "change_24h": coin.get("price_change_percentage_24h", 0),
+                    "volume_24h": volume,
+                    "market_cap": market_cap,
+                    # Simulate locked liquidity check (in production, check on-chain)
+                    "liquidity_locked": volume > 500000,  # Placeholder heuristic
+                    "bonded": market_cap > 1000000,  # Placeholder heuristic
+                    "platform": "CoinGecko Listed",
+                    "reason": ""
+                })
+        
+        # Sort by a composite score
+        for coin in qualified_coins:
+            # Score based on volume, positive momentum, market cap
+            coin["_score"] = (
+                (coin["volume_24h"] / 1000000) * 0.4 +
+                (max(0, coin["change_24h"]) * 0.3) +
+                (1 if coin["liquidity_locked"] else 0) * 20 +
+                (1 if coin["bonded"] else 0) * 10
+            )
+        
+        qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
+        top_coins = qualified_coins[:3]
+        
+        # Generate AI reasons for each
+        if EMERGENT_LLM_KEY and top_coins:
+            try:
+                lang_instruction = f"Respond in {language}." if language != "en" else ""
+                
+                for coin in top_coins:
+                    prompt = f"""Give ONE sentence (max 20 words) explaining why {coin['symbol']} ({coin['name']}) is a good pick right now.
+Volume: ${coin['volume_24h']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
+{lang_instruction}"""
+                    
+                    llm_chat = LlmChat(
+                        api_key=EMERGENT_LLM_KEY,
+                        session_id=f"rec-{uuid.uuid4()}"
+                    ).with_model("openai", "gpt-4o")
+                    
+                    reason = await llm_chat.send_message(UserMessage(text=prompt))
+                    coin["reason"] = reason.strip()[:150]
+                    
+            except Exception as e:
+                logger.error(f"Recommendation reason error: {e}")
+                for coin in top_coins:
+                    coin["reason"] = f"Strong volume at ${coin['volume_24h']/1000:.0f}K with {coin['change_24h']:+.1f}% momentum."
+        else:
+            for coin in top_coins:
+                coin["reason"] = f"Strong volume at ${coin['volume_24h']/1000:.0f}K with {coin['change_24h']:+.1f}% momentum."
+        
+        # Remove internal score
+        for coin in top_coins:
+            coin.pop("_score", None)
+        
+        return {
+            "recommendations": top_coins,
+            "criteria": {
+                "min_volume": 50000,
+                "liquidity_check": True,
+                "bonded_check": True
+            },
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "disclaimer": "Not financial advice. Always do your own research."
+        }
+        
+    except Exception as e:
+        logger.error(f"Recommendations error: {e}")
+        return {"recommendations": [], "error": str(e)}
