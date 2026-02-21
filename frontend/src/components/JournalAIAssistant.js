@@ -60,7 +60,7 @@ export default function JournalAIAssistant({ walletAddress }) {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // Load initial data
+  // Load initial data when wallet connects
   useEffect(() => {
     if (walletAddress) {
       fetchInsights();
@@ -69,12 +69,23 @@ export default function JournalAIAssistant({ walletAddress }) {
     }
   }, [walletAddress, language]);
 
-  // Auto-refresh holdings every 60 seconds
+  // Also fetch recommendations on component mount (no wallet needed)
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  // Auto-refresh holdings every 60 seconds when wallet connected
   useEffect(() => {
     if (!walletAddress) return;
     const interval = setInterval(fetchHoldings, 60000);
     return () => clearInterval(interval);
   }, [walletAddress]);
+
+  // Auto-refresh recommendations every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(fetchRecommendations, 300000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchInsights = async () => {
     setInsightsLoading(true);
