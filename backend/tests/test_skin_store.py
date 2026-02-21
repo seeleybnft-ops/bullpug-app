@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pug-guardian-v1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bullpug-launch.preview.emergentagent.com').rstrip('/')
 
 class TestSkinsAPI:
     """Tests for /api/skins/* endpoints"""
