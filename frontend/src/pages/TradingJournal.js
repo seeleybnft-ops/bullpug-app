@@ -394,14 +394,8 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
         </div>
       )}
 
-      {/* AI Daily Insight */}
-      {walletAddress && (
-        <AISuggestionBubble 
-          type="journal"
-          walletAddress={walletAddress}
-          data-testid="journal-ai-bubble"
-        />
-      )}
+      {/* AI Trading Assistant */}
+      <JournalAIAssistant walletAddress={walletAddress} />
     </div>
   );
 }
