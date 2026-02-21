@@ -53,13 +53,13 @@ export default function Navbar() {
 
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/" },
+    { name: t('nav.lore') || "Lore", path: "/lore" },
+    { name: t('nav.journal'), path: "/journal" },
+    { name: t('nav.exitSim'), path: "/exit-simulator" },
     { name: t('nav.game'), path: "/game" },
     { name: t('nav.arena'), path: "/betting" },
     { name: t('nav.reflections'), path: "/reflections" },
-    { name: t('nav.exitSim'), path: "/exit-simulator" },
-    { name: t('nav.journal'), path: "/journal" },
     { name: t('nav.forum'), path: "/forum" },
-    // { name: t('nav.wallet'), path: "/wallet" },  // Hidden until coin launch
   ];
 
   return (
