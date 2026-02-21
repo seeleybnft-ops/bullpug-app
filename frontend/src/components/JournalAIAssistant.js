@@ -32,7 +32,7 @@ const AI_LANGUAGES = [
 export default function JournalAIAssistant({ walletAddress }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState("insights"); // insights, chat, holdings, recommendations
+  const [activeTab, setActiveTab] = useState("holdings"); // holdings, recommendations, insights, chat
   const [language, setLanguage] = useState("en");
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   
