@@ -12,8 +12,8 @@ import {
   BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash,
   Download, FileText, Calculator, Percent, ChevronDown, Wallet, Trophy
 } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Line, Bar } from "react-chartjs-2";
+import { PieChart, Pie, Cell, BarChart, Bar as RechartsBar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line as RechartsLine } from "recharts";
+import { Line as ChartLine, Bar as ChartBar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
 import jsPDF from "jspdf";
 import JournalAIAssistant from "@/components/JournalAIAssistant";
