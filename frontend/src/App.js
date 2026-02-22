@@ -47,7 +47,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/lore" element={<Lore />} />
                 <Route path="/journal" element={<TradingJournal />} />
-                <Route path="/exit-simulator" element={<ExitSimulator />} />
+                <Route path="/exit-simulator" element={<TradingJournal />} /> {/* Redirect to combined page */}
                 <Route path="/game" element={<SpeedRunGame />} />
                 <Route path="/betting" element={<BettingArena />} />
                 <Route path="/reflections" element={<ReflectionsCalculator />} />
