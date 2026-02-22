@@ -204,9 +204,13 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                 <h3 className="text-sm font-bold text-white flex items-center gap-1">
                   Bullpug AI
                   <Sparkles className="w-3 h-3 text-[#FFD700]" />
+                  <span className="ml-1 px-1.5 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] text-[8px] rounded font-medium flex items-center gap-0.5">
+                    <span className="w-1 h-1 bg-[#00FFA3] rounded-full animate-pulse" />
+                    LIVE
+                  </span>
                 </h3>
                 {!isMinimized && (
-                  <p className="text-[10px] text-slate-400">Your trading assistant</p>
+                  <p className="text-[10px] text-slate-400">Real-time market data</p>
                 )}
               </div>
             </div>
