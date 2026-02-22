@@ -81,9 +81,10 @@ export default function JournalAIAssistant({ walletAddress }) {
     return () => clearInterval(interval);
   }, [walletAddress]);
 
-  // Auto-refresh recommendations every 5 minutes
+  // Auto-refresh recommendations every HOUR (3600000 ms)
   useEffect(() => {
-    const interval = setInterval(fetchRecommendations, 300000);
+    fetchRecommendations(); // Fetch immediately on mount
+    const interval = setInterval(fetchRecommendations, 3600000); // 1 hour
     return () => clearInterval(interval);
   }, []);
 
