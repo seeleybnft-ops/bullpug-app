@@ -253,29 +253,8 @@ async def execute_prize_payout(admin_key: str = None):
     }
     await db.prize_payouts.insert_one(payout_record)
     
-    # Reset prize pool and set next payout time
-    next_payout = datetime.now(timezone.utc) + timedelta(days=PAYOUT_INTERVAL_DAYS)
-    await db.prize_pool.update_one(
-        {"_id": pool["_id"]},
-        {"$set": {
-            "active": False,
-            "paid_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    # Create new pool
-    new_pool = {
-        "active": True,
-        "total_sol": 0.0,
-        "contributions": [],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "next_payout_at": next_payout.isoformat(),
-        "payout_interval_days": PAYOUT_INTERVAL_DAYS
-    }
-    await db.prize_pool.insert_one(new_pool)
-    
-    # Reset weekly leaderboard scores
-    await db.game_leaderboard.update_many({}, {"$set": {"high_score": 0}})
+    # Reset cycle (timer + leaderboard)
+    next_payout = await reset_cycle()
     
     logger.info(f"Prize payout complete: {total_paid:.6f} SOL distributed to {len([w for w in winners if w['payout_success']])} winners")
     
