@@ -348,6 +348,10 @@ export default function TradingJournal() {
             <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
               <BookOpen className="w-4 h-4 mr-2" />Trades
             </TabsTrigger>
+            <TabsTrigger value="import" data-testid="tab-import" className="data-[state=active]:bg-[#627EEA]/10 data-[state=active]:text-[#627EEA] rounded-lg font-bold text-xs uppercase">
+              <Wallet className="w-4 h-4 mr-2" />Import
+              <Badge className="ml-1 bg-[#627EEA]/20 text-[#627EEA] text-[8px] px-1">BETA</Badge>
+            </TabsTrigger>
             <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
               <Activity className="w-4 h-4 mr-2" />Cloud Backup
             </TabsTrigger>
@@ -364,6 +368,10 @@ export default function TradingJournal() {
               onDelete={deleteTrade}
               formatCurrency={formatCurrency}
             />
+          </TabsContent>
+
+          <TabsContent value="import">
+            <DetectedTrades onImport={fetchData} />
           </TabsContent>
 
           <TabsContent value="backups">
