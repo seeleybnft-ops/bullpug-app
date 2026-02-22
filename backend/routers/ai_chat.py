@@ -192,14 +192,13 @@ async def get_trending_coins() -> List[Dict]:
 
 def extract_coin_symbols(message: str) -> List[str]:
     """Extract potential coin symbols from user message."""
-    # Common patterns: $BTC, BTC, bitcoin, etc.
     message_upper = message.upper()
     
     # Check for $ prefixed symbols
     dollar_pattern = r'\$([A-Z]{2,10})'
     dollar_matches = re.findall(dollar_pattern, message_upper)
     
-    # Check for common coin names
+    # Check for common coin names and symbols
     coin_names = {
         "BITCOIN": "BTC", "ETHEREUM": "ETH", "SOLANA": "SOL",
         "DOGE": "DOGE", "DOGECOIN": "DOGE", "SHIBA": "SHIB",
@@ -208,15 +207,20 @@ def extract_coin_symbols(message: str) -> List[str]:
     }
     
     found_symbols = list(dollar_matches)
+    
+    # Check for coin names in message
     for name, symbol in coin_names.items():
         if name in message_upper:
-            found_symbols.append(symbol)
+            if symbol not in found_symbols:
+                found_symbols.append(symbol)
     
-    # Also check for standalone symbols like "BTC price"
-    common_symbols = ["BTC", "ETH", "SOL", "DOGE", "SHIB", "PEPE", "BONK", "WIF", "ARB", "OP", "AVAX", "MATIC"]
+    # Check for standalone symbols (common crypto tickers)
+    common_symbols = ["BTC", "ETH", "SOL", "DOGE", "SHIB", "PEPE", "BONK", "WIF", "ARB", "OP", "AVAX", "MATIC", "XRP", "BNB", "ADA", "DOT", "LINK"]
+    words = message_upper.replace("?", " ").replace(",", " ").replace(".", " ").split()
     for sym in common_symbols:
-        if sym in message_upper.split():
-            found_symbols.append(sym)
+        if sym in words:
+            if sym not in found_symbols:
+                found_symbols.append(sym)
     
     return list(set(found_symbols))
 
