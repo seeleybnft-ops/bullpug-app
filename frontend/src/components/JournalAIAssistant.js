@@ -116,16 +116,21 @@ export default function JournalAIAssistant({ walletAddress }) {
     setHoldingsLoading(false);
   };
 
+  // Volatile picks state
+  const [volatilePicks, setVolatilePicks] = useState([]);
+
   const fetchRecommendations = async () => {
     setRecsLoading(true);
     try {
       const { data } = await axios.get(`${API}/ai-suggestions/coin-recommendations`, {
         params: { language }
       });
-      setRecommendations(data.recommendations || []);
+      setRecommendations(data.safe_picks || data.recommendations || []);
+      setVolatilePicks(data.volatile_picks || []);
     } catch (e) {
       console.error("Failed to fetch recommendations:", e);
       setRecommendations([]);
+      setVolatilePicks([]);
     }
     setRecsLoading(false);
   };
