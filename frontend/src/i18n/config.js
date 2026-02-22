@@ -244,9 +244,9 @@ const esTranslations = {
     highScore: 'Récord',
     totalMooncake: 'Mooncake Total',
     controls: 'Controles',
-    weeklyLeaderboard: 'Tabla Semanal',
-    noScoresYet: 'Sin puntajes esta semana. ¡Sé el primero!',
-    resetMonday: 'Reinicia cada Lunes 00:00 UTC',
+    weeklyLeaderboard: 'Tabla de Líderes',
+    noScoresYet: '¡Sin puntajes aún. Sé el primero!',
+    resetMonday: '',
     mooncakes: 'mooncakes',
     // Power-ups
     shield: 'Escudo',
