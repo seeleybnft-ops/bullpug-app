@@ -1989,7 +1989,7 @@ export default function SpeedRunGame() {
             
             <div className="glass-card rounded-2xl p-4">
               <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <span className="text-[#FFD700]">🏆</span> WEEKLY LEADERBOARD
+                <span className="text-[#FFD700]">🏆</span> LEADERBOARD
               </h3>
               <div className="space-y-2">
                 {leaderboard.slice(0, 8).map((entry, i) => (
@@ -2004,7 +2004,6 @@ export default function SpeedRunGame() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-3 text-center">Resets every Monday 00:00 UTC</p>
             </div>
           </div>
         </div>
