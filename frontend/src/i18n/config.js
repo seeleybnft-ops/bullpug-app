@@ -27,7 +27,7 @@ const enTranslations = {
   // Navbar
   nav: {
     home: 'Home',
-    lore: 'Lore',
+    lore: 'Origins',
     arena: 'Arena',
     game: 'Game',
     exitSim: 'Exit Sim',
