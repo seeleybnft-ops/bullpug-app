@@ -269,10 +269,18 @@ i18n
   .init({
     resources: {
       en: { translation: enTranslations },
-      es: { translation: esTranslations }
+      es: { translation: esTranslations },
+      zh: { translation: enTranslations }, // Chinese - fallback to English
+      ja: { translation: enTranslations }, // Japanese - fallback to English
+      ko: { translation: enTranslations }, // Korean - fallback to English
+      de: { translation: enTranslations }, // German - fallback to English
+      fr: { translation: enTranslations }, // French - fallback to English
+      pt: { translation: enTranslations }, // Portuguese - fallback to English
+      ru: { translation: enTranslations }, // Russian - fallback to English
+      ar: { translation: enTranslations }, // Arabic - fallback to English
     },
     fallbackLng: 'en',
-    supportedLngs: ['en', 'es'],
+    supportedLngs: ['en', 'es', 'zh', 'ja', 'ko', 'de', 'fr', 'pt', 'ru', 'ar'],
     
     detection: {
       order: ['localStorage', 'navigator'],
