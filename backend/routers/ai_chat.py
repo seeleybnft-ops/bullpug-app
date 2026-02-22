@@ -95,11 +95,12 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
         "NEAR": "near", "FTM": "fantom", "ATOM": "cosmos",
         "INJ": "injective-protocol", "TIA": "celestia", "SEI": "sei-network",
         "JUP": "jupiter-exchange-solana", "RNDR": "render-token",
-        "FET": "fetch-ai", "BULLPUG": "solana"  # Fallback for BULLPUG
+        "FET": "fetch-ai", "BULLPUG": "bullpug"
     }
     
     coin_id = symbol_to_id.get(symbol, symbol.lower())
     
+    # First try CoinGecko
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -120,12 +121,13 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
                         "price": data[coin_id].get("usd", 0),
                         "change_24h": data[coin_id].get("usd_24h_change", 0),
                         "market_cap": data[coin_id].get("usd_market_cap", 0),
-                        "volume_24h": data[coin_id].get("usd_24h_vol", 0)
+                        "volume_24h": data[coin_id].get("usd_24h_vol", 0),
+                        "source": "CoinGecko"
                     }
     except Exception as e:
-        logger.warning(f"Failed to fetch price for {symbol}: {e}")
+        logger.warning(f"CoinGecko price fetch failed for {symbol}: {e}")
     
-    # Try DexScreener for Solana memecoins
+    # Fallback to DexScreener for any coin
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
