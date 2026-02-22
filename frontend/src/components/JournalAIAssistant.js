@@ -209,11 +209,11 @@ export default function JournalAIAssistant({ walletAddress }) {
             </div>
 
             {/* Show Top Picks even without wallet */}
-            <div className="border-t border-white/10 pt-4">
-              <div className="flex justify-between items-center mb-3">
+            <div className="border-t border-white/10 pt-4 space-y-4">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h4 className="text-xs font-medium text-[#00FFA3] uppercase">Top Picks</h4>
-                  <p className="text-[10px] text-slate-500">Safe Solana memecoins</p>
+                  <h4 className="text-xs font-medium text-white uppercase">Top Picks</h4>
+                  <p className="text-[10px] text-slate-500">Safe & High-Risk Solana Memecoins</p>
                 </div>
                 <button 
                   onClick={fetchRecommendations}
@@ -223,39 +223,74 @@ export default function JournalAIAssistant({ walletAddress }) {
                   <RefreshCw className={`w-3 h-3 ${recsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
+              
               {recsLoading ? (
                 <div className="space-y-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />
+                  {[1,2,3,4,5,6].map(i => (
+                    <div key={i} className="h-12 bg-white/5 rounded-lg animate-pulse" />
                   ))}
                 </div>
-              ) : recommendations.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-4">Loading recommendations...</p>
               ) : (
-                <div className="space-y-2">
-                  {recommendations.slice(0, 3).map((coin, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-xs font-bold text-black">
-                          #{i + 1}
+                <>
+                  {/* Safe Picks */}
+                  <div>
+                    <h5 className="text-[10px] font-bold text-[#00FFA3] mb-2 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> SAFER PICKS
+                    </h5>
+                    <div className="space-y-2">
+                      {recommendations.slice(0, 3).map((coin, i) => (
+                        <div key={i} className="flex items-center justify-between p-2.5 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] flex items-center justify-center text-[10px] font-bold text-black">
+                              {i + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium text-white text-xs">{coin.symbol}</p>
+                              <p className="text-[9px] text-slate-500">{coin.platform}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-mono text-xs text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                            <p className={`text-[10px] ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                              {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(1)}%
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-white text-sm">{coin.symbol}</p>
-                          <p className="text-[10px] text-slate-500">{coin.name}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-mono text-sm text-white">${coin.price?.toFixed(4)}</p>
-                        <p className={`text-xs flex items-center gap-0.5 justify-end ${
-                          coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'
-                        }`}>
-                          {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                          {Math.abs(coin.change_24h || 0).toFixed(1)}%
-                        </p>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {/* Volatile Picks */}
+                  <div>
+                    <h5 className="text-[10px] font-bold text-[#FF6B6B] mb-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> HIGH RISK / HIGH REWARD
+                    </h5>
+                    <div className="space-y-2">
+                      {volatilePicks.slice(0, 3).map((coin, i) => (
+                        <div key={i} className="flex items-center justify-between p-2.5 bg-[#FF6B6B]/5 rounded-lg border border-[#FF6B6B]/20">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] flex items-center justify-center text-[10px] font-bold text-white">
+                              ⚡
+                            </div>
+                            <div>
+                              <p className="font-medium text-white text-xs">{coin.symbol}</p>
+                              <p className="text-[9px] text-slate-500">{coin.platform}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-mono text-xs text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                            <p className={`text-[10px] ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                              {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {volatilePicks.length === 0 && (
+                        <p className="text-slate-500 text-[10px] text-center py-2">No volatile picks available</p>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
