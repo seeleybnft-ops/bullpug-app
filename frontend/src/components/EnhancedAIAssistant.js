@@ -255,6 +255,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                           : "bg-white/5 text-slate-300 rounded-bl-sm"
                       }`}
                     >
+                      {msg.hasLiveData && msg.role === "assistant" && (
+                        <div className="flex items-center gap-1 mb-1 text-[10px] text-[#00FFA3]">
+                          <span className="w-1.5 h-1.5 bg-[#00FFA3] rounded-full animate-pulse" />
+                          LIVE DATA
+                        </div>
+                      )}
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => <p className="mb-1 last:mb-0 leading-relaxed">{children}</p>,
