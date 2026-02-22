@@ -51,6 +51,7 @@ from routers.badges import router as badges_router
 from routers.wallet_trades import router as wallet_trades_router
 from routers.portfolio import router as portfolio_router
 from routers.achievements import router as achievements_router
+from routers.ai_chat import router as ai_chat_router
 from routers.pot import get_pot_data
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
 from utils.database import db
