@@ -105,14 +105,112 @@ export default function JournalAIAssistant({ walletAddress }) {
   const fetchHoldings = async () => {
     setHoldingsLoading(true);
     try {
-      const { data } = await axios.get(`${API}/ai-suggestions/journal-holdings/${walletAddress}`, {
-        params: { language }
-      });
-      setHoldings(data.holdings || []);
-      setHoldingsSuggestions(data.suggestions || []);
+      // Fetch actual wallet holdings from portfolio endpoint (uses Alchemy)
+      const params = new URLSearchParams();
+      
+      // Check if we have an EVM address (from wagmi) or Solana address
+      if (walletAddress) {
+        // Detect if Solana address (base58, typically 32-44 chars)
+        const isSolanaAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress);
+        
+        if (isSolanaAddress) {
+          params.append('solana_address', walletAddress);
+        } else {
+          params.append('evm_address', walletAddress);
+        }
+      }
+      
+      const { data: portfolioData } = await axios.get(`${API}/portfolio/combined?${params.toString()}`);
+      
+      // Transform portfolio data to holdings format
+      const transformedHoldings = [];
+      
+      // Process EVM chains
+      if (portfolioData.chains) {
+        portfolioData.chains.forEach(chain => {
+          // Add native token
+          if (chain.native_balance > 0) {
+            transformedHoldings.push({
+              symbol: chain.native_symbol,
+              amount: chain.native_balance,
+              value: chain.native_value_usd || 0,
+              change_24h: 0,
+              chain: chain.chain_name
+            });
+          }
+          // Add other tokens
+          chain.tokens?.forEach(token => {
+            if (token.balance > 0.0001) {
+              transformedHoldings.push({
+                symbol: token.symbol,
+                amount: token.balance,
+                value: token.value_usd || 0,
+                change_24h: 0,
+                chain: chain.chain_name
+              });
+            }
+          });
+        });
+      }
+      
+      // Process Solana
+      if (portfolioData.solana) {
+        if (portfolioData.solana.native_balance > 0) {
+          transformedHoldings.push({
+            symbol: 'SOL',
+            amount: portfolioData.solana.native_balance,
+            value: portfolioData.solana.native_value_usd || 0,
+            change_24h: 0,
+            chain: 'Solana'
+          });
+        }
+        portfolioData.solana.tokens?.forEach(token => {
+          if (token.balance > 0.0001) {
+            transformedHoldings.push({
+              symbol: token.symbol,
+              amount: token.balance,
+              value: token.value_usd || 0,
+              change_24h: 0,
+              chain: 'Solana'
+            });
+          }
+        });
+      }
+      
+      // Sort by value descending
+      transformedHoldings.sort((a, b) => (b.value || 0) - (a.value || 0));
+      
+      setHoldings(transformedHoldings.slice(0, 10));
+      
+      // Generate suggestions based on holdings
+      if (transformedHoldings.length > 0) {
+        const topHolding = transformedHoldings[0];
+        setHoldingsSuggestions([
+          `Your largest position is ${topHolding.symbol} (${topHolding.chain}) at $${topHolding.value?.toFixed(2)}.`,
+          "Consider setting stop-losses to protect your gains.",
+          "Diversify across chains to reduce single-chain risk."
+        ]);
+      } else {
+        setHoldingsSuggestions([
+          "No tokens detected in your wallet.",
+          "Make sure your wallet is connected properly.",
+          "Check the Portfolio Value tab for more details."
+        ]);
+      }
     } catch (e) {
       console.error("Failed to fetch holdings:", e);
-      setHoldings([]);
+      // Fallback to journal-based holdings
+      try {
+        const { data } = await axios.get(`${API}/ai-suggestions/journal-holdings/${walletAddress}`, {
+          params: { language }
+        });
+        setHoldings(data.holdings || []);
+        setHoldingsSuggestions(data.suggestions || []);
+      } catch (fallbackError) {
+        console.error("Fallback holdings also failed:", fallbackError);
+        setHoldings([]);
+        setHoldingsSuggestions(["Unable to load holdings. Please try again."]);
+      }
     }
     setHoldingsLoading(false);
   };
