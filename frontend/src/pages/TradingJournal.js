@@ -377,7 +377,7 @@ export default function TradingJournal() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <Dashboard dashboard={dashboard} trades={trades} loading={loading} formatCurrency={formatCurrency} walletAddress={connected ? publicKey?.toBase58() : null} />
+            <Dashboard dashboard={dashboard} trades={trades} loading={loading} formatCurrency={formatCurrency} walletAddress={walletAddress} />
           </TabsContent>
 
           <TabsContent value="portfolio">
