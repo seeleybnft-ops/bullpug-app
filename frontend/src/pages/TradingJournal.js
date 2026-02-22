@@ -801,7 +801,11 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
       )}
 
       {/* AI Trading Assistant */}
-      <JournalAIAssistant walletAddress={walletAddress} />
+      <JournalAIAssistant 
+        walletAddress={walletAddress} 
+        solanaAddress={solanaConnected ? publicKey?.toBase58() : null}
+        evmAddress={evmConnected ? evmAddress : null}
+      />
     </div>
   );
 }
