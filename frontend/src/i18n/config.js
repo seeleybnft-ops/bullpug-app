@@ -4,7 +4,15 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 export const supportedLanguages = {
   en: { nativeName: 'English', flag: '🇺🇸' },
-  es: { nativeName: 'Español', flag: '🇪🇸' }
+  es: { nativeName: 'Español', flag: '🇪🇸' },
+  zh: { nativeName: '中文', flag: '🇨🇳' },
+  ja: { nativeName: '日本語', flag: '🇯🇵' },
+  ko: { nativeName: '한국어', flag: '🇰🇷' },
+  de: { nativeName: 'Deutsch', flag: '🇩🇪' },
+  fr: { nativeName: 'Français', flag: '🇫🇷' },
+  pt: { nativeName: 'Português', flag: '🇧🇷' },
+  ru: { nativeName: 'Русский', flag: '🇷🇺' },
+  ar: { nativeName: 'العربية', flag: '🇸🇦' }
 };
 
 // English translations

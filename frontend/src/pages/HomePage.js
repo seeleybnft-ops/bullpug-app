@@ -17,6 +17,7 @@ const IMAGES = {
   trader: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/21uetroq__b0085b46-ef12-44f5-a395-fe4cf39e34bf.jfif",
   birthday: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/5w17pptk__eda5997e-289f-4f2c-916b-329017a171d6.jfif",
   maid: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/2sae826h_25.10.2024_17.06.12_REC.png",
+  journal: "/images/journal-bullpug.jfif",
 };
 
 const GALLERY = [
@@ -39,9 +40,9 @@ const TOKEN_DIST = [
 ];
 
 const ROADMAP = [
-  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Initial lore reveal", "Community building", "Website launch", "Fair launch via Blowfishbot"], status: "current" },
-  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Speed-run game rollout", "Betting arena beta", "Staking activation"], status: "upcoming" },
-  { phase: "Phase 3", title: "Expansion", date: "Q4 2026+", items: ["NFT collection", "Plushie store launch", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
+  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Fair Launch via Blowfish", "Website launch", "Initial lore reveal", "Speed Run Game", "Betting Arena Beta"], status: "current" },
+  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Staking activation", "NFT collection", "Plushie store launch", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
+  { phase: "Phase 3", title: "Expansion", date: "Q4 2026", items: ["More to come"], status: "upcoming" },
 ];
 
 export default function HomePage() {
