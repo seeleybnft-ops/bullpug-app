@@ -377,6 +377,14 @@ export default function TradingJournal() {
             />
           </TabsContent>
 
+          <TabsContent value="portfolio">
+            <PortfolioSummary />
+          </TabsContent>
+
+          <TabsContent value="achievements">
+            <AchievementBadges />
+          </TabsContent>
+
           <TabsContent value="import">
             <DetectedTrades onImport={fetchData} />
           </TabsContent>
