@@ -217,6 +217,7 @@ export default function JournalAIAssistant({ walletAddress }) {
 
   // Volatile picks state
   const [volatilePicks, setVolatilePicks] = useState([]);
+  const [lastRecsUpdate, setLastRecsUpdate] = useState(null);
 
   const fetchRecommendations = async () => {
     setRecsLoading(true);
@@ -226,6 +227,7 @@ export default function JournalAIAssistant({ walletAddress }) {
       });
       setRecommendations(data.safe_picks || data.recommendations || []);
       setVolatilePicks(data.volatile_picks || []);
+      setLastRecsUpdate(new Date());
     } catch (e) {
       console.error("Failed to fetch recommendations:", e);
       setRecommendations([]);
