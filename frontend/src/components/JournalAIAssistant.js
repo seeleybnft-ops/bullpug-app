@@ -111,16 +111,30 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
       // Fetch actual wallet holdings from portfolio endpoint (uses Alchemy)
       const params = new URLSearchParams();
       
-      // Check if we have an EVM address (from wagmi) or Solana address
-      if (walletAddress) {
-        // Detect if Solana address (base58, typically 32-44 chars)
+      // Use both Solana and EVM addresses if available
+      if (solanaAddress) {
+        params.append('solana_address', solanaAddress);
+      }
+      if (evmAddress) {
+        params.append('evm_address', evmAddress);
+      }
+      
+      // Fallback: detect address type from walletAddress prop
+      if (!solanaAddress && !evmAddress && walletAddress) {
         const isSolanaAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress);
-        
         if (isSolanaAddress) {
           params.append('solana_address', walletAddress);
         } else {
           params.append('evm_address', walletAddress);
         }
+      }
+      
+      // If no addresses, show empty state
+      if (!params.toString()) {
+        setHoldings([]);
+        setHoldingsSuggestions(["Connect a wallet to view your holdings."]);
+        setHoldingsLoading(false);
+        return;
       }
       
       const { data: portfolioData } = await axios.get(`${API}/portfolio/combined?${params.toString()}`);
@@ -187,11 +201,14 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
       
       // Generate suggestions based on holdings
       if (transformedHoldings.length > 0) {
+        const totalValue = transformedHoldings.reduce((sum, h) => sum + (h.value || 0), 0);
         const topHolding = transformedHoldings[0];
+        const chainCount = new Set(transformedHoldings.map(h => h.chain)).size;
+        
         setHoldingsSuggestions([
-          `Your largest position is ${topHolding.symbol} (${topHolding.chain}) at $${topHolding.value?.toFixed(2)}.`,
-          "Consider setting stop-losses to protect your gains.",
-          "Diversify across chains to reduce single-chain risk."
+          `Total portfolio value: $${totalValue.toFixed(2)} across ${chainCount} chain${chainCount > 1 ? 's' : ''}.`,
+          `Largest position: ${topHolding.symbol} (${topHolding.chain}) at $${topHolding.value?.toFixed(2)}.`,
+          chainCount === 1 ? "Consider diversifying across multiple chains." : "Good diversification across chains!"
         ]);
       } else {
         setHoldingsSuggestions([
@@ -204,11 +221,13 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
       console.error("Failed to fetch holdings:", e);
       // Fallback to journal-based holdings
       try {
-        const { data } = await axios.get(`${API}/ai-suggestions/journal-holdings/${walletAddress}`, {
-          params: { language }
-        });
-        setHoldings(data.holdings || []);
-        setHoldingsSuggestions(data.suggestions || []);
+        if (effectiveWalletAddress) {
+          const { data } = await axios.get(`${API}/ai-suggestions/journal-holdings/${effectiveWalletAddress}`, {
+            params: { language }
+          });
+          setHoldings(data.holdings || []);
+          setHoldingsSuggestions(data.suggestions || []);
+        }
       } catch (fallbackError) {
         console.error("Fallback holdings also failed:", fallbackError);
         setHoldings([]);
