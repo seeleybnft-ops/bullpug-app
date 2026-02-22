@@ -1,144 +1,104 @@
-# Bullpug.com - PRD & Implementation Tracker
+# Bullpug - Trading Journal & Memecoin Platform
 
 ## Original Problem Statement
-Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic guardian lore.
+Build a full-stack, responsive website for the memecoin "Bullpug". The application includes a "Cosmic Runner" game, a P2P Betting Arena, user profiles, and an AI-powered Trading Journal with multi-chain wallet support.
+
+## Core Features
+
+### 1. My Journal (Trading Journal)
+- **Dashboard Tab**: Trading statistics, P&L charts, win rate, best/worst trades
+- **Portfolio Value Tab**: Multi-chain token holdings grouped by chain (Solana, Ethereum, Base, Arbitrum)
+- **Import Tab**: Auto-detect DEX trades from connected wallets
+- **Trades Tab**: Manual trade logging and history
+- **Exit Simulator Tab**: Monte Carlo simulations for exit strategies
+- **Achievements Tab**: Trading badges, community benchmarks, social sharing
+- **Backup Tab**: Cloud backup and restore functionality
+
+### 2. Enhanced AI Assistant (LIVE)
+- **Real-time market data**: Fetches live prices from CoinGecko and DexScreener
+- **Session-based memory**: Maintains conversation context
+- **Tab-aware context**: Provides relevant suggestions based on active tab
+- **Trending coins**: Shows trending Solana tokens
+- **Price queries**: Ask about any crypto price
+- **No auto-scroll**: Manual scroll with "Scroll to bottom" button
+- Available across ALL My Journal tabs
+
+### 3. P2P Betting Arena
+- Create and join crypto bets
+- Escrow-based wagering
+- Solana smart contract (deployment blocked by disk space)
+
+### 4. Cosmic Runner Game
+- Endless runner with Bullpug character
+- Unlockable skins
+- Leaderboard system
+
+### 5. Reflections Calculator
+- Calculate passive income from Blowfish trading fees
+- Volume slider range: up to $10,000,000
 
 ## Tech Stack
-- **Frontend:** React, Tailwind CSS, Solana Web3.js, Wagmi/Viem (EVM), react-i18next, html-to-image
-- **Backend:** FastAPI, WebSockets, Pydantic, slowapi, emergentintegrations (LLM)
-- **Database:** MongoDB
-- **Blockchain:** Solana (Anchor framework), EVM chains (Ethereum, Base, Arbitrum via Alchemy)
-
----
-
-## Latest Update: Feb 22, 2026 - UI Restructure + Features
-
-### Changes Made This Session
-
-#### 1. Journal Tab Restructure (COMPLETE)
-New tab order:
-1. **Dashboard** - Trading stats and charts
-2. **Portfolio Value** - Multi-chain holdings with price tracker
-3. **Import** - Auto-detect DEX trades from wallets
-4. **Trades** - Trade log with CRUD
-5. **Exit Sim** - Monte Carlo exit simulator (moved to own tab)
-6. **Achievements** - Badge system and community benchmarks
-7. **Backup** - Cloud backup/restore
-
-#### 2. Portfolio Holdings List (COMPLETE)
-- Shows all tokens across connected wallets
-- Displays: Token symbol, chain, balance, USD value
-- Native tokens labeled with "NATIVE" badge
-- Stablecoins labeled with "STABLE" badge
-- Sorted by USD value (highest first)
-- Chain breakdown cards with totals
-
-#### 3. Unified Wallet Connector (COMPLETE)
-- Single "Connect Wallet" button in navbar
-- Modal shows both Solana and EVM options
-- Supports simultaneous wallet connections
-- Chain switcher for EVM (Ethereum, Base, Arbitrum)
-- Shows connected status with masked addresses
-
-#### 4. Achievement Badges System (COMPLETE)
-- 17 soulbound-style badges across 5 categories
-- Auto-awards when requirements met
-- Share on X with generated image card
-- Community benchmarks with opt-in stats
-- Leaderboard with multiple sort options
-
----
-
-## Code Architecture
-
-```
-/app/
-├── backend/
-│   ├── routers/
-│   │   ├── achievements.py      # Badges, benchmarks, leaderboard
-│   │   ├── portfolio.py         # Multi-chain balances + prices
-│   │   ├── wallet_trades.py     # Auto trade fetching
-│   │   └── ...
-│   └── server.py
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── UnifiedWalletButton.js   # Combined wallet connector
-│   │   │   ├── AchievementBadges.js     # Badges + share + benchmarks
-│   │   │   ├── PortfolioSummary.js      # Holdings list + prices
-│   │   │   └── DetectedTrades.js        # Auto-import trades
-│   │   ├── pages/
-│   │   │   └── TradingJournal.js        # 7 tabs including Exit Sim
-│   │   └── providers/
-│   │       └── EVMWalletProvider.js     # EVM wallet state
-│   └── package.json
-└── solana-program/
-    └── README.md                        # Deployment guide
-```
-
----
-
-## Tab Order Reference
-
-| Tab | Icon | Color | Function |
-|-----|------|-------|----------|
-| Dashboard | BarChart3 | #00C2FF | Stats overview |
-| Portfolio Value | DollarSign | #9945FF | Holdings list |
-| Import | Download | #627EEA | Trade detection |
-| Trades | BookOpen | #00FFA3 | Trade log |
-| Exit Sim | Calculator | #D946EF | Monte Carlo sim |
-| Achievements | Trophy | #F5D300 | Badges & leaderboard |
-| Backup | Activity | #FF6B6B | Cloud backup |
-
----
-
-## Known Limitations
-
-1. **CoinGecko Rate Limiting**: Free tier has aggressive rate limits. Prices may show $0 when rate limited. Consider adding a CoinGecko API key for production.
-
-2. **Alchemy API**: The provided key appears shortened. Full Alchemy keys are typically 32+ characters. EVM portfolio fetching may not work without a valid key.
-
-3. **Solana Deployment**: Blocked due to disk space constraints in cloud environment. Use local deployment guide at `/app/solana-program/README.md`.
-
----
+- **Frontend**: React 18, Tailwind CSS, Shadcn/UI, Wagmi, Solana Wallet Adapter
+- **Backend**: FastAPI (Python), MongoDB
+- **Integrations**: 
+  - OpenAI GPT-4o (via Emergent LLM Key)
+  - CoinGecko API (with caching)
+  - DexScreener API
+  - Alchemy SDK (multi-chain)
 
 ## API Endpoints
 
+### AI Chat (LIVE)
+- `POST /api/ai/chat` - Enhanced chat with real-time data
+- `GET /api/ai/prices` - Get live major crypto prices
+- `GET /api/ai/price/{symbol}` - Get specific coin price
+- `GET /api/ai/trending` - Get trending Solana coins
+
 ### Portfolio
-- `GET /api/portfolio/prices` - ETH/SOL prices
-- `GET /api/portfolio/combined` - Multi-chain portfolio
-- `GET /api/portfolio/evm/{address}` - EVM holdings
-- `GET /api/portfolio/solana/{address}` - Solana holdings
+- `GET /api/portfolio/combined` - Multi-chain portfolio balances
+- `GET /api/portfolio/prices` - ETH/SOL prices (cached)
 
 ### Achievements
-- `GET /api/achievements/badges` - All 17 badges
-- `GET /api/achievements/user/{wallet}` - User stats + earned badges
-- `GET /api/achievements/share-data/{wallet}` - Share card data
-- `GET /api/achievements/community/benchmarks` - Community stats
-- `POST /api/achievements/opt-in` - Toggle sharing
-- `GET /api/achievements/leaderboard` - Rankings
+- `GET /api/achievements/{user_id}` - User badges and stats
 
----
+## What's Been Implemented
 
-## Testing Status
+### December 2025
+- [x] Enhanced AI Chat with session memory
+- [x] Real-time price fetching (CoinGecko + DexScreener)
+- [x] Portfolio holdings grouped by chain
+- [x] Homepage footer updated to match navbar
+- [x] Reflections volume slider max increased to $10M
+- [x] CoinGecko rate limiting workaround (60s cache)
+- [x] "LIVE" indicator on AI responses with real-time data
 
-- All tabs render correctly
-- Exit Simulator works in dedicated tab
-- Portfolio shows holdings list when wallet connected
-- Unified wallet modal works for both Solana/EVM
-- Achievement badges auto-award on eligibility
+### Previous Sessions
+- [x] Unified Journal & Portfolio page
+- [x] Unified Wallet Connector (single button)
+- [x] Achievement badges and social sharing
+- [x] Exit Simulator tab
+- [x] Multi-chain wallet support (Solana, EVM)
 
----
+## Known Issues & Blockers
 
-## Backlog
+### BLOCKED: Solana Smart Contract Deployment
+- Cannot install Solana/Anchor CLI due to disk space
+- Workaround: README with local deployment instructions
 
-- Deploy Solana smart contract (requires local machine)
-- Add CoinGecko API key for reliable pricing
-- Verify Alchemy API key format
-- NFT Gallery page
-- Plushie Sales shop
+### MITIGATED: CoinGecko Rate Limiting
+- Added 60-second price caching
+- Fallback prices when rate limited
+- DexScreener as secondary source
 
----
+## Upcoming Tasks (P1)
+1. Complete Auto-Trade Fetching (Alchemy Transfers API)
+2. Integrate frontend with deployed smart contract (when unblocked)
+
+## Future Tasks (P2)
+- Deploy smart contract to Mainnet
+- Re-enable Plushie Sales shop
+- Re-enable NFT Gallery
+- Refactor TradingJournal.js into smaller components
 
 ## License
 MIT License - Bullpug 2025
