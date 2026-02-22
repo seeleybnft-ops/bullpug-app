@@ -94,7 +94,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   const fetchInsights = async () => {
     setInsightsLoading(true);
     try {
-      const { data } = await axios.get(`${API}/ai-suggestions/journal-daily/${walletAddress}`, {
+      const { data } = await axios.get(`${API}/ai-suggestions/journal-daily/${effectiveWalletAddress}`, {
         params: { language }
       });
       setInsights(data.insight);
