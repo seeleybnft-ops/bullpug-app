@@ -297,7 +297,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
     }
   };
 
-  if (!walletAddress) {
+  if (!effectiveWalletAddress) {
     return (
       <div className="glass-card rounded-2xl overflow-hidden border border-[#D946EF]/30" data-testid="journal-ai-assistant">
         {/* Header - Always visible */}
