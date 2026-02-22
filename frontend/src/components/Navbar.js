@@ -54,8 +54,7 @@ export default function Navbar() {
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/" },
     { name: t('nav.lore') || "Origins", path: "/lore" },
-    { name: t('nav.journal'), path: "/journal" },
-    { name: t('nav.exitSim'), path: "/exit-simulator" },
+    { name: "My Journal", path: "/journal" },
     { name: t('nav.game'), path: "/game" },
     { name: t('nav.arena'), path: "/betting" },
     { name: t('nav.reflections'), path: "/reflections" },
