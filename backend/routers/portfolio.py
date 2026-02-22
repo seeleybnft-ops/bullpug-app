@@ -1,13 +1,13 @@
 """Portfolio Router - Unified portfolio view across Solana and EVM chains.
 
 Provides endpoints to fetch token balances and portfolio values across
-multiple blockchain networks.
+multiple blockchain networks. Includes price caching to mitigate CoinGecko rate limiting.
 """
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import httpx
 import os
 import logging
@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 ALCHEMY_API_KEY = os.environ.get("ALCHEMY_API_KEY", "")
+
+# Price cache to reduce CoinGecko API calls
+price_cache: Dict[str, Dict] = {}
+CACHE_TTL_SECONDS = 60  # Cache prices for 60 seconds
 
 # Chain configurations
 CHAIN_CONFIG = {
