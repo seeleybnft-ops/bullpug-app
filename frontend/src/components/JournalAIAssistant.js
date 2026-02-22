@@ -269,9 +269,9 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
     try {
       // Use the new real-time AI chat endpoint
       const { data } = await axios.post(`${API}/ai/chat`, {
-        wallet_address: walletAddress,
+        wallet_address: effectiveWalletAddress,
         message: userMessage,
-        session_id: `journal_${walletAddress || 'anon'}_${Date.now()}`,
+        session_id: `journal_${effectiveWalletAddress || 'anon'}_${Date.now()}`,
         active_tab: activeTab,
         chat_history: chatMessages.slice(-10)
       });
