@@ -550,37 +550,29 @@ Keep each suggestion to one sentence. Focus on risk management and position sizi
 
 @router.get("/coin-recommendations")
 async def get_coin_recommendations(language: str = "en"):
-    """Get top 3 Solana memecoin recommendations from specific platforms.
+    """Get 3 safe and 3 volatile Solana memecoin recommendations.
     
-    Safety Criteria (for memecoins):
-    - Volume > $100K (active trading, easier exit)
-    - Liquidity > $50K (prevents manipulation, reduces slippage)
-    - FDV > $500K (established project)
-    - Price change between -30% and +100% (avoids pump & dumps)
-    - Listed on established DEXes (Raydium, Orca, Meteora)
+    Safe Criteria:
+    - Volume > $100K, Liquidity > $100K, FDV > $1M
+    - Price change between -20% and +50%
+    
+    Volatile Criteria (High Risk/High Reward):
+    - Volume > $50K, Liquidity > $20K
+    - Price change > 30% or < -20% (showing momentum)
     """
     
-    # Platform identifiers and display names
     PLATFORM_CONFIG = {
         "raydium": "Raydium",
-        "orca": "Orca",
+        "orca": "Orca", 
         "meteora": "Meteora",
         "pumpfun": "Pump.fun",
         "pump": "Pump.fun",
     }
     
-    # Safety thresholds
-    MIN_VOLUME_24H = 100000  # $100K minimum volume
-    MIN_LIQUIDITY = 50000    # $50K minimum liquidity
-    MIN_FDV = 500000         # $500K minimum fully diluted valuation
-    MAX_PRICE_CHANGE = 100   # Max +100% (avoid pump & dumps)
-    MIN_PRICE_CHANGE = -30   # Min -30% (avoid death spirals)
-    
     try:
         all_pairs = []
         
         async with httpx.AsyncClient() as client:
-            # Search for trending Solana tokens across platforms
             search_terms = ["raydium", "orca", "meteora", "pump", "solana meme"]
             
             for term in search_terms:
@@ -600,19 +592,16 @@ async def get_coin_recommendations(language: str = "en"):
                     logger.warning(f"Search for {term} failed: {e}")
                     continue
         
-        # Filter for Solana chain and allowed platforms with safety criteria
-        qualified_coins = []
+        safe_coins = []
+        volatile_coins = []
         seen_symbols = set()
         
         for pair in all_pairs:
-            # Must be Solana chain
             if pair.get("chainId") != "solana":
                 continue
             
-            # Get DEX/platform info
             dex_id = (pair.get("dexId", "") or "").lower()
             
-            # Check if from allowed platform
             platform_match = None
             for key, display_name in PLATFORM_CONFIG.items():
                 if key in dex_id:
@@ -622,11 +611,9 @@ async def get_coin_recommendations(language: str = "en"):
             if not platform_match:
                 continue
             
-            # Get token info
             base_token = pair.get("baseToken", {})
             symbol = base_token.get("symbol", "?").upper()
             
-            # Skip duplicates and major tokens
             if symbol in seen_symbols:
                 continue
             if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA", "JUP"]:
@@ -634,36 +621,13 @@ async def get_coin_recommendations(language: str = "en"):
             
             seen_symbols.add(symbol)
             
-            # Get metrics
             volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
             liquidity_usd = float(pair.get("liquidity", {}).get("usd", 0) or 0)
             price_usd = float(pair.get("priceUsd", 0) or 0)
             price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
             fdv = float(pair.get("fdv", 0) or 0)
             
-            # SAFETY CRITERIA - All must pass
-            
-            # 1. Volume check - active trading
-            if volume_24h < MIN_VOLUME_24H:
-                continue
-            
-            # 2. Liquidity check - prevents manipulation
-            if liquidity_usd < MIN_LIQUIDITY:
-                continue
-            
-            # 3. FDV check - established project
-            if fdv < MIN_FDV:
-                continue
-            
-            # 4. Price stability check - avoid pump & dumps
-            if price_change_24h > MAX_PRICE_CHANGE or price_change_24h < MIN_PRICE_CHANGE:
-                continue
-            
-            # Calculate safety score
-            # Higher liquidity ratio = safer (more liquid relative to volume)
-            liquidity_ratio = liquidity_usd / volume_24h if volume_24h > 0 else 0
-            
-            qualified_coins.append({
+            coin_data = {
                 "symbol": symbol,
                 "name": base_token.get("name", symbol),
                 "price": price_usd,
@@ -671,50 +635,65 @@ async def get_coin_recommendations(language: str = "en"):
                 "volume_24h": volume_24h,
                 "liquidity_usd": liquidity_usd,
                 "fdv": fdv,
-                "liquidity_ratio": liquidity_ratio,
                 "platform": platform_match,
                 "reason": "",
                 "_score": 0
-            })
-        
-        # Score coins based on safety and quality metrics
-        for coin in qualified_coins:
-            # Safety-focused scoring:
-            # - Higher liquidity ratio = more liquid, safer
-            # - Higher liquidity absolute = more protection
-            # - Moderate positive change = healthy growth (not pump)
-            # - Higher FDV = more established
+            }
             
-            liquidity_score = min(coin["liquidity_usd"] / 100000, 5) * 20  # Up to 100 points
-            ratio_score = min(coin["liquidity_ratio"], 1) * 30  # Up to 30 points
-            fdv_score = min(coin["fdv"] / 1000000, 10) * 5  # Up to 50 points
+            # SAFE COIN CRITERIA
+            is_safe = (
+                volume_24h >= 100000 and
+                liquidity_usd >= 100000 and
+                fdv >= 1000000 and
+                -20 <= price_change_24h <= 50
+            )
             
-            # Prefer moderate gains (5-30%) over extreme
-            change = coin["change_24h"]
-            if 5 <= change <= 30:
-                momentum_score = 20  # Healthy growth
-            elif 0 <= change < 5:
-                momentum_score = 15  # Stable
-            elif 30 < change <= 50:
-                momentum_score = 10  # Somewhat hot
-            else:
-                momentum_score = 5   # Too volatile
+            # VOLATILE COIN CRITERIA (high risk/high reward)
+            is_volatile = (
+                volume_24h >= 50000 and
+                liquidity_usd >= 20000 and
+                (price_change_24h > 30 or price_change_24h < -20)
+            )
             
-            coin["_score"] = liquidity_score + ratio_score + fdv_score + momentum_score
+            if is_safe:
+                # Score safe coins by liquidity and stability
+                liquidity_score = min(liquidity_usd / 100000, 10) * 30
+                fdv_score = min(fdv / 1000000, 20) * 20
+                stability_score = 50 - abs(price_change_24h)
+                coin_data["_score"] = liquidity_score + fdv_score + stability_score
+                coin_data["risk_level"] = "Safe"
+                safe_coins.append(coin_data)
+            elif is_volatile:
+                # Score volatile coins by momentum and volume
+                momentum_score = abs(price_change_24h) * 2
+                volume_score = min(volume_24h / 100000, 10) * 20
+                coin_data["_score"] = momentum_score + volume_score
+                coin_data["risk_level"] = "High Risk"
+                volatile_coins.append(coin_data.copy())
         
-        qualified_coins.sort(key=lambda x: x["_score"], reverse=True)
-        top_coins = qualified_coins[:3]
+        # Sort and take top 3 of each category
+        safe_coins.sort(key=lambda x: x["_score"], reverse=True)
+        volatile_coins.sort(key=lambda x: x["_score"], reverse=True)
         
-        # Generate AI reasons for each
-        if EMERGENT_LLM_KEY and top_coins:
+        top_safe = safe_coins[:3]
+        top_volatile = volatile_coins[:3]
+        
+        # Generate AI reasons
+        all_top = top_safe + top_volatile
+        if EMERGENT_LLM_KEY and all_top:
             try:
-                lang_instruction = f"Respond in {language}." if language != "en" else ""
-                
-                for coin in top_coins:
-                    prompt = f"""Give ONE sentence (max 25 words) explaining why {coin['symbol']} ({coin['name']}) on {coin['platform']} shows relatively safer metrics for a memecoin.
-Volume: ${coin['volume_24h']:,.0f}, Liquidity: ${coin['liquidity_usd']:,.0f}, FDV: ${coin['fdv']:,.0f}, 24h change: {coin['change_24h']:+.1f}%
-{lang_instruction}
-Focus on the liquidity depth and stability. This is a Solana memecoin - emphasize the relative safety metrics."""
+                for coin in all_top:
+                    is_safe_coin = coin.get("risk_level") == "Safe"
+                    lang_instruction = f"Respond in {language}." if language != "en" else ""
+                    
+                    if is_safe_coin:
+                        prompt = f"""Give ONE sentence (max 20 words) why {coin['symbol']} is relatively SAFE for a memecoin.
+Liquidity: ${coin['liquidity_usd']:,.0f}, FDV: ${coin['fdv']:,.0f}, 24h: {coin['change_24h']:+.1f}%
+{lang_instruction}Focus on stability and liquidity depth."""
+                    else:
+                        prompt = f"""Give ONE sentence (max 20 words) why {coin['symbol']} is HIGH RISK but potentially HIGH REWARD.
+24h change: {coin['change_24h']:+.1f}%, Volume: ${coin['volume_24h']:,.0f}
+{lang_instruction}Focus on momentum and volatility."""
 
                     llm_chat = LlmChat(
                         api_key=EMERGENT_LLM_KEY,
@@ -722,101 +701,58 @@ Focus on the liquidity depth and stability. This is a Solana memecoin - emphasiz
                     ).with_model("openai", "gpt-4o")
                     
                     reason = await llm_chat.send_message(UserMessage(text=prompt))
-                    coin["reason"] = reason.strip()[:150]
+                    coin["reason"] = reason.strip()[:120]
                     
             except Exception as e:
                 logger.error(f"Recommendation reason error: {e}")
-                for coin in top_coins:
-                    liq_k = coin['liquidity_usd']/1000
-                    coin["reason"] = f"Deep liquidity (${liq_k:.0f}K) on {coin['platform']} with stable {coin['change_24h']:+.1f}% movement."
+                for coin in top_safe:
+                    coin["reason"] = f"Strong ${coin['liquidity_usd']/1000:.0f}K liquidity with stable {coin['change_24h']:+.1f}% price action."
+                for coin in top_volatile:
+                    coin["reason"] = f"High momentum at {coin['change_24h']:+.1f}% - volatile but potential for significant moves."
         else:
-            for coin in top_coins:
-                liq_k = coin['liquidity_usd']/1000
-                coin["reason"] = f"Deep liquidity (${liq_k:.0f}K) on {coin['platform']} with stable {coin['change_24h']:+.1f}% movement."
+            for coin in top_safe:
+                coin["reason"] = f"Strong ${coin['liquidity_usd']/1000:.0f}K liquidity with stable {coin['change_24h']:+.1f}% price action."
+            for coin in top_volatile:
+                coin["reason"] = f"High momentum at {coin['change_24h']:+.1f}% - volatile but potential for significant moves."
         
-        # Clean up response and add safety indicators
-        for coin in top_coins:
+        # Clean up response
+        for coin in all_top:
             coin.pop("_score", None)
-            coin.pop("liquidity_ratio", None)
-            # Add safety indicators
-            coin["safety_score"] = "High" if coin["liquidity_usd"] > 200000 else "Medium"
-            coin["liquidity_locked"] = coin["liquidity_usd"] > 100000
-            coin["bonded"] = coin["fdv"] > 1000000
         
-        logger.info(f"Found {len(qualified_coins)} qualified coins, returning top {len(top_coins)}")
+        logger.info(f"Returning {len(top_safe)} safe and {len(top_volatile)} volatile coins")
         
         return {
-            "recommendations": top_coins,
+            "safe_picks": top_safe,
+            "volatile_picks": top_volatile,
+            "recommendations": top_safe,  # Keep for backwards compatibility
             "source": "DexScreener",
-            "safety_criteria": {
-                "min_volume": "$100K",
-                "min_liquidity": "$50K", 
-                "min_fdv": "$500K",
-                "price_stability": "-30% to +100%"
-            },
             "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Memecoins are highly volatile. Always DYOR and only invest what you can afford to lose."
+            "disclaimer": "Not financial advice. Memecoins are highly volatile. Safe picks are RELATIVELY safer, not safe. DYOR."
         }
         
     except Exception as e:
         logger.error(f"Recommendations error: {e}")
-        # Return fallback Solana memecoin recommendations - established tokens
-        fallback_coins = [
-            {
-                "symbol": "BONK",
-                "name": "Bonk",
-                "price": 0.000025,
-                "change_24h": 8.5,
-                "volume_24h": 150000000,
-                "liquidity_usd": 5000000,
-                "fdv": 1500000000,
-                "safety_score": "High",
-                "liquidity_locked": True,
-                "bonded": True,
-                "platform": "Raydium",
-                "reason": "Established Solana memecoin with $5M+ liquidity and strong community backing."
-            },
-            {
-                "symbol": "WIF",
-                "name": "dogwifhat",
-                "price": 2.50,
-                "change_24h": 5.2,
-                "volume_24h": 200000000,
-                "liquidity_usd": 8000000,
-                "fdv": 2500000000,
-                "safety_score": "High",
-                "liquidity_locked": True,
-                "bonded": True,
-                "platform": "Raydium",
-                "reason": "Top-tier Solana meme with deep $8M liquidity and institutional interest."
-            },
-            {
-                "symbol": "POPCAT",
-                "name": "Popcat",
-                "price": 1.20,
-                "change_24h": 12.3,
-                "volume_24h": 80000000,
-                "liquidity_usd": 3000000,
-                "fdv": 1200000000,
-                "safety_score": "High",
-                "liquidity_locked": True,
-                "bonded": True,
-                "platform": "Raydium",
-                "reason": "Viral memecoin with $3M+ liquidity and consistent trading activity."
-            }
+        # Return fallback recommendations
+        fallback_safe = [
+            {"symbol": "BONK", "name": "Bonk", "price": 0.000025, "change_24h": 8.5, "volume_24h": 150000000, "liquidity_usd": 5000000, "fdv": 1500000000, "platform": "Raydium", "risk_level": "Safe", "reason": "Established Solana memecoin with $5M+ deep liquidity."},
+            {"symbol": "WIF", "name": "dogwifhat", "price": 2.50, "change_24h": 5.2, "volume_24h": 200000000, "liquidity_usd": 8000000, "fdv": 2500000000, "platform": "Raydium", "risk_level": "Safe", "reason": "Top-tier meme with $8M liquidity and institutional backing."},
+            {"symbol": "POPCAT", "name": "Popcat", "price": 1.20, "change_24h": 12.3, "volume_24h": 80000000, "liquidity_usd": 3000000, "fdv": 1200000000, "platform": "Raydium", "risk_level": "Safe", "reason": "Viral memecoin with consistent $3M+ liquidity."}
+        ]
+        fallback_volatile = [
+            {"symbol": "FWOG", "name": "Fwog", "price": 0.15, "change_24h": 45.2, "volume_24h": 5000000, "liquidity_usd": 200000, "fdv": 50000000, "platform": "Pump.fun", "risk_level": "High Risk", "reason": "Strong momentum at +45% - high risk but trending."},
+            {"symbol": "MICHI", "name": "Michi", "price": 0.08, "change_24h": -35.5, "volume_24h": 3000000, "liquidity_usd": 150000, "fdv": 30000000, "platform": "Raydium", "risk_level": "High Risk", "reason": "Deep pullback at -35% - potential reversal play."},
+            {"symbol": "GOAT", "name": "Goatseus", "price": 0.50, "change_24h": 55.8, "volume_24h": 8000000, "liquidity_usd": 300000, "fdv": 100000000, "platform": "Pump.fun", "risk_level": "High Risk", "reason": "Explosive +55% move - extreme volatility."}
         ]
         return {
-            "recommendations": fallback_coins,
+            "safe_picks": fallback_safe,
+            "volatile_picks": fallback_volatile,
+            "recommendations": fallback_safe,
             "source": "Fallback",
-            "safety_criteria": {
-                "min_volume": "$100K",
-                "min_liquidity": "$50K", 
-                "min_fdv": "$500K",
-                "price_stability": "-30% to +100%"
-            },
             "platforms": ["Pump.fun", "Raydium", "Orca", "Meteora"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "disclaimer": "Not financial advice. Memecoins are highly volatile. Always DYOR and only invest what you can afford to lose.",
+            "disclaimer": "Not financial advice. Memecoins are highly volatile. Safe picks are RELATIVELY safer, not safe. DYOR.",
+            "is_fallback": True
+        }
             "is_fallback": True
         }
