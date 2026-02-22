@@ -19,9 +19,14 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Features</h4>
+            <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Ecosystem</h4>
             <div className="flex flex-col gap-2">
-              {[{t:"Betting Arena",p:"/betting"},{t:"Speed Run",p:"/game"},{t:"Exit Simulator",p:"/exit-simulator"},{t:"Reflections",p:"/reflections"}].map(l=>(
+              {[
+                {t:"My Journal", p:"/journal"},
+                {t:"P2P Arena", p:"/betting"},
+                {t:"Cosmic Runner", p:"/game"},
+                {t:"Reflections", p:"/reflections"}
+              ].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}
             </div>
