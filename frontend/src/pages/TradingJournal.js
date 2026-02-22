@@ -1,19 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import axios from "axios";
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Plus, X, Edit2, Trash2,
   BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash,
-  Download, FileText
+  Download, FileText, Calculator, Percent, ChevronDown
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { Line as LineJS, Bar as BarJS } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
 import jsPDF from "jspdf";
 import JournalAIAssistant from "@/components/JournalAIAssistant";
+import AISuggestionBubble from "@/components/AISuggestionBubble";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
