@@ -38,6 +38,21 @@ export default function TradingJournal() {
   const [editingTrade, setEditingTrade] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Exit Simulator State
+  const [simTab, setSimTab] = useState("paths");
+  const [tokenAmount, setTokenAmount] = useState("1000");
+  const [entryPrice, setEntryPrice] = useState("0.001");
+  const [volatility, setVolatility] = useState([80]);
+  const [drift, setDrift] = useState([50]);
+  const [days, setDays] = useState([90]);
+  const [simulations, setSimulations] = useState([1000]);
+  const [taxRate, setTaxRate] = useState("30");
+  const [simResults, setSimResults] = useState(null);
+  const [simLoading, setSimLoading] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [showTradeSelector, setShowTradeSelector] = useState(false);
+  const reportRef = useRef(null);
+
   useEffect(() => {
     fetchData();
   }, []);
