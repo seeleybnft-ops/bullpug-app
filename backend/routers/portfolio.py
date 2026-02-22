@@ -190,7 +190,7 @@ async def get_sol_price() -> float:
 
 
 async def get_token_prices(contract_addresses: List[str], chain: str) -> Dict[str, Dict]:
-    """Fetch token prices from CoinGecko."""
+    """Fetch token prices from CoinGecko with caching."""
     if not contract_addresses:
         return {}
     
@@ -200,6 +200,14 @@ async def get_token_prices(contract_addresses: List[str], chain: str) -> Dict[st
         "arbitrum": "arbitrum-one"
     }
     platform = platform_map.get(chain, "ethereum")
+    
+    # Check cache for all addresses
+    cache_key = f"tokens_{chain}_{hash(tuple(sorted(contract_addresses)))}"
+    if cache_key in price_cache:
+        cached = price_cache[cache_key]
+        if datetime.now(timezone.utc) - cached["timestamp"] < timedelta(seconds=CACHE_TTL_SECONDS):
+            logger.info(f"Using cached token prices for {chain}")
+            return cached["prices"]
     
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -212,9 +220,24 @@ async def get_token_prices(contract_addresses: List[str], chain: str) -> Dict[st
                     "include_24hr_change": "true"
                 }
             )
-            return response.json()
+            if response.status_code == 429:
+                logger.warning(f"CoinGecko rate limited for token prices on {chain}")
+                if cache_key in price_cache:
+                    return price_cache[cache_key]["prices"]
+                return {}
+            
+            prices = response.json()
+            
+            # Cache the result
+            price_cache[cache_key] = {
+                "prices": prices,
+                "timestamp": datetime.now(timezone.utc)
+            }
+            return prices
     except Exception as e:
         logger.warning(f"Failed to fetch token prices: {e}")
+        if cache_key in price_cache:
+            return price_cache[cache_key]["prices"]
         return {}
 
 
