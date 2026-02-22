@@ -65,12 +65,12 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
 
   // Load initial data when wallet connects
   useEffect(() => {
-    if (walletAddress) {
+    if (effectiveWalletAddress) {
       fetchInsights();
       fetchHoldings();
       fetchRecommendations();
     }
-  }, [walletAddress, language]);
+  }, [effectiveWalletAddress, solanaAddress, evmAddress, language]);
 
   // Also fetch recommendations on component mount (no wallet needed)
   useEffect(() => {
@@ -79,10 +79,10 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
 
   // Auto-refresh holdings every 60 seconds when wallet connected
   useEffect(() => {
-    if (!walletAddress) return;
+    if (!effectiveWalletAddress) return;
     const interval = setInterval(fetchHoldings, 60000);
     return () => clearInterval(interval);
-  }, [walletAddress]);
+  }, [effectiveWalletAddress, solanaAddress, evmAddress]);
 
   // Auto-refresh recommendations every HOUR (3600000 ms)
   useEffect(() => {
