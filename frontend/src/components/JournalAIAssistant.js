@@ -706,7 +706,14 @@ export default function JournalAIAssistant({ walletAddress }) {
                 <div className="flex justify-between items-center mb-3">
                   <div>
                     <h4 className="text-xs font-medium text-slate-400 uppercase">Top Picks</h4>
-                    <p className="text-[10px] text-slate-500">Safe & High-Risk Solana Memecoins</p>
+                    <p className="text-[10px] text-slate-500">
+                      Safe & High-Risk Solana Memecoins
+                      {lastRecsUpdate && (
+                        <span className="ml-2 text-slate-600">
+                          • Updated {lastRecsUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <button 
                     onClick={fetchRecommendations}
@@ -716,6 +723,12 @@ export default function JournalAIAssistant({ walletAddress }) {
                     <RefreshCw className={`w-3 h-3 ${recsLoading ? 'animate-spin' : ''}`} />
                     Refresh
                   </button>
+                </div>
+
+                {/* Auto-refresh notice */}
+                <div className="mb-3 px-2 py-1 bg-[#00FFA3]/5 rounded-lg text-[10px] text-slate-500 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-[#00FFA3] rounded-full animate-pulse" />
+                  Auto-refreshes every hour with fresh picks
                 </div>
 
                 {recsLoading ? (
