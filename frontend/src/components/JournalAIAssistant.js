@@ -528,8 +528,8 @@ export default function JournalAIAssistant({ walletAddress }) {
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <div>
-                    <h4 className="text-xs font-medium text-slate-400 uppercase">Solana Memecoins</h4>
-                    <p className="text-[10px] text-[#00FFA3]">From Pump.fun, Raydium, Orca, Meteora & more</p>
+                    <h4 className="text-xs font-medium text-slate-400 uppercase">Top Picks</h4>
+                    <p className="text-[10px] text-slate-500">Safe & High-Risk Solana Memecoins</p>
                   </div>
                   <button 
                     onClick={fetchRecommendations}
@@ -543,81 +543,83 @@ export default function JournalAIAssistant({ walletAddress }) {
 
                 {recsLoading ? (
                   <div className="space-y-3">
-                    {[1,2,3].map(i => (
-                      <div key={i} className="h-24 bg-white/5 rounded-lg animate-pulse" />
+                    {[1,2,3,4,5,6].map(i => (
+                      <div key={i} className="h-16 bg-white/5 rounded-lg animate-pulse" />
                     ))}
                   </div>
-                ) : recommendations.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">
-                    No recommendations available at this time. Check back later!
-                  </p>
                 ) : (
-                  <div className="space-y-3">
-                    {recommendations.slice(0, 3).map((coin, i) => (
-                      <div 
-                        key={i} 
-                        className={`p-4 rounded-xl border ${
-                          i === 0 ? 'bg-gradient-to-r from-[#FFD700]/10 to-transparent border-[#FFD700]/30' :
-                          i === 1 ? 'bg-gradient-to-r from-[#C0C0C0]/10 to-transparent border-[#C0C0C0]/30' :
-                          'bg-gradient-to-r from-[#CD7F32]/10 to-transparent border-[#CD7F32]/30'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-bold">
-                              {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
-                            </span>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-bold text-white">{coin.symbol}</p>
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#D946EF]/20 text-[#D946EF] font-medium">
-                                  {coin.platform}
-                                </span>
+                  <div className="space-y-4">
+                    {/* Safe Picks */}
+                    <div>
+                      <h5 className="text-xs font-bold text-[#00FFA3] mb-2 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> SAFER PICKS
+                      </h5>
+                      <div className="space-y-2">
+                        {recommendations.slice(0, 3).map((coin, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] flex items-center justify-center text-xs font-bold text-black">
+                                #{i + 1}
                               </div>
-                              <p className="text-xs text-slate-500">{coin.name}</p>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-white text-sm">{coin.symbol}</p>
+                                  <span className="text-[8px] px-1 py-0.5 rounded bg-[#00FFA3]/20 text-[#00FFA3]">{coin.platform}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{coin.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono text-sm text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                              <p className={`text-xs flex items-center gap-0.5 justify-end ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                {Math.abs(coin.change_24h || 0).toFixed(1)}%
+                              </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono text-sm text-white">
-                              ${coin.price < 0.001 ? coin.price?.toFixed(8) : coin.price?.toFixed(4)}
-                            </p>
-                            <p className={`text-xs ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
-                              {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(2)}%
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="bg-black/20 rounded px-2 py-1">
-                            <span className="text-slate-500">24h Vol</span>
-                            <p className="text-white font-mono">
-                              ${coin.volume_24h >= 1000000 
-                                ? (coin.volume_24h / 1000000).toFixed(1) + 'M' 
-                                : (coin.volume_24h / 1000).toFixed(0) + 'K'}
-                            </p>
-                          </div>
-                          <div className="bg-black/20 rounded px-2 py-1">
-                            <span className="text-slate-500">Liquidity</span>
-                            <p className="text-white font-mono">
-                              ${coin.liquidity_usd >= 1000000 
-                                ? (coin.liquidity_usd / 1000000).toFixed(1) + 'M' 
-                                : (coin.liquidity_usd / 1000).toFixed(0) + 'K'}
-                            </p>
-                          </div>
-                          <div className="bg-black/20 rounded px-2 py-1">
-                            <span className="text-slate-500">Status</span>
-                            <p className={`font-medium ${coin.bonded ? 'text-[#00FFA3]' : 'text-yellow-400'}`}>
-                              {coin.bonded ? '✓ Strong' : '⚡ New'}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-400 mt-2">{coin.reason}</p>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Volatile Picks */}
+                    <div>
+                      <h5 className="text-xs font-bold text-[#FF6B6B] mb-2 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> HIGH RISK / HIGH REWARD
+                      </h5>
+                      <div className="space-y-2">
+                        {volatilePicks.slice(0, 3).map((coin, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-[#FF6B6B]/5 rounded-lg border border-[#FF6B6B]/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] flex items-center justify-center text-xs font-bold text-white">
+                                ⚡
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-white text-sm">{coin.symbol}</p>
+                                  <span className="text-[8px] px-1 py-0.5 rounded bg-[#FF6B6B]/20 text-[#FF6B6B]">{coin.platform}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{coin.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono text-sm text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                              <p className={`text-xs flex items-center gap-0.5 justify-end ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                {Math.abs(coin.change_24h || 0).toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {volatilePicks.length === 0 && (
+                          <p className="text-slate-500 text-xs text-center py-2">No volatile picks found at this time</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 <p className="text-[10px] text-slate-600 mt-4 text-center">
-                  ⚠️ Memecoins are highly volatile. Not financial advice. Always DYOR.
+                  ⚠️ Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
                 </p>
               </div>
             )}
