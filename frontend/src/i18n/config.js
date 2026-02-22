@@ -28,7 +28,7 @@ const enTranslations = {
   nav: {
     home: 'Home',
     lore: 'Origins',
-    arena: 'Arena',
+    arena: 'P2P Arena',
     game: 'Cosmic Runner',
     exitSim: 'Exit Sim',
     reflections: 'Reflections',
@@ -152,7 +152,7 @@ const esTranslations = {
   nav: {
     home: 'Inicio',
     lore: 'Historia',
-    arena: 'Arena',
+    arena: 'P2P Arena',
     game: 'Juego',
     exitSim: 'Simulador',
     reflections: 'Reflexiones',
