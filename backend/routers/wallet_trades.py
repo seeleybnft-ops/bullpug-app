@@ -177,6 +177,13 @@ async def fetch_evm_transactions(address: str, chain: str, limit: int = 50) -> L
             )
             
             data = response.json()
+            
+            # Check if we have an error (network not enabled)
+            if "error" in data:
+                error_msg = data.get("error", {})
+                logger.warning(f"Alchemy API error for {chain}: {error_msg}")
+                return []  # Return empty list instead of failing
+            
             if "result" in data and "transfers" in data["result"]:
                 transactions.extend(data["result"]["transfers"])
             
@@ -203,7 +210,8 @@ async def fetch_evm_transactions(address: str, chain: str, limit: int = 50) -> L
     
     except Exception as e:
         logger.error(f"Error fetching EVM transactions for {address} on {chain}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch transactions: {str(e)}")
+        # Return empty list instead of raising exception
+        return []
     
     return transactions
 
