@@ -25,6 +25,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+  const [hasLiveData, setHasLiveData] = useState(false);
   
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
