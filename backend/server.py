@@ -48,6 +48,7 @@ from routers.prize_pool import router as prize_pool_router
 from routers.profile import router as profile_router
 from routers.ai_suggestions import router as ai_suggestions_router
 from routers.badges import router as badges_router
+from routers.wallet_trades import router as wallet_trades_router
 from routers.pot import get_pot_data
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
 from utils.database import db
