@@ -4,81 +4,90 @@
 Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic guardian lore.
 
 ## Tech Stack
-- **Frontend:** React, Tailwind CSS, Solana Web3.js, react-i18next, react-markdown
+- **Frontend:** React, Tailwind CSS, Solana Web3.js, Wagmi/Viem (EVM), react-i18next, react-markdown
 - **Backend:** FastAPI, WebSockets, Pydantic, slowapi, emergentintegrations (LLM)
 - **Database:** MongoDB
 - **Email:** SendGrid
 - **AI/LLM:** GPT-4o via Emergent LLM Key
-- **Blockchain:** Solana (Anchor framework)
+- **Blockchain:** Solana (Anchor framework), EVM chains (Ethereum, Base, Arbitrum via Alchemy)
 
 ---
 
-## Latest Update: Feb 18, 2026 - Enhanced Journal AI Assistant & Lore Page
+## Latest Update: Feb 22, 2026 - Multi-Chain Wallet Integration
 
 ### New Features Implemented
 
-#### 1. Enhanced Journal AI Assistant (COMPLETE)
-Full-featured AI trading assistant with 4 tabs (reordered):
+#### 1. Multi-Chain Wallet Support (COMPLETE)
+Added EVM wallet connectivity alongside existing Solana wallet:
 
-**Tab Order:** Holdings → Top Picks → Insights → Chat
+**EVM Chains Supported:**
+- Ethereum (Chain ID: 1)
+- Base (Chain ID: 8453)
+- Arbitrum (Chain ID: 42161)
 
-**Holdings Tab:**
-- Auto-detects wallet holdings from journal trades
-- Live price updates via CoinGecko
-- 24h change indicators with colors
-- AI-powered suggestions always available (with fallback)
-- Auto-refresh every 60 seconds
+**Components Created:**
+- `EVMWalletProvider.js` - Wagmi provider for EVM wallet state
+- `EVMConnectButton.js` - Dropdown button to connect/switch EVM wallets
+- `DetectedTrades.js` - Auto-import trades from connected wallets
 
-**Top Picks Tab:**
-- Top 3 coin recommendations
-- Based on volume >50k, liquidity, bonded status
-- AI-generated reasons for each pick
-- Fallback recommendations always available
-- Auto-refresh every 5 minutes
+**Integration:**
+- Both Solana and EVM wallets can be connected simultaneously
+- "Connect EVM" button added to navbar
+- Network switching between ETH/Base/Arbitrum supported
 
-**Insights Tab:**
-- Daily AI-powered trading insights
-- Analyzes user's trading patterns
-- Multi-language support (10 languages)
+#### 2. Automatic Trade Fetching (COMPLETE - Backend Ready)
+New wallet-trades API endpoints:
 
-**Chat Tab:**
-- Interactive chat with AI assistant
-- Context-aware responses using journal data
-- Multi-language support
+**Endpoints:**
+- `GET /api/wallet-trades/supported-chains` - List supported chains
+- `GET /api/wallet-trades/evm/{address}?chain=ethereum` - Fetch EVM trades
+- `GET /api/wallet-trades/solana/{address}` - Fetch Solana trades
+- `POST /api/wallet-trades/import-to-journal` - Import detected trades
 
-**Multi-Language Support:**
-🇺🇸 English, 🇪🇸 Español, 🇨🇳 中文, 🇯🇵 日本語, 🇰🇷 한국어, 🇫🇷 Français, 🇩🇪 Deutsch, 🇧🇷 Português, 🇷🇺 Русский, 🇸🇦 العربية
+**Features:**
+- Identifies DEX swaps from transaction history
+- Supports Uniswap V2/V3, SushiSwap, 1inch, Aerodrome
+- Parses Jupiter/Raydium swaps on Solana
+- Creates draft journal entries for user review
 
-#### 2. Lore/Origins Page (COMPLETE)
-New `/lore` page with complete Bullpug backstory:
-- Animated stars background
-- 7 chapters of lore content
-- The Cosmic Birth, Guardian's Mission, Era of Bullpughans
-- Newpug City, Guardians of PugChain, Festival of Barks, Legacy
+**Note:** Requires Alchemy API key in `ALCHEMY_API_KEY` environment variable for EVM trade fetching.
 
-#### 3. Updated Menu Order (COMPLETE)
-New navigation: Home → Lore → Journal → Exit Sim → Game → Arena → Reflections → Forum
+#### 3. Journal Import Tab (COMPLETE)
+New "Import" tab in Trading Journal:
+- Shows detected trades from connected wallets
+- Chain filter (All, Ethereum, Base, Arbitrum, Solana)
+- Select and import trades to journal
+- BETA badge indicates new feature
 
----
+#### 4. Solana Smart Contract Deployment Guide (UPDATED)
+Updated `/app/solana-program/README.md` with:
+- Clear local deployment instructions
+- Step-by-step guide for devnet/mainnet
+- Prerequisites checklist
+- Mainnet deployment checklist
 
-## Previous Session Changes
-- Power-ups (Shield, Magnet, 2x Score) with spawn/collection/effects
-- Dynamic moving background with parallax and stage themes
-- Mobile swipe controls
-- Bullpug orientation fixed (faces down the lane)
-- Original Guardian skin with fluffy pug
+Created `/app/frontend/src/config/solana.js`:
+- Program ID configuration
+- Network settings
+- Betting parameters
+- Helper functions
 
 ---
 
 ## Testing Status
 
-### Latest: iteration_23.json - 100% pass rate
-All features verified:
-- Game Guide section with all items documented
-- Enhanced mooncake visuals working
-- Star-burst rays, sparkles, shimmer effects confirmed
-- Game mechanics (start, lane change, jump, score) all working
-- Leaderboard displaying correctly
+### Latest: iteration_26.json - 100% pass rate
+All multi-chain wallet features verified:
+- Backend: 100% (19/19 tests passed)
+- Frontend: 100% (all UI components render correctly)
+
+**Tests Verified:**
+- `/api/wallet-trades/supported-chains` returns correct chain list
+- `/api/wallet-trades/evm/{address}` handles all supported chains
+- `/api/wallet-trades/solana/{address}` parses Solana transactions
+- Journal page loads with Import tab
+- DetectedTrades component renders correctly
+- EVMConnectButton shows wallet options
 
 ---
 
@@ -88,9 +97,10 @@ All features verified:
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── ai_suggestions.py  # GPT-4o AI suggestions (NEW)
+│   │   ├── wallet_trades.py   # NEW: Multi-chain trade fetching
+│   │   ├── ai_suggestions.py  # GPT-4o AI suggestions
 │   │   ├── betting.py         # P2P betting + auto-payout
-│   │   ├── profile.py         # User profile CRUD (NEW)
+│   │   ├── profile.py         # User profile CRUD
 │   │   ├── forum.py           # Community forum
 │   │   ├── journal.py         # Trading journal
 │   │   ├── messages.py        # Direct messages (DMs)
@@ -101,81 +111,68 @@ All features verified:
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── AISuggestionBubble.js  # AI insight component (NEW)
-│   │   │   ├── JackpotDisplay.js      # Jackpot UI
-│   │   │   ├── RecentWinners.js       # Winners display
-│   │   │   └── SkinStore.js
+│   │   │   ├── DetectedTrades.js    # NEW: Auto-import trades
+│   │   │   ├── EVMConnectButton.js  # NEW: EVM wallet connect
+│   │   │   ├── JournalAIAssistant.js
+│   │   │   └── Navbar.js            # MODIFIED: Added EVM button
+│   │   ├── config/
+│   │   │   └── solana.js            # NEW: Solana program config
 │   │   ├── pages/
-│   │   │   ├── ProfilePage.js      # User profile page (NEW)
-│   │   │   ├── SpeedRunGame.js     # Main game
-│   │   │   ├── BettingArena.js     # P2P betting
-│   │   │   ├── ExitSimulator.js    # Monte Carlo sim + AI
-│   │   │   ├── TradingJournal.js   # Trade logging + AI
-│   │   │   ├── Forum.js            # Community posts
-│   │   │   └── Messages.js         # DMs
-│   │   └── config/
-│   │       └── skins.js
+│   │   │   └── TradingJournal.js    # MODIFIED: Added Import tab
+│   │   ├── providers/
+│   │   │   └── EVMWalletProvider.js # NEW: EVM wallet provider
+│   │   └── App.js                   # MODIFIED: Added EVM provider
 │   └── package.json
-├── solana-program/                    # Smart contract (NEW)
-│   ├── programs/bullpug-betting/
-│   │   └── src/lib.rs               # Anchor program
-│   ├── client/
-│   │   └── bullpug-betting-client.ts
-│   ├── Anchor.toml
-│   └── README.md
-└── memory/
-    └── PRD.md
+└── solana-program/
+    ├── README.md                    # UPDATED: Local deployment guide
+    └── ...
 ```
 
 ---
 
-## Key Files Reference
+## Key API Endpoints
 
-```
-/app/frontend/src/pages/SpeedRunGame.js
-  - Lines 1064-1233: Enhanced mooncake rendering (shiny effects)
-  - Lines 1904-2028: Game Guide section inline
-  - Lines 37-74: POWERUP_TYPES, STAGE_BACKGROUNDS constants
-  - Lines 268-290: spawnPowerup()
-  - Lines 498-550: Background element movement
-  - Lines 1592-1660: Mobile touch controls
-```
+### Wallet Trades (NEW)
+- `GET /api/wallet-trades/supported-chains` - Get supported blockchain networks
+- `GET /api/wallet-trades/evm/{address}?chain={chain}` - Fetch EVM trades
+- `GET /api/wallet-trades/solana/{address}` - Fetch Solana trades
+- `POST /api/wallet-trades/import-to-journal` - Import trades to journal
+
+### AI Suggestions
+- `GET /api/ai/recommendations` - Returns `safe_picks` and `volatile_picks`
+
+### Prize Pool
+- `GET /api/prize-pool/status` - Pool total, countdown, breakdown
+- `POST /api/prize-pool/execute-payout` - Execute payout
 
 ---
 
 ## Task Status
 
 ### COMPLETED (This Session - Feb 22, 2026)
-1. ✅ **AI "Top Picks" Feature** - Verified working with DexScreener API
-   - Returns 3 Solana memecoins with safety criteria (>$100K volume, >$50K liquidity)
-   - Consistent results across multiple tests
-   - Fallback to established coins (BONK, WIF, POPCAT) if API fails
-2. ✅ **Solana CLI Tools Installed** - All dev tools ready for deployment
-   - Solana CLI 3.1.9
-   - Anchor CLI 0.32.1
-   - solana-keygen
-3. ✅ **Program Keypair Generated**
-   - Program ID: `H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm`
-   - Keypair stored at `/app/solana-program/target/deploy/bullpug_betting-keypair.json`
+1. ✅ **Multi-Chain Wallet Provider** - EVM wallet support via Wagmi
+2. ✅ **EVM Connect Button** - Navbar button with dropdown
+3. ✅ **Wallet Trades API** - Backend endpoints for trade fetching
+4. ✅ **DetectedTrades Component** - UI for auto-import
+5. ✅ **Journal Import Tab** - New tab for trade importing
+6. ✅ **Solana Config** - Frontend configuration file
+7. ✅ **Testing** - 100% pass rate on iteration_26
 
-### BLOCKED (Disk Space Issue)
-- **Solana Smart Contract Build**: The `anchor build` command requires the `platform-tools` package (~2GB when extracted). The `/app` disk partition is 93% full with only ~800MB available.
-- **Solution Options**:
-  1. Deploy from a local machine with the files in `/app/solana-program`
-  2. Free up disk space on the server
-  3. Use a deployment service or CI/CD pipeline
+### BLOCKED (Disk Space - Deploy Locally)
+- **Solana Smart Contract Deployment**: Requires local machine with Solana CLI
+- See `/app/solana-program/README.md` for deployment instructions
 
 ### COMPLETED (Previous Sessions)
-1. ✅ Leaderboard Badge System (12 badges, 4 tiers)
-2. ✅ Game Refactoring (modular files: constants, engine, hooks, guide)
-3. ✅ Wallet Transfer Integration for P2P Betting
-4. ✅ Solana Smart Contract Code (ready for devnet deploy)
-5. ✅ User Profile System with badge display
-6. ✅ AI Suggestions (GPT-4o) for Exit Sim & Journal
-7. ✅ Power-ups with shiny sparkle effects
-8. ✅ Bullpug oriented to face down lane
-9. ✅ Dynamic moving background with parallax
-10. ✅ Stage-based color themes
+1. ✅ AI "Top Picks" with safe/high-risk categories
+2. ✅ 3-day leaderboard/timer cycle fix
+3. ✅ Journal + Exit Simulator merger
+4. ✅ Leaderboard Badge System (12 badges, 4 tiers)
+5. ✅ Game Refactoring (modular files)
+6. ✅ Wallet Transfer Integration for P2P Betting
+7. ✅ User Profile System with badge display
+8. ✅ AI Suggestions (GPT-4o) for Exit Sim & Journal
+9. ✅ Power-ups with shiny sparkle effects
+10. ✅ Dynamic moving background with parallax
 11. ✅ Mobile swipe/tap controls
 12. ✅ Betting Arena (P2P Coin Flip, Pot System)
 13. ✅ Exit Simulator (Monte Carlo GBM)
@@ -185,16 +182,43 @@ All features verified:
 17. ✅ Prize Pool Jackpot with auto-payouts
 18. ✅ Skin Store with transparent cutouts
 
-### Upcoming (P1) - When Disk Space Resolved
-- Build and deploy Solana smart contract to devnet
-- Get devnet SOL via faucet
-- Deploy program with `anchor deploy`
-
 ### Backlog (P2)
+- Deploy Solana smart contract to devnet/mainnet
 - Frontend integration with deployed smart contract
 - NFT Gallery page
 - Plushie Sales shop page
-- Deployment to bullpug.com (mainnet)
+
+---
+
+## 3rd Party Integrations
+
+| Integration | Status | Notes |
+|------------|--------|-------|
+| OpenAI GPT-4o | Active | Via Emergent LLM Key |
+| DexScreener API | Active | Coin data for AI picks |
+| Solana Web3.js | Active | Wallet connection |
+| Wagmi/Viem | NEW | EVM wallet support |
+| Alchemy | Ready | Requires API key for EVM |
+| APScheduler | Active | Background jobs |
+| SendGrid | Active | Email notifications |
+
+---
+
+## Environment Variables Required
+
+### Backend (.env)
+```
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=test_database
+EMERGENT_LLM_KEY=sk-emergent-xxx
+ALCHEMY_API_KEY=xxx  # Required for EVM trade fetching
+```
+
+### Frontend (.env)
+```
+REACT_APP_BACKEND_URL=https://xxx.preview.emergentagent.com
+REACT_APP_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+```
 
 ---
 
@@ -204,77 +228,5 @@ All features verified:
 
 ---
 
-## PRD Feature Completion Status
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Cosmic Runner Game | ✅ Complete | Power-ups, backgrounds, guide, controls |
-| P2P Betting Arena | ✅ Complete | Coin flip, pot, wallet transfers, 2.5% rake |
-| Exit Simulator | ✅ Complete | Monte Carlo GBM, PDF export, AI insights |
-| Trading Journal | ✅ Complete | Dashboard, CSV/PDF, cloud backup, AI daily pulse |
-| Community Forum | ✅ Complete | Posts, replies, categories |
-| Direct Messages | ✅ Complete | Real-time WebSocket DMs |
-| Tokenomics Display | ✅ Complete | Token info page |
-| Reflections Calculator | ✅ Complete | Calculator tool |
-| Wallet Integration | ✅ Complete | Solana wallet adapter with transfers |
-| User Profiles | ✅ Complete | Profile page, skins as avatar, social links |
-| AI Suggestions | ✅ Complete | GPT-4o powered trading insights |
-| Badge System | ✅ Complete | 12 badges, 4 tiers, auto-award |
-| Game Refactoring | ✅ Complete | Modular files: constants, engine, hooks |
-| Solana Smart Contract | ✅ Code Ready | Anchor program, deploy.sh for devnet |
-| NFT Gallery | 🔄 Hidden | Ready for implementation |
-| Plushie Shop | 🔄 Hidden | Ready for implementation |
-| Deployment | ⏳ Pending | Ready for bullpug.com |
-| Trading Journal | ✅ Complete | Dashboard, CSV/PDF, cloud backup, AI daily pulse |
-| Community Forum | ✅ Complete | Posts, replies, categories |
-| Direct Messages | ✅ Complete | Real-time WebSocket DMs |
-| Tokenomics Display | ✅ Complete | Token info page |
-| Reflections Calculator | ✅ Complete | Calculator tool |
-| Wallet Integration | ✅ Complete | Solana wallet adapter |
-| User Profiles | ✅ Complete | Profile page, skins as avatar, social links |
-| AI Suggestions | ✅ Complete | GPT-4o powered trading insights |
-| Solana Smart Contract | ✅ Complete | Trustless P2P betting (Anchor) |
-| NFT Gallery | 🔄 Hidden | Ready for implementation |
-| Plushie Shop | 🔄 Hidden | Ready for implementation |
-| Deployment | ⏳ Pending | Ready for bullpug.com |
-
----
-
-## Latest Update: Feb 17, 2026 - Prize Pool Reward System
-
-### Prize Pool System (COMPLETE)
-**Revenue Sources (25% each goes to prize pool):**
-- P2P Betting rake (coin flip + pot)
-- Skin purchases
-
-**Distribution:**
-- Every 3 days, top 10 leaderboard players receive SOL prizes
-- Prize split:
-  1. 1st: 25%
-  2. 2nd: 15%
-  3. 3rd: 12%
-  4. 4th: 10%
-  5. 5th: 9%
-  6. 6th: 8%
-  7. 7th: 7%
-  8. 8th: 6%
-  9. 9th: 5%
-  10. 10th: 3%
-
-**Features Implemented:**
-- Live jackpot display on game page with countdown timer
-- Prize breakdown showing SOL amounts per rank
-- Recent winners section on home page (auto-refreshes)
-- Automatic payouts via APScheduler (checks every 5 mins)
-- Payout history tracking in database
-
-**New Files:**
-- `backend/routers/prize_pool.py` - Prize pool management & payouts
-- `backend/utils/scheduler.py` - APScheduler for auto-payouts
-- `frontend/src/components/JackpotDisplay.js` - Jackpot UI
-- `frontend/src/components/RecentWinners.js` - Winners display
-
-**API Endpoints:**
-- `GET /api/prize-pool/status` - Pool total, countdown, breakdown
-- `GET /api/prize-pool/recent-winners` - Last payout winners
-- `POST /api/prize-pool/execute-payout` - Manual/auto payout trigger
+## License
+MIT License - Bullpug 2025
