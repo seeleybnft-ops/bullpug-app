@@ -35,7 +35,14 @@ const GRADES = ["A+", "A", "B+", "B", "C+", "C", "D", "F"];
 const MARKET_CONDITIONS = ["Bullish", "Bearish", "Ranging", "High Volatility", "Low Volatility", "Uncertain"];
 
 export default function TradingJournal() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected: solanaConnected } = useWallet();
+  const { address: evmAddress, isConnected: evmConnected } = useAccount();
+  
+  // Combined wallet address for AI Assistant (prefer Solana, fallback to EVM)
+  const walletAddress = solanaConnected 
+    ? publicKey?.toBase58() 
+    : (evmConnected ? evmAddress : null);
+  
   const [tab, setTab] = useState("dashboard");
   const [dashboard, setDashboard] = useState(null);
   const [trades, setTrades] = useState([]);
