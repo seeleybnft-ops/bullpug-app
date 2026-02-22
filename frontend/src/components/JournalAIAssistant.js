@@ -190,6 +190,10 @@ export default function JournalAIAssistant({ walletAddress }) {
               <h3 className="font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#FFD700]" />
                 AI Trading Assistant
+                <span className="px-1.5 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] text-[8px] rounded font-medium flex items-center gap-0.5">
+                  <span className="w-1 h-1 bg-[#00FFA3] rounded-full animate-pulse" />
+                  LIVE
+                </span>
               </h3>
               <p className="text-xs text-slate-400">Connect wallet to unlock all features</p>
             </div>
