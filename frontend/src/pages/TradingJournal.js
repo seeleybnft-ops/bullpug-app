@@ -598,8 +598,8 @@ function ExitSimulator({
                   </button>
                 </div>
                 <div className="h-[300px]">
-                  {simTab === "paths" && pathsChart && <Line data={pathsChart} options={simChartOpts} />}
-                  {simTab === "hist" && histChart && <Bar data={histChart} options={simChartOpts} />}
+                  {simTab === "paths" && pathsChart && <ChartLine data={pathsChart} options={simChartOpts} />}
+                  {simTab === "hist" && histChart && <ChartBar data={histChart} options={simChartOpts} />}
                 </div>
               </div>
 
