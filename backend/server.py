@@ -116,6 +116,7 @@ api_router.include_router(profile_router)
 api_router.include_router(ai_suggestions_router)
 api_router.include_router(badges_router)
 api_router.include_router(wallet_trades_router)
+api_router.include_router(portfolio_router)
 
 # Register the complete api_router with the app
 app.include_router(api_router)
