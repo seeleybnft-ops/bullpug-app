@@ -29,12 +29,15 @@ const AI_LANGUAGES = [
   { code: "ar", name: "العربية", flag: "🇸🇦" },
 ];
 
-export default function JournalAIAssistant({ walletAddress }) {
+export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAddress }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState("holdings"); // holdings, recommendations, insights, chat
   const [language, setLanguage] = useState("en");
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  
+  // Determine effective wallet address (for backward compatibility)
+  const effectiveWalletAddress = walletAddress || solanaAddress || evmAddress;
   
   // Insights state
   const [insights, setInsights] = useState(null);
