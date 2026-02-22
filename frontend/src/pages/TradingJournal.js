@@ -347,25 +347,36 @@ export default function TradingJournal() {
             <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF] rounded-lg font-bold text-xs uppercase">
               <BarChart3 className="w-4 h-4 mr-2" />Dashboard
             </TabsTrigger>
-            <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
-              <BookOpen className="w-4 h-4 mr-2" />Trades
-            </TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="data-[state=active]:bg-[#9945FF]/10 data-[state=active]:text-[#9945FF] rounded-lg font-bold text-xs uppercase">
-              <Wallet className="w-4 h-4 mr-2" />Portfolio
-            </TabsTrigger>
-            <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-xs uppercase">
-              <Trophy className="w-4 h-4 mr-2" />Achievements
+              <DollarSign className="w-4 h-4 mr-2" />Portfolio Value
             </TabsTrigger>
             <TabsTrigger value="import" data-testid="tab-import" className="data-[state=active]:bg-[#627EEA]/10 data-[state=active]:text-[#627EEA] rounded-lg font-bold text-xs uppercase">
               <Download className="w-4 h-4 mr-2" />Import
             </TabsTrigger>
-            <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
+            <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
+              <BookOpen className="w-4 h-4 mr-2" />Trades
+            </TabsTrigger>
+            <TabsTrigger value="simulator" data-testid="tab-simulator" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
+              <Calculator className="w-4 h-4 mr-2" />Exit Sim
+            </TabsTrigger>
+            <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-xs uppercase">
+              <Trophy className="w-4 h-4 mr-2" />Achievements
+            </TabsTrigger>
+            <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#FF6B6B]/10 data-[state=active]:text-[#FF6B6B] rounded-lg font-bold text-xs uppercase">
               <Activity className="w-4 h-4 mr-2" />Backup
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
             <Dashboard dashboard={dashboard} trades={trades} loading={loading} formatCurrency={formatCurrency} walletAddress={connected ? publicKey?.toBase58() : null} />
+          </TabsContent>
+
+          <TabsContent value="portfolio">
+            <PortfolioSummary />
+          </TabsContent>
+
+          <TabsContent value="import">
+            <DetectedTrades onImport={fetchData} />
           </TabsContent>
 
           <TabsContent value="trades">
@@ -377,16 +388,42 @@ export default function TradingJournal() {
             />
           </TabsContent>
 
-          <TabsContent value="portfolio">
-            <PortfolioSummary />
+          <TabsContent value="simulator">
+            <ExitSimulator 
+              trades={trades}
+              tokenAmount={tokenAmount}
+              setTokenAmount={setTokenAmount}
+              entryPrice={entryPrice}
+              setEntryPrice={setEntryPrice}
+              volatility={volatility}
+              setVolatility={setVolatility}
+              drift={drift}
+              setDrift={setDrift}
+              days={days}
+              setDays={setDays}
+              simulations={simulations}
+              setSimulations={setSimulations}
+              taxRate={taxRate}
+              setTaxRate={setTaxRate}
+              showTradeSelector={showTradeSelector}
+              setShowTradeSelector={setShowTradeSelector}
+              selectedTrade={selectedTrade}
+              selectTradeForSim={selectTradeForSim}
+              runSimulation={runSimulation}
+              simLoading={simLoading}
+              simResults={simResults}
+              simTab={simTab}
+              setSimTab={setSimTab}
+              pathsChart={pathsChart}
+              histChart={histChart}
+              simChartOpts={simChartOpts}
+              exportSimPDF={exportSimPDF}
+              reportRef={reportRef}
+            />
           </TabsContent>
 
           <TabsContent value="achievements">
             <AchievementBadges />
-          </TabsContent>
-
-          <TabsContent value="import">
-            <DetectedTrades onImport={fetchData} />
           </TabsContent>
 
           <TabsContent value="backups">
