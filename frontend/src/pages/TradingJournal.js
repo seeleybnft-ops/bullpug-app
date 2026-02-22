@@ -308,9 +308,9 @@ export default function TradingJournal() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Trading <span className="text-[#00C2FF]">Journal</span>
+              My <span className="text-[#00C2FF]">Journal</span>
             </h1>
-            <p className="text-slate-500 text-sm mt-1">Track, analyze, and improve your trading</p>
+            <p className="text-slate-500 text-sm mt-1">Track, analyze, simulate exits & improve your trading</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
