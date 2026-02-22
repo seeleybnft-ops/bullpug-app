@@ -140,20 +140,7 @@ export default function Navbar() {
               <NotificationBell />
               <LanguageSwitcher />
             </div>
-            <EVMConnectButton />
-            <WalletMultiButton
-              data-testid="wallet-connect-btn"
-              style={{
-                background: '#00FFA3',
-                color: '#000',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                fontSize: '12px',
-                padding: '8px 16px',
-                height: '36px',
-                fontFamily: 'Space Grotesk, sans-serif',
-              }}
-            />
+            <UnifiedWalletButton />
             <button
               className="lg:hidden text-slate-400 hover:text-white"
               onClick={() => setOpen(!open)}
