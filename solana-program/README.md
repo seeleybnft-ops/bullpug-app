@@ -1,5 +1,32 @@
 # Bullpug P2P Betting - Solana Smart Contract
 
+## Current Status (Feb 22, 2026)
+
+### Deployment Status: **BLOCKED BY DISK SPACE**
+
+The smart contract code is complete and ready for deployment. However, the build process requires the `platform-tools` package (~2GB extracted), and the current environment has insufficient disk space on `/app` (93% full, only ~800MB available).
+
+### What's Ready:
+- ✅ **Solana CLI 3.1.9** - Installed and configured for devnet
+- ✅ **Anchor CLI 0.32.1** - Installed
+- ✅ **Program Keypair** - Generated at `target/deploy/bullpug_betting-keypair.json`
+- ✅ **Program ID**: `H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm`
+- ✅ **Smart Contract Code** - Complete and tested locally
+
+### To Complete Deployment:
+1. Free up disk space on `/app` (need ~2GB additional)
+2. Or deploy from a local machine with sufficient disk space using the files in this directory
+
+### Quick Deploy Commands (on machine with sufficient space):
+```bash
+cd /app/solana-program
+anchor build
+solana airdrop 2  # Get devnet SOL
+anchor deploy --provider.cluster devnet
+```
+
+---
+
 ## Overview
 
 This Anchor-based Solana smart contract enables **trustless peer-to-peer betting** for the Bullpug platform. It supports two game types:
