@@ -165,20 +165,96 @@ export default function JournalAIAssistant({ walletAddress }) {
 
   if (!walletAddress) {
     return (
-      <div className="glass-card rounded-2xl p-6 border border-[#D946EF]/30">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
+      <div className="glass-card rounded-2xl overflow-hidden border border-[#D946EF]/30" data-testid="journal-ai-assistant">
+        {/* Header - Always visible */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#D946EF]/10 to-[#00FFA3]/10">
+          <div 
+            className="flex items-center gap-3 cursor-pointer flex-1"
+            onClick={() => setExpanded(!expanded)}
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center animate-pulse">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#FFD700]" />
+                AI Trading Assistant
+              </h3>
+              <p className="text-xs text-slate-400">Connect wallet to unlock all features</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-white">AI Trading Assistant</h3>
-            <p className="text-xs text-slate-400">Connect wallet to unlock AI features</p>
-          </div>
+          <button onClick={() => setExpanded(!expanded)}>
+            {expanded ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </button>
         </div>
-        <p className="text-slate-500 text-sm">
-          Connect your Solana wallet to access personalized AI insights, chat with your trading assistant, 
-          track your holdings, and get coin recommendations.
-        </p>
+
+        {/* Content when no wallet - still show Top Picks */}
+        {expanded && (
+          <div className="p-4">
+            <div className="text-center mb-4 p-4 bg-white/5 rounded-xl border border-dashed border-white/20">
+              <Wallet className="w-8 h-8 mx-auto mb-2 text-[#00FFA3] opacity-70" />
+              <p className="text-white font-medium mb-1">Connect Your Wallet</p>
+              <p className="text-slate-400 text-sm">
+                Access personalized AI insights, track your holdings, and chat with your trading assistant.
+              </p>
+            </div>
+
+            {/* Show Top Picks even without wallet */}
+            <div className="border-t border-white/10 pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <h4 className="text-xs font-medium text-[#00FFA3] uppercase">Top Picks</h4>
+                  <p className="text-[10px] text-slate-500">Safe Solana memecoins</p>
+                </div>
+                <button 
+                  onClick={fetchRecommendations}
+                  disabled={recsLoading}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${recsLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              {recsLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : recommendations.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-4">Loading recommendations...</p>
+              ) : (
+                <div className="space-y-2">
+                  {recommendations.slice(0, 3).map((coin, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-xs font-bold text-black">
+                          #{i + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white text-sm">{coin.symbol}</p>
+                          <p className="text-[10px] text-slate-500">{coin.name}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-sm text-white">${coin.price?.toFixed(4)}</p>
+                        <p className={`text-xs flex items-center gap-0.5 justify-end ${
+                          coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'
+                        }`}>
+                          {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                          {Math.abs(coin.change_24h || 0).toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
