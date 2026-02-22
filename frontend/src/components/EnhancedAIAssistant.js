@@ -63,7 +63,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     if (isOpen && messages.length === 0 && !isLoading) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Bullpug AI**, your trading assistant. I can help you with:\n\n- **Analyzing your trades** and patterns\n- **Exit strategy suggestions**\n- **Market insights** and coin recommendations\n- **Portfolio optimization** tips\n\nWhat would you like to know?",
+        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Trade analysis** and exit strategies\n- **Portfolio insights** and optimization\n\nTry asking me about any crypto price!",
         timestamp: Date.now()
       }]);
     }
