@@ -435,9 +435,10 @@ export default function JournalAIAssistant({ walletAddress }) {
               <div>
                 <div className="h-64 overflow-y-auto mb-3 space-y-3 pr-2">
                   {chatMessages.length === 0 && (
-                    <div className="text-center text-slate-500 text-sm py-8">
+                    <div className="text-center text-slate-500 text-sm py-6">
                       <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>Ask me anything about your trades, portfolio strategy, or market analysis!</p>
+                      <p className="font-medium text-white mb-1">Ask me anything with LIVE data!</p>
+                      <p className="text-xs">Try: "What's the price of SOL?" or "What's trending on Solana?"</p>
                     </div>
                   )}
                   {chatMessages.map((msg, i) => (
@@ -450,6 +451,12 @@ export default function JournalAIAssistant({ walletAddress }) {
                           ? "bg-[#00FFA3]/20 text-white" 
                           : "bg-white/5 text-slate-300"
                       }`}>
+                        {msg.hasLiveData && msg.role === "assistant" && (
+                          <div className="flex items-center gap-1 mb-1 text-[10px] text-[#00FFA3]">
+                            <span className="w-1.5 h-1.5 bg-[#00FFA3] rounded-full animate-pulse" />
+                            LIVE DATA
+                          </div>
+                        )}
                         <ReactMarkdown
                           components={{
                             p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
@@ -477,7 +484,7 @@ export default function JournalAIAssistant({ walletAddress }) {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Ask about your trades..."
+                    placeholder="Ask about prices, trends, or your trades..."
                     className="flex-1 px-4 py-2 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-[#00FFA3]/50"
                     data-testid="ai-chat-input"
                   />
