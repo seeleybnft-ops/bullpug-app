@@ -3,10 +3,7 @@ seeds = true
 skip-lint = false
 
 [programs.devnet]
-bullpug_betting = "PUGbetxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-[programs.mainnet]
-bullpug_betting = "PUGbetxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+bullpug_betting = "BuLLPugBetJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [registry]
 url = "https://api.apr.dev"
