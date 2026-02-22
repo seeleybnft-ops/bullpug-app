@@ -87,7 +87,7 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-3">
               <Link to="/game">
                 <Button data-testid="hero-game-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
-                  <Gamepad2 className="w-4 h-4 mr-2" /> Play Game
+                  <Gamepad2 className="w-4 h-4 mr-2" /> Cosmic Runner
                 </Button>
               </Link>
             </div>

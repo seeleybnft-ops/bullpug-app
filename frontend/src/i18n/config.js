@@ -29,7 +29,7 @@ const enTranslations = {
     home: 'Home',
     lore: 'Origins',
     arena: 'Arena',
-    game: 'Game',
+    game: 'Cosmic Runner',
     exitSim: 'Exit Sim',
     reflections: 'Reflections',
     journal: 'Journal',
