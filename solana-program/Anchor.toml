@@ -3,7 +3,7 @@ seeds = true
 skip-lint = false
 
 [programs.devnet]
-bullpug_betting = "H5zK3o8qNaM5yxS2qLxjFzytu3CtQxUmBmMQWDgQPqQf"
+bullpug_betting = "H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm"
 
 [registry]
 url = "https://api.apr.dev"
@@ -14,3 +14,6 @@ wallet = "/root/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[toolchain]
+anchor_version = "0.30.1"

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash;
 
-declare_id!("H5zK3o8qNaM5yxS2qLxjFzytu3CtQxUmBmMQWDgQPqQf");
+declare_id!("H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm");
 
 // ============================================================================
 // BULLPUG P2P BETTING - TRUSTLESS SOLANA SMART CONTRACT
