@@ -13,7 +13,6 @@ import {
   Download, FileText, Calculator, Percent, ChevronDown, Wallet, Trophy
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Line as LineJS, Bar as BarJS } from "react-chartjs-2";
 import { Line, Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip as ChartTooltip, Legend, Filler } from "chart.js";
 import jsPDF from "jspdf";
