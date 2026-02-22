@@ -169,10 +169,12 @@ async def execute_prize_payout(admin_key: str = None):
         }
         await db.prize_pool.insert_one(new_pool)
         
-        # Reset leaderboard scores
+        # Reset BOTH leaderboard collections
         await db.game_leaderboard.update_many({}, {"$set": {"high_score": 0}})
+        # Clear the main leaderboard scores for old cycles (new cycle_start means fresh start)
+        # Scores from previous cycles remain for history but won't show in current leaderboard
         
-        logger.info(f"Prize cycle reset - next payout at {next_payout.isoformat()}, leaderboard cleared")
+        logger.info(f"Prize cycle reset - next payout at {next_payout.isoformat()}, leaderboards cleared")
         return next_payout
     
     # If prize pool too small, still reset the cycle
