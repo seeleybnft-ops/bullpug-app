@@ -747,7 +747,7 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
                 <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 9, fill: '#64748b' }} />
                 <Tooltip contentStyle={{ backgroundColor: '#13131F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-                <Line type="monotone" dataKey="cumPnl" stroke="#00FFA3" strokeWidth={2} dot={false} />
+                <RechartsLine type="monotone" dataKey="cumPnl" stroke="#00FFA3" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -760,9 +760,9 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
                 <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 9, fill: '#64748b' }} />
                 <Tooltip contentStyle={{ backgroundColor: '#13131F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-                <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                <RechartsBar dataKey="pnl" radius={[4, 4, 0, 0]}>
                   {assetData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                </Bar>
+                </RechartsBar>
               </BarChart>
             </ResponsiveContainer>
           </div>
