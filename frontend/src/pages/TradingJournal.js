@@ -343,19 +343,24 @@ export default function TradingJournal() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6">
+          <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6 flex-wrap">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF] rounded-lg font-bold text-xs uppercase">
               <BarChart3 className="w-4 h-4 mr-2" />Dashboard
             </TabsTrigger>
             <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
               <BookOpen className="w-4 h-4 mr-2" />Trades
             </TabsTrigger>
+            <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="data-[state=active]:bg-[#9945FF]/10 data-[state=active]:text-[#9945FF] rounded-lg font-bold text-xs uppercase">
+              <Wallet className="w-4 h-4 mr-2" />Portfolio
+            </TabsTrigger>
+            <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-xs uppercase">
+              <Trophy className="w-4 h-4 mr-2" />Achievements
+            </TabsTrigger>
             <TabsTrigger value="import" data-testid="tab-import" className="data-[state=active]:bg-[#627EEA]/10 data-[state=active]:text-[#627EEA] rounded-lg font-bold text-xs uppercase">
-              <Wallet className="w-4 h-4 mr-2" />Import
-              <Badge className="ml-1 bg-[#627EEA]/20 text-[#627EEA] text-[8px] px-1">BETA</Badge>
+              <Download className="w-4 h-4 mr-2" />Import
             </TabsTrigger>
             <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
-              <Activity className="w-4 h-4 mr-2" />Cloud Backup
+              <Activity className="w-4 h-4 mr-2" />Backup
             </TabsTrigger>
           </TabsList>
 
