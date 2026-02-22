@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useTranslation } from "react-i18next";
 import { Menu, X, MessageCircle, MessageSquare, User } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
-import EVMConnectButton from "./EVMConnectButton";
+import UnifiedWalletButton from "./UnifiedWalletButton";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
