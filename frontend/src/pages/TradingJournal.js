@@ -10,7 +10,7 @@ import axios from "axios";
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Plus, X, Edit2, Trash2,
   BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash,
-  Download, FileText, Calculator, Percent, ChevronDown
+  Download, FileText, Calculator, Percent, ChevronDown, Wallet
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Line as LineJS, Bar as BarJS } from "react-chartjs-2";
@@ -18,6 +18,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import jsPDF from "jspdf";
 import JournalAIAssistant from "@/components/JournalAIAssistant";
 import AISuggestionBubble from "@/components/AISuggestionBubble";
+import DetectedTrades from "@/components/DetectedTrades";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
