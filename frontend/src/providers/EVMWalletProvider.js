@@ -1,5 +1,5 @@
 /**
- * EVM Wallet Provider - Multi-chain EVM wallet support using RainbowKit and Wagmi
+ * EVM Wallet Provider - Multi-chain EVM wallet support using Wagmi
  * 
  * This component provides EVM wallet connectivity (Ethereum, Base, Arbitrum)
  * alongside the existing Solana wallet integration.
@@ -9,23 +9,19 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { WagmiProvider, createConfig, http, useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { mainnet, base, arbitrum } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { connectorsForWallets, RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { 
-  metaMaskWallet, 
-  coinbaseWallet, 
-  walletConnectWallet,
-  rainbowWallet 
-} from '@rainbow-me/rainbowkit/wallets';
-import '@rainbow-me/rainbowkit/styles.css';
+import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 
 // Create query client for React Query
 const queryClient = new QueryClient();
 
 // Configure wagmi with supported chains
-const config = getDefaultConfig({
-  appName: 'Bullpug',
-  projectId: 'bullpug-multichain', // WalletConnect project ID placeholder
+const config = createConfig({
   chains: [mainnet, base, arbitrum],
+  connectors: [
+    injected(),
+    metaMask(),
+    coinbaseWallet({ appName: 'Bullpug' }),
+  ],
   transports: {
     [mainnet.id]: http(),
     [base.id]: http(),
@@ -97,11 +93,9 @@ export function EVMWalletProvider({ children }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <EVMWalletContextProvider>
-            {children}
-          </EVMWalletContextProvider>
-        </RainbowKitProvider>
+        <EVMWalletContextProvider>
+          {children}
+        </EVMWalletContextProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
