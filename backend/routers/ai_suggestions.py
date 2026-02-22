@@ -754,5 +754,3 @@ Liquidity: ${coin['liquidity_usd']:,.0f}, FDV: ${coin['fdv']:,.0f}, 24h: {coin['
             "disclaimer": "Not financial advice. Memecoins are highly volatile. Safe picks are RELATIVELY safer, not safe. DYOR.",
             "is_fallback": True
         }
-            "is_fallback": True
-        }
