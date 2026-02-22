@@ -145,8 +145,46 @@ async def execute_prize_payout(admin_key: str = None):
     pool = await get_or_create_prize_pool()
     total_prize = pool.get("total_sol", 0)
     
+    # Helper function to reset timer and leaderboard
+    async def reset_cycle():
+        next_payout = datetime.now(timezone.utc) + timedelta(days=PAYOUT_INTERVAL_DAYS)
+        
+        # Mark old pool as inactive
+        await db.prize_pool.update_one(
+            {"_id": pool["_id"]},
+            {"$set": {
+                "active": False,
+                "paid_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Create new pool with fresh timer
+        new_pool = {
+            "active": True,
+            "total_sol": 0.0,
+            "contributions": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "next_payout_at": next_payout.isoformat(),
+            "payout_interval_days": PAYOUT_INTERVAL_DAYS
+        }
+        await db.prize_pool.insert_one(new_pool)
+        
+        # Reset leaderboard scores
+        await db.game_leaderboard.update_many({}, {"$set": {"high_score": 0}})
+        
+        logger.info(f"Prize cycle reset - next payout at {next_payout.isoformat()}, leaderboard cleared")
+        return next_payout
+    
+    # If prize pool too small, still reset the cycle
     if total_prize < 0.001:
-        return {"success": False, "message": "Prize pool too small to distribute", "total_sol": total_prize}
+        next_payout = await reset_cycle()
+        return {
+            "success": True, 
+            "message": "No prize to distribute - cycle reset, leaderboard cleared",
+            "total_sol": total_prize,
+            "next_payout_at": next_payout.isoformat(),
+            "leaderboard_reset": True
+        }
     
     # Get top 10 players
     leaderboard = await db.game_leaderboard.find(
@@ -155,7 +193,13 @@ async def execute_prize_payout(admin_key: str = None):
     ).sort("high_score", -1).limit(10).to_list(10)
     
     if not leaderboard:
-        return {"success": False, "message": "No players on leaderboard"}
+        next_payout = await reset_cycle()
+        return {
+            "success": True, 
+            "message": "No players on leaderboard - cycle reset",
+            "next_payout_at": next_payout.isoformat(),
+            "leaderboard_reset": True
+        }
     
     # Execute payouts
     winners = []
