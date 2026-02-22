@@ -144,13 +144,19 @@ export default function JournalAIAssistant({ walletAddress }) {
     setChatLoading(true);
 
     try {
-      const { data } = await axios.post(`${API}/ai-suggestions/journal-chat`, {
+      // Use the new real-time AI chat endpoint
+      const { data } = await axios.post(`${API}/ai/chat`, {
         wallet_address: walletAddress,
         message: userMessage,
-        language,
-        chat_history: chatMessages.slice(-10) // Send last 10 messages for context
+        session_id: `journal_${walletAddress || 'anon'}_${Date.now()}`,
+        active_tab: activeTab,
+        chat_history: chatMessages.slice(-10)
       });
-      setChatMessages(prev => [...prev, { role: "assistant", content: data.response }]);
+      setChatMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: data.response,
+        hasLiveData: data.has_live_data 
+      }]);
     } catch (e) {
       console.error("Chat error:", e);
       setChatMessages(prev => [...prev, { 
