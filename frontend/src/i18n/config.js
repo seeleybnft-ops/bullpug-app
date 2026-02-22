@@ -120,9 +120,9 @@ const enTranslations = {
     highScore: 'High Score',
     totalMooncake: 'Total Mooncake',
     controls: 'Controls',
-    weeklyLeaderboard: 'Weekly Leaderboard',
-    noScoresYet: 'No scores this week yet. Be the first!',
-    resetMonday: 'Resets every Monday 00:00 UTC',
+    weeklyLeaderboard: 'Leaderboard',
+    noScoresYet: 'No scores yet. Be the first!',
+    resetMonday: '',
     mooncakes: 'mooncakes',
     // Power-ups
     shield: 'Shield',
