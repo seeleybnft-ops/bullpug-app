@@ -613,7 +613,10 @@ export default function JournalAIAssistant({ walletAddress }) {
             {activeTab === "holdings" && (
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-xs font-medium text-slate-400 uppercase">Your Holdings</h4>
+                  <div>
+                    <h4 className="text-xs font-medium text-slate-400 uppercase">Wallet Holdings</h4>
+                    <p className="text-[10px] text-slate-600">Live from connected wallet</p>
+                  </div>
                   <button 
                     onClick={fetchHoldings}
                     disabled={holdingsLoading}
@@ -631,30 +634,47 @@ export default function JournalAIAssistant({ walletAddress }) {
                     ))}
                   </div>
                 ) : holdings.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">
-                    No holdings tracked yet. Log trades to see your portfolio here.
-                  </p>
+                  <div className="text-center py-4">
+                    <Wallet className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                    <p className="text-slate-500 text-sm">No holdings detected in your wallet.</p>
+                    <p className="text-slate-600 text-xs mt-1">Make sure your wallet is connected.</p>
+                  </div>
                 ) : (
                   <div className="space-y-2 mb-4">
                     {holdings.map((holding, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                      <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] flex items-center justify-center text-xs font-bold text-black">
                             {holding.symbol?.slice(0, 2)}
                           </div>
                           <div>
-                            <p className="font-medium text-white text-sm">{holding.symbol}</p>
-                            <p className="text-xs text-slate-500">{holding.amount} tokens</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-white text-sm">{holding.symbol}</p>
+                              {holding.chain && (
+                                <span className="text-[8px] px-1 py-0.5 rounded bg-white/10 text-slate-400">
+                                  {holding.chain}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              {holding.amount < 0.001 
+                                ? holding.amount.toExponential(2) 
+                                : holding.amount.toLocaleString(undefined, {maximumFractionDigits: 4})} tokens
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-mono text-sm text-white">${holding.value?.toFixed(2)}</p>
-                          <p className={`text-xs flex items-center gap-0.5 ${
-                            holding.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'
-                          }`}>
-                            {holding.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {Math.abs(holding.change_24h || 0).toFixed(2)}%
+                          <p className="font-mono text-sm text-white">
+                            {holding.value > 0 ? `$${holding.value?.toFixed(2)}` : '-'}
                           </p>
+                          {holding.change_24h !== 0 && (
+                            <p className={`text-xs flex items-center gap-0.5 justify-end ${
+                              holding.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'
+                            }`}>
+                              {holding.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                              {Math.abs(holding.change_24h || 0).toFixed(2)}%
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
