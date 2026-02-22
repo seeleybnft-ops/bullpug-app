@@ -2,6 +2,7 @@
  * Portfolio Summary Component
  * 
  * Shows portfolio value and token holdings across connected wallets.
+ * Holdings are organized by chain (Solana, Ethereum, Base, Arbitrum).
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
-  Wallet, RefreshCw, DollarSign, Loader2, Coins, TrendingUp, TrendingDown
+  Wallet, RefreshCw, DollarSign, Loader2, Coins, TrendingUp, TrendingDown, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -30,6 +31,13 @@ const CHAIN_ICONS = {
   solana: '◎',
 };
 
+const CHAIN_NAMES = {
+  ethereum: 'Ethereum',
+  base: 'Base',
+  arbitrum: 'Arbitrum',
+  solana: 'Solana',
+};
+
 export default function PortfolioSummary() {
   const { publicKey: solanaPublicKey, connected: solanaConnected } = useWallet();
   const { address: evmAddress, isConnected: evmConnected } = useAccount();
@@ -37,6 +45,7 @@ export default function PortfolioSummary() {
   const [portfolio, setPortfolio] = useState(null);
   const [prices, setPrices] = useState({ ETH: { usd: 0 }, SOL: { usd: 0 } });
   const [loading, setLoading] = useState(false);
+  const [expandedChains, setExpandedChains] = useState({});
 
   const fetchPrices = useCallback(async () => {
     try {
@@ -62,6 +71,13 @@ export default function PortfolioSummary() {
 
       const { data } = await axios.get(`${API}/portfolio/combined?${params.toString()}`);
       setPortfolio(data);
+      
+      // Auto-expand all chains
+      const expanded = {};
+      data.chains?.forEach(c => { expanded[c.chain] = true; });
+      if (data.solana) expanded['solana'] = true;
+      setExpandedChains(expanded);
+      
       toast.success('Portfolio loaded');
     } catch (e) {
       console.error('Portfolio fetch error:', e);
@@ -92,19 +108,25 @@ export default function PortfolioSummary() {
     return balance.toLocaleString(undefined, { maximumFractionDigits: decimals });
   };
 
+  const toggleChain = (chain) => {
+    setExpandedChains(prev => ({ ...prev, [chain]: !prev[chain] }));
+  };
+
   const hasWalletConnected = solanaConnected || evmConnected;
 
-  // Collect all holdings from portfolio
-  const getAllHoldings = () => {
-    if (!portfolio) return [];
+  // Group holdings by chain
+  const getHoldingsByChain = () => {
+    if (!portfolio) return {};
     
-    const holdings = [];
+    const holdingsByChain = {};
     
     // Add EVM chain native tokens and tokens
     portfolio.chains?.forEach(chain => {
+      const chainHoldings = [];
+      
       // Native token
       if (chain.native_balance > 0) {
-        holdings.push({
+        chainHoldings.push({
           chain: chain.chain,
           chainName: chain.chain_name,
           chainIcon: chain.chain_icon,
@@ -115,10 +137,11 @@ export default function PortfolioSummary() {
           isNative: true,
         });
       }
+      
       // Other tokens
       chain.tokens?.forEach(token => {
         if (token.balance > 0.0001) {
-          holdings.push({
+          chainHoldings.push({
             chain: token.chain,
             chainName: token.chain_name,
             chainIcon: token.chain_icon,
@@ -131,12 +154,24 @@ export default function PortfolioSummary() {
           });
         }
       });
+      
+      if (chainHoldings.length > 0) {
+        holdingsByChain[chain.chain] = {
+          name: chain.chain_name,
+          icon: chain.chain_icon,
+          color: CHAIN_COLORS[chain.chain] || '#627EEA',
+          totalValue: chain.total_value_usd,
+          holdings: chainHoldings.sort((a, b) => (b.valueUsd || 0) - (a.valueUsd || 0))
+        };
+      }
     });
     
     // Add Solana
     if (portfolio.solana) {
+      const solanaHoldings = [];
+      
       if (portfolio.solana.native_balance > 0) {
-        holdings.push({
+        solanaHoldings.push({
           chain: 'solana',
           chainName: 'Solana',
           chainIcon: '◎',
@@ -147,9 +182,10 @@ export default function PortfolioSummary() {
           isNative: true,
         });
       }
+      
       portfolio.solana.tokens?.forEach(token => {
         if (token.balance > 0.0001) {
-          holdings.push({
+          solanaHoldings.push({
             chain: 'solana',
             chainName: 'Solana',
             chainIcon: '◎',
@@ -161,11 +197,22 @@ export default function PortfolioSummary() {
           });
         }
       });
+      
+      if (solanaHoldings.length > 0) {
+        holdingsByChain['solana'] = {
+          name: 'Solana',
+          icon: '◎',
+          color: '#9945FF',
+          totalValue: portfolio.solana.total_value_usd,
+          holdings: solanaHoldings.sort((a, b) => (b.valueUsd || 0) - (a.valueUsd || 0))
+        };
+      }
     }
     
-    // Sort by value (highest first)
-    return holdings.sort((a, b) => (b.valueUsd || 0) - (a.valueUsd || 0));
+    return holdingsByChain;
   };
+
+  const holdingsByChain = getHoldingsByChain();
 
   return (
     <div className="space-y-6">
@@ -250,7 +297,7 @@ export default function PortfolioSummary() {
                   {formatUSD(portfolio.total_value_usd)}
                 </p>
                 <p className="text-sm text-slate-500 mt-1">
-                  {portfolio.total_tokens} assets across {(portfolio.chains?.length || 0) + (portfolio.solana ? 1 : 0)} chains
+                  {portfolio.total_tokens} assets across {Object.keys(holdingsByChain).length} chains
                 </p>
               </div>
               <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#00C2FF] to-[#00FFA3] flex items-center justify-center">
@@ -259,94 +306,100 @@ export default function PortfolioSummary() {
             </div>
           </div>
 
-          {/* Chain Breakdown */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {portfolio.chains?.map((chain) => (
+          {/* Holdings by Chain - Categorized Boxes */}
+          <div className="space-y-4">
+            {Object.entries(holdingsByChain).map(([chainId, chainData]) => (
               <div 
-                key={chain.chain} 
-                className="glass-card rounded-xl p-4 border border-white/5"
+                key={chainId}
+                className="glass-card rounded-2xl border border-white/5 overflow-hidden"
+                style={{ borderColor: `${chainData.color}30` }}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span 
-                    className="text-lg"
-                    style={{ color: CHAIN_COLORS[chain.chain] }}
-                  >
-                    {chain.chain_icon}
-                  </span>
-                  <span className="text-xs text-slate-400">{chain.chain_name}</span>
-                </div>
-                <p className="text-lg font-bold text-white">{formatUSD(chain.total_value_usd)}</p>
-                <p className="text-[10px] text-slate-500">{chain.token_count + 1} assets</p>
+                {/* Chain Header */}
+                <button
+                  onClick={() => toggleChain(chainId)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                  data-testid={`chain-header-${chainId}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ backgroundColor: `${chainData.color}15`, color: chainData.color }}
+                    >
+                      {chainData.icon}
+                    </div>
+                    <div className="text-left">
+                      <h4 className="text-sm font-bold text-white">{chainData.name}</h4>
+                      <p className="text-xs text-slate-500">{chainData.holdings.length} asset{chainData.holdings.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-lg font-bold" style={{ color: chainData.color }}>
+                        {formatUSD(chainData.totalValue)}
+                      </p>
+                    </div>
+                    {expandedChains[chainId] ? (
+                      <ChevronUp className="w-5 h-5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Chain Holdings List */}
+                {expandedChains[chainId] && (
+                  <div className="border-t border-white/5 p-4 pt-2">
+                    <div className="space-y-2">
+                      {chainData.holdings.map((holding, index) => (
+                        <div 
+                          key={`${chainId}-${holding.symbol}-${index}`}
+                          className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold"
+                              style={{ backgroundColor: `${chainData.color}15`, color: chainData.color }}
+                            >
+                              {holding.symbol?.slice(0, 3)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-white">{holding.symbol}</p>
+                                {holding.isNative && (
+                                  <span className="text-[8px] px-1.5 py-0.5 bg-white/10 rounded text-slate-400">NATIVE</span>
+                                )}
+                                {holding.isStablecoin && (
+                                  <span className="text-[8px] px-1.5 py-0.5 bg-[#00FFA3]/20 rounded text-[#00FFA3]">STABLE</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500">{holding.name}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-white">
+                              {formatBalance(holding.balance)} {holding.symbol}
+                            </p>
+                            <p className="text-xs text-[#00FFA3]">
+                              {holding.valueUsd ? formatUSD(holding.valueUsd) : '-'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
-            {portfolio.solana && (
-              <div className="glass-card rounded-xl p-4 border border-white/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg text-[#9945FF]">◎</span>
-                  <span className="text-xs text-slate-400">Solana</span>
-                </div>
-                <p className="text-lg font-bold text-white">{formatUSD(portfolio.solana.total_value_usd)}</p>
-                <p className="text-[10px] text-slate-500">{portfolio.solana.token_count + 1} assets</p>
-              </div>
-            )}
           </div>
 
-          {/* Holdings List */}
-          <div className="glass-card rounded-2xl p-5 border border-white/5">
-            <h4 className="text-sm font-bold uppercase text-[#00C2FF] mb-4 flex items-center gap-2">
-              <Coins className="w-4 h-4" />
-              All Holdings ({getAllHoldings().length})
-            </h4>
-            
-            {getAllHoldings().length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-slate-500 text-sm">No holdings found</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {getAllHoldings().map((holding, index) => {
-                  const color = CHAIN_COLORS[holding.chain] || '#627EEA';
-                  
-                  return (
-                    <div 
-                      key={`${holding.chain}-${holding.symbol}-${index}`}
-                      className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                          style={{ backgroundColor: `${color}15`, color }}
-                        >
-                          {holding.chainIcon}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-white">{holding.symbol}</p>
-                            {holding.isNative && (
-                              <span className="text-[8px] px-1.5 py-0.5 bg-white/10 rounded text-slate-400">NATIVE</span>
-                            )}
-                            {holding.isStablecoin && (
-                              <span className="text-[8px] px-1.5 py-0.5 bg-[#00FFA3]/20 rounded text-[#00FFA3]">STABLE</span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-500">{holding.chainName}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-white">
-                          {formatBalance(holding.balance)} {holding.symbol}
-                        </p>
-                        <p className="text-xs text-[#00FFA3]">
-                          {holding.valueUsd ? formatUSD(holding.valueUsd) : '-'}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* Empty state */}
+          {Object.keys(holdingsByChain).length === 0 && (
+            <div className="glass-card rounded-2xl p-8 text-center border border-white/5">
+              <Coins className="w-10 h-10 mx-auto mb-3 text-slate-600" />
+              <p className="text-slate-400 text-sm">No holdings found in connected wallets</p>
+            </div>
+          )}
         </>
       )}
     </div>
