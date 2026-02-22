@@ -50,6 +50,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
                   <Route path="/journal" element={<TradingJournal />} />
+                  <Route path="/portfolio" element={<Portfolio />} />
                   <Route path="/exit-simulator" element={<TradingJournal />} /> {/* Redirect to combined page */}
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/betting" element={<BettingArena />} />
