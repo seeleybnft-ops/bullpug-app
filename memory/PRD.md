@@ -4,7 +4,7 @@
 Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic guardian lore.
 
 ## Tech Stack
-- **Frontend:** React, Tailwind CSS, Solana Web3.js, Wagmi/Viem (EVM), react-i18next, react-markdown
+- **Frontend:** React, Tailwind CSS, Solana Web3.js, Wagmi/Viem (EVM), react-i18next, html-to-image
 - **Backend:** FastAPI, WebSockets, Pydantic, slowapi, emergentintegrations (LLM)
 - **Database:** MongoDB
 - **Email:** SendGrid
@@ -13,81 +13,67 @@ Build a full-stack website for the memecoin "Bullpug" with space-themed cosmic g
 
 ---
 
-## Latest Update: Feb 22, 2026 - Multi-Chain Wallet Integration
+## Latest Update: Feb 22, 2026 - Major UI/UX Overhaul + Achievement System
 
-### New Features Implemented
+### Features Implemented This Session
 
-#### 1. Multi-Chain Wallet Support (COMPLETE)
-Added EVM wallet connectivity alongside existing Solana wallet:
+#### 1. Combined Journal + Portfolio UI (COMPLETE)
+- Merged Portfolio page into Trading Journal as a tab
+- 6 tabs: Dashboard, Trades, Portfolio, Achievements, Import, Backup
+- Exit Simulator remains below the tabs
 
-**EVM Chains Supported:**
-- Ethereum (Chain ID: 1)
-- Base (Chain ID: 8453)
-- Arbitrum (Chain ID: 42161)
+#### 2. Unified Wallet Connector (COMPLETE)
+- Single "Connect Wallet" button replaces separate Solana/EVM buttons
+- Modal shows both wallet types:
+  - **Solana:** Connect to Phantom, Solflare via adapter
+  - **EVM Chains:** Ethereum, Base, Arbitrum via Wagmi
+- Shows connected status with chain switcher
+- Both wallets can be connected simultaneously
 
-**Components Created:**
-- `EVMWalletProvider.js` - Wagmi provider for EVM wallet state
-- `EVMConnectButton.js` - Dropdown button to connect/switch EVM wallets
-- `DetectedTrades.js` - Auto-import trades from connected wallets
+#### 3. Achievement Badges System (COMPLETE)
+- **17 Soulbound-style badges** across 5 categories:
+  - **Streak:** 3-day, 7-day, 14-day, 30-day win streaks
+  - **Volume:** 10, 30, 100, 500 trades logged
+  - **Performance:** 60%, 70%, 80%, 90% win rate
+  - **Profit:** $1K, $10K, $100K total PnL
+  - **Milestone:** First trade, Multi-chain trader
+- Rarity system: Common, Rare, Epic, Legendary
+- Auto-awards badges when requirements met
+- Badges stored in MongoDB for persistence
 
-**Integration:**
-- Both Solana and EVM wallets can be connected simultaneously
-- "Connect EVM" button added to navbar
-- Network switching between ETH/Base/Arbitrum supported
+#### 4. Share on X (Twitter) Feature (COMPLETE)
+- Generates shareable stats card using html-to-image
+- Shows: Win streak, Win rate, Total PnL, Best badge
+- "Share on X" button opens Twitter intent with pre-filled text
+- Download button saves PNG image
 
-#### 2. Automatic Trade Fetching (COMPLETE - Backend Ready)
-New wallet-trades API endpoints:
+#### 5. Community Benchmarks (COMPLETE)
+- **Opt-in anonymized stats** - users choose to share
+- Shows percentile rankings: "You're in top 20% for streak"
+- Community averages: win rate, streak length
+- **Leaderboard** with sort options (streak, win_rate, pnl, trades)
+- Top 10 streaks displayed anonymously (wallet masked)
 
-**Endpoints:**
-- `GET /api/wallet-trades/supported-chains` - List supported chains
-- `GET /api/wallet-trades/evm/{address}?chain=ethereum` - Fetch EVM trades
-- `GET /api/wallet-trades/solana/{address}` - Fetch Solana trades
-- `POST /api/wallet-trades/import-to-journal` - Import detected trades
-
-**Features:**
-- Identifies DEX swaps from transaction history
-- Supports Uniswap V2/V3, SushiSwap, 1inch, Aerodrome
-- Parses Jupiter/Raydium swaps on Solana
-- Creates draft journal entries for user review
-
-**Note:** Requires Alchemy API key in `ALCHEMY_API_KEY` environment variable for EVM trade fetching.
-
-#### 3. Journal Import Tab (COMPLETE)
-New "Import" tab in Trading Journal:
-- Shows detected trades from connected wallets
-- Chain filter (All, Ethereum, Base, Arbitrum, Solana)
-- Select and import trades to journal
-- BETA badge indicates new feature
-
-#### 4. Solana Smart Contract Deployment Guide (UPDATED)
-Updated `/app/solana-program/README.md` with:
-- Clear local deployment instructions
-- Step-by-step guide for devnet/mainnet
-- Prerequisites checklist
-- Mainnet deployment checklist
-
-Created `/app/frontend/src/config/solana.js`:
-- Program ID configuration
-- Network settings
-- Betting parameters
-- Helper functions
+#### 6. Multi-Chain Wallet Integration (Previously Complete)
+- EVM wallet support: Ethereum, Base, Arbitrum
+- Auto trade fetching via Alchemy API
+- Import detected DEX swaps to journal
 
 ---
 
 ## Testing Status
 
-### Latest: iteration_26.json - 100% pass rate
-All multi-chain wallet features verified:
-- Backend: 100% (19/19 tests passed)
-- Frontend: 100% (all UI components render correctly)
+### Latest: iteration_27.json - 100% pass rate
+- Backend: 24/24 tests passed
+- Frontend: All UI components verified
 
 **Tests Verified:**
-- `/api/wallet-trades/supported-chains` returns correct chain list
-- `/api/wallet-trades/evm/{address}` handles all supported chains
-- `/api/wallet-trades/solana/{address}` parses Solana transactions
-- Journal page loads with Import tab
-- DetectedTrades component renders correctly
-- EVMConnectButton shows wallet options
+- All achievement badge endpoints working
+- Community benchmarks with opt-in
+- Leaderboard with sorting
+- Unified wallet modal with Solana + EVM
+- All 6 Journal tabs functional
+- Portfolio price ticker showing live prices
 
 ---
 
@@ -97,90 +83,94 @@ All multi-chain wallet features verified:
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── wallet_trades.py   # NEW: Multi-chain trade fetching
-│   │   ├── ai_suggestions.py  # GPT-4o AI suggestions
-│   │   ├── betting.py         # P2P betting + auto-payout
-│   │   ├── profile.py         # User profile CRUD
-│   │   ├── forum.py           # Community forum
-│   │   ├── journal.py         # Trading journal
-│   │   ├── messages.py        # Direct messages (DMs)
-│   │   ├── prize_pool.py      # Jackpot system
-│   │   ├── simulator.py       # Exit simulator (Monte Carlo)
+│   │   ├── achievements.py      # NEW: Badges, benchmarks, leaderboard
+│   │   ├── portfolio.py         # Portfolio balances + prices
+│   │   ├── wallet_trades.py     # Auto trade fetching
+│   │   ├── ai_suggestions.py    # GPT-4o AI suggestions
+│   │   ├── betting.py           # P2P betting + auto-payout
 │   │   └── ...
 │   └── server.py
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── DetectedTrades.js    # NEW: Auto-import trades
-│   │   │   ├── EVMConnectButton.js  # NEW: EVM wallet connect
-│   │   │   ├── JournalAIAssistant.js
-│   │   │   └── Navbar.js            # MODIFIED: Added EVM button
-│   │   ├── config/
-│   │   │   └── solana.js            # NEW: Solana program config
+│   │   │   ├── UnifiedWalletButton.js   # NEW: Combined wallet connector
+│   │   │   ├── AchievementBadges.js     # NEW: Badges + share + benchmarks
+│   │   │   ├── PortfolioSummary.js      # NEW: Compact portfolio view
+│   │   │   ├── DetectedTrades.js        # Auto-import trades
+│   │   │   └── Navbar.js                # MODIFIED: Single wallet button
 │   │   ├── pages/
-│   │   │   └── TradingJournal.js    # MODIFIED: Added Import tab
-│   │   ├── providers/
-│   │   │   └── EVMWalletProvider.js # NEW: EVM wallet provider
-│   │   └── App.js                   # MODIFIED: Added EVM provider
+│   │   │   └── TradingJournal.js        # MODIFIED: 6 tabs including Portfolio/Achievements
+│   │   └── providers/
+│   │       └── EVMWalletProvider.js     # EVM wallet state
 │   └── package.json
 └── solana-program/
-    ├── README.md                    # UPDATED: Local deployment guide
-    └── ...
+    ├── README.md                        # Deployment guide
+    └── deploy_contract.py               # Python deployment helper
 ```
 
 ---
 
 ## Key API Endpoints
 
-### Wallet Trades (NEW)
-- `GET /api/wallet-trades/supported-chains` - Get supported blockchain networks
-- `GET /api/wallet-trades/evm/{address}?chain={chain}` - Fetch EVM trades
+### Achievements (NEW)
+- `GET /api/achievements/badges` - List all 17 badges
+- `GET /api/achievements/user/{wallet}` - User stats + earned badges
+- `GET /api/achievements/share-data/{wallet}` - Data for share card
+- `GET /api/achievements/community/benchmarks` - Aggregated stats
+- `POST /api/achievements/opt-in` - Toggle anonymous sharing
+- `GET /api/achievements/leaderboard` - Public rankings
+
+### Portfolio
+- `GET /api/portfolio/prices` - ETH/SOL prices from CoinGecko
+- `GET /api/portfolio/combined` - Multi-chain balances
+- `GET /api/portfolio/evm/{address}` - EVM token balances
+- `GET /api/portfolio/solana/{address}` - Solana balances
+
+### Wallet Trades
+- `GET /api/wallet-trades/supported-chains` - List supported chains
+- `GET /api/wallet-trades/evm/{address}` - Fetch EVM trades
 - `GET /api/wallet-trades/solana/{address}` - Fetch Solana trades
-- `POST /api/wallet-trades/import-to-journal` - Import trades to journal
 
-### AI Suggestions
-- `GET /api/ai/recommendations` - Returns `safe_picks` and `volatile_picks`
+---
 
-### Prize Pool
-- `GET /api/prize-pool/status` - Pool total, countdown, breakdown
-- `POST /api/prize-pool/execute-payout` - Execute payout
+## Badge Definitions (17 Total)
+
+| Badge | Category | Requirement | Rarity |
+|-------|----------|-------------|--------|
+| Hot Start | Streak | 3-day win streak | Common |
+| On Fire | Streak | 7-day win streak | Rare |
+| Unstoppable | Streak | 14-day win streak | Epic |
+| Legend | Streak | 30-day win streak | Legendary |
+| Getting Started | Volume | 10 trades | Common |
+| Active Trader | Volume | 30 trades | Rare |
+| Veteran | Volume | 100 trades | Epic |
+| Trading Machine | Volume | 500 trades | Legendary |
+| Consistent | Performance | 60% win rate (20+ trades) | Common |
+| Sharp Trader | Performance | 70% win rate (20+ trades) | Rare |
+| Elite | Performance | 80% win rate (30+ trades) | Epic |
+| Master Trader | Performance | 90% win rate (50+ trades) | Legendary |
+| First Grand | Profit | $1,000+ total PnL | Common |
+| Five Figures | Profit | $10,000+ total PnL | Rare |
+| Six Figures | Profit | $100,000+ total PnL | Epic |
+| Genesis | Milestone | First trade logged | Common |
+| Chain Hopper | Milestone | Traded on 3+ chains | Rare |
 
 ---
 
 ## Task Status
 
 ### COMPLETED (This Session - Feb 22, 2026)
-1. ✅ **Multi-Chain Wallet Provider** - EVM wallet support via Wagmi
-2. ✅ **EVM Connect Button** - Navbar button with dropdown
-3. ✅ **Wallet Trades API** - Backend endpoints for trade fetching
-4. ✅ **DetectedTrades Component** - UI for auto-import
-5. ✅ **Journal Import Tab** - New tab for trade importing
-6. ✅ **Solana Config** - Frontend configuration file
-7. ✅ **Testing** - 100% pass rate on iteration_26
+1. ✅ Combined Journal + Portfolio into single page with 6 tabs
+2. ✅ Unified Wallet Connector with Solana + EVM support
+3. ✅ Achievement Badges System (17 badges, auto-awarding)
+4. ✅ Share on X functionality with image generation
+5. ✅ Community Benchmarks with opt-in anonymized stats
+6. ✅ Leaderboard with multiple sort options
+7. ✅ Testing: 100% pass rate (24 backend + all frontend)
 
 ### BLOCKED (Disk Space - Deploy Locally)
 - **Solana Smart Contract Deployment**: Requires local machine with Solana CLI
 - See `/app/solana-program/README.md` for deployment instructions
-
-### COMPLETED (Previous Sessions)
-1. ✅ AI "Top Picks" with safe/high-risk categories
-2. ✅ 3-day leaderboard/timer cycle fix
-3. ✅ Journal + Exit Simulator merger
-4. ✅ Leaderboard Badge System (12 badges, 4 tiers)
-5. ✅ Game Refactoring (modular files)
-6. ✅ Wallet Transfer Integration for P2P Betting
-7. ✅ User Profile System with badge display
-8. ✅ AI Suggestions (GPT-4o) for Exit Sim & Journal
-9. ✅ Power-ups with shiny sparkle effects
-10. ✅ Dynamic moving background with parallax
-11. ✅ Mobile swipe/tap controls
-12. ✅ Betting Arena (P2P Coin Flip, Pot System)
-13. ✅ Exit Simulator (Monte Carlo GBM)
-14. ✅ Trading Journal with dashboard/CSV/PDF export
-15. ✅ Community Forum with posts/replies
-16. ✅ Direct Messages (DMs) with WebSocket
-17. ✅ Prize Pool Jackpot with auto-payouts
-18. ✅ Skin Store with transparent cutouts
 
 ### Backlog (P2)
 - Deploy Solana smart contract to devnet/mainnet
@@ -196,28 +186,29 @@ All multi-chain wallet features verified:
 |------------|--------|-------|
 | OpenAI GPT-4o | Active | Via Emergent LLM Key |
 | DexScreener API | Active | Coin data for AI picks |
+| CoinGecko API | Active | ETH/SOL prices |
 | Solana Web3.js | Active | Wallet connection |
-| Wagmi/Viem | NEW | EVM wallet support |
-| Alchemy | Ready | Requires API key for EVM |
+| Wagmi/Viem | Active | EVM wallet support |
+| Alchemy | Ready | EVM transaction indexing |
+| html-to-image | Active | Share card generation |
 | APScheduler | Active | Background jobs |
 | SendGrid | Active | Email notifications |
 
 ---
 
-## Environment Variables Required
+## Environment Variables
 
 ### Backend (.env)
 ```
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=test_database
 EMERGENT_LLM_KEY=sk-emergent-xxx
-ALCHEMY_API_KEY=xxx  # Required for EVM trade fetching
+ALCHEMY_API_KEY=xxx
 ```
 
 ### Frontend (.env)
 ```
 REACT_APP_BACKEND_URL=https://xxx.preview.emergentagent.com
-REACT_APP_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 ```
 
 ---
