@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash;
 
-declare_id!("BuLLPugBetxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+declare_id!("H5zK3o8qNaM5yxS2qLxjFzytu3CtQxUmBmMQWDgQPqQf");
 
 // ============================================================================
 // BULLPUG P2P BETTING - TRUSTLESS SOLANA SMART CONTRACT

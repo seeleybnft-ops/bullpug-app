@@ -3,7 +3,7 @@ seeds = true
 skip-lint = false
 
 [programs.devnet]
-bullpug_betting = "BuLLPugBetJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+bullpug_betting = "H5zK3o8qNaM5yxS2qLxjFzytu3CtQxUmBmMQWDgQPqQf"
 
 [registry]
 url = "https://api.apr.dev"
