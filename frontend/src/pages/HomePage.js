@@ -140,7 +140,7 @@ export default function HomePage() {
             {[
               { icon: <Zap size={18} />, title: "Betting Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.trader, color: "#00FFA3" },
               { icon: <Gamepad2 size={18} />, title: "Speed Run Game", desc: "Navigate cosmic challenges as Bullpug, collect Mooncake", link: "/game", img: IMAGES.game, color: "#F5D300" },
-              { icon: <BarChart3 size={18} />, title: "Exit Simulator", desc: "Monte Carlo simulations for exit strategies", link: "/exit-simulator", img: IMAGES.birthday, color: "#00C2FF" },
+              { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className="glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300">
