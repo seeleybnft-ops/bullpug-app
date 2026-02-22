@@ -5,21 +5,20 @@
  * alongside the existing Solana wallet integration.
  */
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext } from 'react';
 import { WagmiProvider, createConfig, http, useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { mainnet, base, arbitrum } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
+import { injected, coinbaseWallet } from 'wagmi/connectors';
 
 // Create query client for React Query
 const queryClient = new QueryClient();
 
-// Configure wagmi with supported chains
+// Configure wagmi with supported chains - using only injected and coinbase wallet
 const config = createConfig({
   chains: [mainnet, base, arbitrum],
   connectors: [
-    injected(),
-    metaMask(),
+    injected({ shimDisconnect: true }),
     coinbaseWallet({ appName: 'Bullpug' }),
   ],
   transports: {
@@ -76,7 +75,7 @@ function EVMWalletContextProvider({ children }) {
     chainName: getChainName(chainId),
     connect: (connector) => connect({ connector }),
     disconnect,
-    switchChain: (chainId) => switchChain({ chainId }),
+    switchChain: (chainId) => switchChain?.({ chainId }),
     supportedChains,
     connectors,
   };
