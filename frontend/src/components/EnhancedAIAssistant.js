@@ -107,10 +107,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       const assistantMessage = {
         role: "assistant",
         content: data.response,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        hasLiveData: data.has_live_data
       };
       
       setMessages(prev => [...prev, assistantMessage]);
+      setHasLiveData(data.has_live_data || false);
       
       // Show notification if minimized
       if (isMinimized) {
