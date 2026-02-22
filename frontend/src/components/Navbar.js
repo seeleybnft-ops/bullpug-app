@@ -140,6 +140,7 @@ export default function Navbar() {
               <NotificationBell />
               <LanguageSwitcher />
             </div>
+            <EVMConnectButton />
             <WalletMultiButton
               data-testid="wallet-connect-btn"
               style={{
