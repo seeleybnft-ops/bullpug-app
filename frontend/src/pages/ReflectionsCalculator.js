@@ -145,11 +145,11 @@ export default function ReflectionsCalculator() {
                 value={volume} 
                 onValueChange={setVolume} 
                 min={10000} 
-                max={1000000} 
-                step={5000}
+                max={10000000} 
+                step={10000}
                 data-testid="volume-slider"
               />
-              <p className="text-[10px] text-slate-600 mt-1">Adjust based on market activity</p>
+              <p className="text-[10px] text-slate-600 mt-1">Adjust based on market activity (up to $10M)</p>
             </div>
 
             <div className="p-3 rounded-lg bg-[#D946EF]/10 border border-[#D946EF]/30">
