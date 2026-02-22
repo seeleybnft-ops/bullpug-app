@@ -2,5 +2,8 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@solana/web3.js": "^1.98.4"
+  },
+  "devDependencies": {
+    "@coral-xyz/anchor-cli": "^0.31.2"
   }
 }
