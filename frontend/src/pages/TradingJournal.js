@@ -799,13 +799,6 @@ function Dashboard({ dashboard, trades, loading, formatCurrency, walletAddress }
           </div>
         </div>
       )}
-
-      {/* AI Trading Assistant */}
-      <JournalAIAssistant 
-        walletAddress={walletAddress} 
-        solanaAddress={solanaConnected ? publicKey?.toBase58() : null}
-        evmAddress={evmConnected ? evmAddress : null}
-      />
     </div>
   );
 }
