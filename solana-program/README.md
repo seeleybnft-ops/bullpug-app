@@ -2,28 +2,105 @@
 
 ## Current Status (Feb 22, 2026)
 
-### Deployment Status: **BLOCKED BY DISK SPACE**
+### Deployment Status: **READY FOR LOCAL DEPLOYMENT**
 
-The smart contract code is complete and ready for deployment. However, the build process requires the `platform-tools` package (~2GB extracted), and the current environment has insufficient disk space on `/app` (93% full, only ~800MB available).
+The smart contract code is complete and ready for deployment. Due to disk space constraints in the cloud environment, deployment must be done from a **local machine** with the Solana and Anchor CLI tools installed.
 
 ### What's Ready:
-- ✅ **Solana CLI 3.1.9** - Installed and configured for devnet
-- ✅ **Anchor CLI 0.32.1** - Installed
-- ✅ **Program Keypair** - Generated at `target/deploy/bullpug_betting-keypair.json`
-- ✅ **Program ID**: `H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm`
-- ✅ **Smart Contract Code** - Complete and tested locally
+- **Smart Contract Code** - Complete Anchor program at `programs/bullpug-betting/src/lib.rs`
+- **Program Keypair** - Generated at `target/deploy/bullpug_betting-keypair.json`
+- **Program ID**: `H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm`
+- **TypeScript Client** - Ready at `client/bullpug-betting-client.ts`
+- **Deployment Script** - `deploy.sh` automates the process
 
-### To Complete Deployment:
-1. Free up disk space on `/app` (need ~2GB additional)
-2. Or deploy from a local machine with sufficient disk space using the files in this directory
+---
 
-### Quick Deploy Commands (on machine with sufficient space):
-```bash
-cd /app/solana-program
-anchor build
-solana airdrop 2  # Get devnet SOL
-anchor deploy --provider.cluster devnet
-```
+## Local Deployment Guide
+
+### Prerequisites
+
+1. **Install Rust**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup default stable
+   ```
+
+2. **Install Solana CLI**
+   ```bash
+   sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+   export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+   solana --version  # Should show 1.18+
+   ```
+
+3. **Install Anchor CLI**
+   ```bash
+   cargo install --git https://github.com/coral-xyz/anchor avm --locked
+   avm install latest
+   avm use latest
+   anchor --version  # Should show 0.30+
+   ```
+
+4. **Configure Solana for Devnet**
+   ```bash
+   solana config set --url devnet
+   solana-keygen new  # Creates ~/.config/solana/id.json
+   solana airdrop 2   # Get free devnet SOL
+   ```
+
+### Step-by-Step Deployment
+
+1. **Download the solana-program folder** from the Bullpug project:
+   ```bash
+   # Copy /app/solana-program to your local machine
+   ```
+
+2. **Navigate to the program directory**:
+   ```bash
+   cd solana-program
+   ```
+
+3. **Build the program**:
+   ```bash
+   anchor build
+   ```
+   This creates the program binary in `target/deploy/`.
+
+4. **Deploy to Devnet**:
+   ```bash
+   anchor deploy --provider.cluster devnet
+   ```
+   Or use the automated script:
+   ```bash
+   ./deploy.sh devnet
+   ```
+
+5. **Verify deployment**:
+   ```bash
+   solana program show H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm
+   ```
+
+### After Deployment
+
+1. **Update Frontend Configuration**:
+   
+   Edit `/app/frontend/src/config/solana.js` (create if doesn't exist):
+   ```javascript
+   export const SOLANA_CONFIG = {
+     PROGRAM_ID: 'H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm',
+     NETWORK: 'devnet',  // Change to 'mainnet-beta' for production
+     RPC_URL: 'https://api.devnet.solana.com',
+   };
+   ```
+
+2. **Update BettingArena Component**:
+   
+   The frontend betting component at `/app/frontend/src/pages/BettingArena.js` needs to be updated to use the deployed program. See the client SDK for integration examples.
+
+3. **Test the Contract**:
+   ```bash
+   cd solana-program
+   anchor test --provider.cluster devnet
+   ```
 
 ---
 
@@ -176,31 +253,6 @@ pub struct Pot {
 
 ---
 
-## Deployment
-
-### Prerequisites
-- Rust 1.70+
-- Solana CLI 1.18+
-- Anchor 0.30.1+
-
-### Build
-```bash
-cd /app/solana-program
-anchor build
-```
-
-### Deploy to Devnet
-```bash
-anchor deploy --provider.cluster devnet
-```
-
-### Deploy to Mainnet
-```bash
-anchor deploy --provider.cluster mainnet
-```
-
----
-
 ## Security Considerations
 
 1. **Randomness**: Coinflip uses commit-reveal scheme; Pot uses slot hashes
@@ -220,6 +272,19 @@ The frontend should use `@solana/wallet-adapter-react` to:
 3. Listen for program events via WebSocket subscriptions
 
 See `/app/solana-program/client/bullpug-betting-client.ts` for the TypeScript SDK.
+
+---
+
+## Mainnet Deployment Checklist
+
+Before deploying to mainnet:
+
+- [ ] Complete devnet testing with real wallets
+- [ ] Security audit of smart contract code
+- [ ] Test all edge cases (cancellations, timeouts, etc.)
+- [ ] Fund deployer wallet with ~5 SOL for deployment
+- [ ] Update frontend to use mainnet RPC endpoints
+- [ ] Set up monitoring for program events
 
 ---
 
