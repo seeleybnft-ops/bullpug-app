@@ -439,6 +439,9 @@ export default function TradingJournal() {
             onSave={() => { setShowForm(false); setEditingTrade(null); fetchData(); }}
           />
         )}
+
+        {/* Enhanced AI Assistant - Available across all tabs */}
+        <EnhancedAIAssistant activeTab={tab} />
       </div>
     </div>
   );
