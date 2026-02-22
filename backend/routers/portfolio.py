@@ -241,11 +241,12 @@ async def get_token_prices(contract_addresses: List[str], chain: str) -> Dict[st
         return {}
 
 
-async def fetch_evm_portfolio(address: str, chain: str) -> ChainPortfolio:
+async def fetch_evm_portfolio(address: str, chain: str) -> Optional[ChainPortfolio]:
     """Fetch portfolio for an EVM address on a specific chain."""
     config = CHAIN_CONFIG.get(chain)
     if not config:
-        raise ValueError(f"Unsupported chain: {chain}")
+        logger.warning(f"Unsupported chain: {chain}")
+        return None
     
     tokens = []
     native_balance = 0.0
@@ -263,6 +264,26 @@ async def fetch_evm_portfolio(address: str, chain: str) -> ChainPortfolio:
                 }
             )
             native_data = native_response.json()
+            
+            # Check if we have an error (network not enabled)
+            if "error" in native_data or "result" not in native_data:
+                error_msg = native_data.get("error", {}) if isinstance(native_data.get("error"), dict) else str(native_data)
+                logger.warning(f"Alchemy API error for {chain}: {error_msg}")
+                # Return empty portfolio for this chain
+                eth_price = await get_eth_price()
+                return ChainPortfolio(
+                    chain=chain,
+                    chain_name=config["name"],
+                    chain_icon=config["icon"],
+                    native_symbol=config["native_symbol"],
+                    address=address,
+                    native_balance=0.0,
+                    native_value_usd=0.0,
+                    tokens=[],
+                    total_value_usd=0.0,
+                    token_count=0
+                )
+            
             if "result" in native_data:
                 native_balance = int(native_data["result"], 16) / (10 ** config["native_decimals"])
             
