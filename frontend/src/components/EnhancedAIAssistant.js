@@ -168,7 +168,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       {!isOpen && (
         <button
           onClick={toggleOpen}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-[#D946EF] to-[#00FFA3] shadow-lg shadow-[#D946EF]/30 flex items-center justify-center hover:scale-110 transition-transform animate-pulse"
+          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-[#D946EF] to-[#00FFA3] shadow-lg shadow-[#D946EF]/30 flex items-center justify-center hover:scale-110 transition-transform animate-pulse"
           data-testid="ai-assistant-trigger"
         >
           <Bot className="w-7 h-7 text-white" />
@@ -183,8 +183,8 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
         <div 
           className={`fixed z-50 bg-[#0D0D15] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden transition-all duration-300 ${
             isMinimized 
-              ? 'bottom-6 right-6 w-72 h-14' 
-              : 'bottom-6 right-6 w-[380px] h-[500px] sm:w-[420px] sm:h-[560px]'
+              ? 'bottom-24 right-6 w-72 h-14' 
+              : 'bottom-24 right-6 w-[380px] h-[500px] sm:w-[420px] sm:h-[560px]'
           }`}
           data-testid="ai-assistant-window"
         >
