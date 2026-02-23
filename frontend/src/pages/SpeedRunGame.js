@@ -1222,44 +1222,6 @@ export default function SpeedRunGame() {
         // Update glow animation
         c.glow += 0.08;
       });
-        ctx.ellipse(-cakeWidth * 0.35, -cakeHeight * 0.3, cakeWidth * 0.22, cakeHeight * 0.14, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Secondary highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.beginPath();
-        ctx.ellipse(cakeWidth * 0.25, -cakeHeight * 0.2, cakeWidth * 0.12, cakeHeight * 0.08, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Animated shimmer spot
-        const shimmerAngle = c.glow * 1.5;
-        const shimmerX = Math.cos(shimmerAngle) * cakeWidth * 0.3;
-        const shimmerY = Math.sin(shimmerAngle) * cakeHeight * 0.2 - cakeHeight * 0.1;
-        const shimmerAlpha = 0.4 + Math.sin(c.glow * 4) * 0.3;
-        ctx.fillStyle = `rgba(255, 255, 255, ${shimmerAlpha})`;
-        ctx.beginPath();
-        ctx.arc(shimmerX, shimmerY, cakeWidth * 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-        
-        // ENHANCED: Brighter pulsing outline glow with double ring
-        const pulseAlpha = 0.5 + Math.sin(c.glow * 2) * 0.3;
-        
-        // Inner glow ring
-        ctx.strokeStyle = `rgba(255, 230, 100, ${pulseAlpha})`;
-        ctx.lineWidth = 3 * scale;
-        ctx.beginPath();
-        ctx.ellipse(x, y - cakeHeight * 0.1, cakeWidth * 1.15, cakeHeight * 0.65, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Outer glow ring
-        ctx.strokeStyle = `rgba(255, 200, 50, ${pulseAlpha * 0.5})`;
-        ctx.lineWidth = 2 * scale;
-        ctx.beginPath();
-        ctx.ellipse(x, y - cakeHeight * 0.1, cakeWidth * 1.35, cakeHeight * 0.8, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      });
 
       // Draw power-ups (shiny, sparkly, cosmic items)
       g.powerups.forEach(p => {
