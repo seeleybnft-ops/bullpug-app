@@ -462,9 +462,6 @@ export default function TradingJournal() {
           solanaAddress={solanaConnected ? publicKey?.toBase58() : null}
           evmAddress={evmConnected ? evmAddress : null}
         />
-
-        {/* Enhanced AI Assistant - Floating bubble across all tabs */}
-        <EnhancedAIAssistant activeTab={tab} />
       </div>
     </div>
   );
