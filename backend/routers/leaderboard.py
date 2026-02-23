@@ -75,7 +75,7 @@ async def submit_score(data: LeaderboardSubmitRequest):
                 {"id": existing["id"]},
                 {"$set": {
                     "score": data.score,
-                    "mooncakes": data.mooncakes,
+                    "moonCheese": data.moonCheese,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }}
             )
@@ -119,4 +119,4 @@ async def submit_score(data: LeaderboardSubmitRequest):
     })
     rank = higher_scores + 1
     
-    return {"rank": rank, "score": data.score, "mooncakes": data.mooncakes}
+    return {"rank": rank, "score": data.score, "moonCheese": data.moonCheese}

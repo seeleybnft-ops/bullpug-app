@@ -96,7 +96,7 @@ class SimulationRequest(BaseModel):
 class LeaderboardSubmitRequest(BaseModel):
     player_name: str
     score: int
-    mooncakes: int = 0
+    moonCheese: int = 0
 
 
 # ========== Shop Models ==========
