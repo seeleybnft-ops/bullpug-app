@@ -11,13 +11,13 @@ import { createInitialGameState } from './GameEngine';
 export function useGameState(skinBonus = 0, skinColor = '#00FFA3') {
   const [gameState, setGameState] = useState('idle'); // idle, playing, gameover
   const [score, setScore] = useState(0);
-  const [mooncakes, setMooncakes] = useState(0);
+  const [moonCheese, setMoonCheese] = useState(0);
   const [currentStage, setCurrentStage] = useState(1);
   const [highScore, setHighScore] = useState(() => 
     parseInt(localStorage.getItem('bullpugHighScore') || '0')
   );
-  const [totalMooncakes, setTotalMooncakes] = useState(() => 
-    parseInt(localStorage.getItem('bullpugMooncakes') || '0')
+  const [totalMoonCheese, setTotalMoonCheese] = useState(() => 
+    parseInt(localStorage.getItem('bullpugMoonCheese') || '0')
   );
   
   const gameRef = useRef(null);
@@ -38,14 +38,14 @@ export function useGameState(skinBonus = 0, skinColor = '#00FFA3') {
     gameRef.current = initGame();
     setGameState('playing');
     setScore(0);
-    setMooncakes(0);
+    setMoonCheese(0);
     setCurrentStage(1);
   }, [initGame]);
 
   /**
    * End the game
    */
-  const endGame = useCallback((finalScore, finalMooncakes) => {
+  const endGame = useCallback((finalScore, finalMoonCheese) => {
     if (gameRef.current) {
       gameRef.current.running = false;
     }
@@ -126,10 +126,10 @@ export function useGameState(skinBonus = 0, skinColor = '#00FFA3') {
     // State
     gameState,
     score,
-    mooncakes,
+    moonCheese,
     currentStage,
     highScore,
-    totalMooncakes,
+    totalMoonCheese,
     
     // Refs
     gameRef,
@@ -138,7 +138,7 @@ export function useGameState(skinBonus = 0, skinColor = '#00FFA3') {
     
     // State setters
     setScore,
-    setMooncakes,
+    setMoonCheese,
     setCurrentStage,
     setGameState,
     
