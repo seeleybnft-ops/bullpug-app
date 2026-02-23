@@ -65,6 +65,7 @@ function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
                 <Footer />
+                <EnhancedAIAssistant />
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>
