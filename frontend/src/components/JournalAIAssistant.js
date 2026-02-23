@@ -107,9 +107,11 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
     setAddingToWatchlist(null);
   };
 
-  // Auto-scroll chat
+  // Auto-scroll chat - only when there are messages
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatMessages.length > 0) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [chatMessages]);
 
   // Load initial data when wallet connects
