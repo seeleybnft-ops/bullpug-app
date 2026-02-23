@@ -17,6 +17,30 @@ import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Helper to copy text to clipboard
+const copyToClipboard = async (text, label = "Address") => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(`${label} copied!`);
+  } catch (e) {
+    // Fallback for older browsers
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+    toast.success(`${label} copied!`);
+  }
+};
+
+// Truncate address for display
+const truncateAddress = (address) => {
+  if (!address) return "";
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 // Available languages for AI responses
 const AI_LANGUAGES = [
   { code: "en", name: "English", flag: "🇺🇸" },
