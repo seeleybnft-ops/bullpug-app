@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { EVMWalletProvider } from "@/providers/EVMWalletProvider";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
 import HomePage from "@/pages/HomePage";
 import BettingArena from "@/pages/BettingArena";
 import Shop from "@/pages/Shop";
