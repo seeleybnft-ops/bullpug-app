@@ -46,8 +46,8 @@ const POWERUP_TYPES = {
     duration: 10000 // 10 seconds
   },
   magnet: {
-    name: 'Mooncake Magnet', 
-    description: 'Attracts mooncakes from all lanes',
+    name: 'Moon Cheese Magnet', 
+    description: 'Attracts moon cheese from all lanes',
     color: '#FFD700',
     glowColor: 'rgba(255, 215, 0, 0.6)',
     icon: '🧲',
@@ -89,9 +89,9 @@ export default function SpeedRunGame() {
   const canvasRef = useRef(null);
   const [gameState, setGameState] = useState("idle");
   const [score, setScore] = useState(0);
-  const [mooncakes, setMooncakes] = useState(0);
+  const [moonCheese, setMoonCheese] = useState(0);
   const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem("bullpugHighScore") || "0"));
-  const [totalMooncakes, setTotalMooncakes] = useState(() => parseInt(localStorage.getItem("bullpugMooncakes") || "0"));
+  const [totalMoonCheese, setTotalMoonCheese] = useState(() => parseInt(localStorage.getItem("bullpugMoonCheese") || "0"));
   const [leaderboard, setLeaderboard] = useState([]);
   const [leaderboardMeta, setLeaderboardMeta] = useState({ days_until_reset: 0 });
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
@@ -136,11 +136,11 @@ export default function SpeedRunGame() {
 
   useEffect(() => { fetchLeaderboard(); }, []);
 
-  const submitScore = async (finalScore, finalMooncakes) => {
+  const submitScore = async (finalScore, finalMoonCheese) => {
     if (finalScore <= 0) return;
     try {
       const { data } = await axios.post(`${API}/leaderboard/submit`, {
-        player_name: playerName, score: finalScore, mooncakes: finalMooncakes
+        player_name: playerName, score: finalScore, moonCheese: finalMoonCheese
       });
       toast.success(`Rank #${data.rank} this week!`);
       fetchLeaderboard();
@@ -246,7 +246,7 @@ export default function SpeedRunGame() {
     speed: 2.5,
     startTime: Date.now(),
     score: 0,
-    mooncakes: 0,
+    moonCheese: 0,
     running: true,
     stage: 1,
     trackOffset: 0,
@@ -365,7 +365,7 @@ export default function SpeedRunGame() {
     gameRef.current = initGame();
     setGameState("playing");
     setScore(0);
-    setMooncakes(0);
+    setMoonCheese(0);
     setCurrentStage(1);
     playSoundIfEnabled('click');
 
@@ -493,10 +493,10 @@ export default function SpeedRunGame() {
         c.depth += depthSpeed;
         c.glow += 0.15;
         
-        // Magnet effect - pull mooncakes towards player
+        // Magnet effect - pull moon cheese towards player
         if (g.activePowerups.magnet && Date.now() < g.activePowerups.magnet.endTime) {
           if (c.depth > 0.5 && c.depth < 1.1) {
-            // Gradually move mooncake towards player's lane
+            // Gradually move moon cheese towards player's lane
             const playerLane = g.player.lane;
             if (c.lane !== playerLane) {
               c.lane += (playerLane - c.lane) * 0.05;
@@ -666,7 +666,7 @@ export default function SpeedRunGame() {
               g.running = false;
               setGameState("over");
               setScore(g.score);
-              setMooncakes(g.mooncakes);
+              setMoonCheese(g.moonCheese);
               const newTotal = totalMooncakes + g.mooncakes;
               setTotalMooncakes(newTotal);
               localStorage.setItem("bullpugMooncakes", String(newTotal));
