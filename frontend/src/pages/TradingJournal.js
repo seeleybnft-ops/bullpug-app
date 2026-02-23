@@ -23,6 +23,7 @@ import DetectedTrades from "@/components/DetectedTrades";
 import PortfolioSummary from "@/components/PortfolioSummary";
 import AchievementBadges from "@/components/AchievementBadges";
 import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
+import Watchlist from "@/components/Watchlist";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
