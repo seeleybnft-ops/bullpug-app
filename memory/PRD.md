@@ -86,11 +86,25 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 
 ## What's Been Implemented
 
-### February 2025
+### February 2025 (Latest)
+- [x] **Major Refactoring Completed** - Code maintainability improvements:
+  - TradingJournal.js: Reduced from ~1460 lines to 462 lines (68% reduction)
+  - JournalAIAssistant.js: Reduced from 1002 lines to 334 lines (67% reduction)
+  - Extracted 9 reusable components to `/components/journal/`:
+    - Dashboard.js - Trading statistics and charts
+    - TradesList.js - Trade list with filters
+    - TradeForm.js - Modal for logging trades
+    - ExitSimulator.js - Monte Carlo simulation
+    - CloudBackup.js - Backup/restore functionality
+    - TopPicksSection.js - AI coin recommendations
+    - ChatSection.js - AI chat interface
+    - InsightsSection.js - AI insights display
+    - index.js - Central exports
 - [x] **Watchlist Tab** - Track favorite coins with live price updates, profit/loss tracking
 - [x] **Auto-Trade Fetching (Import Tab)** - Fully functional with multi-chain support
 - [x] Watchlist CRUD API (add, remove, clear, get with price enrichment)
 - [x] Integrated Watchlist as new tab in My Journal
+- [x] Watchlist removal button (StarOff icon) working
 
 ### December 2025
 - [x] Enhanced AI Chat with session memory
@@ -127,7 +141,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Deploy smart contract to Mainnet
 - Re-enable Plushie Sales shop
 - Re-enable NFT Gallery
-- Refactor TradingJournal.js into smaller components
+- ~~Refactor TradingJournal.js into smaller components~~ ✅ Done
 
 ## License
 MIT License - Bullpug 2025
