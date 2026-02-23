@@ -122,6 +122,7 @@ api_router.include_router(wallet_trades_router)
 api_router.include_router(portfolio_router)
 api_router.include_router(achievements_router)
 api_router.include_router(ai_chat_router)
+api_router.include_router(watchlist_router)
 
 # Register the complete api_router with the app
 app.include_router(api_router)
