@@ -448,7 +448,14 @@ export default function TradingJournal() {
           />
         )}
 
-        {/* Enhanced AI Assistant - Available across all tabs */}
+        {/* AI Trading Assistant - Full featured panel */}
+        <JournalAIAssistant 
+          walletAddress={walletAddress} 
+          solanaAddress={solanaConnected ? publicKey?.toBase58() : null}
+          evmAddress={evmConnected ? evmAddress : null}
+        />
+
+        {/* Enhanced AI Assistant - Floating bubble across all tabs */}
         <EnhancedAIAssistant activeTab={tab} />
       </div>
     </div>
