@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://watchlist-tracker-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bullpug-trading.preview.emergentagent.com')
 BASE_URL = BASE_URL.rstrip('/')
 
 

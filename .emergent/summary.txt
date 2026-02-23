@@ -5,18 +5,18 @@ PRODUCT REQUIREMENTS:
 -   **Multi-Chain Wallet & Auto-Trade Fetching:** Integrate multi-chain wallet support (Solana, ETH, Base) using Alchemy to automatically fetch DEX swaps.
 -   **Unified My Journal:** A central hub with tabs for a Dashboard, Portfolio Value, Trade Importing, Trade Logs, Exit Simulator, and Achievements.
 -   **Gamification:** Achievement badges and a Share on X feature.
--   **Enhanced AI Assistant:** The AI should have conversational memory, be available across all My Journal tabs, and feature live data (coin prices, market insights).
--   **UI/UX Cleanup:** Consolidate wallet connections, reorder tabs, and align the homepage footer with the main navigation.
--   **Top Picks Enhancements:** Coins listed in the AI assistant must have direct links to their exchange and copyable contract addresses.
+-   **Enhanced AI Assistant:** The AI should have conversational memory, be available across all My Journal tabs, and feature live data (coin prices, market insights). The AI should be deeply knowledgeable about the project's lore and ecosystem.
+-   **UI/UX Cleanup:** Consolidate wallet connections, reorder tabs, and align the homepage footer with the main navigation. The floating AI assistant should be on all pages.
+-   **Top Picks Enhancements:** Coins listed in the AI assistant must have direct links to their exchange and copyable contract addresses. The number of picks has been increased to 5 safer and 5 high risk coins.
 -   **Watchlist Feature:** A new tab in My Journal for users to save and track tokens of interest.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a React frontend and FastAPI backend. It features a P2P Betting Arena (smart contract deployment is blocked), a Cosmic Runner game, and a sophisticated, unified My Journal page with multiple tabs. The application supports both Solana and EVM wallet connections via a single Connect Wallet button. It has two distinct AI assistants: a simple floating chat bubble () and a more advanced tabbed component (), both now powered by a real-time backend. The backend includes services for AI, portfolio tracking (via Alchemy for both Solana & EVM), and trade fetching. A new, placeholder router and component for the Watchlist feature have been created.
+A full-stack application with a React frontend and FastAPI backend. It features a P2P Betting Arena (smart contract deployment is blocked), a Cosmic Runner game, and a sophisticated, unified My Journal page. The floating Bullpug AI assistant is now present on all pages of the website. The AI has been trained on the project's lore and the entire site ecosystem, including game rules, betting procedures, and security measures. The Reflections page has been completely removed from the application. The in-game collectible Mooncake has been renamed to Moon Cheese, with its image updated throughout the game and guides. The application supports both Solana and EVM wallet connections.
 
 **Last working item**:
--   **Last item agent was working:** Implementing the user-approved Watchlist enhancement. The agent created the initial backend router (), registered it in , and created a placeholder frontend component ().
+-   **Last item agent was working:** The user requested two enhancements for the Watchlist feature: 1) Ensure coins persist until manually deleted, and 2) Add a star button within the watchlist for easy removal. The agent investigated and confirmed that watchlist items are already persistent as they are stored in MongoDB. The agent was about to start implementing the star button for removal in the UI.
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
 -   **Which testing method agent to use?** both
@@ -31,21 +31,19 @@ A full-stack application with a React frontend and FastAPI backend. It features 
     -   **Status:** BLOCKED
     -   **Is recurring issue?** Y
     -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Implement Watchlist Feature (P0)**
-    -   **Where to resume:**
-        1.  Implement the backend CRUD endpoints in  to allow adding, removing, and fetching watchlist items for a user, linking them to a  or wallet address.
-        2.  Build out the UI in  to display the watchlist, fetch data from the new backend endpoints, and provide functionality to add/remove tokens.
-        3.  Integrate the  component as a new tab within the  page.
-    -   **What will be achieved with this?** Users will have a dedicated space to monitor tokens they are interested in.
-    -   **Status:** IN PROGRESS
+-   **Task 1: Add Removal Functionality to Watchlist UI (P0)**
+    -   **Where to resume:** Modify . The goal is to add a star icon next to each token in the watchlist. Clicking this star should trigger the  function to delete the token from the user's watchlist via the backend API.
+    -   **What will be achieved with this?** Users will have an intuitive way to manage their watchlist directly from the watchlist tab.
+    -   **Status:** NOT STARTED
     -   **Should Test frontend/backend/both after fix?** Both
     -   **Blocked on something:** No
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **Finalize Auto-Trade Fetching Integration (P1):** The backend () and frontend () components are functional. This task involves ensuring a seamless user experience for detecting and importing trades within the My Journal flow.
+    -   **Finalize Auto-Trade Fetching Integration (P1):** The backend () and frontend () components are functional. The task involves a final UX review to ensure a seamless experience.
     -   **Integrate Frontend with Deployed Smart Contract (P1):** Update  to interact with the Solana smart contract once it is deployed (currently blocked).
 -   **Future Tasks:**
     -   Deploy Smart Contract to Mainnet (P2)
@@ -53,67 +51,65 @@ A full-stack application with a React frontend and FastAPI backend. It features 
     -   Re-enable and build out the NFT Gallery page (P2)
 
 **Completed work in this session**
--   **Live AI Assistants:** Upgraded both the floating chat bubble and the tabbed AI Trading Assistant to use a new, unified backend that provides real-time coin prices and market data with conversational memory.
--   **Enhanced Top Picks:** The Top Picks section in the AI assistant now refreshes hourly and displays copyable contract addresses and direct Trade links that open the corresponding DexScreener page.
--   **Fixed Wallet Holdings Display:** Resolved a critical bug where the Holdings tab was not displaying assets from connected wallets by refactoring state management in  to correctly handle and pass both Solana and EVM wallet addresses.
--   **Enabled Full EVM Support:** With the user updating their Alchemy key, the application now fully supports fetching portfolio balances and trade history for EVM chains, making the corresponding features functional.
--   **UI/UX Improvements:** Increased the volume bar range on the Reflections page to 0M and updated the homepage footer links to match the main navigation.
--   **CoinGecko Rate-Limiting Mitigation:** Implemented a server-side cache for token prices to improve reliability.
+-   **AI Knowledge Expansion:** The Bullpug AI's system prompt was updated twice with extensive knowledge, first on the project's lore and story, and second on the entire ecosystem, including the game, P2P arena, security (Blowfish), and tokenomics. It is programmed to refuse to share sensitive information.
+-   **Global AI Assistant:** The floating AI assistant bubble was moved from being exclusive to the Journal page to , making it accessible on every page of the website.
+-   **Mooncake to Moon Cheese Refactor:** Globally replaced all text references to Mooncake with Moon Cheese. Updated the Cosmic Runner game to render a new image for the collectible instead of drawing it with canvas shapes.
+-   **Reflections Page & Homepage Cleanup:** The  page, its route, and all links from the navbar and footer were removed. The Trading Fee 1% section on the homepage was also removed.
+-   **Homepage Ecosystem Update:** Added a Bullpug AI Assistant card to the homepage's ecosystem section, including a new image and reordering the display as requested.
+-   **Auto-Scroll Fix:** Resolved a bug in  that caused the My Journal page to auto-scroll to the bottom on load.
+-   **Top Picks Expansion:** Updated the backend () and frontend () to fetch and display 5 safer and 5 high risk coins, up from 3.
+-   **AI Assistant UI Enhancements:** Renamed the AI assistant to Bullpug AI, added star buttons to the Top Picks for direct adding to the watchlist, removed the Holdings tab, and reordered the remaining tabs to Chat, Top Picks, Insights.
+-   **Watchlist & Auto-Trade Fetching Completion:** Finished the implementation and integration of the Watchlist feature and finalized the Auto-Trade Fetching UI. Both features were verified with the testing agent.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork:** Solana Smart Contract Deployment Blocked by Disk Space
--   **Recurrence count:** 3
+-   **Recurrence count:** 4
 -   **Status:** BLOCKED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Real-time Data Integration:** Fetching live data from CoinGecko and DexScreener APIs to power AI responses and UI components.
--   **Complex State Management:** Refactoring a large React component to correctly manage and propagate state from multiple asynchronous hooks ( for Solana,  for EVM) to various child components.
--   **Server-Side Caching:** Using  on the backend to mitigate third-party API rate limits and improve response times.
+-   **Global State/Component Management:** Moving a component () to the root  to make it accessible across all routes.
+-   **AI Knowledge Injection:** Modifying a backend AI service's system prompt to imbue it with specific domain knowledge about the application's features and lore.
+-   **Code Refactoring:** Removing a defunct feature (Reflections) across multiple files (components, routing). Globally renaming a core game concept (Mooncake -> Moon Cheese).
+-   **React Canvas Rendering:** Updating a game component to load and draw an image asset () for a collectible instead of using canvas's primitive shape-drawing functions.
 
 **key DB schema**
--   **watchlist** (new, proposed): 
-
-**changes in tech stack**
--   **Added (Backend):**  for implementing the caching layer.
+-   **watchlist:** 
+-   **game_data (in user profile):** Contains  field for game scores (maintains backward compatibility by checking for old  field).
 
 **All files of reference**
--   **Watchlist:** , 
--   **AI & Real-time Data:** , , 
--   **Wallet State Management:** 
+-   **Watchlist Task:** 
+-   **AI Knowledge:** 
+-   **Global Component:** 
+-   **Game/Item Renaming:** , 
 
 **Areas that need refactoring**:
 -    and  are both very large and manage complex logic and UI. They should be broken down into smaller, more focused components to improve readability and maintainability.
 
 **key api endpoints**
--   : **(New)** For conversational AI with live data capabilities.
--   : **(In Progress)** To fetch a user's watchlist.
--   : **(In Progress)** To add a token to a watchlist.
--   : **(In Progress)** To remove a token from a watchlist.
--   : **(Modified)** Now returns  and  for each token.
--   : **(Working)** Fetches EVM wallet balances via Alchemy.
--   : **(Working)** Fetches EVM trade history via Alchemy.
+-   : **(Modified)** System prompt updated with extensive project knowledge.
+-   : **(Modified)** Now returns 5 coins for each category (safe/volatile).
+-   : To be used by the new star button in the watchlist UI.
 
 **Critical Info for New Agent**
--   Your immediate priority (P0) is to complete the **Watchlist feature**. This requires building the backend logic for CRUD operations and creating the frontend UI to interact with it, finally integrating it as a new tab in the My Journal page.
--   The user has successfully **enabled EVM networks on their Alchemy key**. All features related to EVM portfolio and trade history are now unblocked and should be functional.
--   The **Solana smart contract deployment remains blocked**. The user has been clearly informed that this is an environment limitation and deployment must be done locally. Do not attempt to install the Solana toolchain.
-
-**documents and test reports created in this job**
--   
--   
--   
+-   Your immediate priority (P0) is to implement the removal functionality in the **Watchlist UI** () by adding a clickable star icon to each item.
+-   The user's request for watchlist persistence is already fulfilled by the existing backend. You do not need to work on the backend for this task.
+-   The floating AI assistant is now global. Do not add it to individual pages.
+-   The **Solana smart contract deployment remains blocked**. Do not attempt to install the Solana toolchain.
 
 **Last 10 User Messages and any pending HUMAN messages**
--   User approved implementing the Watchlist enhancement. (Status: IN PROGRESS)
--   User asked if disk space could be increased for Solana deployment. (Status: RESOLVED - Agent explained it's not possible in the environment).
--   User confirmed they enabled EVM networks in Alchemy. (Status: COMPLETED - Agent confirmed functionality).
--   User requested that Top Picks have direct exchange links and copyable contract addresses. (Status: COMPLETED).
--   User asked to complete Auto-Trade Fetching and reported that the Holdings tab was not working. (Status: COMPLETED - Holdings fixed, Trade Fetching is now functional).
--   User reported that the AI was still not live. (Status: COMPLETED - Agent identified and updated the correct component).
--   User requested hourly updates for Top Picks and for the Holdings tab to reflect connected wallets. (Status: COMPLETED).
+-   **Ensure watchlist coins don't expire and add star for removal:** (IN PROGRESS)
+-   **Change Mooncake to Moon Cheese & update image:** (COMPLETED)
+-   **Ensure Bullpug AI knows everything about the ecosystem & security:** (COMPLETED)
+-   **Ensure Bullpug AI Assistant popup is displaying on all pages:** (COMPLETED)
+-   **Update Ecosystem section on the main page:** (COMPLETED)
+-   **Remove the reflections page & Trading Fee section:** (COMPLETED)
+-   **Ensure additional 2 coins in Top Picks meet criteria:** (COMPLETED)
+-   **Increase Top Picks to 5 safer and 5 high risk coins:** (COMPLETED)
+-   **Stop the auto scroll on Journal page:** (COMPLETED)
+-   **Ensure all Bullpug AI knows all the Bullpug Lore:** (COMPLETED)
 
 **Project Health Check:**
 -   **Broken:** None
@@ -123,21 +119,18 @@ A full-stack application with a React frontend and FastAPI backend. It features 
 **3rd Party Integrations**
 -   **OpenAI GPT-4o:** Powers AI suggestions and chat (via Emergent LLM Key).
 -   **Alchemy:** For fetching portfolio balances and trade history on both Solana and EVM chains.
--   **CoinGecko:** For fetching token prices (mitigated by a caching layer).
+-   **CoinGecko:** For fetching token prices.
 -   **DexScreener API:** For fetching real-time coin data for the Top Picks feature.
 -   **Solana:**  and wallet adapter for frontend connections.
 -   **Wagmi/Viem:** For frontend EVM wallet connections.
 -   **APScheduler:** For running hourly background jobs on the backend.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES
+-   **Testing agent used after significant changes:** YES (for initial Watchlist/Auto-Trade feature)
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
 -   **Known regressions:** None
 
 **Credentials to test flow:**
 -   **Alchemy API Key:** Available in  as .
--   **Escrow Wallet Private Key:** Available in  as .
-
-**What agent forgot to execute**
--   All user requests from the current session have been addressed or are actively in progress.</analysis>
+-   **Escrow Wallet Private Key:** Available in  as .</analysis>
