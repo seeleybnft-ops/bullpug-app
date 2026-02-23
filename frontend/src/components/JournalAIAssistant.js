@@ -59,9 +59,13 @@ const AI_LANGUAGES = [
 export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAddress }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState("holdings"); // holdings, recommendations, insights, chat
+  const [activeTab, setActiveTab] = useState("chat"); // chat, recommendations, insights
   const [language, setLanguage] = useState("en");
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  
+  // Watchlist hook
+  const { addToWatchlist, walletAddress: watchlistWallet } = useWatchlist();
+  const [addingToWatchlist, setAddingToWatchlist] = useState(null);
   
   // Determine effective wallet address (for backward compatibility)
   const effectiveWalletAddress = walletAddress || solanaAddress || evmAddress;
