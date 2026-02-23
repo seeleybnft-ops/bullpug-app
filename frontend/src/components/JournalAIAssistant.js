@@ -626,10 +626,9 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
           {/* Tabs */}
           <div className="flex border-b border-white/10">
             {[
-              { id: "holdings", icon: Wallet, label: "Holdings" },
+              { id: "chat", icon: MessageSquare, label: "Chat" },
               { id: "recommendations", icon: TrendingUp, label: "Top Picks" },
               { id: "insights", icon: Sparkles, label: "Insights" },
-              { id: "chat", icon: MessageSquare, label: "Chat" },
             ].map(tab => (
               <button
                 key={tab.id}
