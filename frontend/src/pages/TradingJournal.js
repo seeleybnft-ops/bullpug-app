@@ -439,6 +439,10 @@ export default function TradingJournal() {
             <AchievementBadges />
           </TabsContent>
 
+          <TabsContent value="watchlist">
+            <Watchlist />
+          </TabsContent>
+
           <TabsContent value="backups">
             <CloudBackup onRestore={fetchData} />
           </TabsContent>
