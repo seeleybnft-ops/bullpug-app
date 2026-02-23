@@ -372,6 +372,9 @@ export default function TradingJournal() {
             <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-xs uppercase">
               <Trophy className="w-4 h-4 mr-2" />Achievements
             </TabsTrigger>
+            <TabsTrigger value="watchlist" data-testid="tab-watchlist" className="data-[state=active]:bg-[#FFD700]/10 data-[state=active]:text-[#FFD700] rounded-lg font-bold text-xs uppercase">
+              <Star className="w-4 h-4 mr-2" />Watchlist
+            </TabsTrigger>
             <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#FF6B6B]/10 data-[state=active]:text-[#FF6B6B] rounded-lg font-bold text-xs uppercase">
               <Activity className="w-4 h-4 mr-2" />Backup
             </TabsTrigger>
