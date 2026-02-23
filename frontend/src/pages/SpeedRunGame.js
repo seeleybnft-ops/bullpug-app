@@ -1166,138 +1166,62 @@ export default function SpeedRunGame() {
         ctx.restore();
       });
 
-      // Draw collectibles (mooncakes - EXTRA SHINY AND BRIGHT!)
+      // Draw collectibles (Moon Cheese - using image!)
       g.collectibles.forEach(c => {
         if (c.collected || c.depth < 0.05 || c.depth > 1.15) return;
         
         const scale = getDepthScale(c.depth);
         const x = getLaneX(c.lane, c.depth);
         const y = getDepthY(c.depth) - c.floatOffset * scale - 15;
-        const cakeWidth = 28 * scale;
-        const cakeHeight = 18 * scale;
+        const cheeseSize = 45 * scale;
         
-        // ENHANCED: Larger, brighter outer glow with pulsing
+        // Outer glow effect
         const glowPulse = 0.8 + Math.sin(c.glow * 2) * 0.2;
-        const glowSize = cakeWidth * 2.8 * glowPulse;
+        const glowSize = cheeseSize * 1.8 * glowPulse;
         const outerGlow = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
-        outerGlow.addColorStop(0, 'rgba(255, 255, 200, 0.9)');
-        outerGlow.addColorStop(0.2, 'rgba(255, 230, 100, 0.7)');
-        outerGlow.addColorStop(0.4, 'rgba(255, 200, 50, 0.4)');
-        outerGlow.addColorStop(0.7, 'rgba(255, 180, 0, 0.15)');
+        outerGlow.addColorStop(0, 'rgba(255, 255, 150, 0.8)');
+        outerGlow.addColorStop(0.3, 'rgba(255, 230, 80, 0.5)');
+        outerGlow.addColorStop(0.6, 'rgba(255, 200, 50, 0.2)');
         outerGlow.addColorStop(1, 'transparent');
         ctx.fillStyle = outerGlow;
         ctx.beginPath();
         ctx.arc(x, y, glowSize, 0, Math.PI * 2);
         ctx.fill();
         
-        // ENHANCED: Star-burst rays emanating outward
-        ctx.save();
-        ctx.translate(x, y);
-        const rayCount = 8;
-        for (let r = 0; r < rayCount; r++) {
-          const rayAngle = (r / rayCount) * Math.PI * 2 + c.glow * 0.5;
-          const rayLen = cakeWidth * (2.2 + Math.sin(c.glow * 3 + r) * 0.5);
-          const rayAlpha = 0.5 + Math.sin(c.glow * 2 + r) * 0.3;
-          
-          ctx.strokeStyle = `rgba(255, 240, 150, ${rayAlpha})`;
-          ctx.lineWidth = 2.5 * scale;
+        // Draw moon cheese image
+        if (moonCheeseImg && moonCheeseImg.complete) {
+          ctx.save();
+          ctx.translate(x, y);
+          // Slight rotation/wobble effect
+          ctx.rotate(Math.sin(c.glow) * 0.1);
+          ctx.drawImage(moonCheeseImg, -cheeseSize/2, -cheeseSize/2, cheeseSize, cheeseSize);
+          ctx.restore();
+        } else {
+          // Fallback circle if image not loaded
+          ctx.fillStyle = '#FFD700';
           ctx.beginPath();
-          ctx.moveTo(Math.cos(rayAngle) * cakeWidth * 0.8, Math.sin(rayAngle) * cakeHeight * 0.6);
-          ctx.lineTo(Math.cos(rayAngle) * rayLen, Math.sin(rayAngle) * rayLen * 0.7);
-          ctx.stroke();
-        }
-        ctx.restore();
-        
-        // ENHANCED: More sparkles with brighter colors (8 instead of 4)
-        for (let s = 0; s < 8; s++) {
-          const sparkleAngle = c.glow * 2 + (s / 8) * Math.PI * 2;
-          const sparkleRadius = cakeWidth * (1.6 + Math.sin(c.glow * 4 + s * 0.5) * 0.3);
-          const sparkleX = x + Math.cos(sparkleAngle) * sparkleRadius;
-          const sparkleY = y + Math.sin(sparkleAngle) * sparkleRadius * 0.7;
-          const sparkleSize = (3 + Math.sin(c.glow * 3 + s) * 2) * scale;
-          const brightness = 0.7 + Math.sin(c.glow * 4 + s) * 0.3;
-          
-          // Sparkle glow
-          const sparkleGlow = ctx.createRadialGradient(sparkleX, sparkleY, 0, sparkleX, sparkleY, sparkleSize * 2.5);
-          sparkleGlow.addColorStop(0, `rgba(255, 255, 255, ${brightness})`);
-          sparkleGlow.addColorStop(0.5, `rgba(255, 250, 200, ${brightness * 0.5})`);
-          sparkleGlow.addColorStop(1, 'transparent');
-          ctx.fillStyle = sparkleGlow;
-          ctx.beginPath();
-          ctx.arc(sparkleX, sparkleY, sparkleSize * 2.5, 0, Math.PI * 2);
+          ctx.arc(x, y, cheeseSize/2, 0, Math.PI * 2);
           ctx.fill();
+        }
+        
+        // Sparkle effects around the cheese
+        for (let s = 0; s < 6; s++) {
+          const sparkleAngle = c.glow * 2 + (s / 6) * Math.PI * 2;
+          const sparkleRadius = cheeseSize * (0.8 + Math.sin(c.glow * 4 + s * 0.5) * 0.2);
+          const sparkleX = x + Math.cos(sparkleAngle) * sparkleRadius;
+          const sparkleY = y + Math.sin(sparkleAngle) * sparkleRadius;
+          const sparkleSize = (2 + Math.sin(c.glow * 3 + s) * 1.5) * scale;
+          const brightness = 0.6 + Math.sin(c.glow * 4 + s) * 0.3;
           
-          // Sparkle core
-          ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+          ctx.fillStyle = `rgba(255, 255, 200, ${brightness})`;
           ctx.beginPath();
           ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
           ctx.fill();
         }
         
-        ctx.save();
-        ctx.translate(x, y);
-        
-        // Cake side (3D effect - brighter golden)
-        const sideGrad = ctx.createLinearGradient(0, -cakeHeight * 0.3, 0, cakeHeight * 0.5);
-        sideGrad.addColorStop(0, '#FFD070');
-        sideGrad.addColorStop(0.5, '#E8B050');
-        sideGrad.addColorStop(1, '#C49040');
-        ctx.fillStyle = sideGrad;
-        ctx.beginPath();
-        ctx.ellipse(0, cakeHeight * 0.2, cakeWidth, cakeHeight * 0.4, 0, 0, Math.PI);
-        ctx.fill();
-        
-        // ENHANCED: Cake top surface (much brighter golden)
-        const topGrad = ctx.createRadialGradient(-cakeWidth * 0.2, -cakeHeight * 0.2, 0, 0, 0, cakeWidth);
-        topGrad.addColorStop(0, '#FFFFD0');
-        topGrad.addColorStop(0.2, '#FFF0A0');
-        topGrad.addColorStop(0.5, '#FFD860');
-        topGrad.addColorStop(0.8, '#F0C050');
-        topGrad.addColorStop(1, '#E0A040');
-        ctx.fillStyle = topGrad;
-        ctx.beginPath();
-        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth, cakeHeight * 0.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Decorative pattern on top (traditional mooncake pattern)
-        ctx.strokeStyle = '#C89030';
-        ctx.lineWidth = 1.5 * scale;
-        
-        // Outer ring pattern
-        ctx.beginPath();
-        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth * 0.8, cakeHeight * 0.38, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Inner circle with design (brighter)
-        ctx.fillStyle = '#E8C060';
-        ctx.beginPath();
-        ctx.ellipse(0, -cakeHeight * 0.1, cakeWidth * 0.5, cakeHeight * 0.25, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Moon symbol in center (brighter crescent)
-        ctx.fillStyle = '#FFFF90';
-        ctx.beginPath();
-        ctx.arc(-cakeWidth * 0.05, -cakeHeight * 0.15, cakeWidth * 0.25, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#E8C060';
-        ctx.beginPath();
-        ctx.arc(cakeWidth * 0.08, -cakeHeight * 0.12, cakeWidth * 0.2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Cross pattern for traditional look
-        ctx.strokeStyle = '#C08030';
-        ctx.lineWidth = 1 * scale;
-        ctx.beginPath();
-        ctx.moveTo(-cakeWidth * 0.75, -cakeHeight * 0.1);
-        ctx.lineTo(cakeWidth * 0.75, -cakeHeight * 0.1);
-        ctx.moveTo(0, -cakeHeight * 0.5);
-        ctx.lineTo(0, cakeHeight * 0.3);
-        ctx.stroke();
-        
-        // ENHANCED: Multiple highlight shines for extra shimmer
-        // Main highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
+        // Update glow animation
+        c.glow += 0.08;
+      });
         ctx.ellipse(-cakeWidth * 0.35, -cakeHeight * 0.3, cakeWidth * 0.22, cakeHeight * 0.14, -0.3, 0, Math.PI * 2);
         ctx.fill();
         
