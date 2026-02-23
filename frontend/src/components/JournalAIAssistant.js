@@ -485,7 +485,6 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                                 </a>
                               )}
                             </div>
-                            )}
                           </div>
                         </div>
                       ))}
