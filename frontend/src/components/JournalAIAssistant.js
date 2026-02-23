@@ -89,6 +89,24 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   const [recommendations, setRecommendations] = useState([]);
   const [recsLoading, setRecsLoading] = useState(false);
 
+  // Add to watchlist handler
+  const handleAddToWatchlist = async (coin) => {
+    if (!watchlistWallet) {
+      toast.error("Connect wallet to add to watchlist");
+      return;
+    }
+    setAddingToWatchlist(coin.symbol);
+    const success = await addToWatchlist({
+      symbol: coin.symbol,
+      name: coin.name,
+      contract_address: coin.contract_address,
+      dex_url: coin.dex_url,
+      platform: coin.platform || "Solana",
+      price: coin.price
+    });
+    setAddingToWatchlist(null);
+  };
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
