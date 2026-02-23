@@ -21,13 +21,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Trending coins**: Shows trending Solana tokens
 - **Price queries**: Ask about any crypto price
 - **No auto-scroll**: Manual scroll with "Scroll to bottom" button
+- **Tabs**: Chat, Top Picks, Insights (Holdings tab removed)
 - **Top Picks**: Auto-refreshes every HOUR with fresh recommendations
   - Safe Picks: >$100K volume, >$100K liquidity, FDV >$1M, -20% to +50% change
   - Volatile Picks: >$50K volume, >$20K liquidity, >30% or <-20% change (momentum)
   - **Contract Addresses**: Clickable to copy, shown for each coin
   - **DEX Trade Links**: Direct links to DexScreener for each coin
-- **Wallet Holdings**: Shows live holdings from connected wallets via Alchemy
-  - Supports Ethereum, Base, Arbitrum, and Solana (all networks enabled)
+  - **Add to Watchlist**: Star button to save coins directly from Top Picks
 - Available across ALL My Journal tabs
 
 ### 3. Auto-Trade Fetching (Import Tab)
