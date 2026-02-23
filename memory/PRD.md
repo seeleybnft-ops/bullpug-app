@@ -33,11 +33,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Trade Detection**: Identifies DEX swaps and token transfers
 - **Import to Journal**: One-click import of detected trades as draft entries
 - **DetectedTrades Component**: Shows trades grouped by chain with import options
+
+### 4. P2P Betting Arena
 - Create and join crypto bets
 - Escrow-based wagering
 - Solana smart contract (deployment blocked by disk space)
 
-### 4. Cosmic Runner Game
+### 5. Cosmic Runner Game
 - Endless runner with Bullpug character
 - Unlockable skins
 - Leaderboard system
