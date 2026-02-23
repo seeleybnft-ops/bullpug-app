@@ -82,7 +82,7 @@ async def get_profile(wallet_address: str):
     
     profile["game_stats"] = {
         "high_score": leaderboard_entry.get("high_score", 0) if leaderboard_entry else 0,
-        "total_mooncakes": leaderboard_entry.get("total_mooncakes", 0) if leaderboard_entry else 0,
+        "total_moon_cheese": leaderboard_entry.get("total_moon_cheese", 0) if leaderboard_entry else 0,
         "games_played": leaderboard_entry.get("games_played", 0) if leaderboard_entry else 0
     }
     
