@@ -27,7 +27,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Wallet Holdings**: Shows live holdings from connected wallets via Alchemy
 - Available across ALL My Journal tabs
 
-### 3. P2P Betting Arena
+### 3. Auto-Trade Fetching (Import Tab)
+- **Solana**: Fetches transaction history via Alchemy API
+- **EVM (Ethereum, Base, Arbitrum)**: API ready but requires Alchemy network enablement
+- **Trade Detection**: Identifies DEX swaps and token transfers
+- **Import to Journal**: One-click import of detected trades as draft entries
+- **DetectedTrades Component**: Shows trades grouped by chain with import options
 - Create and join crypto bets
 - Escrow-based wagering
 - Solana smart contract (deployment blocked by disk space)
