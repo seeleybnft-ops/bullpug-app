@@ -77,6 +77,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 
 ## What's Been Implemented
 
+### February 2025
+- [x] **Watchlist Tab** - Track favorite coins with live price updates, profit/loss tracking
+- [x] **Auto-Trade Fetching (Import Tab)** - Fully functional with multi-chain support
+- [x] Watchlist CRUD API (add, remove, clear, get with price enrichment)
+- [x] Integrated Watchlist as new tab in My Journal
+
 ### December 2025
 - [x] Enhanced AI Chat with session memory
 - [x] Real-time price fetching (CoinGecko + DexScreener)
