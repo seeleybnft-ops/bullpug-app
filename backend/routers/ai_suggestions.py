@@ -709,7 +709,8 @@ Liquidity: ${coin['liquidity_usd']:,.0f}, FDV: ${coin['fdv']:,.0f}, 24h: {coin['
 
                     llm_chat = LlmChat(
                         api_key=EMERGENT_LLM_KEY,
-                        session_id=f"rec-{uuid.uuid4()}"
+                        session_id=f"rec-{uuid.uuid4()}",
+                        system_message="You are a crypto analyst. Give brief, factual responses."
                     ).with_model("openai", "gpt-4o")
                     
                     reason = await llm_chat.send_message(UserMessage(text=prompt))
