@@ -16,7 +16,11 @@ export default function GameGuide() {
         <div className="bg-black/30 rounded-xl p-4">
           <h4 className="text-xs uppercase text-slate-400 mb-2 font-bold">Collectibles</h4>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">🥮</span>
+            <img 
+              src="https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/f0lh6k0c_image%20-%202026-02-24T080914.534.jpg" 
+              alt="Moon Cheese" 
+              className="w-8 h-8 rounded-full object-cover"
+            />
             <div>
               <p className="text-white font-medium">Moon Cheese</p>
               <p className="text-slate-500 text-xs">+25 points each</p>
