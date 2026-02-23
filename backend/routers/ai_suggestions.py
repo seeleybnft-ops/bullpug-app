@@ -683,7 +683,7 @@ async def get_coin_recommendations(language: str = "en"):
                 coin_data["risk_level"] = "High Risk"
                 volatile_coins.append(coin_data.copy())
         
-        # Sort and take top 3 of each category
+        # Sort and take top 5 of each category
         safe_coins.sort(key=lambda x: x["_score"], reverse=True)
         volatile_coins.sort(key=lambda x: x["_score"], reverse=True)
         
