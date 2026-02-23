@@ -687,8 +687,8 @@ async def get_coin_recommendations(language: str = "en"):
         safe_coins.sort(key=lambda x: x["_score"], reverse=True)
         volatile_coins.sort(key=lambda x: x["_score"], reverse=True)
         
-        top_safe = safe_coins[:3]
-        top_volatile = volatile_coins[:3]
+        top_safe = safe_coins[:5]
+        top_volatile = volatile_coins[:5]
         
         # Generate AI reasons
         all_top = top_safe + top_volatile

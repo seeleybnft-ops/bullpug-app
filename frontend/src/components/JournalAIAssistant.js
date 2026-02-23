@@ -422,7 +422,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                       <CheckCircle className="w-3 h-3" /> SAFER PICKS
                     </h5>
                     <div className="space-y-2">
-                      {recommendations.slice(0, 3).map((coin, i) => (
+                      {recommendations.slice(0, 5).map((coin, i) => (
                         <div key={i} className="p-2.5 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20 hover:bg-[#00FFA3]/10 transition-colors">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                       <AlertCircle className="w-3 h-3" /> HIGH RISK / HIGH REWARD
                     </h5>
                     <div className="space-y-2">
-                      {volatilePicks.slice(0, 3).map((coin, i) => (
+                      {volatilePicks.slice(0, 5).map((coin, i) => (
                         <div key={i} className="p-2.5 bg-[#FF6B6B]/5 rounded-lg border border-[#FF6B6B]/20 hover:bg-[#FF6B6B]/10 transition-colors">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -824,7 +824,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                         <CheckCircle className="w-3 h-3" /> SAFER PICKS
                       </h5>
                       <div className="space-y-2">
-                        {recommendations.slice(0, 3).map((coin, i) => (
+                        {recommendations.slice(0, 5).map((coin, i) => (
                           <div key={i} className="p-3 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20 hover:bg-[#00FFA3]/10 transition-colors">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -907,7 +907,7 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                         <AlertCircle className="w-3 h-3" /> HIGH RISK / HIGH REWARD
                       </h5>
                       <div className="space-y-2">
-                        {volatilePicks.slice(0, 3).map((coin, i) => (
+                        {volatilePicks.slice(0, 5).map((coin, i) => (
                           <div key={i} className="p-3 bg-[#FF6B6B]/5 rounded-lg border border-[#FF6B6B]/20 hover:bg-[#FF6B6B]/10 transition-colors">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
