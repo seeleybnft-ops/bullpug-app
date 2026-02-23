@@ -111,7 +111,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - DexScreener as secondary source
 
 ## Upcoming Tasks (P1)
-1. Complete Auto-Trade Fetching (Alchemy Transfers API)
+1. ~~Complete Auto-Trade Fetching (Alchemy Transfers API)~~ ✅ Done
 2. Integrate frontend with deployed smart contract (when unblocked)
 
 ## Future Tasks (P2)
