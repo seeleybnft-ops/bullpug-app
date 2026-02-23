@@ -136,7 +136,7 @@ export function createInitialGameState(skinBonus = 0, skinColor = '#00FFA3') {
     speed: SPEED_CONFIG.minSpeed,
     startTime: Date.now(),
     score: 0,
-    mooncakes: 0,
+    moonCheese: 0,
     running: true,
     stage: 1,
     trackOffset: 0,
@@ -184,7 +184,7 @@ export function spawnObstacle(game) {
 }
 
 /**
- * Spawn a new collectible (mooncake)
+ * Spawn a new collectible (moon cheese)
  */
 export function spawnCollectible(game) {
   let lane = Math.floor(Math.random() * LANE_COUNT);
