@@ -17,7 +17,6 @@ import ExitSimulator from "@/pages/ExitSimulator";
 import NFTGallery from "@/pages/NFTGallery";
 import WalletDashboard from "@/pages/WalletDashboard";
 import SpeedRunGame from "@/pages/SpeedRunGame";
-import ReflectionsCalculator from "@/pages/ReflectionsCalculator";
 import TradingJournal from "@/pages/TradingJournal";
 import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
@@ -54,7 +53,6 @@ function App() {
                   <Route path="/exit-simulator" element={<TradingJournal />} /> {/* Redirect to combined page */}
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/betting" element={<BettingArena />} />
-                  <Route path="/reflections" element={<ReflectionsCalculator />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/shop" element={<Shop />} />
                   <Route path="/nft" element={<NFTGallery />} />
