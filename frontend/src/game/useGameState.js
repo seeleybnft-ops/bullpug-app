@@ -56,13 +56,13 @@ export function useGameState(skinBonus = 0, skinColor = '#00FFA3') {
       localStorage.setItem('bullpugHighScore', finalScore.toString());
     }
     
-    // Update total mooncakes
-    const newTotal = totalMooncakes + finalMooncakes;
-    setTotalMooncakes(newTotal);
-    localStorage.setItem('bullpugMooncakes', newTotal.toString());
+    // Update total moon cheese
+    const newTotal = totalMoonCheese + finalMoonCheese;
+    setTotalMoonCheese(newTotal);
+    localStorage.setItem('bullpugMoonCheese', newTotal.toString());
     
     setGameState('gameover');
-  }, [highScore, totalMooncakes]);
+  }, [highScore, totalMoonCheese]);
 
   /**
    * Handle keyboard input
