@@ -627,6 +627,15 @@ async def get_coin_recommendations(language: str = "en"):
             price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
             fdv = float(pair.get("fdv", 0) or 0)
             
+            # Get contract address and DEX URL
+            contract_address = base_token.get("address", "")
+            pair_address = pair.get("pairAddress", "")
+            dex_url = pair.get("url", "")  # DexScreener provides direct URL to the pair
+            
+            # If no direct URL, construct one
+            if not dex_url and pair_address:
+                dex_url = f"https://dexscreener.com/solana/{pair_address}"
+            
             coin_data = {
                 "symbol": symbol,
                 "name": base_token.get("name", symbol),
@@ -636,6 +645,9 @@ async def get_coin_recommendations(language: str = "en"):
                 "liquidity_usd": liquidity_usd,
                 "fdv": fdv,
                 "platform": platform_match,
+                "contract_address": contract_address,
+                "pair_address": pair_address,
+                "dex_url": dex_url,
                 "reason": "",
                 "_score": 0
             }
