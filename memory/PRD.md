@@ -14,7 +14,9 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Achievements Tab**: Trading badges, community benchmarks, social sharing
 - **Backup Tab**: Cloud backup and restore functionality
 
-### 2. Enhanced AI Assistant (LIVE)
+### 2. Enhanced AI Assistant - "Bullpug AI" (LIVE)
+- **Identity**: Bullpug AI embodies the cosmic guardian from the lore
+- **Lore Knowledge**: Full knowledge of Bullpug origins, Newpug City, PugChain, Guardians, Snout Scanners, Festival of Barks, Bullpughans
 - **Real-time market data**: Fetches live prices from CoinGecko and DexScreener
 - **Session-based memory**: Maintains conversation context
 - **Tab-aware context**: Provides relevant suggestions based on active tab
