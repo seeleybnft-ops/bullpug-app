@@ -250,7 +250,7 @@ const esTranslations = {
     shareOnX: 'Compartir en',
     shareText: '¡Acabo de obtener {{score}} puntos en el juego Speed Run de Bullpug! ¿Puedes superar mi puntaje?',
     highScore: 'Récord',
-    totalMooncake: 'Mooncake Total',
+    totalMoonCheeseCount: 'Moon Cheese Total',
     controls: 'Controles',
     weeklyLeaderboard: 'Tabla de Líderes',
     noScoresYet: '¡Sin puntajes aún. Sé el primero!',

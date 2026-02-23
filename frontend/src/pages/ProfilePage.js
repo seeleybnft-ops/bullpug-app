@@ -321,8 +321,8 @@ export default function ProfilePage() {
                   </div>
                   <div className="text-center p-3 rounded-lg bg-black/40">
                     <Coins className="w-5 h-5 text-[#FFD700] mx-auto mb-1" />
-                    <p className="text-lg font-bold text-white">{profile.game_stats.total_mooncakes}</p>
-                    <p className="text-xs text-slate-500">Mooncakes</p>
+                    <p className="text-lg font-bold text-white">{profile.game_stats.total_moon_cheese || profile.game_stats.total_mooncakes || 0}</p>
+                    <p className="text-xs text-slate-500">Moon Cheese</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-black/40">
                     <Gamepad2 className="w-5 h-5 text-[#00FFA3] mx-auto mb-1" />
