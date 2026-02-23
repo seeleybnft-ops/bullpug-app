@@ -72,14 +72,14 @@ BADGES = {
         "tier": "rare",
         "requirement": {"type": "win_streak", "count": 10}
     },
-    "mooncake_hunter": {
-        "id": "mooncake_hunter",
-        "name": "Mooncake Hunter",
-        "description": "Collected 1000+ mooncakes",
+    "moon_cheese_hunter": {
+        "id": "moon_cheese_hunter",
+        "name": "Moon Cheese Hunter",
+        "description": "Collected 1000+ moon cheese",
         "emoji": "🥮",
         "color": "#FFB347",
         "tier": "rare",
-        "requirement": {"type": "mooncakes", "count": 1000}
+        "requirement": {"type": "moonCheese", "count": 1000}
     },
     "high_roller": {
         "id": "high_roller",
@@ -194,17 +194,17 @@ async def check_and_award_achievements(wallet_address: str) -> List[str]:
     leaderboard = await db.game_leaderboard.find_one({"wallet_address": wallet_address}, {"_id": 0})
     
     games_played = leaderboard.get("games_played", 0) if leaderboard else 0
-    total_mooncakes = leaderboard.get("total_mooncakes", 0) if leaderboard else 0
+    total_moon_cheese = leaderboard.get("total_moon_cheese", 0) if leaderboard else 0
     
     # Game Master - 100+ games
     if games_played >= 100:
         if await award_badge(wallet_address, "game_master", {"games_played": games_played}):
             awarded.append("game_master")
     
-    # Mooncake Hunter - 1000+ mooncakes
-    if total_mooncakes >= 1000:
-        if await award_badge(wallet_address, "mooncake_hunter", {"total_mooncakes": total_mooncakes}):
-            awarded.append("mooncake_hunter")
+    # Moon Cheese Hunter - 1000+ moon cheese
+    if total_moon_cheese >= 1000:
+        if await award_badge(wallet_address, "moon_cheese_hunter", {"total_moon_cheese": total_moon_cheese}):
+            awarded.append("moon_cheese_hunter")
     
     # Check betting stats
     betting_stats = await db.betting_stats.find_one({"wallet_address": wallet_address}, {"_id": 0})
