@@ -465,20 +465,58 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                     <div className="space-y-2">
                       {volatilePicks.slice(0, 3).map((coin, i) => (
                         <div key={i} className="p-2.5 bg-[#FF6B6B]/5 rounded-lg border border-[#FF6B6B]/20 hover:bg-[#FF6B6B]/10 transition-colors">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] flex items-center justify-center text-[10px] font-bold text-white">
-                              ⚡
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] flex items-center justify-center text-[10px] font-bold text-white">
+                                ⚡
+                              </div>
+                              <div>
+                                <p className="font-medium text-white text-xs">{coin.symbol}</p>
+                                <p className="text-[9px] text-slate-500">{coin.platform}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium text-white text-xs">{coin.symbol}</p>
-                              <p className="text-[9px] text-slate-500">{coin.platform}</p>
+                            <div className="text-right">
+                              <p className="font-mono text-xs text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                              <p className={`text-[10px] ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(1)}%
+                              </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono text-xs text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
-                            <p className={`text-[10px] ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
-                              {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(1)}%
-                            </p>
+                          {/* Contract Address & DEX Link */}
+                          <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+                            {coin.contract_address ? (
+                              <button 
+                                onClick={() => copyToClipboard(coin.contract_address, "Contract")}
+                                className="flex items-center gap-1 text-[9px] text-slate-500 hover:text-white transition-colors group"
+                                title="Click to copy"
+                              >
+                                <Copy className="w-2.5 h-2.5 group-hover:text-[#FF6B6B]" />
+                                <span className="font-mono">{truncateAddress(coin.contract_address)}</span>
+                              </button>
+                            ) : (
+                              <span className="text-[9px] text-slate-600">-</span>
+                            )}
+                            {coin.dex_url ? (
+                              <a 
+                                href={coin.dex_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                Trade
+                              </a>
+                            ) : (
+                              <a 
+                                href={`https://dexscreener.com/solana?q=${coin.symbol}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                Find
+                              </a>
+                            )}
                           </div>
                         </div>
                       ))}
