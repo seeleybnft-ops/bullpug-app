@@ -1926,7 +1926,7 @@ export default function SpeedRunGame() {
                   <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
                     <span className="text-2xl">🥮</span>
                     <div>
-                      <p className="text-sm font-semibold text-white">Mooncake</p>
+                      <p className="text-sm font-semibold text-white">Moon Cheese</p>
                       <p className="text-xs text-slate-400">Collect for +25 points. The cosmic currency of the Bullpug universe!</p>
                     </div>
                   </div>
@@ -1949,7 +1949,7 @@ export default function SpeedRunGame() {
                   <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
                     <span className="text-2xl">🧲</span>
                     <div>
-                      <p className="text-sm font-semibold text-yellow-400">Mooncake Magnet</p>
+                      <p className="text-sm font-semibold text-yellow-400">Moon Cheese Magnet</p>
                       <p className="text-xs text-slate-400">Attracts moon cheese from all lanes. 10 sec duration.</p>
                     </div>
                   </div>
