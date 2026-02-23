@@ -1,4 +1,4 @@
-import { OBSTACLE_GUIDE, POWERUP_GUIDE, COLLECTIBLE_GUIDE } from '@/game/constants';
+import { OBSTACLE_GUIDE, POWERUP_GUIDE } from '@/game/constants';
 
 /**
  * Game Guide component - displays information about all game items, obstacles, and controls
