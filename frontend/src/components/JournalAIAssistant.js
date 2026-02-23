@@ -794,25 +794,65 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                       </h5>
                       <div className="space-y-2">
                         {recommendations.slice(0, 3).map((coin, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] flex items-center justify-center text-xs font-bold text-black">
-                                #{i + 1}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-1.5">
-                                  <p className="font-medium text-white text-sm">{coin.symbol}</p>
-                                  <span className="text-[8px] px-1 py-0.5 rounded bg-[#00FFA3]/20 text-[#00FFA3]">{coin.platform}</span>
+                          <div key={i} className="p-3 bg-[#00FFA3]/5 rounded-lg border border-[#00FFA3]/20 hover:bg-[#00FFA3]/10 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] flex items-center justify-center text-xs font-bold text-black">
+                                  #{i + 1}
                                 </div>
-                                <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{coin.name}</p>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-medium text-white text-sm">{coin.symbol}</p>
+                                    <span className="text-[8px] px-1 py-0.5 rounded bg-[#00FFA3]/20 text-[#00FFA3]">{coin.platform}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{coin.name}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-mono text-sm text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
+                                <p className={`text-xs flex items-center gap-0.5 justify-end ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                  {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                  {Math.abs(coin.change_24h || 0).toFixed(1)}%
+                                </p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-mono text-sm text-white">${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}</p>
-                              <p className={`text-xs flex items-center gap-0.5 justify-end ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
-                                {coin.change_24h >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                                {Math.abs(coin.change_24h || 0).toFixed(1)}%
-                              </p>
+                            
+                            {/* Contract Address & Exchange Link */}
+                            <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+                              {coin.contract_address ? (
+                                <button 
+                                  onClick={() => copyToClipboard(coin.contract_address, "Contract")}
+                                  className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-white transition-colors group"
+                                  title="Click to copy contract address"
+                                >
+                                  <Copy className="w-3 h-3 group-hover:text-[#00FFA3]" />
+                                  <span className="font-mono">{truncateAddress(coin.contract_address)}</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-600">No contract</span>
+                              )}
+                              
+                              {coin.dex_url ? (
+                                <a 
+                                  href={coin.dex_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-[10px] text-[#00FFA3] hover:text-white transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Trade on DEX
+                                </a>
+                              ) : (
+                                <a 
+                                  href={`https://dexscreener.com/solana?q=${coin.symbol}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-[10px] text-[#00FFA3] hover:text-white transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Find on DEX
+                                </a>
+                              )}
                             </div>
                           </div>
                         ))}
