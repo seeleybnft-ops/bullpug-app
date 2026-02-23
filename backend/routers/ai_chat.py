@@ -430,15 +430,15 @@ The central hub for all your trading activity:
 ### 2. COSMIC RUNNER GAME (Speed Run)
 An endless runner game where Bullpug runs through space:
 - **Controls**: Press SPACE or UP ARROW to jump, A/D or LEFT/RIGHT to change lanes
-- **Objective**: Collect Mooncakes (yellow coins), avoid obstacles
+- **Objective**: Collect Moon Cheese, avoid obstacles
 - **Obstacles**: Meteors (stage 1), Debris (stage 2), Black Holes (stage 3), Satellites (stage 4), Alien Ships (stage 5)
 - **Power-ups**:
   - Guardian Shield (cyan): Protection from one hit for 10 seconds
-  - Mooncake Magnet (gold): Attracts mooncakes from all lanes for 10 seconds
+  - Moon Cheese Magnet (gold): Attracts moon cheese from all lanes for 10 seconds
   - Star Power (purple): Double points for 10 seconds
 - **Stages**: Progress through 5 stages with increasing difficulty (Deep Space → Blue Nebula → Purple Galaxy → Cosmic Fire → Multiverse)
 - **Leaderboard**: Top scores reset every 3 days with SOL prizes for top players
-- **Mooncakes**: Collected mooncakes are saved and can be used in the Skin Store
+- **Moon Cheese**: Collected moon cheese are saved and can be used in the Skin Store
 
 ### 3. SKIN STORE (Game Customization)
 Customize your Bullpug character in Cosmic Runner:
