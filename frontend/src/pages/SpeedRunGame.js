@@ -682,9 +682,9 @@ export default function SpeedRunGame() {
               setGameState("over");
               setScore(g.score);
               setMoonCheese(g.moonCheese);
-              const newTotal = totalMooncakes + g.mooncakes;
-              setTotalMooncakes(newTotal);
-              localStorage.setItem("bullpugMooncakes", String(newTotal));
+              const newTotal = totalMoonCheese + g.moonCheese;
+              setTotalMoonCheese(newTotal);
+              localStorage.setItem("bullpugMoonCheese", String(newTotal));
               if (g.score > highScore) {
                 setHighScore(g.score);
                 localStorage.setItem("bullpugHighScore", String(g.score));
@@ -693,7 +693,7 @@ export default function SpeedRunGame() {
               } else {
                 playSoundIfEnabled('gameover');
               }
-              submitScore(g.score, g.mooncakes);
+              submitScore(g.score, g.moonCheese);
               return;
             }
           }
@@ -708,7 +708,7 @@ export default function SpeedRunGame() {
             const colY = getDepthY(c.depth) - c.floatOffset * scale - 20;
             if (playerY < colY + 40 && playerY + playerH > colY - 10) {
               c.collected = true;
-              g.mooncakes++;
+              g.moonCheese++;
               // Check for double score power-up
               const scoreMultiplier = (g.activePowerups.doubleScore && Date.now() < g.activePowerups.doubleScore.endTime) ? 2 : 1;
               g.score += Math.floor(25 * (1 + g.skinBonus) * scoreMultiplier);
@@ -766,7 +766,7 @@ export default function SpeedRunGame() {
       }
 
       setScore(g.score);
-      setMooncakes(g.mooncakes);
+      setMoonCheese(g.moonCheese);
 
       // ===== RENDERING =====
       // Deep space background - color changes with stage (stageTheme already declared above)
@@ -1520,7 +1520,7 @@ export default function SpeedRunGame() {
       ctx.textAlign = 'left';
       ctx.fillText(`SCORE: ${g.score}`, 20, 35);
       ctx.fillStyle = '#FFD700';
-      ctx.fillText(`MOONCAKES: ${g.mooncakes}`, 20, 60);
+      ctx.fillText(`MOON CHEESE: ${g.moonCheese}`, 20, 60);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '13px monospace';
       ctx.fillText(`STAGE ${g.stage}`, 20, 82);
@@ -1608,7 +1608,7 @@ export default function SpeedRunGame() {
     
     animRef.current = requestAnimationFrame(loop);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highScore, totalMooncakes, playerName, currentSkin, currentSkinId]);
+  }, [highScore, totalMoonCheese, playerName, currentSkin, currentSkinId]);
 
   // Helper function to shade colors
   const shadeColor = (color, percent) => {
@@ -1836,7 +1836,7 @@ export default function SpeedRunGame() {
                     <p className="text-2xl font-bold text-white mb-1">Score: {score}</p>
                     <p className="text-lg text-[#D946EF] mb-2">Stage {currentStage} Reached</p>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[#FFD700] font-bold">+{mooncakes} Mooncakes</span>
+                      <span className="text-[#FFD700] font-bold">+{moonCheese} Moon Cheese</span>
                     </div>
                     {score >= highScore && score > 0 && (
                       <Badge className="bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/40 mb-3 text-sm">
@@ -1870,8 +1870,8 @@ export default function SpeedRunGame() {
                     <p className="text-xl font-black text-[#FFD700]" style={{ fontFamily: 'Orbitron' }}>{highScore}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <p className="text-xs text-slate-500">Mooncakes</p>
-                    <p className="text-lg font-bold text-[#FFD700]">{gameState === 'playing' ? mooncakes : totalMooncakes}</p>
+                    <p className="text-xs text-slate-500">Moon Cheese</p>
+                    <p className="text-lg font-bold text-[#FFD700]">{gameState === 'playing' ? moonCheese : totalMoonCheese}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -1950,14 +1950,14 @@ export default function SpeedRunGame() {
                     <span className="text-2xl">🧲</span>
                     <div>
                       <p className="text-sm font-semibold text-yellow-400">Mooncake Magnet</p>
-                      <p className="text-xs text-slate-400">Attracts mooncakes from all lanes. 10 sec duration.</p>
+                      <p className="text-xs text-slate-400">Attracts moon cheese from all lanes. 10 sec duration.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-2 rounded-lg bg-white/5">
                     <span className="text-2xl">⭐</span>
                     <div>
                       <p className="text-sm font-semibold text-fuchsia-400">Star Power</p>
-                      <p className="text-xs text-slate-400">Doubles points from mooncakes. 10 sec duration.</p>
+                      <p className="text-xs text-slate-400">Doubles points from moon cheese. 10 sec duration.</p>
                     </div>
                   </div>
                 </div>
