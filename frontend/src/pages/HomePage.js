@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Rocket, Shield, Zap, Coins, BarChart3, Gamepad2, ShoppingCart, Moon } from "lucide-react";
+import { Rocket, Shield, Zap, Coins, BarChart3, Gamepad2, ShoppingCart, Moon, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
