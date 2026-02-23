@@ -11,7 +11,7 @@ import axios from "axios";
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Plus, X, Edit2, Trash2,
   BookOpen, Target, Brain, Activity, Award, AlertTriangle, Calendar, Hash,
-  Download, FileText, Calculator, Percent, ChevronDown, Wallet, Trophy
+  Download, FileText, Calculator, Percent, ChevronDown, Wallet, Trophy, Star
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar as RechartsBar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line as RechartsLine } from "recharts";
 import { Line as ChartLine, Bar as ChartBar } from "react-chartjs-2";
