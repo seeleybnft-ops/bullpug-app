@@ -9,11 +9,12 @@ import {
   Bot, Sparkles, ChevronDown, ChevronUp, RefreshCw, Send, 
   Globe, TrendingUp, Wallet, AlertCircle, CheckCircle, 
   ArrowUpRight, ArrowDownRight, Loader2, MessageSquare,
-  Copy, ExternalLink, Brain
+  Copy, ExternalLink, Brain, Star
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { useWatchlist } from "./Watchlist";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
