@@ -453,15 +453,15 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                             ) : (
                               <span className="text-[9px] text-slate-600">-</span>
                             )}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               {/* Add to Watchlist Button */}
                               <button
                                 onClick={() => handleAddToWatchlist(coin)}
                                 disabled={addingToWatchlist === coin.symbol}
-                                className="flex items-center gap-1 text-[9px] text-[#FFD700] hover:text-white transition-colors"
+                                className="text-[#FFD700] hover:text-[#FFF700] hover:scale-110 transition-all"
                                 title="Add to Watchlist"
                               >
-                                <Star className={`w-2.5 h-2.5 ${addingToWatchlist === coin.symbol ? 'animate-pulse' : ''}`} />
+                                <Star className={`w-4 h-4 ${addingToWatchlist === coin.symbol ? 'animate-pulse' : ''}`} fill="currentColor" />
                               </button>
                               {coin.dex_url ? (
                                 <a 
@@ -530,15 +530,15 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                             ) : (
                               <span className="text-[9px] text-slate-600">-</span>
                             )}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               {/* Add to Watchlist Button */}
                               <button
                                 onClick={() => handleAddToWatchlist(coin)}
                                 disabled={addingToWatchlist === coin.symbol}
-                                className="flex items-center gap-1 text-[9px] text-[#FFD700] hover:text-white transition-colors"
+                                className="text-[#FFD700] hover:text-[#FFF700] hover:scale-110 transition-all"
                                 title="Add to Watchlist"
                               >
-                                <Star className={`w-2.5 h-2.5 ${addingToWatchlist === coin.symbol ? 'animate-pulse' : ''}`} />
+                                <Star className={`w-4 h-4 ${addingToWatchlist === coin.symbol ? 'animate-pulse' : ''}`} fill="currentColor" />
                               </button>
                               {coin.dex_url ? (
                                 <a 
