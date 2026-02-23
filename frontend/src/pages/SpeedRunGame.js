@@ -107,6 +107,10 @@ export default function SpeedRunGame() {
 
   const currentSkin = getSkinById(currentSkinId);
 
+  // Moon cheese image ref
+  const moonCheeseImgRef = useRef(null);
+  const [moonCheeseImg, setMoonCheeseImg] = useState(null);
+
   const toggleSound = () => {
     const newValue = !soundOn;
     setSoundOn(newValue);
