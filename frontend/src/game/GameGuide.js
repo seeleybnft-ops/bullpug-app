@@ -18,7 +18,7 @@ export default function GameGuide() {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🥮</span>
             <div>
-              <p className="text-white font-medium">Mooncake</p>
+              <p className="text-white font-medium">Moon Cheese</p>
               <p className="text-slate-500 text-xs">+25 points each</p>
             </div>
           </div>

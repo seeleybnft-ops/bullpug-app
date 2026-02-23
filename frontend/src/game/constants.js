@@ -37,8 +37,8 @@ export const POWERUP_TYPES = {
     duration: 10000
   },
   magnet: {
-    name: 'Mooncake Magnet',
-    description: 'Attracts mooncakes from all lanes',
+    name: 'Moon Cheese Magnet',
+    description: 'Attracts moon cheese from all lanes',
     color: '#FFD700',
     glowColor: 'rgba(255, 215, 0, 0.6)',
     icon: '🧲',
@@ -132,12 +132,12 @@ export const SPAWN_RATES = {
 
 // Points configuration
 export const POINTS = {
-  mooncakeValue: 25,
+  moonCheeseValue: 25,
   frameScoreDivisor: 6, // Score = frame / this
 };
 
-// Collectible (Mooncake) visual settings
-export const MOONCAKE_VISUALS = {
+// Collectible (Moon Cheese) visual settings
+export const MOON_CHEESE_VISUALS = {
   baseRadius: 22,
   glowMultiplier: 2.8,
   sparkleCount: 8,
