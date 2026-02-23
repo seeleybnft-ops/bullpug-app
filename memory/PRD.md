@@ -24,12 +24,15 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Top Picks**: Auto-refreshes every HOUR with fresh recommendations
   - Safe Picks: >$100K volume, >$100K liquidity, FDV >$1M, -20% to +50% change
   - Volatile Picks: >$50K volume, >$20K liquidity, >30% or <-20% change (momentum)
+  - **Contract Addresses**: Clickable to copy, shown for each coin
+  - **DEX Trade Links**: Direct links to DexScreener for each coin
 - **Wallet Holdings**: Shows live holdings from connected wallets via Alchemy
+  - Supports Ethereum, Base, Arbitrum, and Solana (all networks enabled)
 - Available across ALL My Journal tabs
 
 ### 3. Auto-Trade Fetching (Import Tab)
 - **Solana**: Fetches transaction history via Alchemy API
-- **EVM (Ethereum, Base, Arbitrum)**: API ready but requires Alchemy network enablement
+- **EVM (Ethereum, Base, Arbitrum)**: Fully functional with Alchemy
 - **Trade Detection**: Identifies DEX swaps and token transfers
 - **Import to Journal**: One-click import of detected trades as draft entries
 - **DetectedTrades Component**: Shows trades grouped by chain with import options
