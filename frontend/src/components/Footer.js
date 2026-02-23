@@ -24,8 +24,7 @@ export default function Footer() {
               {[
                 {t:"My Journal", p:"/journal"},
                 {t:"P2P Arena", p:"/betting"},
-                {t:"Cosmic Runner", p:"/game"},
-                {t:"Reflections", p:"/reflections"}
+                {t:"Cosmic Runner", p:"/game"}
               ].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}

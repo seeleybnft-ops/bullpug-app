@@ -57,7 +57,6 @@ export default function Navbar() {
     { name: "Journal", path: "/journal" },
     { name: t('nav.game'), path: "/game" },
     { name: t('nav.arena'), path: "/betting" },
-    { name: t('nav.reflections'), path: "/reflections" },
     { name: t('nav.forum'), path: "/forum" },
   ];
 
