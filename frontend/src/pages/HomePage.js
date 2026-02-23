@@ -137,11 +137,12 @@ export default function HomePage() {
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-16" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             <span className="text-[#00FFA3]">Ecosystem</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: <Zap size={18} />, title: "Betting Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.trader, color: "#00FFA3" },
-              { icon: <Gamepad2 size={18} />, title: "Speed Run Game", desc: "Navigate cosmic challenges as Bullpug, collect Mooncake", link: "/game", img: IMAGES.game, color: "#F5D300" },
               { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
+              { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
+              { icon: <Gamepad2 size={18} />, title: "Speed Run Game", desc: "Navigate cosmic challenges as Bullpug, collect Mooncake", link: "/game", img: IMAGES.game, color: "#F5D300" },
+              { icon: <Zap size={18} />, title: "Betting Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.trader, color: "#00FFA3" },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className="glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300">
