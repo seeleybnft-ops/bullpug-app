@@ -51,6 +51,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Calculate passive income from Blowfish trading fees
 - Volume slider range: up to $10,000,000
 
+### 6. Watchlist (NEW)
+- Track favorite coins with price alerts
+- Shows profit/loss since adding to watchlist
+- Copy contract address, direct DEX trade links
+- Synced with wallet address (Solana or EVM)
+- API: GET/POST/DELETE for CRUD operations
+
 ## Tech Stack
 - **Frontend**: React 18, Tailwind CSS, Shadcn/UI, Wagmi, Solana Wallet Adapter
 - **Backend**: FastAPI (Python), MongoDB
