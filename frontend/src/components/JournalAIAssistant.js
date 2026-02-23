@@ -531,27 +531,38 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                             ) : (
                               <span className="text-[9px] text-slate-600">-</span>
                             )}
-                            {coin.dex_url ? (
-                              <a 
-                                href={coin.dex_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
+                            <div className="flex items-center gap-2">
+                              {/* Add to Watchlist Button */}
+                              <button
+                                onClick={() => handleAddToWatchlist(coin)}
+                                disabled={addingToWatchlist === coin.symbol}
+                                className="flex items-center gap-1 text-[9px] text-[#FFD700] hover:text-white transition-colors"
+                                title="Add to Watchlist"
                               >
-                                <ExternalLink className="w-2.5 h-2.5" />
-                                Trade
-                              </a>
-                            ) : (
-                              <a 
-                                href={`https://dexscreener.com/solana?q=${coin.symbol}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
-                              >
-                                <ExternalLink className="w-2.5 h-2.5" />
-                                Find
-                              </a>
-                            )}
+                                <Star className={`w-2.5 h-2.5 ${addingToWatchlist === coin.symbol ? 'animate-pulse' : ''}`} />
+                              </button>
+                              {coin.dex_url ? (
+                                <a 
+                                  href={coin.dex_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                  Trade
+                                </a>
+                              ) : (
+                                <a 
+                                  href={`https://dexscreener.com/solana?q=${coin.symbol}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-[9px] text-[#FF6B6B] hover:text-white transition-colors"
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                  Find
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
