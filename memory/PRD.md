@@ -17,11 +17,17 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ### 2. Enhanced AI Assistant - "Bullpug AI" (LIVE)
 - **Identity**: Bullpug AI embodies the cosmic guardian from the lore
 - **Lore Knowledge**: Full knowledge of Bullpug origins, Newpug City, PugChain, Guardians, Snout Scanners, Festival of Barks, Bullpughans
-- **Real-time market data**: Fetches live prices from CoinGecko and DexScreener
+- **Real-time market data**: 
+  - Live prices from DexScreener (primary) and CoinGecko (fallback)
+  - **Fear & Greed Index** - Real-time market sentiment
+  - **Global Market Data** - Total market cap, 24h volume, BTC/ETH dominance
+  - **Solana Ecosystem** - Top gainers, highest volume tokens
+  - **Crypto News** - Latest events and trending topics
+- **Market Intelligence**: Understands price movements, trading volumes, global events affecting crypto
 - **Session-based memory**: Maintains conversation context
 - **Tab-aware context**: Provides relevant suggestions based on active tab
-- **Trending coins**: Shows trending Solana tokens
-- **Price queries**: Ask about any crypto price
+- **Trending coins**: Shows trending Solana tokens with volumes
+- **Price queries**: Ask about any crypto price with 24h change, market cap, volume
 - **No auto-scroll**: Manual scroll with "Scroll to bottom" button
 - **Tabs**: Chat, Top Picks, Insights (Holdings tab removed)
 - **Top Picks**: Auto-refreshes every HOUR with fresh recommendations
@@ -31,6 +37,10 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - **DEX Trade Links**: Direct links to DexScreener for each coin
   - **Add to Watchlist**: Star button to save coins directly from Top Picks
 - Available across ALL My Journal tabs
+- **New API Endpoints**:
+  - `GET /api/ai/sentiment` - Fear & Greed Index
+  - `GET /api/ai/market` - Full market overview with sentiment + Solana ecosystem
+  - `GET /api/ai/news` - Latest crypto news
 
 ### 3. Auto-Trade Fetching (Import Tab)
 - **Solana**: Fetches transaction history via Alchemy API
