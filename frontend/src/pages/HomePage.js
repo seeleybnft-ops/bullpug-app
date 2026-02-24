@@ -109,6 +109,41 @@ export default function HomePage() {
       {/* RECENT JACKPOT WINNERS */}
       <RecentWinners />
 
+      {/* MARKET DASHBOARD */}
+      <section className="py-12 md:py-16" data-testid="market-dashboard-section">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <MarketDashboard />
+            </div>
+            <div className="lg:col-span-2 glass-card rounded-2xl p-6 flex flex-col justify-center">
+              <h3 className="text-2xl md:text-3xl font-bold mb-4" style={{ fontFamily: 'Orbitron' }}>
+                <span className="text-[#00FFA3]">Real-Time</span> Market Intelligence
+              </h3>
+              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                Bullpug AI monitors the crypto markets 24/7, tracking Fear & Greed sentiment, 
+                top movers on Solana, trading volumes, and global market conditions. 
+                Get the edge you need to make informed trading decisions.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/journal">
+                  <Button className="bg-gradient-to-r from-[#D946EF] to-[#00C2FF] text-white font-bold rounded-xl px-6 py-4 text-sm uppercase hover:scale-[1.02] transition-transform">
+                    <Bot className="w-4 h-4 mr-2" />
+                    Chat with Bullpug AI
+                  </Button>
+                </Link>
+                <Link to="/journal">
+                  <Button variant="outline" className="border-white/20 text-slate-300 hover:text-white rounded-xl px-6 py-4 text-sm uppercase">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Open Journal
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* LORE */}
       <section className="py-24 md:py-32" data-testid="lore-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
