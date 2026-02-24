@@ -504,12 +504,5 @@ async def get_combined_portfolio(
 
 @router.get("/prices")
 async def get_current_prices():
-    """Get current prices for major assets."""
-    eth_price = await get_eth_price()
-    sol_price = await get_sol_price()
-    
-    return {
-        "ETH": {"usd": eth_price, "symbol": "ETH", "icon": "⟠"},
-        "SOL": {"usd": sol_price, "symbol": "SOL", "icon": "◎"},
-        "last_updated": datetime.now(timezone.utc).isoformat()
-    }
+    """Get current prices for major assets using DexScreener with CoinGecko fallback."""
+    return await get_major_prices()
