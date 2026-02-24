@@ -1,7 +1,8 @@
 """Portfolio Router - Unified portfolio view across Solana and EVM chains.
 
 Provides endpoints to fetch token balances and portfolio values across
-multiple blockchain networks. Includes price caching to mitigate CoinGecko rate limiting.
+multiple blockchain networks. Uses DexScreener as primary price source
+with CoinGecko as fallback.
 """
 
 from fastapi import APIRouter, HTTPException, Query
@@ -13,15 +14,14 @@ import os
 import logging
 import asyncio
 
+# Import unified price service
+from utils.price_service import get_eth_price, get_sol_price, get_major_prices, get_coingecko_prices
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 ALCHEMY_API_KEY = os.environ.get("ALCHEMY_API_KEY", "")
-
-# Price cache to reduce CoinGecko API calls
-price_cache: Dict[str, Dict] = {}
-CACHE_TTL_SECONDS = 60  # Cache prices for 60 seconds
 
 # Chain configurations
 CHAIN_CONFIG = {
