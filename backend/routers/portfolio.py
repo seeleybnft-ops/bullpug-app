@@ -110,83 +110,9 @@ class PortfolioResponse(BaseModel):
     last_updated: str
 
 
-async def get_eth_price() -> float:
-    """Fetch current ETH price from CoinGecko with caching."""
-    cache_key = "eth_price"
-    
-    # Check cache
-    if cache_key in price_cache:
-        cached = price_cache[cache_key]
-        if datetime.now(timezone.utc) - cached["timestamp"] < timedelta(seconds=CACHE_TTL_SECONDS):
-            logger.info("Using cached ETH price")
-            return cached["price"]
-    
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                "https://api.coingecko.com/api/v3/simple/price",
-                params={"ids": "ethereum", "vs_currencies": "usd", "include_24hr_change": "true"}
-            )
-            if response.status_code == 429:
-                # Rate limited - use fallback or cached value
-                logger.warning("CoinGecko rate limited for ETH price")
-                if cache_key in price_cache:
-                    return price_cache[cache_key]["price"]
-                return 3500  # Fallback price
-            
-            data = response.json()
-            price = data.get("ethereum", {}).get("usd", 0)
-            
-            # Cache the result
-            price_cache[cache_key] = {
-                "price": price,
-                "timestamp": datetime.now(timezone.utc)
-            }
-            return price
-    except Exception as e:
-        logger.warning(f"Failed to fetch ETH price: {e}")
-        if cache_key in price_cache:
-            return price_cache[cache_key]["price"]
-        return 0
-
-
-async def get_sol_price() -> float:
-    """Fetch current SOL price from CoinGecko with caching."""
-    cache_key = "sol_price"
-    
-    # Check cache
-    if cache_key in price_cache:
-        cached = price_cache[cache_key]
-        if datetime.now(timezone.utc) - cached["timestamp"] < timedelta(seconds=CACHE_TTL_SECONDS):
-            logger.info("Using cached SOL price")
-            return cached["price"]
-    
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                "https://api.coingecko.com/api/v3/simple/price",
-                params={"ids": "solana", "vs_currencies": "usd", "include_24hr_change": "true"}
-            )
-            if response.status_code == 429:
-                logger.warning("CoinGecko rate limited for SOL price")
-                if cache_key in price_cache:
-                    return price_cache[cache_key]["price"]
-                return 200  # Fallback price
-            
-            data = response.json()
-            price = data.get("solana", {}).get("usd", 0)
-            
-            # Cache the result
-            price_cache[cache_key] = {
-                "price": price,
-                "timestamp": datetime.now(timezone.utc)
-            }
-            return price
-    except Exception as e:
-        logger.warning(f"Failed to fetch SOL price: {e}")
-        if cache_key in price_cache:
-            return price_cache[cache_key]["price"]
-        return 0
+# Local price cache for token prices (separate from major prices)
+_token_price_cache: Dict[str, Dict] = {}
+CACHE_TTL_SECONDS = 60
 
 
 async def get_token_prices(contract_addresses: List[str], chain: str) -> Dict[str, Dict]:
