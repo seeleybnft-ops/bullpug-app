@@ -436,6 +436,38 @@ def is_trending_query(message: str) -> bool:
     return any(kw in message_lower for kw in trending_keywords)
 
 
+def is_market_query(message: str) -> bool:
+    """Detect if asking about overall market conditions."""
+    market_keywords = [
+        "market", "sentiment", "fear", "greed", "overall",
+        "crypto market", "bull", "bear", "dominance", "btc dominance",
+        "market cap", "total", "global", "macro", "conditions"
+    ]
+    message_lower = message.lower()
+    return any(kw in message_lower for kw in market_keywords)
+
+
+def is_news_query(message: str) -> bool:
+    """Detect if asking about news or events."""
+    news_keywords = [
+        "news", "happening", "event", "announce", "update",
+        "what's going on", "whats going on", "latest", "today",
+        "regulation", "sec", "etf", "hack", "exploit", "fud"
+    ]
+    message_lower = message.lower()
+    return any(kw in message_lower for kw in news_keywords)
+
+
+def is_solana_query(message: str) -> bool:
+    """Detect if asking specifically about Solana ecosystem."""
+    solana_keywords = [
+        "solana", "sol", "phantom", "jupiter", "raydium", "orca",
+        "marinade", "meme coin", "memecoin", "pump.fun", "dex"
+    ]
+    message_lower = message.lower()
+    return any(kw in message_lower for kw in solana_keywords)
+
+
 async def get_user_journal_summary(wallet_address: str) -> Dict:
     """Get summary of user's journal entries."""
     try:
