@@ -1,13 +1,15 @@
 /**
  * DetectedTrades Component - Auto-import trades from connected wallets
  * 
- * This component allows users to:
- * - View detected DEX trades from their connected wallets
- * - Select trades to import into their journal
- * - Filter by chain
+ * P1 UX Enhancements:
+ * - Auto-scan on wallet connect
+ * - Better empty states with guidance
+ * - Progress indicator during scan
+ * - Estimated value display
+ * - Improved mobile responsiveness
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAccount, useChainId } from 'wagmi';
 import { Button } from '@/components/ui/button';
@@ -16,7 +18,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import {
   RefreshCw, Download, Check, X, ExternalLink, Wallet,
-  ArrowRightLeft, AlertCircle, Loader2, ChevronDown
+  ArrowRightLeft, AlertCircle, Loader2, ChevronDown, Scan, Info
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -40,6 +42,8 @@ export default function DetectedTrades({ onImport }) {
   const [selectedChain, setSelectedChain] = useState('all');
   const [importing, setImporting] = useState(false);
   const [showChainDropdown, setShowChainDropdown] = useState(false);
+  const [scanProgress, setScanProgress] = useState('');
+  const [hasScanned, setHasScanned] = useState(false);
 
   // Map chain ID to chain name
   const getEvmChainName = (chainId) => {
@@ -52,15 +56,17 @@ export default function DetectedTrades({ onImport }) {
   };
 
   // Fetch trades from connected wallets
-  const fetchTrades = async () => {
+  const fetchTrades = useCallback(async () => {
     setLoading(true);
     setTrades([]);
+    setHasScanned(true);
     
     const allTrades = [];
     
     try {
       // Fetch from Solana if connected
       if (solanaConnected && solanaPublicKey) {
+        setScanProgress('Scanning Solana transactions...');
         try {
           const { data } = await axios.get(
             `${API}/wallet-trades/solana/${solanaPublicKey.toBase58()}?limit=30`
@@ -76,6 +82,7 @@ export default function DetectedTrades({ onImport }) {
       // Fetch from EVM if connected
       if (evmConnected && evmAddress) {
         const evmChain = getEvmChainName(evmChainId);
+        setScanProgress(`Scanning ${CHAINS[evmChain]?.name || 'EVM'} transactions...`);
         try {
           const { data } = await axios.get(
             `${API}/wallet-trades/evm/${evmAddress}?chain=${evmChain}&limit=30`
@@ -88,6 +95,7 @@ export default function DetectedTrades({ onImport }) {
           // Try other chains if the current one fails
           for (const chain of ['ethereum', 'base', 'arbitrum']) {
             if (chain !== evmChain) {
+              setScanProgress(`Scanning ${CHAINS[chain]?.name} transactions...`);
               try {
                 const { data } = await axios.get(
                   `${API}/wallet-trades/evm/${evmAddress}?chain=${chain}&limit=20`
@@ -106,6 +114,7 @@ export default function DetectedTrades({ onImport }) {
       // Sort by timestamp descending
       allTrades.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setTrades(allTrades);
+      setScanProgress('');
       
       if (allTrades.length === 0 && (solanaConnected || evmConnected)) {
         toast.info('No recent DEX trades detected');
@@ -115,10 +124,18 @@ export default function DetectedTrades({ onImport }) {
     } catch (e) {
       console.error('Error fetching trades:', e);
       toast.error('Failed to fetch trades');
+      setScanProgress('');
     }
     
     setLoading(false);
-  };
+  }, [solanaConnected, solanaPublicKey, evmConnected, evmAddress, evmChainId]);
+
+  // Auto-scan when wallet connects (only once)
+  useEffect(() => {
+    if ((solanaConnected || evmConnected) && !hasScanned) {
+      fetchTrades();
+    }
+  }, [solanaConnected, evmConnected, hasScanned, fetchTrades]);
 
   // Toggle trade selection
   const toggleTradeSelection = (txHash) => {
@@ -187,30 +204,43 @@ export default function DetectedTrades({ onImport }) {
   // Check if any wallet is connected
   const hasWalletConnected = solanaConnected || evmConnected;
 
+  // Calculate chain counts for filter badges
+  const chainCounts = trades.reduce((acc, t) => {
+    acc[t.chain] = (acc[t.chain] || 0) + 1;
+    return acc;
+  }, {});
+
   if (!hasWalletConnected) {
     return (
-      <div className="glass-card rounded-xl p-8 text-center border border-white/5">
+      <div className="glass-card rounded-xl p-8 text-center border border-white/5" data-testid="import-no-wallet">
         <Wallet className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-        <p className="text-slate-500 text-sm mb-2">Connect a wallet to detect trades</p>
-        <p className="text-slate-600 text-xs">
-          Supports Solana, Ethereum, Base, and Arbitrum
+        <p className="text-slate-400 text-sm mb-2 font-medium">Connect a wallet to detect trades</p>
+        <p className="text-slate-600 text-xs mb-4">
+          Supports Solana, Ethereum, Base, and Arbitrum DEX swaps
         </p>
+        <div className="flex justify-center gap-2 flex-wrap">
+          {Object.entries(CHAINS).map(([key, chain]) => (
+            <span key={key} className="text-[10px] px-2 py-1 rounded-full bg-white/5 text-slate-500">
+              {chain.icon} {chain.name}
+            </span>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="glass-card rounded-2xl p-6 border border-white/5">
+    <div className="glass-card rounded-2xl p-6 border border-white/5" data-testid="detected-trades">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-sm font-bold uppercase text-[#00C2FF] flex items-center gap-2">
             <ArrowRightLeft className="w-4 h-4" />
-            Detected Trades
+            Auto-Import Trades
             <Badge className="bg-[#00C2FF]/10 text-[#00C2FF] text-[10px]">BETA</Badge>
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            Auto-import DEX swaps from your connected wallets
+            Automatically detect and import DEX swaps from your wallets
           </p>
         </div>
         
@@ -220,6 +250,7 @@ export default function DetectedTrades({ onImport }) {
             <button
               onClick={() => setShowChainDropdown(!showChainDropdown)}
               className="flex items-center gap-2 px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-xs text-white hover:border-white/20 transition-colors"
+              data-testid="chain-filter-btn"
             >
               {selectedChain === 'all' ? (
                 <span>All Chains</span>
@@ -233,21 +264,25 @@ export default function DetectedTrades({ onImport }) {
             </button>
             
             {showChainDropdown && (
-              <div className="absolute z-10 right-0 mt-1 w-40 bg-[#0a0a12] border border-white/10 rounded-lg shadow-xl overflow-hidden">
+              <div className="absolute z-10 right-0 mt-1 w-44 bg-[#0a0a12] border border-white/10 rounded-lg shadow-xl overflow-hidden">
                 <button
                   onClick={() => { setSelectedChain('all'); setShowChainDropdown(false); }}
-                  className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 ${selectedChain === 'all' ? 'bg-white/5 text-[#00C2FF]' : 'text-white'}`}
+                  className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 flex items-center justify-between ${selectedChain === 'all' ? 'bg-white/5 text-[#00C2FF]' : 'text-white'}`}
                 >
-                  All Chains
+                  <span>All Chains</span>
+                  <span className="text-slate-500">{trades.length}</span>
                 </button>
                 {Object.entries(CHAINS).map(([key, chain]) => (
                   <button
                     key={key}
                     onClick={() => { setSelectedChain(key); setShowChainDropdown(false); }}
-                    className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 flex items-center gap-2 ${selectedChain === key ? 'bg-white/5 text-[#00C2FF]' : 'text-white'}`}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 flex items-center justify-between ${selectedChain === key ? 'bg-white/5 text-[#00C2FF]' : 'text-white'}`}
                   >
-                    <span>{chain.icon}</span>
-                    <span>{chain.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span>{chain.icon}</span>
+                      <span>{chain.name}</span>
+                    </span>
+                    <span className="text-slate-500">{chainCounts[key] || 0}</span>
                   </button>
                 ))}
               </div>
@@ -258,15 +293,15 @@ export default function DetectedTrades({ onImport }) {
             onClick={fetchTrades}
             disabled={loading}
             variant="outline"
-            className="border-white/20 text-slate-400 hover:text-white rounded-lg px-3 py-2 text-xs"
+            className="border-white/20 text-slate-400 hover:text-white rounded-lg px-4 py-2 text-xs"
             data-testid="fetch-trades-btn"
           >
             {loading ? (
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
             ) : (
-              <RefreshCw className="w-3 h-3 mr-1" />
+              <Scan className="w-3 h-3 mr-1.5" />
             )}
-            Scan
+            {loading ? 'Scanning...' : 'Scan Wallets'}
           </Button>
         </div>
       </div>
@@ -279,6 +314,7 @@ export default function DetectedTrades({ onImport }) {
             <span className="text-xs text-[#9945FF]">
               {solanaPublicKey.toBase58().slice(0, 4)}...{solanaPublicKey.toBase58().slice(-4)}
             </span>
+            <Check className="w-3 h-3 text-[#9945FF]" />
           </div>
         )}
         {evmConnected && evmAddress && (
@@ -287,6 +323,7 @@ export default function DetectedTrades({ onImport }) {
             <span className="text-xs text-[#627EEA]">
               {evmAddress.slice(0, 6)}...{evmAddress.slice(-4)}
             </span>
+            <Check className="w-3 h-3 text-[#627EEA]" />
           </div>
         )}
       </div>
@@ -295,16 +332,46 @@ export default function DetectedTrades({ onImport }) {
       {loading ? (
         <div className="py-12 text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-3 text-[#00C2FF] animate-spin" />
-          <p className="text-slate-500 text-sm">Scanning blockchain for trades...</p>
+          <p className="text-slate-400 text-sm font-medium">{scanProgress || 'Scanning blockchain...'}</p>
+          <p className="text-slate-600 text-xs mt-1">This may take a few seconds</p>
         </div>
       ) : filteredTrades.length === 0 ? (
         <div className="py-12 text-center">
-          <AlertCircle className="w-10 h-10 mx-auto mb-3 text-slate-700" />
-          <p className="text-slate-500 text-sm">
-            {trades.length === 0 
-              ? "Click 'Scan' to detect recent trades" 
-              : "No trades found for selected chain"}
-          </p>
+          {!hasScanned ? (
+            <>
+              <Scan className="w-10 h-10 mx-auto mb-3 text-[#00C2FF]/50" />
+              <p className="text-slate-400 text-sm font-medium mb-1">Ready to scan your wallets</p>
+              <p className="text-slate-600 text-xs mb-4">
+                Click "Scan Wallets" to detect recent DEX trades
+              </p>
+              <Button
+                onClick={fetchTrades}
+                className="bg-[#00C2FF]/20 text-[#00C2FF] hover:bg-[#00C2FF]/30 rounded-lg px-4 py-2 text-xs"
+              >
+                <Scan className="w-3 h-3 mr-1.5" />
+                Start Scanning
+              </Button>
+            </>
+          ) : trades.length === 0 ? (
+            <>
+              <AlertCircle className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p className="text-slate-400 text-sm font-medium mb-1">No DEX trades found</p>
+              <p className="text-slate-600 text-xs">
+                Make some trades on DEXes like Jupiter, Uniswap, or Raydium to see them here
+              </p>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p className="text-slate-400 text-sm font-medium">No trades for {CHAINS[selectedChain]?.name}</p>
+              <button 
+                onClick={() => setSelectedChain('all')}
+                className="text-[#00C2FF] text-xs mt-2 hover:underline"
+              >
+                Show all chains
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -312,7 +379,8 @@ export default function DetectedTrades({ onImport }) {
           <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/5">
             <button
               onClick={selectAll}
-              className="text-xs text-slate-400 hover:text-white transition-colors"
+              className="text-xs text-[#00C2FF] hover:text-white transition-colors"
+              data-testid="select-all-btn"
             >
               {selectedTrades.size === filteredTrades.length ? 'Deselect All' : 'Select All'}
             </button>
@@ -322,7 +390,7 @@ export default function DetectedTrades({ onImport }) {
           </div>
           
           {/* Trades */}
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {filteredTrades.map((trade) => {
               const chain = CHAINS[trade.chain] || CHAINS.ethereum;
               const isSelected = selectedTrades.has(trade.tx_hash);
@@ -336,6 +404,7 @@ export default function DetectedTrades({ onImport }) {
                       ? 'bg-[#00C2FF]/5 border-[#00C2FF]/30' 
                       : 'bg-black/20 border-white/5 hover:border-white/10'
                   }`}
+                  data-testid={`trade-item-${trade.tx_hash.slice(0, 8)}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -351,7 +420,7 @@ export default function DetectedTrades({ onImport }) {
                       </div>
                       
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-white">
                             {trade.token_out_symbol || trade.token_out_address?.slice(0, 6)} → {trade.token_in_symbol || trade.token_in_address?.slice(0, 6)}
                           </span>
@@ -360,7 +429,7 @@ export default function DetectedTrades({ onImport }) {
                           </Badge>
                         </div>
                         <p className="text-[10px] text-slate-500 mt-0.5">
-                          {new Date(trade.timestamp).toLocaleDateString()} {new Date(trade.timestamp).toLocaleTimeString()}
+                          {new Date(trade.timestamp).toLocaleDateString()} {new Date(trade.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
@@ -377,6 +446,7 @@ export default function DetectedTrades({ onImport }) {
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="p-1.5 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-colors"
+                        title="View on explorer"
                       >
                         <ExternalLink className="w-3 h-3" />
                       </a>
@@ -405,6 +475,17 @@ export default function DetectedTrades({ onImport }) {
               </Button>
             </div>
           )}
+
+          {/* Help tip */}
+          <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/5">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Imported trades will be added as draft entries in your journal. 
+                You can edit entry/exit prices, add notes, and track your P&L.
+              </p>
+            </div>
+          </div>
         </>
       )}
     </div>
