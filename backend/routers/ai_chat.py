@@ -880,3 +880,38 @@ async def get_trending():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": "DexScreener"
     }
+
+
+@router.get("/sentiment")
+async def get_market_sentiment():
+    """Get current market sentiment (Fear & Greed Index)."""
+    fng = await get_fear_greed_index()
+    return {
+        "fear_greed": fng,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@router.get("/market")
+async def get_market_overview():
+    """Get global crypto market overview with sentiment."""
+    global_data = await get_global_market_data()
+    fng = await get_fear_greed_index()
+    solana_data = await get_solana_ecosystem_data()
+    
+    return {
+        "global": global_data,
+        "sentiment": fng,
+        "solana_ecosystem": solana_data,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@router.get("/news")
+async def get_news():
+    """Get latest crypto news and events."""
+    news = await get_crypto_news()
+    return {
+        "news": news,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
