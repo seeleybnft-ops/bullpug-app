@@ -510,7 +510,7 @@ class EnhancedChatMessage(BaseModel):
 async def enhanced_ai_chat(chat: EnhancedChatMessage):
     """
     Enhanced AI chat with session-based memory and real-time market data.
-    Provides context-aware responses with live prices and market insights.
+    Provides context-aware responses with live prices, news, sentiment, and market insights.
     """
     if not EMERGENT_LLM_KEY:
         return {"response": "AI chat is currently unavailable. Please try again later.", "session_id": chat.session_id}
@@ -524,6 +524,43 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
         # Build real-time market data context
         real_time_data = ""
         specific_prices = []
+        
+        # Always fetch market sentiment for context (Fear & Greed)
+        fear_greed = await get_fear_greed_index()
+        sentiment_context = f"\n**🎯 Market Sentiment (Fear & Greed Index): {fear_greed['value']}/100 - {fear_greed['classification']}**\n"
+        
+        # Check if user is asking about overall market
+        if is_market_query(chat.message):
+            global_data = await get_global_market_data()
+            if not global_data.get("error"):
+                real_time_data += "\n**📊 Global Crypto Market (LIVE):**\n"
+                real_time_data += f"- Total Market Cap: ${global_data['total_market_cap']/1e12:.2f}T"
+                change = global_data.get('market_cap_change_24h', 0)
+                real_time_data += f" ({'+' if change >= 0 else ''}{change:.1f}% 24h)\n"
+                real_time_data += f"- 24h Trading Volume: ${global_data['total_volume']/1e9:.1f}B\n"
+                real_time_data += f"- BTC Dominance: {global_data['btc_dominance']:.1f}%\n"
+                real_time_data += f"- ETH Dominance: {global_data['eth_dominance']:.1f}%\n"
+                real_time_data += f"- Active Cryptos: {global_data['active_cryptos']:,}\n"
+        
+        # Check if asking about news/events
+        if is_news_query(chat.message):
+            news = await get_crypto_news()
+            if news:
+                real_time_data += "\n**📰 Latest Crypto News:**\n"
+                for item in news[:4]:
+                    real_time_data += f"- {item.get('title', 'N/A')}"
+                    if item.get('source'):
+                        real_time_data += f" ({item['source']})"
+                    real_time_data += "\n"
+        
+        # Check if asking about Solana ecosystem
+        if is_solana_query(chat.message):
+            solana_data = await get_solana_ecosystem_data()
+            if solana_data.get("top_gainers"):
+                real_time_data += "\n**🔥 Solana Top Gainers (LIVE):**\n"
+                for coin in solana_data["top_gainers"][:5]:
+                    change = coin.get("change_24h", 0)
+                    real_time_data += f"- {coin['symbol']}: ${coin['price']:.6f} (+{change:.0f}%) Vol: ${coin['volume']:,.0f}\n"
         
         # Check if user is asking about prices
         if is_price_query(chat.message):
@@ -540,7 +577,7 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
                 # Get general market prices
                 prices = await get_live_crypto_prices()
                 if prices:
-                    real_time_data = "\n**Live Market Prices (just fetched):**\n"
+                    real_time_data += "\n**Live Market Prices (just fetched):**\n"
                     for symbol, data in list(prices.items())[:6]:
                         change = data.get("change_24h", 0)
                         change_str = f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
@@ -569,6 +606,10 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
                     real_time_data += f"  Market Cap: ${p['market_cap']:,.0f}\n"
                 if p.get("volume_24h"):
                     real_time_data += f"  24h Volume: ${p['volume_24h']:,.0f}\n"
+        
+        # Prepend sentiment to data if we have any real-time data
+        if real_time_data:
+            real_time_data = sentiment_context + real_time_data
         
         # Build context based on active tab
         tab_context = ""
