@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import RecentWinners from "@/components/RecentWinners";
+import MarketDashboard from "@/components/MarketDashboard";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
