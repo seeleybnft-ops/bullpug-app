@@ -42,19 +42,35 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - `GET /api/ai/market` - Full market overview with sentiment + Solana ecosystem
   - `GET /api/ai/news` - Latest crypto news
 
-### 3. Auto-Trade Fetching (Import Tab)
+### 3. Auto-Trade Fetching (Import Tab) - P1 COMPLETE
 - **Solana**: Fetches transaction history via Alchemy API
 - **EVM (Ethereum, Base, Arbitrum)**: Fully functional with Alchemy
 - **Trade Detection**: Identifies DEX swaps and token transfers
 - **Import to Journal**: One-click import of detected trades as draft entries
 - **DetectedTrades Component**: Shows trades grouped by chain with import options
+- **P1 UX Enhancements** (Feb 2025):
+  - Auto-scan on wallet connect
+  - Progress indicator showing which chain is being scanned
+  - Better empty states with chain badges
+  - Chain filter dropdown with trade counts
+  - Help tip explaining import process
 
-### 4. P2P Betting Arena
+### 4. Homepage Market Dashboard Widget - NEW
+- **Fear & Greed Index Gauge**: Visual gauge showing market sentiment (0-100)
+  - Color-coded: Red (Extreme Fear) to Green (Extreme Greed)
+  - Contextual tips: "Market in fear - potential buying opportunity"
+- **Top Solana Gainers**: Live top 3 movers with % change
+- **Highest Volume**: Top 3 tokens by 24h volume
+- **Auto-refresh**: Every 5 minutes
+- **LIVE indicator**: Real-time data badge
+- **CTA Panel**: "Chat with Bullpug AI" and "Open Journal" buttons
+
+### 5. P2P Betting Arena
 - Create and join crypto bets
 - Escrow-based wagering
 - Solana smart contract (deployment blocked by disk space)
 
-### 5. Cosmic Runner Game
+### 6. Cosmic Runner Game
 - Endless runner with Bullpug character
 - Unlockable skins
 - Leaderboard system
