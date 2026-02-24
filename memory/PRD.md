@@ -114,6 +114,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] Reflections volume slider max increased to $10M
 - [x] CoinGecko rate limiting workaround (60s cache)
 - [x] "LIVE" indicator on AI responses with real-time data
+- [x] **Portfolio Value Live Prices** - Unified price service using DexScreener as primary source (no rate limits)
 
 ### Previous Sessions
 - [x] Unified Journal & Portfolio page
@@ -128,10 +129,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Cannot install Solana/Anchor CLI due to disk space
 - Workaround: README with local deployment instructions
 
-### MITIGATED: CoinGecko Rate Limiting
-- Added 60-second price caching
-- Fallback prices when rate limited
-- DexScreener as secondary source
+### RESOLVED: CoinGecko Rate Limiting
+- **Primary source: DexScreener API** (no API key, generous rate limits)
+- CoinGecko as fallback when DexScreener unavailable
+- 60-second price caching
+- Unified price service at `backend/utils/price_service.py`
 
 ## Upcoming Tasks (P1)
 1. ~~Complete Auto-Trade Fetching (Alchemy Transfers API)~~ ✅ Done
