@@ -24,6 +24,195 @@ chat_sessions: Dict[str, List[Dict]] = {}
 # Price cache for real-time data
 price_cache: Dict[str, Dict] = {}
 CACHE_TTL_SECONDS = 30  # 30 second cache for real-time prices
+NEWS_CACHE_TTL = 300  # 5 minute cache for news
+SENTIMENT_CACHE_TTL = 600  # 10 minute cache for sentiment
+
+
+async def get_fear_greed_index() -> Dict:
+    """Fetch the Crypto Fear & Greed Index."""
+    cache_key = "fear_greed"
+    
+    if cache_key in price_cache:
+        cached = price_cache[cache_key]
+        age = (datetime.now(timezone.utc) - cached["timestamp"]).total_seconds()
+        if age < SENTIMENT_CACHE_TTL:
+            return cached["data"]
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get("https://api.alternative.me/fng/?limit=1")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data"):
+                    fng = data["data"][0]
+                    result = {
+                        "value": int(fng.get("value", 50)),
+                        "classification": fng.get("value_classification", "Neutral"),
+                        "timestamp": fng.get("timestamp")
+                    }
+                    price_cache[cache_key] = {"data": result, "timestamp": datetime.now(timezone.utc)}
+                    return result
+    except Exception as e:
+        logger.warning(f"Failed to fetch Fear & Greed: {e}")
+    
+    return {"value": 50, "classification": "Neutral", "error": True}
+
+
+async def get_crypto_news() -> List[Dict]:
+    """Fetch latest crypto news from multiple sources."""
+    cache_key = "crypto_news"
+    
+    if cache_key in price_cache:
+        cached = price_cache[cache_key]
+        age = (datetime.now(timezone.utc) - cached["timestamp"]).total_seconds()
+        if age < NEWS_CACHE_TTL:
+            return cached["data"]
+    
+    news_items = []
+    
+    # Try CryptoPanic (public endpoint)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://cryptopanic.com/api/v1/posts/",
+                params={"auth_token": "free", "public": "true", "kind": "news"}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get("results", [])[:5]:
+                    news_items.append({
+                        "title": item.get("title", ""),
+                        "source": item.get("source", {}).get("title", "Unknown"),
+                        "url": item.get("url", ""),
+                        "published": item.get("published_at", ""),
+                        "sentiment": item.get("votes", {})
+                    })
+    except Exception as e:
+        logger.warning(f"CryptoPanic news error: {e}")
+    
+    # Fallback: use DexScreener boosted tokens as "news" (what's hot)
+    if not news_items:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get("https://api.dexscreener.com/token-boosts/top/v1")
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data[:5]:
+                        news_items.append({
+                            "title": f"🔥 {item.get('tokenAddress', '')[:8]}... trending on {item.get('chainId', 'unknown')}",
+                            "source": "DexScreener Boosts",
+                            "chain": item.get("chainId"),
+                            "type": "trending"
+                        })
+        except Exception as e:
+            logger.warning(f"DexScreener boosts error: {e}")
+    
+    price_cache[cache_key] = {"data": news_items, "timestamp": datetime.now(timezone.utc)}
+    return news_items
+
+
+async def get_global_market_data() -> Dict:
+    """Fetch global crypto market data (total market cap, volume, BTC dominance)."""
+    cache_key = "global_market"
+    
+    if cache_key in price_cache:
+        cached = price_cache[cache_key]
+        age = (datetime.now(timezone.utc) - cached["timestamp"]).total_seconds()
+        if age < CACHE_TTL_SECONDS * 2:
+            return cached["data"]
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get("https://api.coingecko.com/api/v3/global")
+            if response.status_code == 200:
+                data = response.json().get("data", {})
+                result = {
+                    "total_market_cap": data.get("total_market_cap", {}).get("usd", 0),
+                    "total_volume": data.get("total_volume", {}).get("usd", 0),
+                    "btc_dominance": data.get("market_cap_percentage", {}).get("btc", 0),
+                    "eth_dominance": data.get("market_cap_percentage", {}).get("eth", 0),
+                    "market_cap_change_24h": data.get("market_cap_change_percentage_24h_usd", 0),
+                    "active_cryptos": data.get("active_cryptocurrencies", 0),
+                }
+                price_cache[cache_key] = {"data": result, "timestamp": datetime.now(timezone.utc)}
+                return result
+    except Exception as e:
+        logger.warning(f"Failed to fetch global market data: {e}")
+    
+    # Fallback
+    return {
+        "total_market_cap": 0,
+        "total_volume": 0,
+        "btc_dominance": 0,
+        "market_cap_change_24h": 0,
+        "error": True
+    }
+
+
+async def get_solana_ecosystem_data() -> Dict:
+    """Fetch Solana-specific ecosystem metrics."""
+    cache_key = "solana_ecosystem"
+    
+    if cache_key in price_cache:
+        cached = price_cache[cache_key]
+        age = (datetime.now(timezone.utc) - cached["timestamp"]).total_seconds()
+        if age < CACHE_TTL_SECONDS * 2:
+            return cached["data"]
+    
+    result = {"top_gainers": [], "top_volume": [], "new_pairs": []}
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Get top gainers on Solana
+            response = await client.get(
+                "https://api.dexscreener.com/latest/dex/search",
+                params={"q": "solana"}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                pairs = [p for p in data.get("pairs", []) if p.get("chainId") == "solana"]
+                
+                # Filter for quality pairs
+                quality_pairs = [p for p in pairs if 
+                    float(p.get("liquidity", {}).get("usd", 0) or 0) > 50000 and
+                    float(p.get("volume", {}).get("h24", 0) or 0) > 10000
+                ]
+                
+                # Top gainers (by 24h change)
+                gainers = sorted(quality_pairs, 
+                    key=lambda x: float(x.get("priceChange", {}).get("h24", 0) or 0), 
+                    reverse=True)[:5]
+                
+                for p in gainers:
+                    base = p.get("baseToken", {})
+                    result["top_gainers"].append({
+                        "symbol": base.get("symbol", "?"),
+                        "name": base.get("name", "?"),
+                        "price": float(p.get("priceUsd", 0) or 0),
+                        "change_24h": float(p.get("priceChange", {}).get("h24", 0) or 0),
+                        "volume": float(p.get("volume", {}).get("h24", 0) or 0),
+                        "liquidity": float(p.get("liquidity", {}).get("usd", 0) or 0)
+                    })
+                
+                # Top by volume
+                by_volume = sorted(quality_pairs, 
+                    key=lambda x: float(x.get("volume", {}).get("h24", 0) or 0), 
+                    reverse=True)[:5]
+                
+                for p in by_volume:
+                    base = p.get("baseToken", {})
+                    result["top_volume"].append({
+                        "symbol": base.get("symbol", "?"),
+                        "volume": float(p.get("volume", {}).get("h24", 0) or 0),
+                        "price": float(p.get("priceUsd", 0) or 0),
+                        "change_24h": float(p.get("priceChange", {}).get("h24", 0) or 0)
+                    })
+        
+        price_cache[cache_key] = {"data": result, "timestamp": datetime.now(timezone.utc)}
+    except Exception as e:
+        logger.warning(f"Failed to fetch Solana ecosystem data: {e}")
+    
+    return result
 
 
 async def get_live_crypto_prices() -> Dict:
