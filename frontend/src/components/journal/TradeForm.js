@@ -172,10 +172,99 @@ export default function TradeForm({ trade, onClose, onSave }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {activeSection === "basic" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="text-xs text-slate-500 uppercase mb-1 block">Asset *</label>
-                <Input value={form.asset} onChange={e => handleChange("asset", e.target.value.toUpperCase())}
-                  placeholder="BTC/USDT" className="bg-black/50 border-white/10 text-white" data-testid="trade-asset" />
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAssetDropdown(!showAssetDropdown)}
+                    className="w-full flex items-center justify-between p-3 bg-black/50 border border-white/10 rounded-lg text-white hover:border-[#00C2FF]/50 transition-colors text-left"
+                    data-testid="trade-asset-dropdown"
+                  >
+                    <span className={form.asset ? "text-white" : "text-slate-500"}>
+                      {form.asset || "Select asset..."}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {form.asset && form.entry_price && (
+                        <span className="text-xs text-[#00FFA3]">${parseFloat(form.entry_price).toFixed(4)}</span>
+                      )}
+                      {assetsLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                      ) : (
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showAssetDropdown ? 'rotate-180' : ''}`} />
+                      )}
+                    </div>
+                  </button>
+                  
+                  {showAssetDropdown && (
+                    <div className="absolute z-50 w-full mt-1 bg-[#0a0a12] border border-white/10 rounded-lg shadow-xl overflow-hidden">
+                      {/* Search input */}
+                      <div className="p-2 border-b border-white/10">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            type="text"
+                            value={assetSearch}
+                            onChange={(e) => setAssetSearch(e.target.value)}
+                            placeholder="Search assets..."
+                            className="w-full pl-9 pr-3 py-2 bg-black/50 border border-white/10 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:border-[#00C2FF]/50"
+                            data-testid="asset-search"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Asset list */}
+                      <div className="max-h-60 overflow-y-auto">
+                        {/* Custom entry option */}
+                        {assetSearch && !filteredAssets.some(a => a.symbol.toLowerCase() === assetSearch.toLowerCase()) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm(prev => ({ ...prev, asset: assetSearch.toUpperCase() }));
+                              setShowAssetDropdown(false);
+                              setAssetSearch("");
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-white/5 border-b border-white/5"
+                          >
+                            <span className="text-[#00C2FF]">+ Add custom: </span>
+                            <span className="text-white font-bold">{assetSearch.toUpperCase()}</span>
+                          </button>
+                        )}
+                        
+                        {filteredAssets.length === 0 && !assetSearch ? (
+                          <div className="px-3 py-4 text-center text-slate-500 text-sm">
+                            {assetsLoading ? "Loading assets..." : "No assets available"}
+                          </div>
+                        ) : (
+                          filteredAssets.slice(0, 20).map((asset, i) => (
+                            <button
+                              key={`${asset.symbol}-${i}`}
+                              type="button"
+                              onClick={() => selectAsset(asset)}
+                              className="w-full px-3 py-2 text-left hover:bg-white/5 flex items-center justify-between border-b border-white/5 last:border-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-bold">{asset.symbol}</span>
+                                {asset.name && asset.name !== asset.symbol && (
+                                  <span className="text-xs text-slate-500">{asset.name}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono text-slate-300">
+                                  ${asset.price < 0.01 ? asset.price.toFixed(6) : asset.price.toFixed(4)}
+                                </span>
+                                <span className={`text-xs flex items-center gap-0.5 ${asset.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                  {asset.change_24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                  {Math.abs(asset.change_24h).toFixed(1)}%
+                                </span>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="text-xs text-slate-500 uppercase mb-1 block">Trade Type</label>
