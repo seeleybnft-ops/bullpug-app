@@ -328,10 +328,137 @@ export default function TradeForm({ trade, onClose, onSave }) {
                         </div>
                       </div>
                       
+                      {/* Contract Address Lookup */}
+                      <div className="p-2 border-b border-white/10 bg-[#D946EF]/5">
+                        <p className="text-[10px] text-[#D946EF] uppercase font-bold mb-1.5">Lookup by Contract Address</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={contractAddress}
+                            onChange={(e) => setContractAddress(e.target.value)}
+                            placeholder="Paste contract address..."
+                            className="flex-1 px-3 py-2 bg-black/50 border border-white/10 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#D946EF]/50 font-mono"
+                            data-testid="contract-address-input"
+                          />
+                          <button
+                            type="button"
+                            onClick={lookupContract}
+                            disabled={contractLoading || !contractAddress.trim()}
+                            className="px-3 py-2 bg-[#D946EF]/20 text-[#D946EF] rounded-lg text-xs font-bold hover:bg-[#D946EF]/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            data-testid="lookup-contract-btn"
+                          >
+                            {contractLoading ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Search className="w-3 h-3" />
+                            )}
+                            Find
+                          </button>
+                        </div>
+                      </div>
+                      
                       {/* Asset list */}
                       <div className="max-h-60 overflow-y-auto">
-                        {/* Custom entry option */}
-                        {assetSearch && !filteredAssets.some(a => a.symbol.toLowerCase() === assetSearch.toLowerCase()) && (
+                        {/* Major Coins Section */}
+                        {!assetSearch && (
+                          <div className="px-2 py-1 bg-[#00FFA3]/5 border-b border-white/5">
+                            <p className="text-[9px] text-[#00FFA3] uppercase font-bold">Major Coins</p>
+                          </div>
+                        )}
+                        
+                        {/* Show major coins first when no search */}
+                        {filteredAssets.filter(a => a.chain === "major").map((asset, i) => (
+                          <button
+                            key={`major-${asset.symbol}-${i}`}
+                            type="button"
+                            onClick={() => selectAsset(asset)}
+                            className="w-full px-3 py-2.5 text-left hover:bg-white/5 flex items-center justify-between border-b border-white/5"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-bold">{asset.symbol}</span>
+                              <span className="text-xs text-slate-500">{asset.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-300">
+                                ${asset.price < 1 ? asset.price.toFixed(6) : asset.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              </span>
+                              {asset.change_24h !== 0 && (
+                                <span className={`text-xs flex items-center gap-0.5 ${asset.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                  {asset.change_24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                  {Math.abs(asset.change_24h).toFixed(1)}%
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                        
+                        {/* Custom tokens from contract lookup */}
+                        {customTokens.length > 0 && !assetSearch && (
+                          <div className="px-2 py-1 bg-[#D946EF]/5 border-b border-white/5">
+                            <p className="text-[9px] text-[#D946EF] uppercase font-bold">Your Tokens</p>
+                          </div>
+                        )}
+                        
+                        {filteredAssets.filter(a => a.isCustom).map((asset, i) => (
+                          <button
+                            key={`custom-${asset.symbol}-${i}`}
+                            type="button"
+                            onClick={() => selectAsset(asset)}
+                            className="w-full px-3 py-2 text-left hover:bg-white/5 flex items-center justify-between border-b border-white/5"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-bold">{asset.symbol}</span>
+                              <span className="text-xs text-slate-500">{asset.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 bg-[#D946EF]/20 text-[#D946EF] rounded">
+                                {asset.chain}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-300">
+                                ${asset.price < 0.01 ? asset.price.toFixed(6) : asset.price.toFixed(4)}
+                              </span>
+                              <span className={`text-xs flex items-center gap-0.5 ${asset.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                {asset.change_24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {Math.abs(asset.change_24h).toFixed(1)}%
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                        
+                        {/* Trending section */}
+                        {filteredAssets.filter(a => a.chain !== "major" && !a.isCustom).length > 0 && !assetSearch && (
+                          <div className="px-2 py-1 bg-[#00C2FF]/5 border-b border-white/5">
+                            <p className="text-[9px] text-[#00C2FF] uppercase font-bold">Trending</p>
+                          </div>
+                        )}
+                        
+                        {filteredAssets.filter(a => a.chain !== "major" && !a.isCustom).slice(0, 15).map((asset, i) => (
+                          <button
+                            key={`trending-${asset.symbol}-${i}`}
+                            type="button"
+                            onClick={() => selectAsset(asset)}
+                            className="w-full px-3 py-2 text-left hover:bg-white/5 flex items-center justify-between border-b border-white/5 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-bold">{asset.symbol}</span>
+                              {asset.name && asset.name !== asset.symbol && (
+                                <span className="text-xs text-slate-500 truncate max-w-[100px]">{asset.name}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-300">
+                                ${asset.price < 0.01 ? asset.price.toFixed(6) : asset.price.toFixed(4)}
+                              </span>
+                              <span className={`text-xs flex items-center gap-0.5 ${asset.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+                                {asset.change_24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                {Math.abs(asset.change_24h).toFixed(1)}%
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                        
+                        {/* Custom entry option when searching */}
+                        {assetSearch && !filteredAssets.some(a => a.symbol?.toLowerCase() === assetSearch.toLowerCase()) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -339,42 +466,19 @@ export default function TradeForm({ trade, onClose, onSave }) {
                               setShowAssetDropdown(false);
                               setAssetSearch("");
                             }}
-                            className="w-full px-3 py-2 text-left hover:bg-white/5 border-b border-white/5"
+                            className="w-full px-3 py-2 text-left hover:bg-white/5 border-t border-white/10"
                           >
                             <span className="text-[#00C2FF]">+ Add custom: </span>
                             <span className="text-white font-bold">{assetSearch.toUpperCase()}</span>
                           </button>
                         )}
                         
-                        {filteredAssets.length === 0 && !assetSearch ? (
-                          <div className="px-3 py-4 text-center text-slate-500 text-sm">
-                            {assetsLoading ? "Loading assets..." : "No assets available"}
+                        {/* Loading state */}
+                        {assetsLoading && (
+                          <div className="px-3 py-4 text-center text-slate-500 text-sm flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Loading prices...
                           </div>
-                        ) : (
-                          filteredAssets.slice(0, 20).map((asset, i) => (
-                            <button
-                              key={`${asset.symbol}-${i}`}
-                              type="button"
-                              onClick={() => selectAsset(asset)}
-                              className="w-full px-3 py-2 text-left hover:bg-white/5 flex items-center justify-between border-b border-white/5 last:border-0"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-white font-bold">{asset.symbol}</span>
-                                {asset.name && asset.name !== asset.symbol && (
-                                  <span className="text-xs text-slate-500">{asset.name}</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono text-slate-300">
-                                  ${asset.price < 0.01 ? asset.price.toFixed(6) : asset.price.toFixed(4)}
-                                </span>
-                                <span className={`text-xs flex items-center gap-0.5 ${asset.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
-                                  {asset.change_24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                  {Math.abs(asset.change_24h).toFixed(1)}%
-                                </span>
-                              </div>
-                            </button>
-                          ))
                         )}
                       </div>
                     </div>
