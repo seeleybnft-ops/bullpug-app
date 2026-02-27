@@ -942,7 +942,7 @@ async def save_chat_history(request: SaveChatHistoryRequest):
         chat_collection = db.chat_history
         
         # Upsert the chat history for this wallet/session
-        result = await chat_collection.update_one(
+        await chat_collection.update_one(
             {"wallet_address": request.wallet_address},
             {
                 "$set": {
