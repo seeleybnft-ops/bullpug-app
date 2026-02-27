@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import "@/App.css";
 import "@/i18n/config"; // Initialize i18n
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -27,20 +27,85 @@ import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
 
+// Detect if running inside Phantom's in-app browser
+const isPhantomBrowser = () => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  // Phantom browser includes "Phantom" in user agent
+  return userAgent.includes('Phantom') || 
+         window.phantom?.solana?.isPhantom ||
+         window.solana?.isPhantom;
+};
+
+// Detect any in-app browser (WebView)
+const isInAppBrowser = () => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  return /WebView|wv|FBAN|FBAV|Instagram|Twitter|Line|WhatsApp/i.test(userAgent);
+};
+
 function App() {
+  const [isReady, setIsReady] = useState(false);
+  
   const endpoint = useMemo(
     () => process.env.REACT_APP_SOLANA_RPC_URL || clusterApiUrl('mainnet-beta'),
     []
   );
 
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
-  );
+  // Create wallet adapters with proper configuration
+  const wallets = useMemo(() => {
+    const adapters = [];
+    
+    try {
+      // Always add Phantom adapter
+      adapters.push(new PhantomWalletAdapter());
+      
+      // Add Solflare if not in Phantom browser (to avoid conflicts)
+      if (!isPhantomBrowser()) {
+        adapters.push(new SolflareWalletAdapter());
+      }
+    } catch (error) {
+      console.error('Error initializing wallet adapters:', error);
+    }
+    
+    return adapters;
+  }, []);
+
+  // Handle wallet adapter initialization
+  useEffect(() => {
+    // Give time for wallet adapters to initialize
+    const timer = setTimeout(() => setIsReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Wallet error handler
+  const onError = (error) => {
+    console.error('Wallet error:', error);
+    // Don't show intrusive errors for common wallet issues
+    if (error.name === 'WalletNotReadyError' || 
+        error.name === 'WalletConnectionError' ||
+        error.message?.includes('User rejected')) {
+      return;
+    }
+  };
+
+  // Don't use autoConnect in Phantom browser to avoid issues
+  const shouldAutoConnect = !isPhantomBrowser() && !isInAppBrowser();
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-[#05050A] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#00FFA3] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} onError={onError} autoConnect={shouldAutoConnect}>
         <WalletModalProvider>
           <EVMWalletProvider>
             <BrowserRouter>
