@@ -49,10 +49,16 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 
 ### 2.1 Trade Form with Live Pricing
 - **Asset Dropdown**: Select from trending coins with live prices
+- **Fixed Order Major Coins**: SOL, ETH, BTC, BNB, DOGE, XRP (always at top)
+- **Contract Address Lookup**: Paste any contract address to find and add a token
+  - DexScreener API lookup for token info
+  - Auto-populates symbol, name, and current price
+  - Tokens added via contract stay in "Your Tokens" section
 - **Search**: Filter assets by symbol or name
-- **Custom Entry**: Add any custom asset symbol
+- **Custom Entry**: Add any custom asset symbol manually
 - **Auto-fill Price**: Selecting an asset auto-fills the entry price field
 - **Live Data**: Prices and 24h % changes shown for each asset
+- **DexScreener Fallback**: If CoinGecko rate-limited, prices fetched from DexScreener
 
 ### 3. Auto-Trade Fetching (Import Tab) - P1 COMPLETE
 - **Solana**: Fetches transaction history via Alchemy API
