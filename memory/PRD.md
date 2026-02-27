@@ -16,6 +16,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 
 ### 2. Enhanced AI Assistant - "Bullpug AI" (LIVE)
 - **Identity**: Bullpug AI embodies the cosmic guardian from the lore
+- **Bullpug Professor Icon**: Custom professor avatar for AI assistant trigger and chat header
 - **Lore Knowledge**: Full knowledge of Bullpug origins, Newpug City, PugChain, Guardians, Snout Scanners, Festival of Barks, Bullpughans
 - **Real-time market data**: 
   - Live prices from DexScreener (primary) and CoinGecko (fallback)
@@ -24,7 +25,10 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - **Solana Ecosystem** - Top gainers, highest volume tokens
   - **Crypto News** - Latest events and trending topics
 - **Market Intelligence**: Understands price movements, trading volumes, global events affecting crypto
-- **Session-based memory**: Maintains conversation context
+- **Persistent MongoDB Memory**: Chat history saved to MongoDB, not cleared until user manually clears
+  - `GET /api/ai/history/{wallet}` - Retrieve chat history
+  - `POST /api/ai/history/save` - Save chat history
+  - `DELETE /api/ai/history/{wallet}` - Clear chat history (manual only)
 - **Tab-aware context**: Provides relevant suggestions based on active tab
 - **Trending coins**: Shows trending Solana tokens with volumes
 - **Price queries**: Ask about any crypto price with 24h change, market cap, volume
@@ -37,10 +41,18 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - **DEX Trade Links**: Direct links to DexScreener for each coin
   - **Add to Watchlist**: Star button to save coins directly from Top Picks
 - Available across ALL My Journal tabs
-- **New API Endpoints**:
+- **API Endpoints**:
   - `GET /api/ai/sentiment` - Fear & Greed Index
   - `GET /api/ai/market` - Full market overview with sentiment + Solana ecosystem
   - `GET /api/ai/news` - Latest crypto news
+  - `GET /api/ai/tradeable-assets` - Live priced assets for trade form dropdown
+
+### 2.1 Trade Form with Live Pricing
+- **Asset Dropdown**: Select from trending coins with live prices
+- **Search**: Filter assets by symbol or name
+- **Custom Entry**: Add any custom asset symbol
+- **Auto-fill Price**: Selecting an asset auto-fills the entry price field
+- **Live Data**: Prices and 24h % changes shown for each asset
 
 ### 3. Auto-Trade Fetching (Import Tab) - P1 COMPLETE
 - **Solana**: Fetches transaction history via Alchemy API
