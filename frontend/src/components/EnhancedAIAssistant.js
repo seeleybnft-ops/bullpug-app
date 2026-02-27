@@ -171,10 +171,14 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       {!isOpen && (
         <button
           onClick={toggleOpen}
-          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-[#D946EF] to-[#00FFA3] shadow-lg shadow-[#D946EF]/30 flex items-center justify-center hover:scale-110 transition-transform animate-pulse"
+          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full shadow-lg shadow-[#D946EF]/30 flex items-center justify-center hover:scale-110 transition-transform overflow-hidden border-2 border-[#D946EF]/50"
           data-testid="ai-assistant-trigger"
         >
-          <Bot className="w-7 h-7 text-white" />
+          <img 
+            src="/assets/bullpug_professor.png" 
+            alt="Bullpug AI" 
+            className="w-full h-full object-cover"
+          />
           {hasNewMessage && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping" />
           )}
