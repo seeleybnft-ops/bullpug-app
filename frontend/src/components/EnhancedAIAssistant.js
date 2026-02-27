@@ -201,8 +201,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
             onClick={isMinimized ? toggleMinimize : undefined}
           >
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center">
-                <Bot className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-[#D946EF]/50">
+                <img 
+                  src="/assets/bullpug_professor.png" 
+                  alt="Bullpug AI" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-1">
