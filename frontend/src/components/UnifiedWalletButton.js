@@ -3,17 +3,19 @@
  * 
  * Single button that opens a modal to connect either Solana or EVM wallets.
  * Shows connected status for both wallet types.
+ * Enhanced for Phantom in-app browser compatibility.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { 
   Wallet, ChevronDown, LogOut, ExternalLink, Check, Loader2, 
-  Copy, X, Zap 
+  Copy, X, Zap, AlertCircle
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Chain configurations
 const EVM_CHAINS = [
@@ -22,13 +24,37 @@ const EVM_CHAINS = [
   { id: 42161, name: 'Arbitrum', icon: '🔷', color: '#28A0F0' },
 ];
 
+// Detect if running inside Phantom's in-app browser
+const isPhantomBrowser = () => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  return userAgent.includes('Phantom') || 
+         window.phantom?.solana?.isPhantom ||
+         window.solana?.isPhantom;
+};
+
+// Check if Phantom is available
+const isPhantomAvailable = () => {
+  if (typeof window === 'undefined') return false;
+  return window.phantom?.solana || window.solana?.isPhantom;
+};
+
 export default function UnifiedWalletButton() {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(null);
+  const [connecting, setConnecting] = useState(false);
   const modalRef = useRef(null);
 
   // Solana wallet
-  const { publicKey: solanaPublicKey, connected: solanaConnected, disconnect: solanaDisconnect, wallet: solanaWallet } = useWallet();
+  const { 
+    publicKey: solanaPublicKey, 
+    connected: solanaConnected, 
+    disconnect: solanaDisconnect, 
+    wallet: solanaWallet,
+    select: selectWallet,
+    wallets,
+    connect: walletConnect
+  } = useWallet();
   const { setVisible: setSolanaModalVisible } = useWalletModal();
 
   // EVM wallet
@@ -64,8 +90,61 @@ export default function UnifiedWalletButton() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  // Direct Phantom connection for in-app browser
+  const connectPhantomDirect = useCallback(async () => {
+    setConnecting(true);
+    
+    try {
+      // Try using the injected Phantom provider directly
+      const provider = window.phantom?.solana || window.solana;
+      
+      if (provider?.isPhantom) {
+        // Connect directly through Phantom's provider
+        const response = await provider.connect();
+        if (response.publicKey) {
+          toast.success('Connected to Phantom!');
+          setShowModal(false);
+        }
+      } else {
+        // Fallback to wallet adapter modal
+        setSolanaModalVisible(true);
+        setShowModal(false);
+      }
+    } catch (error) {
+      console.error('Phantom connection error:', error);
+      
+      if (error.code === 4001 || error.message?.includes('rejected')) {
+        toast.error('Connection rejected by user');
+      } else if (error.message?.includes('already connected')) {
+        toast.info('Wallet already connected');
+      } else {
+        toast.error('Failed to connect. Please try again.');
+        // Fallback to modal
+        setSolanaModalVisible(true);
+        setShowModal(false);
+      }
+    } finally {
+      setConnecting(false);
+    }
+  }, [setSolanaModalVisible]);
+
+  // Handle Solana wallet connection
+  const handleSolanaConnect = useCallback(async () => {
+    // If in Phantom browser, try direct connection first
+    if (isPhantomBrowser() || isPhantomAvailable()) {
+      await connectPhantomDirect();
+    } else {
+      // Use standard wallet modal
+      setSolanaModalVisible(true);
+      setShowModal(false);
+    }
+  }, [connectPhantomDirect, setSolanaModalVisible]);
+
   const hasAnyWallet = solanaConnected || evmConnected;
   const connectedCount = (solanaConnected ? 1 : 0) + (evmConnected ? 1 : 0);
+
+  // Check if we're in Phantom browser for UI hints
+  const inPhantomBrowser = isPhantomBrowser();
 
   return (
     <div className="relative">
@@ -107,6 +186,16 @@ export default function UnifiedWalletButton() {
             </button>
           </div>
 
+          {/* Phantom browser notice */}
+          {inPhantomBrowser && !solanaConnected && (
+            <div className="mx-4 mt-3 p-2 bg-[#9945FF]/10 border border-[#9945FF]/30 rounded-lg">
+              <p className="text-[10px] text-[#9945FF] flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Phantom browser detected - tap below to connect
+              </p>
+            </div>
+          )}
+
           <div className="p-4 space-y-4">
             {/* Solana Section */}
             <div className="space-y-2">
@@ -144,14 +233,27 @@ export default function UnifiedWalletButton() {
                 </div>
               ) : (
                 <button
-                  onClick={() => { setSolanaModalVisible(true); setShowModal(false); }}
-                  className="w-full flex items-center justify-between p-3 bg-black/30 border border-white/10 rounded-xl hover:border-[#9945FF]/50 hover:bg-[#9945FF]/5 transition-all text-left"
+                  onClick={handleSolanaConnect}
+                  disabled={connecting}
+                  className="w-full flex items-center justify-between p-3 bg-black/30 border border-white/10 rounded-xl hover:border-[#9945FF]/50 hover:bg-[#9945FF]/5 transition-all text-left disabled:opacity-50"
+                  data-testid="connect-solana-btn"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#9945FF]/20 flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-[#9945FF]" />
+                      {connecting ? (
+                        <Loader2 className="w-4 h-4 text-[#9945FF] animate-spin" />
+                      ) : (
+                        <Zap className="w-4 h-4 text-[#9945FF]" />
+                      )}
                     </div>
-                    <span className="text-sm text-white">Connect Solana</span>
+                    <div>
+                      <span className="text-sm text-white block">
+                        {inPhantomBrowser ? 'Connect Phantom' : 'Connect Solana'}
+                      </span>
+                      {inPhantomBrowser && (
+                        <span className="text-[10px] text-slate-500">Tap to authorize</span>
+                      )}
+                    </div>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 -rotate-90" />
                 </button>
