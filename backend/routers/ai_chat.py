@@ -231,7 +231,7 @@ async def get_live_crypto_prices() -> Dict:
             response = await client.get(
                 "https://api.coingecko.com/api/v3/simple/price",
                 params={
-                    "ids": "bitcoin,ethereum,solana,dogecoin,shiba-inu,pepe,bonk,dogwifhat",
+                    "ids": "bitcoin,ethereum,solana,binancecoin,dogecoin,ripple,shiba-inu,pepe,bonk,dogwifhat",
                     "vs_currencies": "usd",
                     "include_24hr_change": "true",
                     "include_market_cap": "true"
@@ -243,8 +243,9 @@ async def get_live_crypto_prices() -> Dict:
                 formatted = {}
                 symbol_map = {
                     "bitcoin": "BTC", "ethereum": "ETH", "solana": "SOL",
-                    "dogecoin": "DOGE", "shiba-inu": "SHIB", "pepe": "PEPE",
-                    "bonk": "BONK", "dogwifhat": "WIF"
+                    "binancecoin": "BNB", "dogecoin": "DOGE", "ripple": "XRP",
+                    "shiba-inu": "SHIB", "pepe": "PEPE", "bonk": "BONK", 
+                    "dogwifhat": "WIF"
                 }
                 for coin_id, values in data.items():
                     symbol = symbol_map.get(coin_id, coin_id.upper())
