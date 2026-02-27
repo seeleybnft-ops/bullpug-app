@@ -61,27 +61,33 @@ export default function TradeForm({ trade, onClose, onSave }) {
   const [showAssetDropdown, setShowAssetDropdown] = useState(false);
   const [assetSearch, setAssetSearch] = useState("");
 
-  // Fetch tradeable assets with live prices
-  useEffect(() => {
-    const fetchAssets = async () => {
-      setAssetsLoading(true);
-      try {
-        const { data } = await axios.get(`${API}/ai/tradeable-assets`);
-        if (data.assets) {
-          setTradeableAssets(data.assets);
-        }
-      } catch (e) {
-        console.error("Failed to fetch tradeable assets:", e);
+  // Fetch tradeable assets with live prices when dropdown opens
+  const fetchAssets = async () => {
+    if (tradeableAssets.length > 0) return; // Already loaded
+    setAssetsLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/ai/tradeable-assets`);
+      console.log("Tradeable assets response:", data);
+      if (data.assets && Array.isArray(data.assets)) {
+        setTradeableAssets(data.assets);
       }
+    } catch (e) {
+      console.error("Failed to fetch tradeable assets:", e);
+    } finally {
       setAssetsLoading(false);
-    };
-    
-    fetchAssets();
-  }, []);
+    }
+  };
+
+  // Load assets when dropdown opens
+  useEffect(() => {
+    if (showAssetDropdown && tradeableAssets.length === 0) {
+      fetchAssets();
+    }
+  }, [showAssetDropdown]);
 
   // Filter assets based on search
   const filteredAssets = tradeableAssets.filter(asset => 
-    asset.symbol.toLowerCase().includes(assetSearch.toLowerCase()) ||
+    asset.symbol?.toLowerCase().includes(assetSearch.toLowerCase()) ||
     asset.name?.toLowerCase().includes(assetSearch.toLowerCase())
   );
 
