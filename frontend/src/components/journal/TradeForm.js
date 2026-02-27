@@ -60,19 +60,73 @@ export default function TradeForm({ trade, onClose, onSave }) {
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [showAssetDropdown, setShowAssetDropdown] = useState(false);
   const [assetSearch, setAssetSearch] = useState("");
+  
+  // Contract address lookup state
+  const [contractAddress, setContractAddress] = useState("");
+  const [contractLoading, setContractLoading] = useState(false);
+  const [customTokens, setCustomTokens] = useState([]);
 
-  // Fetch tradeable assets with live prices when dropdown opens
-  const fetchAssets = async () => {
-    if (tradeableAssets.length > 0) return; // Already loaded
-    setAssetsLoading(true);
+  // Major coins in fixed order (always shown at top)
+  const MAJOR_COINS = [
+    { symbol: "SOL", name: "Solana", coingecko_id: "solana" },
+    { symbol: "ETH", name: "Ethereum", coingecko_id: "ethereum" },
+    { symbol: "BTC", name: "Bitcoin", coingecko_id: "bitcoin" },
+    { symbol: "BNB", name: "BNB", coingecko_id: "binancecoin" },
+    { symbol: "DOGE", name: "Dogecoin", coingecko_id: "dogecoin" },
+    { symbol: "XRP", name: "XRP", coingecko_id: "ripple" },
+  ];
+
+  // Fetch major coin prices
+  const fetchMajorPrices = async () => {
     try {
-      const { data } = await axios.get(`${API}/ai/tradeable-assets`);
-      console.log("Tradeable assets response:", data);
-      if (data.assets && Array.isArray(data.assets)) {
-        setTradeableAssets(data.assets);
+      const { data } = await axios.get(`${API}/ai/prices`);
+      if (data.prices) {
+        return MAJOR_COINS.map(coin => {
+          const priceData = data.prices[coin.symbol] || {};
+          return {
+            ...coin,
+            price: priceData.price || 0,
+            change_24h: priceData.change_24h || 0,
+            chain: "major"
+          };
+        });
       }
     } catch (e) {
-      console.error("Failed to fetch tradeable assets:", e);
+      console.error("Failed to fetch major prices:", e);
+    }
+    return MAJOR_COINS.map(c => ({ ...c, price: 0, change_24h: 0, chain: "major" }));
+  };
+
+  // Fetch trending/other assets
+  const fetchTrendingAssets = async () => {
+    try {
+      const { data } = await axios.get(`${API}/ai/tradeable-assets`);
+      if (data.assets && Array.isArray(data.assets)) {
+        // Filter out major coins (we show them separately)
+        return data.assets.filter(a => 
+          !MAJOR_COINS.some(m => m.symbol === a.symbol)
+        );
+      }
+    } catch (e) {
+      console.error("Failed to fetch trending assets:", e);
+    }
+    return [];
+  };
+
+  // Load all assets when dropdown opens
+  const loadAssets = async () => {
+    if (tradeableAssets.length > 0) return;
+    setAssetsLoading(true);
+    try {
+      const [majorCoins, trendingCoins] = await Promise.all([
+        fetchMajorPrices(),
+        fetchTrendingAssets()
+      ]);
+      
+      // Combine: Major coins first, then trending
+      setTradeableAssets([...majorCoins, ...trendingCoins]);
+    } catch (e) {
+      console.error("Failed to load assets:", e);
     } finally {
       setAssetsLoading(false);
     }
@@ -81,12 +135,67 @@ export default function TradeForm({ trade, onClose, onSave }) {
   // Load assets when dropdown opens
   useEffect(() => {
     if (showAssetDropdown && tradeableAssets.length === 0) {
-      fetchAssets();
+      loadAssets();
     }
   }, [showAssetDropdown]);
 
+  // Lookup token by contract address
+  const lookupContract = async () => {
+    if (!contractAddress.trim()) return;
+    
+    setContractLoading(true);
+    try {
+      // Try DexScreener API for contract lookup
+      const { data } = await axios.get(
+        `https://api.dexscreener.com/latest/dex/tokens/${contractAddress.trim()}`
+      );
+      
+      if (data.pairs && data.pairs.length > 0) {
+        // Get the highest liquidity pair
+        const bestPair = data.pairs.sort((a, b) => 
+          (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+        )[0];
+        
+        const token = bestPair.baseToken;
+        const newToken = {
+          symbol: token.symbol,
+          name: token.name,
+          price: parseFloat(bestPair.priceUsd) || 0,
+          change_24h: parseFloat(bestPair.priceChange?.h24) || 0,
+          chain: bestPair.chainId,
+          contract_address: contractAddress.trim(),
+          isCustom: true
+        };
+        
+        // Add to custom tokens if not already exists
+        if (!customTokens.some(t => t.contract_address === contractAddress.trim())) {
+          setCustomTokens(prev => [...prev, newToken]);
+        }
+        
+        // Select it immediately
+        selectAsset(newToken);
+        setContractAddress("");
+        toast.success(`Found ${token.symbol} - ${token.name}`);
+      } else {
+        toast.error("No token found for this contract address");
+      }
+    } catch (e) {
+      console.error("Contract lookup failed:", e);
+      toast.error("Failed to lookup contract. Check the address and try again.");
+    } finally {
+      setContractLoading(false);
+    }
+  };
+
+  // Combine all assets: Major + Custom + Trending
+  const allAssets = [
+    ...tradeableAssets.filter(a => a.chain === "major"), // Major coins first
+    ...customTokens, // Custom/contract-added tokens
+    ...tradeableAssets.filter(a => a.chain !== "major"), // Other trending tokens
+  ];
+
   // Filter assets based on search
-  const filteredAssets = tradeableAssets.filter(asset => 
+  const filteredAssets = allAssets.filter(asset => 
     asset.symbol?.toLowerCase().includes(assetSearch.toLowerCase()) ||
     asset.name?.toLowerCase().includes(assetSearch.toLowerCase())
   );
