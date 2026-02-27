@@ -915,3 +915,145 @@ async def get_news():
         "news": news,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+
+
+# ============================================================================
+# PERSISTENT CHAT HISTORY ENDPOINTS
+# ============================================================================
+
+class ChatHistoryMessage(BaseModel):
+    role: str
+    content: str
+    timestamp: Optional[int] = None
+    hasLiveData: Optional[bool] = False
+
+
+class SaveChatHistoryRequest(BaseModel):
+    wallet_address: str
+    session_id: str
+    messages: List[ChatHistoryMessage]
+
+
+@router.post("/history/save")
+async def save_chat_history(request: SaveChatHistoryRequest):
+    """Save chat history to MongoDB for persistence."""
+    try:
+        chat_collection = db.chat_history
+        
+        # Upsert the chat history for this wallet/session
+        result = await chat_collection.update_one(
+            {"wallet_address": request.wallet_address},
+            {
+                "$set": {
+                    "wallet_address": request.wallet_address,
+                    "session_id": request.session_id,
+                    "messages": [m.dict() for m in request.messages[-50:]],  # Keep last 50 messages
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            },
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "message_count": len(request.messages),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to save chat history: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/history/{wallet_address}")
+async def get_chat_history(wallet_address: str):
+    """Get chat history for a wallet from MongoDB."""
+    try:
+        chat_collection = db.chat_history
+        
+        doc = await chat_collection.find_one(
+            {"wallet_address": wallet_address},
+            {"_id": 0}
+        )
+        
+        if doc:
+            return {
+                "success": True,
+                "messages": doc.get("messages", []),
+                "session_id": doc.get("session_id"),
+                "updated_at": doc.get("updated_at")
+            }
+        
+        return {
+            "success": True,
+            "messages": [],
+            "session_id": None
+        }
+    except Exception as e:
+        logger.error(f"Failed to get chat history: {e}")
+        return {"success": False, "messages": [], "error": str(e)}
+
+
+@router.delete("/history/{wallet_address}")
+async def clear_chat_history(wallet_address: str):
+    """Clear chat history for a wallet."""
+    try:
+        chat_collection = db.chat_history
+        
+        result = await chat_collection.delete_one({"wallet_address": wallet_address})
+        
+        return {
+            "success": True,
+            "deleted": result.deleted_count > 0,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to clear chat history: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
+# LIVE PRICING FOR TRADE FORM
+# ============================================================================
+
+@router.get("/tradeable-assets")
+async def get_tradeable_assets():
+    """Get list of tradeable assets with live prices for trade form dropdown."""
+    try:
+        assets = []
+        
+        # Get trending coins from DexScreener (Solana)
+        trending = await get_trending_coins()
+        for coin in trending[:15]:
+            assets.append({
+                "symbol": coin.get("symbol", "?"),
+                "name": coin.get("name", coin.get("symbol", "Unknown")),
+                "price": coin.get("price", 0),
+                "change_24h": coin.get("change_24h", 0),
+                "chain": "solana"
+            })
+        
+        # Add major coins from CoinGecko
+        try:
+            major_prices = await get_live_crypto_prices()
+            for symbol, data in major_prices.items():
+                # Check if not already in list
+                if not any(a["symbol"] == symbol for a in assets):
+                    assets.append({
+                        "symbol": symbol,
+                        "name": symbol,
+                        "price": data.get("price", 0),
+                        "change_24h": data.get("change_24h", 0),
+                        "chain": "multi"
+                    })
+        except Exception as e:
+            logger.warning(f"Failed to add major coins: {e}")
+        
+        # Sort by volume/relevance (trending first)
+        return {
+            "assets": assets,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get tradeable assets: {e}")
+        return {"assets": [], "error": str(e)}
