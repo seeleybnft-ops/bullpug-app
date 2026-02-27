@@ -1,12 +1,12 @@
 /**
  * TradeForm Component - Modal form for logging/editing trades
- * Extracted from TradingJournal for better maintainability
+ * Features: Live pricing dropdown for asset selection
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X } from "lucide-react";
+import { X, Loader2, ChevronDown, TrendingUp, TrendingDown, Search } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -54,6 +54,47 @@ export default function TradeForm({ trade, onClose, onSave }) {
   });
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState("basic");
+  
+  // Live pricing state
+  const [tradeableAssets, setTradeableAssets] = useState([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [showAssetDropdown, setShowAssetDropdown] = useState(false);
+  const [assetSearch, setAssetSearch] = useState("");
+
+  // Fetch tradeable assets with live prices
+  useEffect(() => {
+    const fetchAssets = async () => {
+      setAssetsLoading(true);
+      try {
+        const { data } = await axios.get(`${API}/ai/tradeable-assets`);
+        if (data.assets) {
+          setTradeableAssets(data.assets);
+        }
+      } catch (e) {
+        console.error("Failed to fetch tradeable assets:", e);
+      }
+      setAssetsLoading(false);
+    };
+    
+    fetchAssets();
+  }, []);
+
+  // Filter assets based on search
+  const filteredAssets = tradeableAssets.filter(asset => 
+    asset.symbol.toLowerCase().includes(assetSearch.toLowerCase()) ||
+    asset.name?.toLowerCase().includes(assetSearch.toLowerCase())
+  );
+
+  // Select asset and auto-fill price
+  const selectAsset = (asset) => {
+    setForm(prev => ({
+      ...prev,
+      asset: asset.symbol,
+      entry_price: asset.price > 0 ? asset.price.toString() : prev.entry_price
+    }));
+    setShowAssetDropdown(false);
+    setAssetSearch("");
+  };
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
