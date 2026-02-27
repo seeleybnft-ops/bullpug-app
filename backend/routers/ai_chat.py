@@ -216,7 +216,7 @@ async def get_solana_ecosystem_data() -> Dict:
 
 
 async def get_live_crypto_prices() -> Dict:
-    """Fetch live prices for major cryptocurrencies."""
+    """Fetch live prices for major cryptocurrencies with DexScreener fallback."""
     cache_key = "major_prices"
     
     # Check cache
@@ -226,6 +226,9 @@ async def get_live_crypto_prices() -> Dict:
         if age < CACHE_TTL_SECONDS:
             return cached["data"]
     
+    formatted = {}
+    
+    # Try CoinGecko first
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -239,8 +242,6 @@ async def get_live_crypto_prices() -> Dict:
             )
             if response.status_code == 200:
                 data = response.json()
-                # Format the data
-                formatted = {}
                 symbol_map = {
                     "bitcoin": "BTC", "ethereum": "ETH", "solana": "SOL",
                     "binancecoin": "BNB", "dogecoin": "DOGE", "ripple": "XRP",
@@ -254,19 +255,46 @@ async def get_live_crypto_prices() -> Dict:
                         "change_24h": values.get("usd_24h_change", 0),
                         "market_cap": values.get("usd_market_cap", 0)
                     }
-                
-                price_cache[cache_key] = {
-                    "data": formatted,
-                    "timestamp": datetime.now(timezone.utc)
-                }
-                return formatted
     except Exception as e:
-        logger.warning(f"Failed to fetch live prices: {e}")
+        logger.warning(f"CoinGecko prices failed: {e}")
     
-    # Return cached or empty
-    if cache_key in price_cache:
-        return price_cache[cache_key]["data"]
-    return {}
+    # Fallback to DexScreener for any missing major coins
+    major_required = ["SOL", "ETH", "BTC", "BNB", "DOGE", "XRP"]
+    major_missing = [sym for sym in major_required if sym not in formatted or formatted.get(sym, {}).get("price", 0) == 0]
+    
+    if major_missing:
+        logger.info(f"Using DexScreener fallback for: {major_missing}")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for symbol in major_missing:
+                    # Search by symbol
+                    response = await client.get(
+                        "https://api.dexscreener.com/latest/dex/search",
+                        params={"q": symbol}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        # Filter to matching symbol with good liquidity
+                        pairs = [p for p in data.get("pairs", []) if 
+                                p.get("baseToken", {}).get("symbol", "").upper() == symbol and
+                                float(p.get("liquidity", {}).get("usd", 0) or 0) > 50000]
+                        if pairs:
+                            best = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            formatted[symbol] = {
+                                "price": float(best.get("priceUsd") or 0),
+                                "change_24h": float(best.get("priceChange", {}).get("h24") or 0),
+                                "market_cap": 0
+                            }
+        except Exception as e:
+            logger.warning(f"DexScreener fallback failed: {e}")
+    
+    if formatted:
+        price_cache[cache_key] = {
+            "data": formatted,
+            "timestamp": datetime.now(timezone.utc)
+        }
+    
+    return formatted
 
 
 async def search_coin_price(symbol: str) -> Optional[Dict]:
