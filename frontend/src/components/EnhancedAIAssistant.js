@@ -291,10 +291,10 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
               {!isMinimized && (
                 <button
                   onClick={clearChat}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors text-[10px]"
-                  title="Clear chat"
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                  title="Clear chat history"
                 >
-                  Clear
+                  <Trash2 className="w-4 h-4" />
                 </button>
               )}
               <button
