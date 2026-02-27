@@ -1,13 +1,14 @@
 /**
  * EnhancedAIAssistant - Persistent AI chat assistant for Trading Journal
- * Features: Session-based memory, no auto-scroll, available across all tabs
+ * Features: MongoDB-backed persistent memory, no auto-scroll, available across all tabs
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useAccount } from "wagmi";
 import { 
-  Bot, Sparkles, X, Send, Loader2, MessageSquare, 
-  Minimize2, Maximize2, ChevronDown
+  Sparkles, X, Send, Loader2, 
+  Minimize2, Maximize2, ChevronDown, Trash2
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
@@ -15,8 +16,13 @@ import ReactMarkdown from "react-markdown";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
-  const { publicKey, connected } = useWallet();
-  const walletAddress = connected ? publicKey?.toBase58() : null;
+  const { publicKey, connected: solanaConnected } = useWallet();
+  const { address: evmAddress, isConnected: evmConnected } = useAccount();
+  
+  // Get wallet address from either connection
+  const walletAddress = solanaConnected 
+    ? publicKey?.toBase58() 
+    : (evmConnected ? evmAddress : null);
   
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -26,48 +32,95 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [sessionId, setSessionId] = useState(null);
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [hasLiveData, setHasLiveData] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
 
-  // Generate session ID on mount
+  // Load chat history from MongoDB when wallet connects
   useEffect(() => {
-    const storedSession = sessionStorage.getItem('bullpug_ai_session');
-    if (storedSession) {
-      setSessionId(storedSession);
-      // Load stored messages
-      const storedMessages = sessionStorage.getItem('bullpug_ai_messages');
-      if (storedMessages) {
+    const loadHistory = async () => {
+      if (walletAddress && !historyLoaded) {
         try {
-          setMessages(JSON.parse(storedMessages));
+          const { data } = await axios.get(`${API}/ai/history/${walletAddress}`);
+          if (data.success && data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+            if (data.session_id) {
+              setSessionId(data.session_id);
+            }
+          }
+          setHistoryLoaded(true);
         } catch (e) {
-          console.error("Failed to parse stored messages:", e);
+          console.error("Failed to load chat history:", e);
+          setHistoryLoaded(true);
         }
       }
-    } else {
-      const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      setSessionId(newSession);
-      sessionStorage.setItem('bullpug_ai_session', newSession);
-    }
-  }, []);
+    };
+    
+    loadHistory();
+  }, [walletAddress, historyLoaded]);
 
-  // Persist messages to session storage
+  // Generate session ID on mount if not loaded from DB
   useEffect(() => {
-    if (messages.length > 0) {
-      sessionStorage.setItem('bullpug_ai_messages', JSON.stringify(messages));
+    if (!sessionId) {
+      const storedSession = sessionStorage.getItem('bullpug_ai_session');
+      if (storedSession) {
+        setSessionId(storedSession);
+      } else {
+        const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        setSessionId(newSession);
+        sessionStorage.setItem('bullpug_ai_session', newSession);
+      }
     }
-  }, [messages]);
+  }, [sessionId]);
+
+  // Save messages to MongoDB (debounced)
+  const saveToMongoDB = useCallback(async (messagesToSave) => {
+    if (!walletAddress || messagesToSave.length === 0) return;
+    
+    try {
+      await axios.post(`${API}/ai/history/save`, {
+        wallet_address: walletAddress,
+        session_id: sessionId,
+        messages: messagesToSave
+      });
+    } catch (e) {
+      console.error("Failed to save chat history:", e);
+    }
+  }, [walletAddress, sessionId]);
+
+  // Debounced save when messages change
+  useEffect(() => {
+    if (messages.length > 0 && walletAddress) {
+      // Clear existing timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
+      // Save after 2 seconds of no changes
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToMongoDB(messages);
+      }, 2000);
+    }
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [messages, walletAddress, saveToMongoDB]);
 
   // Show welcome message when opened for first time
   useEffect(() => {
-    if (isOpen && messages.length === 0 && !isLoading) {
+    if (isOpen && messages.length === 0 && !isLoading && historyLoaded) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Trade analysis** and exit strategies\n- **Portfolio insights** and optimization\n\nTry asking me about any crypto price!",
+        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
     }
-  }, [isOpen, messages.length, isLoading]);
+  }, [isOpen, messages.length, isLoading, historyLoaded]);
 
   // Focus input when opened
   useEffect(() => {
@@ -156,7 +209,18 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     }
   };
 
-  const clearChat = () => {
+  const clearChat = async () => {
+    if (!window.confirm("Clear all chat history? This cannot be undone.")) return;
+    
+    // Clear from MongoDB if wallet connected
+    if (walletAddress) {
+      try {
+        await axios.delete(`${API}/ai/history/${walletAddress}`);
+      } catch (e) {
+        console.error("Failed to clear history from server:", e);
+      }
+    }
+    
     setMessages([]);
     sessionStorage.removeItem('bullpug_ai_messages');
     // Generate new session
