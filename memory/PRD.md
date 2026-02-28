@@ -131,6 +131,16 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ## What's Been Implemented
 
 ### February 2025 (Latest)
+- [x] **AI Market Data Fix** - Fixed incorrect volume and market cap reporting:
+  - Added known token addresses for direct DexScreener lookup (BONK, WIF, PEPE, SHIB, JUP)
+  - Improved volume aggregation across all trading pairs
+  - Better market cap vs FDV distinction
+  - Human-readable formatting (e.g., $517.81M instead of $517810594)
+  - Includes liquidity data for DexScreener sources
+- [x] **Phantom Wallet Fix** - Resolved wallet connection issues in Phantom's in-app browser:
+  - Disabled autoConnect when in Phantom/in-app browsers
+  - Direct Phantom provider connection for better compatibility
+  - UI hints for Phantom browser users
 - [x] **Major Refactoring Completed** - Code maintainability improvements:
   - TradingJournal.js: Reduced from ~1460 lines to 462 lines (68% reduction)
   - JournalAIAssistant.js: Reduced from 1002 lines to 334 lines (67% reduction)
