@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -221,10 +222,16 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     // Clear from MongoDB if wallet connected
     if (walletAddress) {
       try {
-        await axios.delete(`${API}/ai/history/${walletAddress}`);
+        const response = await axios.delete(`${API}/ai/history/${walletAddress}`);
+        if (response.data?.success) {
+          toast.success("Chat history cleared");
+        }
       } catch (e) {
         console.error("Failed to clear history from server:", e);
+        toast.error("Failed to clear chat history");
       }
+    } else {
+      toast.success("Chat cleared");
     }
     
     // Clear local state
