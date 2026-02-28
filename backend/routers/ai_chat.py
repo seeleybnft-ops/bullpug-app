@@ -298,7 +298,7 @@ async def get_live_crypto_prices() -> Dict:
 
 
 async def search_coin_price(symbol: str) -> Optional[Dict]:
-    """Search for a specific coin's price."""
+    """Search for a specific coin's price with accurate market cap and volume data."""
     symbol = symbol.upper().strip()
     
     # Common symbol to CoinGecko ID mapping
@@ -318,7 +318,7 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
     
     coin_id = symbol_to_id.get(symbol, symbol.lower())
     
-    # First try CoinGecko
+    # First try CoinGecko for accurate market cap and total volume
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -345,7 +345,7 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
     except Exception as e:
         logger.warning(f"CoinGecko price fetch failed for {symbol}: {e}")
     
-    # Fallback to DexScreener for any coin
+    # Fallback to DexScreener - aggregate volume from multiple pairs for better accuracy
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -355,15 +355,50 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
             if response.status_code == 200:
                 data = response.json()
                 pairs = data.get("pairs", [])
-                if pairs:
-                    # Get the highest liquidity pair
-                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                
+                # Filter pairs matching the exact symbol
+                matching_pairs = [p for p in pairs if p.get("baseToken", {}).get("symbol", "").upper() == symbol]
+                
+                if matching_pairs:
+                    # Sort by liquidity to get the most reliable price
+                    best_pair = max(matching_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                    
+                    # Aggregate 24h volume from all matching pairs for total volume
+                    total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in matching_pairs)
+                    
+                    # Use marketCap if available, otherwise fall back to fdv with a note
+                    market_cap = float(best_pair.get("marketCap", 0) or 0)
+                    fdv = float(best_pair.get("fdv", 0) or 0)
+                    
+                    # DexScreener's marketCap is circulating supply based when available
+                    # If not available, fdv (fully diluted valuation) is used as approximation
+                    effective_mcap = market_cap if market_cap > 0 else fdv
+                    
                     return {
                         "symbol": symbol,
                         "price": float(best_pair.get("priceUsd", 0) or 0),
                         "change_24h": float(best_pair.get("priceChange", {}).get("h24", 0) or 0),
-                        "market_cap": float(best_pair.get("fdv", 0) or 0),
+                        "market_cap": effective_mcap,
+                        "fdv": fdv,  # Include FDV separately for transparency
+                        "volume_24h": total_volume,  # Aggregated volume from all pairs
+                        "liquidity": float(best_pair.get("liquidity", {}).get("usd", 0) or 0),
+                        "source": "DexScreener",
+                        "pairs_count": len(matching_pairs)  # Show how many pairs were aggregated
+                    }
+                elif pairs:
+                    # If no exact match, use the best liquidity pair
+                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                    market_cap = float(best_pair.get("marketCap", 0) or 0)
+                    fdv = float(best_pair.get("fdv", 0) or 0)
+                    
+                    return {
+                        "symbol": symbol,
+                        "price": float(best_pair.get("priceUsd", 0) or 0),
+                        "change_24h": float(best_pair.get("priceChange", {}).get("h24", 0) or 0),
+                        "market_cap": market_cap if market_cap > 0 else fdv,
+                        "fdv": fdv,
                         "volume_24h": float(best_pair.get("volume", {}).get("h24", 0) or 0),
+                        "liquidity": float(best_pair.get("liquidity", {}).get("usd", 0) or 0),
                         "source": "DexScreener"
                     }
     except Exception as e:
