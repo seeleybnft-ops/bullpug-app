@@ -673,10 +673,37 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
                 change_str = f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
                 price_str = f"${p['price']:,.2f}" if p['price'] >= 1 else f"${p['price']:.6f}"
                 real_time_data += f"- **{p['symbol']}**: {price_str} ({change_str} 24h)\n"
-                if p.get("market_cap"):
-                    real_time_data += f"  Market Cap: ${p['market_cap']:,.0f}\n"
-                if p.get("volume_24h"):
-                    real_time_data += f"  24h Volume: ${p['volume_24h']:,.0f}\n"
+                
+                # Format market cap with appropriate suffix for readability
+                market_cap = p.get("market_cap", 0)
+                if market_cap > 0:
+                    if market_cap >= 1_000_000_000:
+                        mcap_str = f"${market_cap/1_000_000_000:.2f}B"
+                    elif market_cap >= 1_000_000:
+                        mcap_str = f"${market_cap/1_000_000:.2f}M"
+                    else:
+                        mcap_str = f"${market_cap:,.0f}"
+                    real_time_data += f"  Market Cap: {mcap_str}\n"
+                
+                # Format volume with appropriate suffix
+                volume = p.get("volume_24h", 0)
+                if volume > 0:
+                    if volume >= 1_000_000_000:
+                        vol_str = f"${volume/1_000_000_000:.2f}B"
+                    elif volume >= 1_000_000:
+                        vol_str = f"${volume/1_000_000:.2f}M"
+                    else:
+                        vol_str = f"${volume:,.0f}"
+                    real_time_data += f"  24h Volume: {vol_str}\n"
+                
+                # Add liquidity if from DexScreener
+                if p.get("source") == "DexScreener" and p.get("liquidity"):
+                    liq = p.get("liquidity", 0)
+                    if liq >= 1_000_000:
+                        liq_str = f"${liq/1_000_000:.2f}M"
+                    else:
+                        liq_str = f"${liq:,.0f}"
+                    real_time_data += f"  Liquidity: {liq_str}\n"
         
         # Prepend sentiment to data if we have any real-time data
         if real_time_data:
