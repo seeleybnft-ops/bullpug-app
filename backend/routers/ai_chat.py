@@ -323,18 +323,29 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
         "FET": "fetch-ai", "BULLPUG": "bullpug"
     }
     
-    # Known token addresses for direct DexScreener lookup (more accurate)
+    # CoinPaprika ID mapping for major L1 coins (free API, no rate limits, accurate data)
+    coinpaprika_ids = {
+        "BTC": "btc-bitcoin", "ETH": "eth-ethereum", "SOL": "sol-solana",
+        "BNB": "bnb-binance-coin", "XRP": "xrp-xrp", "DOGE": "doge-dogecoin",
+        "ADA": "ada-cardano", "AVAX": "avax-avalanche", "DOT": "dot-polkadot",
+        "MATIC": "matic-polygon", "LINK": "link-chainlink", "ATOM": "atom-cosmos",
+        "UNI": "uni-uniswap", "LTC": "ltc-litecoin", "NEAR": "near-near-protocol",
+        "APT": "apt-aptos", "SUI": "sui-sui", "ARB": "arb-arbitrum",
+        "OP": "op-optimism", "FTM": "ftm-fantom", "INJ": "inj-injective",
+        "TIA": "tia-celestia", "SEI": "sei-sei", "SHIB": "shib-shiba-inu",
+        "PEPE": "pepe-pepe",
+    }
+    
+    # Known token addresses for direct DexScreener lookup (for memecoins)
     token_addresses = {
         "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
         "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-        "PEPE": "0x6982508145454Ce325dDbE47a25d4ec3d2311933",  # ETH PEPE
-        "SHIB": "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE",  # ETH SHIB
         "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
     }
     
     coin_id = symbol_to_id.get(symbol, symbol.lower())
     
-    # First try CoinGecko for accurate market cap and total volume (works best for major coins)
+    # First try CoinGecko for accurate market cap and total volume
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -349,7 +360,7 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
             )
             if response.status_code == 200:
                 data = response.json()
-                if coin_id in data:
+                if coin_id in data and data[coin_id].get("usd"):
                     return {
                         "symbol": symbol,
                         "price": data[coin_id].get("usd", 0),
@@ -360,6 +371,27 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
                     }
     except Exception as e:
         logger.warning(f"CoinGecko price fetch failed for {symbol}: {e}")
+    
+    # For major L1 coins, use CoinPaprika as reliable fallback (free, no rate limits)
+    if symbol in coinpaprika_ids:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                paprika_id = coinpaprika_ids[symbol]
+                response = await client.get(f"https://api.coinpaprika.com/v1/tickers/{paprika_id}")
+                if response.status_code == 200:
+                    data = response.json()
+                    quotes = data.get("quotes", {}).get("USD", {})
+                    if quotes.get("price"):
+                        return {
+                            "symbol": symbol,
+                            "price": quotes.get("price", 0),
+                            "change_24h": quotes.get("percent_change_24h", 0),
+                            "market_cap": quotes.get("market_cap", 0),
+                            "volume_24h": quotes.get("volume_24h", 0),
+                            "source": "CoinPaprika"
+                        }
+        except Exception as e:
+            logger.warning(f"CoinPaprika price fetch failed for {symbol}: {e}")
     
     # For known token addresses, use DexScreener's token endpoint (more accurate)
     if symbol in token_addresses:
