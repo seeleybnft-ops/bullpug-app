@@ -2,30 +2,48 @@
 The user wants to build a full-stack, responsive website for the memecoin Bullpug. The application includes a Cosmic Runner game, a P2P Betting Arena, user profiles, and an AI-powered Trading Journal.
 
 PRODUCT REQUIREMENTS:
--   **Multi-Chain Wallet & Auto-Trade Fetching:** Integrate multi-chain wallet support (Solana, ETH, Base) using Alchemy to automatically fetch DEX swaps.
+-   **Multi-Chain Wallet & Auto-Trade Fetching:** Integrate multi-chain wallet support (Solana, ETH, Base) to automatically fetch DEX swaps.
 -   **Unified My Journal:** A central hub with tabs for a Dashboard, Portfolio Value, Trade Importing, Trade Logs, Exit Simulator, and Achievements.
 -   **Gamification:** Achievement badges and a Share on X feature.
--   **Enhanced AI Assistant:** The AI should have conversational memory, be available across all My Journal tabs, and feature live data (coin prices, market insights). The AI should be deeply knowledgeable about the project's lore and ecosystem.
+-   **Enhanced AI Assistant:** The AI should have conversational memory, be available across all tabs, and feature live data (coin prices, market insights, news, sentiment). The AI should be deeply knowledgeable about the project's lore.
 -   **UI/UX Cleanup:** Consolidate wallet connections, reorder tabs, and align the homepage footer with the main navigation. The floating AI assistant should be on all pages.
 -   **Top Picks Enhancements:** Coins listed in the AI assistant must have direct links to their exchange and copyable contract addresses. The number of picks has been increased to 5 safer and 5 high risk coins.
--   **Watchlist Feature:** A new tab in My Journal for users to save and track tokens of interest.
+-   **Watchlist Feature:** A new tab in My Journal for users to save and track tokens.
+-   **Log Trade Form:** The Asset field must be a dropdown showing , , , , ,  with live prices, plus a section to look up a coin by its contract address.
+-   **Phantom Wallet Compatibility:** The wallet connection must work seamlessly within the Phantom Wallet's in-app browser.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a React frontend and FastAPI backend. It features a P2P Betting Arena (smart contract deployment is blocked), a Cosmic Runner game, and a sophisticated, unified My Journal page. The floating Bullpug AI assistant is now present on all pages of the website. The AI has been trained on the project's lore and the entire site ecosystem, including game rules, betting procedures, and security measures. The Reflections page has been completely removed from the application. The in-game collectible Mooncake has been renamed to Moon Cheese, with its image updated throughout the game and guides. The application supports both Solana and EVM wallet connections.
+A full-stack application with a React frontend and FastAPI backend. It features a P2P Betting Arena (smart contract deployment is blocked) and a Cosmic Runner game. The application has a sophisticated, unified My Journal page with components that have been recently refactored for better maintainability.
+
+The floating Bullpug AI assistant is present on all pages, featuring a new custom professor icon. The AI has persistent chat history stored in MongoDB and is trained on project lore. It provides real-time market data, including news, sentiment (Fear & Greed Index), and trending tokens, powered by a new centralized backend price-fetching service () that prioritizes the DexScreener API to avoid rate limits.
+
+The Log Trade form now includes a dynamic dropdown for asset selection with live prices for major coins and a contract address lookup feature. A Market Pulse widget displaying live market data has been added to the homepage. The wallet connection logic has been updated to improve compatibility with the Phantom in-app browser.
 
 **Last working item**:
--   **Last item agent was working:** The user requested two enhancements for the Watchlist feature: 1) Ensure coins persist until manually deleted, and 2) Add a star button within the watchlist for easy removal. The agent investigated and confirmed that watchlist items are already persistent as they are stored in MongoDB. The agent was about to start implementing the star button for removal in the UI.
+-   **Last item agent was working:** The user reported that wallet connection fails within the Phantom Wallet's in-app browser. The agent has implemented a fix to improve compatibility. The fix involves using a new hook () to detect the Phantom environment and conditionally disable the  feature in , which is a common cause of such issues.
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** both
+-   **Which testing method agent to use?** Frontend testing agent. This is to ensure no regressions were introduced on standard browsers. The agent cannot directly simulate the Phantom app environment.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Solana Smart Contract Deployment Blocked by Disk Space (P1)**
+-   **Issue 1: Wallet Connection in Phantom App Browser (P0)**
+    -   **Description:** Wallet connection is unstable or fails inside the Phantom Wallet mobile app's built-in browser.
+    -   **Attempted fixes:** Implemented logic to detect the Phantom browser and disable the  functionality within it. Improved UI feedback on the wallet connection button.
+    -   **Next debug checklist:**
+        1.  Run the frontend testing agent to confirm wallet connection functionality has not regressed on standard desktop browsers.
+        2.  After confirming no regressions, prompt the user to test the connection on their mobile device inside the Phantom app browser to verify the fix.
+    -   **Why fix this issue and what will be achieved with the fix?** This is critical for mobile user experience, as many users interact with dApps exclusively through wallet browsers.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Frontend
+    -   **Blocked on other issue:** None
+
+-   **Issue 2: Solana Smart Contract Deployment Blocked by Disk Space (P1)**
     -   **Description:** The agent is unable to install the Solana and Anchor CLI toolchain due to insufficient disk space in the environment. This is a recurring platform-level limitation.
-    -   **Attempted fixes:** The agent informed the user of the limitation and provided a  with instructions for local deployment as the only viable workaround.
+    -   **Attempted fixes:** The user has been informed of the limitation, and a local deployment  was provided as the only workaround.
     -   **Next debug checklist:** This task cannot be completed within the preview environment.
     -   **Why fix this issue and what will be achieved with the fix?** This is a critical blocker for making the P2P Betting Arena a trustless, on-chain application.
     -   **Status:** BLOCKED
@@ -34,16 +52,10 @@ A full-stack application with a React frontend and FastAPI backend. It features 
     -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Add Removal Functionality to Watchlist UI (P0)**
-    -   **Where to resume:** Modify . The goal is to add a star icon next to each token in the watchlist. Clicking this star should trigger the  function to delete the token from the user's watchlist via the backend API.
-    -   **What will be achieved with this?** Users will have an intuitive way to manage their watchlist directly from the watchlist tab.
-    -   **Status:** NOT STARTED
-    -   **Should Test frontend/backend/both after fix?** Both
-    -   **Blocked on something:** No
+-   None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **Finalize Auto-Trade Fetching Integration (P1):** The backend () and frontend () components are functional. The task involves a final UX review to ensure a seamless experience.
     -   **Integrate Frontend with Deployed Smart Contract (P1):** Update  to interact with the Solana smart contract once it is deployed (currently blocked).
 -   **Future Tasks:**
     -   Deploy Smart Contract to Mainnet (P2)
@@ -51,65 +63,76 @@ A full-stack application with a React frontend and FastAPI backend. It features 
     -   Re-enable and build out the NFT Gallery page (P2)
 
 **Completed work in this session**
--   **AI Knowledge Expansion:** The Bullpug AI's system prompt was updated twice with extensive knowledge, first on the project's lore and story, and second on the entire ecosystem, including the game, P2P arena, security (Blowfish), and tokenomics. It is programmed to refuse to share sensitive information.
--   **Global AI Assistant:** The floating AI assistant bubble was moved from being exclusive to the Journal page to , making it accessible on every page of the website.
--   **Mooncake to Moon Cheese Refactor:** Globally replaced all text references to Mooncake with Moon Cheese. Updated the Cosmic Runner game to render a new image for the collectible instead of drawing it with canvas shapes.
--   **Reflections Page & Homepage Cleanup:** The  page, its route, and all links from the navbar and footer were removed. The Trading Fee 1% section on the homepage was also removed.
--   **Homepage Ecosystem Update:** Added a Bullpug AI Assistant card to the homepage's ecosystem section, including a new image and reordering the display as requested.
--   **Auto-Scroll Fix:** Resolved a bug in  that caused the My Journal page to auto-scroll to the bottom on load.
--   **Top Picks Expansion:** Updated the backend () and frontend () to fetch and display 5 safer and 5 high risk coins, up from 3.
--   **AI Assistant UI Enhancements:** Renamed the AI assistant to Bullpug AI, added star buttons to the Top Picks for direct adding to the watchlist, removed the Holdings tab, and reordered the remaining tabs to Chat, Top Picks, Insights.
--   **Watchlist & Auto-Trade Fetching Completion:** Finished the implementation and integration of the Watchlist feature and finalized the Auto-Trade Fetching UI. Both features were verified with the testing agent.
+-   **Component Refactoring:**  (from ~1460 to 462 lines) and  (from 1002 to 334 lines) were broken down into smaller, manageable components.
+-   **Live Price Integration:** Created a unified backend price service () using DexScreener to provide real-time, rate-limit-resistant prices for the portfolio and other features.
+-   **AI Enhancements:**
+    -   **Conversational Memory:** Implemented persistent chat history using MongoDB.
+    -   **Real-Time Data Context:** The AI now accesses and incorporates the Fear & Greed Index, global crypto stats, and trending tokens into its responses.
+    -   **UI Update:** Changed the AI assistant icon to a custom Bullpug professor image.
+-   **Log Trade Form Improvement:** Converted the asset input to a dynamic  dropdown with live prices for major coins and a contract lookup feature.
+-   **Homepage Market Pulse Widget:** Added a new  component to the homepage displaying live market data.
+-   **UX Improvements:** Polished the UI for the  component.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork:** Solana Smart Contract Deployment Blocked by Disk Space
--   **Recurrence count:** 4
+-   **Recurrence count:** 5
 -   **Status:** BLOCKED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Global State/Component Management:** Moving a component () to the root  to make it accessible across all routes.
--   **AI Knowledge Injection:** Modifying a backend AI service's system prompt to imbue it with specific domain knowledge about the application's features and lore.
--   **Code Refactoring:** Removing a defunct feature (Reflections) across multiple files (components, routing). Globally renaming a core game concept (Mooncake -> Moon Cheese).
--   **React Canvas Rendering:** Updating a game component to load and draw an image asset () for a collectible instead of using canvas's primitive shape-drawing functions.
+-   **Component Refactoring:** Breaking down large React components into smaller, single-responsibility components for maintainability.
+-   **API Fallback Strategy:** Creating a centralized backend service () that uses a primary (DexScreener) and secondary (CoinGecko) API to ensure data availability.
+-   **Persistent State Management:** Moving chat history from client-side  to a persistent MongoDB store.
+-   **Dynamic UI Components:** Building a  dropdown that fetches real-time data (live coin prices) and allows user input to dynamically add new items via contract address lookup.
+-   **Environment-Specific Logic:** Using a custom React hook () to conditionally change application behavior based on the runtime environment (Phantom's in-app browser).
 
 **key DB schema**
+-   **chat_history:** 
 -   **watchlist:** 
--   **game_data (in user profile):** Contains  field for game scores (maintains backward compatibility by checking for old  field).
 
 **All files of reference**
--   **Watchlist Task:** 
--   **AI Knowledge:** 
--   **Global Component:** 
--   **Game/Item Renaming:** , 
+-   **Wallet Connection Fix:** , , 
+-   **AI Chat History:** , 
+-   **Trade Form Dropdown:** , 
+-   **Refactored Components:** , , and new components under  and .
 
 **Areas that need refactoring**:
--    and  are both very large and manage complex logic and UI. They should be broken down into smaller, more focused components to improve readability and maintainability.
+-   The major refactoring of  and  is complete. No new areas have been identified.
 
 **key api endpoints**
--   : **(Modified)** System prompt updated with extensive project knowledge.
--   : **(Modified)** Now returns 5 coins for each category (safe/volatile).
--   : To be used by the new star button in the watchlist UI.
+-   : **(New)** Fetches a user's chat history.
+-   : **(New)** Saves a user's chat history.
+-   : **(New)** Clears a user's chat history.
+-   : **(New)** Fetches prices for major coins for the trade log dropdown.
+-   : **(New)** Fetches Fear & Greed Index and global market stats.
+-   : **(New)** Fetches trending Solana tokens.
+-   : **(Modified)** Incorporates real-time market data into the LLM context.
 
 **Critical Info for New Agent**
--   Your immediate priority (P0) is to implement the removal functionality in the **Watchlist UI** () by adding a clickable star icon to each item.
--   The user's request for watchlist persistence is already fulfilled by the existing backend. You do not need to work on the backend for this task.
--   The floating AI assistant is now global. Do not add it to individual pages.
--   The **Solana smart contract deployment remains blocked**. Do not attempt to install the Solana toolchain.
+-   Your immediate priority (P0) is to **verify the fix for the Phantom Wallet in-app browser connection**.
+-   The implementation is complete but requires testing. First, run a regression test to ensure the standard wallet connection still works. Then, prompt the user for final verification inside their Phantom app, as you cannot simulate that environment.
+-   The  feature is now intentionally disabled when the app runs inside Phantom's browser to resolve the connection instability.
+-   The backend now heavily relies on the **DexScreener API** for pricing data via .
+-   **Solana smart contract deployment remains BLOCKED**. Do not attempt it.
+
+**documents and test reports created in this job**
+-   /app/test_reports/iteration_1.json
+-   /app/test_reports/iteration_2.json
+-   /app/test_reports/iteration_3.json
 
 **Last 10 User Messages and any pending HUMAN messages**
--   **Ensure watchlist coins don't expire and add star for removal:** (IN PROGRESS)
--   **Change Mooncake to Moon Cheese & update image:** (COMPLETED)
--   **Ensure Bullpug AI knows everything about the ecosystem & security:** (COMPLETED)
--   **Ensure Bullpug AI Assistant popup is displaying on all pages:** (COMPLETED)
--   **Update Ecosystem section on the main page:** (COMPLETED)
--   **Remove the reflections page & Trading Fee section:** (COMPLETED)
--   **Ensure additional 2 coins in Top Picks meet criteria:** (COMPLETED)
--   **Increase Top Picks to 5 safer and 5 high risk coins:** (COMPLETED)
--   **Stop the auto scroll on Journal page:** (COMPLETED)
--   **Ensure all Bullpug AI knows all the Bullpug Lore:** (COMPLETED)
+-   **Ensure wallet connect can be linked in the phantom wallet browser...currently showing errors:** (IN PROGRESS)
+-   **Drop down asset menu in log trade need to show/connect the following assets and in this order...:** (COMPLETED)
+-   **Ensure Bullpug AI remembers previous questions. Must log conversation...:** (COMPLETED)
+-   **Ensure Log Trade is connected to live pricing and make the Asset a drop down...:** (COMPLETED)
+-   **Change the AI popup symbol in the bottom right corner to the attached:** (COMPLETED)
+-   **Proceed with P1 finalise auto-trade fetching UX Review:** (COMPLETED)
+-   **Proceed with Enhancement idea (Market Pulse Widget):** (COMPLETED)
+-   **Ensure Bullpug AI can access current events...:** (COMPLETED)
+-   **Ensure prices for Portfolio Value are linked to live pricing...:** (COMPLETED)
+-   **User confirmation to proceed with refactoring and other tasks:** (COMPLETED)
 
 **Project Health Check:**
 -   **Broken:** None
@@ -118,18 +141,20 @@ A full-stack application with a React frontend and FastAPI backend. It features 
 
 **3rd Party Integrations**
 -   **OpenAI GPT-4o:** Powers AI suggestions and chat (via Emergent LLM Key).
--   **Alchemy:** For fetching portfolio balances and trade history on both Solana and EVM chains.
--   **CoinGecko:** For fetching token prices.
--   **DexScreener API:** For fetching real-time coin data for the Top Picks feature.
+-   **Alchemy:** For fetching portfolio balances and trade history.
+-   **CoinGecko:** Secondary source for token prices and market data.
+-   **DexScreener API:** Primary source for real-time coin data and prices.
+-   **alternative.me API:** For Fear & Greed Index.
+-   **CryptoCompare API:** For crypto news articles.
 -   **Solana:**  and wallet adapter for frontend connections.
 -   **Wagmi/Viem:** For frontend EVM wallet connections.
--   **APScheduler:** For running hourly background jobs on the backend.
+-   **APScheduler:** For backend background jobs.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES (for initial Watchlist/Auto-Trade feature)
+-   **Testing agent used after significant changes:** YES
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
--   **Known regressions:** None
+-   **Known regressions:** A bug in the asset dropdown was found by the testing agent and subsequently fixed. No other regressions are known.
 
 **Credentials to test flow:**
 -   **Alchemy API Key:** Available in  as .
