@@ -131,6 +131,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ## What's Been Implemented
 
 ### February 2025 (Latest)
+- [x] **AI Market Data Fix v2** - Added CoinPaprika as reliable fallback for major L1 coins:
+  - CoinGecko (primary) → CoinPaprika (fallback for L1s) → DexScreener (memecoins)
+  - SOL, BTC, ETH, BNB, XRP, DOGE now show accurate market cap in billions/trillions
+  - Memecoins (BONK, WIF) use DexScreener token API for accurate FDV/volume
+  - No more incorrect $778K market cap for SOL (now shows $48B correctly)
 - [x] **AI Market Data Fix** - Fixed incorrect volume and market cap reporting:
   - Added known token addresses for direct DexScreener lookup (BONK, WIF, PEPE, SHIB, JUP)
   - Improved volume aggregation across all trading pairs
