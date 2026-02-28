@@ -323,9 +323,18 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
         "FET": "fetch-ai", "BULLPUG": "bullpug"
     }
     
+    # Known token addresses for direct DexScreener lookup (more accurate)
+    token_addresses = {
+        "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+        "PEPE": "0x6982508145454Ce325dDbE47a25d4ec3d2311933",  # ETH PEPE
+        "SHIB": "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE",  # ETH SHIB
+        "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    }
+    
     coin_id = symbol_to_id.get(symbol, symbol.lower())
     
-    # First try CoinGecko for accurate market cap and total volume
+    # First try CoinGecko for accurate market cap and total volume (works best for major coins)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -352,7 +361,41 @@ async def search_coin_price(symbol: str) -> Optional[Dict]:
     except Exception as e:
         logger.warning(f"CoinGecko price fetch failed for {symbol}: {e}")
     
-    # Fallback to DexScreener - aggregate volume from multiple pairs for better accuracy
+    # For known token addresses, use DexScreener's token endpoint (more accurate)
+    if symbol in token_addresses:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                token_addr = token_addresses[symbol]
+                response = await client.get(
+                    f"https://api.dexscreener.com/latest/dex/tokens/{token_addr}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    pairs = data.get("pairs", [])
+                    if pairs:
+                        # Sort by liquidity to get best price
+                        best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                        # Aggregate volume from all pairs
+                        total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in pairs)
+                        # Get FDV (fully diluted value) - closest to market cap for tokens
+                        fdv = float(best_pair.get("fdv", 0) or 0)
+                        market_cap = float(best_pair.get("marketCap", 0) or 0)
+                        
+                        return {
+                            "symbol": symbol,
+                            "price": float(best_pair.get("priceUsd", 0) or 0),
+                            "change_24h": float(best_pair.get("priceChange", {}).get("h24", 0) or 0),
+                            "market_cap": market_cap if market_cap > 0 else fdv,
+                            "fdv": fdv,
+                            "volume_24h": total_volume,
+                            "liquidity": float(best_pair.get("liquidity", {}).get("usd", 0) or 0),
+                            "source": "DexScreener",
+                            "pairs_count": len(pairs)
+                        }
+        except Exception as e:
+            logger.warning(f"DexScreener token lookup failed for {symbol}: {e}")
+    
+    # Fallback to DexScreener search - aggregate volume from multiple pairs for better accuracy
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
