@@ -275,15 +275,22 @@ async def get_live_crypto_prices() -> Dict:
                     if response.status_code == 200:
                         data = response.json()
                         # Filter to matching symbol with good liquidity
-                        pairs = [p for p in data.get("pairs", []) if 
+                        matching_pairs = [p for p in data.get("pairs", []) if 
                                 p.get("baseToken", {}).get("symbol", "").upper() == symbol and
                                 float(p.get("liquidity", {}).get("usd", 0) or 0) > 50000]
-                        if pairs:
-                            best = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                        if matching_pairs:
+                            best = max(matching_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            # Aggregate volume from all matching pairs
+                            total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in matching_pairs)
+                            # Use marketCap if available, fallback to fdv
+                            market_cap = float(best.get("marketCap", 0) or 0)
+                            fdv = float(best.get("fdv", 0) or 0)
+                            
                             formatted[symbol] = {
                                 "price": float(best.get("priceUsd") or 0),
                                 "change_24h": float(best.get("priceChange", {}).get("h24") or 0),
-                                "market_cap": 0
+                                "market_cap": market_cap if market_cap > 0 else fdv,
+                                "volume_24h": total_volume
                             }
         except Exception as e:
             logger.warning(f"DexScreener fallback failed: {e}")
