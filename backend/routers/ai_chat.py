@@ -216,7 +216,7 @@ async def get_solana_ecosystem_data() -> Dict:
 
 
 async def get_live_crypto_prices() -> Dict:
-    """Fetch live prices for major cryptocurrencies with DexScreener fallback."""
+    """Fetch live prices for major cryptocurrencies with CoinPaprika fallback."""
     cache_key = "major_prices"
     
     # Check cache
@@ -228,6 +228,13 @@ async def get_live_crypto_prices() -> Dict:
     
     formatted = {}
     
+    # CoinPaprika IDs for major coins (free, no rate limits)
+    coinpaprika_major = {
+        "BTC": "btc-bitcoin", "ETH": "eth-ethereum", "SOL": "sol-solana",
+        "BNB": "bnb-binance-coin", "DOGE": "doge-dogecoin", "XRP": "xrp-xrp",
+        "SHIB": "shib-shiba-inu", "PEPE": "pepe-pepe"
+    }
+    
     # Try CoinGecko first
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -237,7 +244,8 @@ async def get_live_crypto_prices() -> Dict:
                     "ids": "bitcoin,ethereum,solana,binancecoin,dogecoin,ripple,shiba-inu,pepe,bonk,dogwifhat",
                     "vs_currencies": "usd",
                     "include_24hr_change": "true",
-                    "include_market_cap": "true"
+                    "include_market_cap": "true",
+                    "include_24hr_vol": "true"
                 }
             )
             if response.status_code == 200:
@@ -249,40 +257,62 @@ async def get_live_crypto_prices() -> Dict:
                     "dogwifhat": "WIF"
                 }
                 for coin_id, values in data.items():
-                    symbol = symbol_map.get(coin_id, coin_id.upper())
-                    formatted[symbol] = {
-                        "price": values.get("usd", 0),
-                        "change_24h": values.get("usd_24h_change", 0),
-                        "market_cap": values.get("usd_market_cap", 0)
-                    }
+                    if values.get("usd"):  # Only add if we got valid data
+                        symbol = symbol_map.get(coin_id, coin_id.upper())
+                        formatted[symbol] = {
+                            "price": values.get("usd", 0),
+                            "change_24h": values.get("usd_24h_change", 0),
+                            "market_cap": values.get("usd_market_cap", 0),
+                            "volume_24h": values.get("usd_24h_vol", 0)
+                        }
     except Exception as e:
         logger.warning(f"CoinGecko prices failed: {e}")
     
-    # Fallback to DexScreener for any missing major coins
+    # Use CoinPaprika fallback for missing major L1 coins (more reliable than DexScreener for L1s)
     major_required = ["SOL", "ETH", "BTC", "BNB", "DOGE", "XRP"]
     major_missing = [sym for sym in major_required if sym not in formatted or formatted.get(sym, {}).get("price", 0) == 0]
     
     if major_missing:
-        logger.info(f"Using DexScreener fallback for: {major_missing}")
+        logger.info(f"Using CoinPaprika fallback for: {major_missing}")
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 for symbol in major_missing:
-                    # Search by symbol
-                    response = await client.get(
-                        "https://api.dexscreener.com/latest/dex/search",
-                        params={"q": symbol}
-                    )
+                    if symbol in coinpaprika_major:
+                        paprika_id = coinpaprika_major[symbol]
+                        response = await client.get(f"https://api.coinpaprika.com/v1/tickers/{paprika_id}")
+                        if response.status_code == 200:
+                            data = response.json()
+                            quotes = data.get("quotes", {}).get("USD", {})
+                            if quotes.get("price"):
+                                formatted[symbol] = {
+                                    "price": quotes.get("price", 0),
+                                    "change_24h": quotes.get("percent_change_24h", 0),
+                                    "market_cap": quotes.get("market_cap", 0),
+                                    "volume_24h": quotes.get("volume_24h", 0)
+                                }
+        except Exception as e:
+            logger.warning(f"CoinPaprika fallback failed: {e}")
+    
+    # For memecoins (BONK, WIF), use DexScreener with token addresses
+    memecoin_addresses = {
+        "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    }
+    memecoins_missing = [sym for sym in memecoin_addresses.keys() if sym not in formatted or formatted.get(sym, {}).get("price", 0) == 0]
+    
+    if memecoins_missing:
+        logger.info(f"Using DexScreener for memecoins: {memecoins_missing}")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for symbol in memecoins_missing:
+                    token_addr = memecoin_addresses[symbol]
+                    response = await client.get(f"https://api.dexscreener.com/latest/dex/tokens/{token_addr}")
                     if response.status_code == 200:
                         data = response.json()
-                        # Filter to matching symbol with good liquidity
-                        matching_pairs = [p for p in data.get("pairs", []) if 
-                                p.get("baseToken", {}).get("symbol", "").upper() == symbol and
-                                float(p.get("liquidity", {}).get("usd", 0) or 0) > 50000]
-                        if matching_pairs:
-                            best = max(matching_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
-                            # Aggregate volume from all matching pairs
-                            total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in matching_pairs)
-                            # Use marketCap if available, fallback to fdv
+                        pairs = data.get("pairs", [])
+                        if pairs:
+                            best = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in pairs)
                             market_cap = float(best.get("marketCap", 0) or 0)
                             fdv = float(best.get("fdv", 0) or 0)
                             
@@ -293,7 +323,7 @@ async def get_live_crypto_prices() -> Dict:
                                 "volume_24h": total_volume
                             }
         except Exception as e:
-            logger.warning(f"DexScreener fallback failed: {e}")
+            logger.warning(f"DexScreener memecoin fallback failed: {e}")
     
     if formatted:
         price_cache[cache_key] = {
