@@ -212,6 +212,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const clearChat = async () => {
     if (!window.confirm("Clear all chat history? This cannot be undone.")) return;
     
+    // Cancel any pending save operations
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
     // Clear from MongoDB if wallet connected
     if (walletAddress) {
       try {
@@ -221,12 +227,17 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       }
     }
     
+    // Clear local state
     setMessages([]);
     sessionStorage.removeItem('bullpug_ai_messages');
+    
     // Generate new session
     const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setSessionId(newSession);
     sessionStorage.setItem('bullpug_ai_session', newSession);
+    
+    // Reset historyLoaded so it doesn't try to re-fetch cleared history
+    setHistoryLoaded(true);  // Keep true since we just cleared it intentionally
   };
 
   return (
