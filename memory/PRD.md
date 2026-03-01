@@ -8,10 +8,15 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ### 1. My Journal (Trading Journal)
 - **Dashboard Tab**: Trading statistics, P&L charts, win rate, best/worst trades
 - **Portfolio Value Tab**: Multi-chain token holdings grouped by chain (Solana, Ethereum, Base, Arbitrum)
+  - Token name displayed as main title
+  - Contract address with copy-to-clipboard button
+  - "Add to Watchlist" button for each token
+  - "View on Explorer" link for each token
 - **Import Tab**: Auto-detect DEX trades from connected wallets
 - **Trades Tab**: Manual trade logging and history
 - **Exit Simulator Tab**: Monte Carlo simulations for exit strategies
 - **Achievements Tab**: Trading badges, community benchmarks, social sharing
+- **Watchlist Tab**: Track favorite tokens with price alerts
 - **Backup Tab**: Cloud backup and restore functionality
 
 ### 2. Enhanced AI Assistant - "Bullpug AI" (LIVE)
