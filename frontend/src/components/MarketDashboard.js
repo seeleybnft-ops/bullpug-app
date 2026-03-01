@@ -67,32 +67,6 @@ function FearGreedGauge({ value, classification }) {
   );
 }
 
-// Top mover card
-function MoverCard({ coin, isGainer }) {
-  const changeColor = coin.change_24h >= 0 ? '#00FFA3' : '#FF3B30';
-  
-  return (
-    <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-      <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-          isGainer ? 'bg-[#00FFA3]/20 text-[#00FFA3]' : 'bg-[#FF3B30]/20 text-[#FF3B30]'
-        }`}>
-          {isGainer ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-        </div>
-        <div>
-          <p className="text-xs font-bold text-white">{coin.symbol}</p>
-          <p className="text-[9px] text-slate-500">
-            ${coin.price < 0.01 ? coin.price.toFixed(6) : coin.price.toFixed(4)}
-          </p>
-        </div>
-      </div>
-      <span className="text-xs font-bold" style={{ color: changeColor }}>
-        {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h.toFixed(1)}%
-      </span>
-    </div>
-  );
-}
-
 export default function MarketDashboard() {
   const [marketData, setMarketData] = useState(null);
   const [loading, setLoading] = useState(true);
