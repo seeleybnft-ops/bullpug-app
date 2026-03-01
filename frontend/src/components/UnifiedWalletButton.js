@@ -90,23 +90,36 @@ export default function UnifiedWalletButton() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  // Direct Phantom connection for in-app browser
-  const connectPhantomDirect = useCallback(async () => {
+  // Connect using wallet adapter (proper way)
+  const connectPhantomViaAdapter = useCallback(async () => {
     setConnecting(true);
     
     try {
-      // Try using the injected Phantom provider directly
-      const provider = window.phantom?.solana || window.solana;
+      // Find Phantom wallet in the available wallets
+      const phantomWallet = wallets.find(w => 
+        w.adapter.name.toLowerCase().includes('phantom')
+      );
       
-      if (provider?.isPhantom) {
-        // Connect directly through Phantom's provider
-        const response = await provider.connect();
-        if (response.publicKey) {
+      if (phantomWallet) {
+        // Select the Phantom wallet adapter
+        selectWallet(phantomWallet.adapter.name);
+        
+        // Give time for selection to register
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Connect using the wallet adapter
+        try {
+          await walletConnect();
           toast.success('Connected to Phantom!');
+          setShowModal(false);
+        } catch (connectError) {
+          // If connect fails, it might need user interaction via modal
+          console.log('Connect attempt, opening modal...', connectError);
+          setSolanaModalVisible(true);
           setShowModal(false);
         }
       } else {
-        // Fallback to wallet adapter modal
+        // Phantom not found in adapters, open modal
         setSolanaModalVisible(true);
         setShowModal(false);
       }
@@ -115,10 +128,7 @@ export default function UnifiedWalletButton() {
       
       if (error.code === 4001 || error.message?.includes('rejected')) {
         toast.error('Connection rejected by user');
-      } else if (error.message?.includes('already connected')) {
-        toast.info('Wallet already connected');
       } else {
-        toast.error('Failed to connect. Please try again.');
         // Fallback to modal
         setSolanaModalVisible(true);
         setShowModal(false);
@@ -126,19 +136,19 @@ export default function UnifiedWalletButton() {
     } finally {
       setConnecting(false);
     }
-  }, [setSolanaModalVisible]);
+  }, [wallets, selectWallet, walletConnect, setSolanaModalVisible]);
 
   // Handle Solana wallet connection
   const handleSolanaConnect = useCallback(async () => {
-    // If in Phantom browser, try direct connection first
-    if (isPhantomBrowser() || isPhantomAvailable()) {
-      await connectPhantomDirect();
+    // Always use wallet adapter for proper state management
+    if (isPhantomAvailable()) {
+      await connectPhantomViaAdapter();
     } else {
       // Use standard wallet modal
       setSolanaModalVisible(true);
       setShowModal(false);
     }
-  }, [connectPhantomDirect, setSolanaModalVisible]);
+  }, [connectPhantomViaAdapter, setSolanaModalVisible]);
 
   const hasAnyWallet = solanaConnected || evmConnected;
   const connectedCount = (solanaConnected ? 1 : 0) + (evmConnected ? 1 : 0);
