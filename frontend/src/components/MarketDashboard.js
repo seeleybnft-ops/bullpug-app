@@ -126,9 +126,6 @@ export default function MarketDashboard() {
   }
 
   const sentiment = marketData?.sentiment || { value: 50, classification: 'Neutral' };
-  const solanaEco = marketData?.solana_ecosystem || {};
-  const gainers = solanaEco.top_gainers || [];
-  const topVolume = solanaEco.top_volume || [];
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden border border-white/5" data-testid="market-dashboard">
