@@ -445,6 +445,7 @@ export default function TradingJournal() {
         {showForm && (
           <TradeForm
             trade={editingTrade}
+            walletAddress={walletAddress}
             onClose={() => { setShowForm(false); setEditingTrade(null); }}
             onSave={() => { setShowForm(false); setEditingTrade(null); fetchData(); }}
           />
