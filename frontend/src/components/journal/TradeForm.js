@@ -223,6 +223,7 @@ export default function TradeForm({ trade, onClose, onSave, walletAddress }) {
     try {
       const payload = {
         ...form,
+        wallet_address: walletAddress || form.wallet_address || null,
         entry_price: parseFloat(form.entry_price),
         position_size: parseFloat(form.position_size),
         exit_price: form.exit_price ? parseFloat(form.exit_price) : null,
