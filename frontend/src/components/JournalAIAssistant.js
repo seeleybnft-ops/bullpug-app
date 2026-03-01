@@ -348,6 +348,10 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
                 onInputChange={setChatInput}
                 onSend={sendChatMessage}
                 loading={chatLoading}
+                selectedImage={selectedImage}
+                imagePreview={imagePreview}
+                onImageSelect={handleImageSelect}
+                onImageClear={handleImageClear}
               />
             )}
 
