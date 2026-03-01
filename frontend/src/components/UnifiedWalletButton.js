@@ -24,16 +24,16 @@ const EVM_CHAINS = [
   { id: 42161, name: 'Arbitrum', icon: '🔷', color: '#28A0F0' },
 ];
 
-// Detect if running inside Phantom's in-app browser
+// Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
   if (typeof window === 'undefined') return false;
   const userAgent = navigator.userAgent || '';
-  return userAgent.includes('Phantom') || 
-         window.phantom?.solana?.isPhantom ||
-         window.solana?.isPhantom;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  // Only detect as Phantom browser if mobile AND has Phantom in user agent
+  return isMobile && userAgent.includes('Phantom');
 };
 
-// Check if Phantom is available
+// Check if Phantom extension is available (desktop or mobile)
 const isPhantomAvailable = () => {
   if (typeof window === 'undefined') return false;
   return window.phantom?.solana || window.solana?.isPhantom;
