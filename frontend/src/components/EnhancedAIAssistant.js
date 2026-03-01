@@ -134,32 +134,47 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   }, [isOpen, isMinimized]);
 
   const sendMessage = useCallback(async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && !selectedImage) || isLoading) return;
 
     const userMessage = inputValue.trim();
     setInputValue("");
     
-    // Add user message
+    // Add user message with optional image
     const newUserMessage = {
       role: "user",
-      content: userMessage,
-      timestamp: Date.now()
+      content: userMessage || (selectedImage ? "Please analyze this image" : ""),
+      timestamp: Date.now(),
+      image: imagePreview
     };
     
     setMessages(prev => [...prev, newUserMessage]);
     setIsLoading(true);
 
     try {
-      const { data } = await axios.post(`${API}/ai/chat`, {
+      let requestData = {
         wallet_address: walletAddress,
-        message: userMessage,
+        message: userMessage || "Please analyze this image and identify any tokens, charts, or crypto-related content.",
         session_id: sessionId,
         active_tab: activeTab,
         chat_history: messages.slice(-10).map(m => ({
           role: m.role,
           content: m.content
         }))
-      });
+      };
+
+      // If there's an image, convert to base64 and send
+      if (selectedImage) {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(selectedImage);
+        });
+        const base64Image = await base64Promise;
+        requestData.image = base64Image;
+        requestData.message = userMessage || "Please analyze this image. Identify any tokens, charts, prices, or crypto-related information. Reference live market data if you recognize any symbols.";
+      }
+
+      const { data } = await axios.post(`${API}/ai/chat`, requestData);
 
       const assistantMessage = {
         role: "assistant",
@@ -170,6 +185,10 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       
       setMessages(prev => [...prev, assistantMessage]);
       setHasLiveData(data.has_live_data || false);
+      
+      // Clear image after sending
+      setSelectedImage(null);
+      setImagePreview(null);
       
       // Show notification if minimized
       if (isMinimized) {
@@ -185,7 +204,34 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     }
     
     setIsLoading(false);
-  }, [inputValue, isLoading, walletAddress, sessionId, activeTab, messages, isMinimized]);
+  }, [inputValue, isLoading, walletAddress, sessionId, activeTab, messages, isMinimized, selectedImage, imagePreview]);
+
+  // Handle image selection
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image too large. Max 5MB allowed.");
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please select an image file.");
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
