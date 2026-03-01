@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
+import { Activity, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
