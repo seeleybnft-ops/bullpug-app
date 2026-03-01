@@ -8,7 +8,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useAccount } from "wagmi";
 import { 
   Sparkles, X, Send, Loader2, 
-  Minimize2, Maximize2, ChevronDown, Trash2
+  Minimize2, Maximize2, ChevronDown, Trash2, Image, XCircle
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
