@@ -173,39 +173,6 @@ export default function MarketDashboard() {
           )}
         </div>
 
-        {/* Top Movers */}
-        {gainers.length > 0 && (
-          <div className="mb-4">
-            <p className="text-[10px] text-[#00FFA3] uppercase tracking-wider mb-2 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> Top Solana Gainers
-            </p>
-            <div className="space-y-1">
-              {gainers.slice(0, 3).map((coin, i) => (
-                <MoverCard key={i} coin={coin} isGainer={true} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Top Volume */}
-        {topVolume.length > 0 && (
-          <div>
-            <p className="text-[10px] text-[#D946EF] uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Activity className="w-3 h-3" /> Highest Volume
-            </p>
-            <div className="space-y-1">
-              {topVolume.slice(0, 3).map((coin, i) => (
-                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
-                  <span className="text-xs font-bold text-white">{coin.symbol}</span>
-                  <span className="text-[10px] text-slate-400">
-                    Vol: ${coin.volume >= 1000000 ? (coin.volume/1000000).toFixed(1) + 'M' : (coin.volume/1000).toFixed(0) + 'K'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Last update */}
         {lastUpdate && (
           <p className="text-[9px] text-slate-600 text-center mt-3">
