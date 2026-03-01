@@ -27,21 +27,25 @@ import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
 
-// Detect if running inside Phantom's in-app browser
+// Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
   if (typeof window === 'undefined') return false;
   const userAgent = navigator.userAgent || '';
-  // Phantom browser includes "Phantom" in user agent
-  return userAgent.includes('Phantom') || 
-         window.phantom?.solana?.isPhantom ||
-         window.solana?.isPhantom;
+  // Phantom mobile browser includes "Phantom" in user agent AND is mobile
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  const hasPhantomUA = userAgent.includes('Phantom');
+  // Only return true if it's mobile AND has Phantom in user agent
+  // Desktop Phantom extension shouldn't trigger this
+  return isMobile && hasPhantomUA;
 };
 
-// Detect any in-app browser (WebView)
+// Detect any in-app browser (WebView) - mobile only
 const isInAppBrowser = () => {
   if (typeof window === 'undefined') return false;
   const userAgent = navigator.userAgent || '';
-  return /WebView|wv|FBAN|FBAV|Instagram|Twitter|Line|WhatsApp/i.test(userAgent);
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  // Only check for in-app browsers on mobile devices
+  return isMobile && /WebView|wv|FBAN|FBAV|Instagram|Twitter|Line|WhatsApp/i.test(userAgent);
 };
 
 function App() {
