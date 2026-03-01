@@ -411,6 +411,7 @@ async def get_user_achievements(wallet_address: str):
         "wallet_address": wallet_address,
         "stats": stats,
         "badges": badges_detail,
+        "earned_badges": badges_detail,  # Alias for frontend compatibility
         "new_badges": [BADGES[b] for b in new_badges if b in BADGES],
         "total_badges": len(earned_ids),
         "available_badges": len(BADGES)
