@@ -47,6 +47,70 @@ export default function PortfolioSummary() {
   const [prices, setPrices] = useState({ ETH: { usd: 0 }, SOL: { usd: 0 } });
   const [loading, setLoading] = useState(false);
   const [expandedChains, setExpandedChains] = useState({});
+  const [copiedAddress, setCopiedAddress] = useState(null);
+  const [addingToWatchlist, setAddingToWatchlist] = useState(null);
+  const [watchlistItems, setWatchlistItems] = useState(new Set());
+
+  // Get wallet address for watchlist operations
+  const walletAddress = solanaPublicKey?.toString() || evmAddress || null;
+
+  const copyToClipboard = async (address, symbol) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(address);
+      toast.success(`${symbol} contract address copied!`);
+      setTimeout(() => setCopiedAddress(null), 2000);
+    } catch (e) {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const addToWatchlist = async (holding, chain) => {
+    if (!walletAddress) {
+      toast.error("Connect wallet to add to watchlist");
+      return;
+    }
+
+    setAddingToWatchlist(holding.address || holding.symbol);
+    
+    try {
+      await axios.post(`${API}/watchlist/add`, {
+        wallet_address: walletAddress,
+        token_address: holding.address || holding.symbol,
+        chain: chain,
+        symbol: holding.symbol,
+        name: holding.name
+      });
+      
+      setWatchlistItems(prev => new Set([...prev, holding.address || holding.symbol]));
+      toast.success(`${holding.symbol} added to watchlist!`);
+    } catch (e) {
+      if (e.response?.data?.detail?.includes("already")) {
+        toast.info(`${holding.symbol} is already in your watchlist`);
+        setWatchlistItems(prev => new Set([...prev, holding.address || holding.symbol]));
+      } else {
+        toast.error("Failed to add to watchlist");
+      }
+    } finally {
+      setAddingToWatchlist(null);
+    }
+  };
+
+  // Fetch existing watchlist items on load
+  const fetchWatchlist = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const { data } = await axios.get(`${API}/watchlist/${walletAddress}`);
+      const addresses = new Set(data.watchlist?.map(item => item.token_address) || []);
+      setWatchlistItems(addresses);
+    } catch (e) {
+      console.error("Failed to fetch watchlist:", e);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    fetchWatchlist();
+  }, [fetchWatchlist]);
 
   const fetchPrices = useCallback(async () => {
     try {
