@@ -1022,13 +1022,34 @@ User's question: {chat.message}
 
 Provide a helpful response using the real-time data above when relevant. Be specific with numbers and percentages."""
 
-        llm_chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=chat.session_id,
-            system_message=system_message
-        ).with_model("openai", "gpt-4o")
-        
-        response = await llm_chat.send_message(UserMessage(text=prompt))
+        # Handle image if provided
+        if chat.image:
+            # Add image analysis context to prompt
+            prompt += "\n\n[USER HAS ATTACHED AN IMAGE - Analyze it and identify any tokens, charts, prices, or crypto-related information. If you recognize any token symbols, look up their live prices from the data provided above.]"
+            
+            # Use gpt-4o which supports vision
+            llm_chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=chat.session_id,
+                system_message=system_message
+            ).with_model("openai", "gpt-4o")
+            
+            # Send message with image
+            from emergentintegrations.llm.chat import ImagePart
+            response = await llm_chat.send_message(
+                UserMessage(
+                    text=prompt,
+                    images=[ImagePart(base64_data=chat.image.split(",")[-1] if "," in chat.image else chat.image)]
+                )
+            )
+        else:
+            llm_chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=chat.session_id,
+                system_message=system_message
+            ).with_model("openai", "gpt-4o")
+            
+            response = await llm_chat.send_message(UserMessage(text=prompt))
         
         # Store in session history
         session_history.append({"role": "user", "content": chat.message})
