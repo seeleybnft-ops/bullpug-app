@@ -414,43 +414,110 @@ export default function PortfolioSummary() {
                 {/* Chain Holdings List */}
                 {expandedChains[chainId] && (
                   <div className="border-t border-white/5 p-4 pt-2">
-                    <div className="space-y-2">
-                      {chainData.holdings.map((holding, index) => (
-                        <div 
-                          key={`${chainId}-${holding.symbol}-${index}`}
-                          className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div 
-                              className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold"
-                              style={{ backgroundColor: `${chainData.color}15`, color: chainData.color }}
-                            >
-                              {holding.symbol?.slice(0, 3)}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-bold text-white">{holding.symbol}</p>
-                                {holding.isNative && (
-                                  <span className="text-[8px] px-1.5 py-0.5 bg-white/10 rounded text-slate-400">NATIVE</span>
-                                )}
-                                {holding.isStablecoin && (
-                                  <span className="text-[8px] px-1.5 py-0.5 bg-[#00FFA3]/20 rounded text-[#00FFA3]">STABLE</span>
-                                )}
+                    <div className="space-y-3">
+                      {chainData.holdings.map((holding, index) => {
+                        const tokenAddress = holding.address || holding.mint || null;
+                        const isInWatchlist = watchlistItems.has(tokenAddress || holding.symbol);
+                        
+                        return (
+                          <div 
+                            key={`${chainId}-${holding.symbol}-${index}`}
+                            className="p-4 bg-black/20 rounded-xl hover:bg-black/30 transition-colors border border-white/5"
+                          >
+                            {/* Token Name as Title */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"
+                                  style={{ backgroundColor: `${chainData.color}15`, color: chainData.color }}
+                                >
+                                  {holding.symbol?.slice(0, 3)}
+                                </div>
+                                <div>
+                                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                                    {holding.name || holding.symbol}
+                                    {holding.isNative && (
+                                      <span className="text-[8px] px-1.5 py-0.5 bg-white/10 rounded text-slate-400">NATIVE</span>
+                                    )}
+                                    {holding.isStablecoin && (
+                                      <span className="text-[8px] px-1.5 py-0.5 bg-[#00FFA3]/20 rounded text-[#00FFA3]">STABLE</span>
+                                    )}
+                                  </h4>
+                                  <p className="text-sm text-slate-400">{holding.symbol}</p>
+                                </div>
                               </div>
-                              <p className="text-[10px] text-slate-500">{holding.name}</p>
+                              
+                              {/* Value Display */}
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-white">
+                                  {holding.valueUsd ? formatUSD(holding.valueUsd) : '-'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {formatBalance(holding.balance)} {holding.symbol}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Contract Address with Copy (if available) */}
+                            {tokenAddress && !holding.isNative && (
+                              <div className="flex items-center gap-2 mt-2 p-2 bg-black/30 rounded-lg">
+                                <span className="text-[10px] text-slate-500 font-mono truncate flex-1">
+                                  CA: {tokenAddress.slice(0, 8)}...{tokenAddress.slice(-6)}
+                                </span>
+                                <button
+                                  onClick={() => copyToClipboard(tokenAddress, holding.symbol)}
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                                  title="Copy contract address"
+                                >
+                                  {copiedAddress === tokenAddress ? (
+                                    <Check className="w-3 h-3 text-[#00FFA3]" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-slate-400" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                            
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2 mt-3">
+                              {/* Add to Watchlist */}
+                              <button
+                                onClick={() => addToWatchlist(holding, chainId)}
+                                disabled={isInWatchlist || addingToWatchlist === (tokenAddress || holding.symbol)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  isInWatchlist 
+                                    ? 'bg-[#D946EF]/20 text-[#D946EF] cursor-default' 
+                                    : 'bg-white/5 text-slate-400 hover:bg-[#D946EF]/20 hover:text-[#D946EF]'
+                                }`}
+                                title={isInWatchlist ? "In watchlist" : "Add to watchlist"}
+                              >
+                                {addingToWatchlist === (tokenAddress || holding.symbol) ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Star className={`w-3 h-3 ${isInWatchlist ? 'fill-current' : ''}`} />
+                                )}
+                                {isInWatchlist ? 'Watching' : 'Watch'}
+                              </button>
+                              
+                              {/* View on Explorer (if has address) */}
+                              {tokenAddress && (
+                                <a
+                                  href={chainId === 'solana' 
+                                    ? `https://solscan.io/token/${tokenAddress}`
+                                    : `https://etherscan.io/token/${tokenAddress}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Explorer
+                                </a>
+                              )}
                             </div>
                           </div>
-                          
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-white">
-                              {formatBalance(holding.balance)} {holding.symbol}
-                            </p>
-                            <p className="text-xs text-[#00FFA3]">
-                              {holding.valueUsd ? formatUSD(holding.valueUsd) : '-'}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
