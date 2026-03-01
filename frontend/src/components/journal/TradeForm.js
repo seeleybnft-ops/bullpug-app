@@ -18,9 +18,10 @@ const EMOTIONS = ["Confident", "Calm", "Anxious", "Fearful", "Greedy", "FOMO", "
 const GRADES = ["A+", "A", "B+", "B", "C+", "C", "D", "F"];
 const MARKET_CONDITIONS = ["Bullish", "Bearish", "Ranging", "High Volatility", "Low Volatility", "Uncertain"];
 
-export default function TradeForm({ trade, onClose, onSave }) {
+export default function TradeForm({ trade, onClose, onSave, walletAddress }) {
   const [form, setForm] = useState({
     trade_id: trade?.trade_id || "",
+    wallet_address: trade?.wallet_address || walletAddress || "",
     date_entry: trade?.date_entry || new Date().toISOString().split("T")[0],
     date_exit: trade?.date_exit || "",
     asset: trade?.asset || "",
