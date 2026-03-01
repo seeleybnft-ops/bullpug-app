@@ -133,6 +133,17 @@ export default function AchievementBadges() {
     fetchBenchmarks();
   }, [fetchAchievements, fetchBenchmarks]);
 
+  // Auto-scan wallet on initial connection
+  useEffect(() => {
+    if (connected && publicKey && !achievements) {
+      // Small delay to ensure wallet is fully connected
+      const timer = setTimeout(() => {
+        scanWalletForAchievements();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [connected, publicKey, achievements, scanWalletForAchievements]);
+
   // Toggle community opt-in
   const toggleOptIn = async (value) => {
     if (!connected || !publicKey) return;
