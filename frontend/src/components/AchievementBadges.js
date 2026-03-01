@@ -222,14 +222,29 @@ export default function AchievementBadges() {
           </p>
         </div>
         
-        <Button
-          onClick={prepareShare}
-          disabled={!achievements?.stats?.total_trades}
-          className="bg-[#1DA1F2]/10 text-[#1DA1F2] border border-[#1DA1F2]/30 hover:bg-[#1DA1F2]/20 rounded-xl"
-        >
-          <Share2 className="w-4 h-4 mr-2" />
-          Share Stats
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={scanWalletForAchievements}
+            disabled={scanningWallet || loading}
+            variant="outline"
+            className="border-[#00FFA3]/30 text-[#00FFA3] hover:bg-[#00FFA3]/10 rounded-xl"
+          >
+            {scanningWallet ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4 mr-2" />
+            )}
+            {scanningWallet ? 'Scanning...' : 'Scan Wallet'}
+          </Button>
+          <Button
+            onClick={prepareShare}
+            disabled={!achievements?.stats?.total_trades}
+            className="bg-[#1DA1F2]/10 text-[#1DA1F2] border border-[#1DA1F2]/30 hover:bg-[#1DA1F2]/20 rounded-xl"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share Stats
+          </Button>
+        </div>
       </div>
 
       {/* Stats Summary */}
