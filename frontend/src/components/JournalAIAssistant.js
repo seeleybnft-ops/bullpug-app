@@ -55,6 +55,8 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   
   // Recommendations state
   const [recommendations, setRecommendations] = useState([]);
