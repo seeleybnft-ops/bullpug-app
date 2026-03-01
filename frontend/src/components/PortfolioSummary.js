@@ -255,9 +255,13 @@ export default function PortfolioSummary() {
             chainName: 'Solana',
             chainIcon: '◎',
             symbol: token.symbol,
-            name: token.name || 'SPL Token',
+            name: token.name || token.symbol,
             balance: token.balance,
             valueUsd: token.value_usd,
+            address: token.contract_address,  // Include contract address
+            mint: token.contract_address,      // Solana uses mint
+            priceUsd: token.price_usd,
+            change24h: token.change_24h,
             isNative: false,
           });
         }
