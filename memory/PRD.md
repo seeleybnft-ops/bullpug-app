@@ -17,6 +17,9 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ### 2. Enhanced AI Assistant - "Bullpug AI" (LIVE)
 - **Identity**: Bullpug AI embodies the cosmic guardian from the lore
 - **Bullpug Professor Icon**: Custom professor avatar for AI assistant trigger and chat header
+- **Image Analysis**: Users can upload images for AI analysis (charts, token screenshots, etc.)
+  - Supports JPG, PNG, WebP up to 5MB
+  - AI identifies tokens, charts, prices, and references live market data
 - **Lore Knowledge**: Full knowledge of Bullpug origins, Newpug City, PugChain, Guardians, Snout Scanners, Festival of Barks, Bullpughans
 - **Real-time market data**: 
   - Live prices from DexScreener (primary) and CoinGecko (fallback)
