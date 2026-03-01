@@ -133,26 +133,50 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   };
 
   const sendChatMessage = async () => {
-    if (!chatInput.trim() || chatLoading) return;
+    if ((!chatInput.trim() && !selectedImage) || chatLoading) return;
     
     const userMessage = chatInput.trim();
     setChatInput("");
-    setChatMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    
+    // Add user message with optional image
+    const newUserMsg = { 
+      role: "user", 
+      content: userMessage || (selectedImage ? "Please analyze this image" : ""),
+      image: imagePreview
+    };
+    setChatMessages(prev => [...prev, newUserMsg]);
     setChatLoading(true);
 
     try {
-      const { data } = await axios.post(`${API}/ai/chat`, {
+      let requestData = {
         wallet_address: effectiveWalletAddress,
-        message: userMessage,
+        message: userMessage || "Please analyze this image. Identify any tokens, charts, prices, or crypto-related information.",
         session_id: `journal_${effectiveWalletAddress || 'anon'}_${Date.now()}`,
         active_tab: activeTab,
         chat_history: chatMessages.slice(-10)
-      });
+      };
+      
+      // If there's an image, convert to base64 and send
+      if (selectedImage) {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(selectedImage);
+        });
+        const base64Image = await base64Promise;
+        requestData.image = base64Image;
+      }
+      
+      const { data } = await axios.post(`${API}/ai/chat`, requestData);
       setChatMessages(prev => [...prev, { 
         role: "assistant", 
         content: data.response,
         hasLiveData: data.has_live_data 
       }]);
+      
+      // Clear image after sending
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (e) {
       console.error("Chat error:", e);
       setChatMessages(prev => [...prev, { 
@@ -161,6 +185,27 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
       }]);
     }
     setChatLoading(false);
+  };
+
+  // Handle image selection
+  const handleImageSelect = (file) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image too large. Max 5MB allowed.");
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageClear = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   // Header component (shared between both states)
