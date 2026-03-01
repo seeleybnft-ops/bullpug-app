@@ -309,6 +309,50 @@ async def fetch_evm_portfolio(address: str, chain: str) -> Optional[ChainPortfol
     )
 
 
+async def get_solana_token_metadata(mint_addresses: List[str]) -> Dict[str, Dict]:
+    """Fetch token metadata from DexScreener for Solana tokens."""
+    if not mint_addresses:
+        return {}
+    
+    metadata = {}
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Batch lookup tokens from DexScreener
+            for mint in mint_addresses[:20]:  # Limit to 20
+                try:
+                    response = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{mint}"
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        pairs = data.get("pairs", [])
+                        if pairs:
+                            # Use the highest liquidity pair for metadata
+                            best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            base_token = best_pair.get("baseToken", {})
+                            
+                            # Calculate total volume across all pairs
+                            total_volume = sum(float(p.get("volume", {}).get("h24", 0) or 0) for p in pairs)
+                            
+                            metadata[mint] = {
+                                "symbol": base_token.get("symbol", mint[:6]),
+                                "name": base_token.get("name", base_token.get("symbol", "Unknown Token")),
+                                "price_usd": float(best_pair.get("priceUsd", 0) or 0),
+                                "change_24h": float(best_pair.get("priceChange", {}).get("h24", 0) or 0),
+                                "volume_24h": total_volume,
+                                "liquidity": float(best_pair.get("liquidity", {}).get("usd", 0) or 0),
+                                "market_cap": float(best_pair.get("marketCap", 0) or best_pair.get("fdv", 0) or 0),
+                            }
+                except Exception as e:
+                    logger.warning(f"Failed to fetch metadata for {mint}: {e}")
+                    continue
+    except Exception as e:
+        logger.error(f"Error fetching Solana token metadata: {e}")
+    
+    return metadata
+
+
 async def fetch_solana_portfolio(address: str) -> ChainPortfolio:
     """Fetch portfolio for a Solana address."""
     solana_rpc = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
