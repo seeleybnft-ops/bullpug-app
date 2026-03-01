@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
-  Wallet, RefreshCw, DollarSign, Loader2, Coins, TrendingUp, TrendingDown, ChevronDown, ChevronUp
+  Wallet, RefreshCw, DollarSign, Loader2, Coins, TrendingUp, TrendingDown, ChevronDown, ChevronUp,
+  Copy, ExternalLink, Star, Check
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
