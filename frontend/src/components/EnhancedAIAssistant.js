@@ -34,10 +34,13 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [hasLiveData, setHasLiveData] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Load chat history from MongoDB when wallet connects
   useEffect(() => {
