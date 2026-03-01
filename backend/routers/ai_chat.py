@@ -680,6 +680,7 @@ class EnhancedChatMessage(BaseModel):
     session_id: str
     active_tab: str = "dashboard"
     chat_history: List[Dict] = []
+    image: Optional[str] = None  # Base64 encoded image
 
 
 @router.post("/chat")
