@@ -90,65 +90,12 @@ export default function UnifiedWalletButton() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  // Connect using wallet adapter (proper way)
-  const connectPhantomViaAdapter = useCallback(async () => {
-    setConnecting(true);
-    
-    try {
-      // Find Phantom wallet in the available wallets
-      const phantomWallet = wallets.find(w => 
-        w.adapter.name.toLowerCase().includes('phantom')
-      );
-      
-      if (phantomWallet) {
-        // Select the Phantom wallet adapter
-        selectWallet(phantomWallet.adapter.name);
-        
-        // Give time for selection to register
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Connect using the wallet adapter
-        try {
-          await walletConnect();
-          toast.success('Connected to Phantom!');
-          setShowModal(false);
-        } catch (connectError) {
-          // If connect fails, it might need user interaction via modal
-          console.log('Connect attempt, opening modal...', connectError);
-          setSolanaModalVisible(true);
-          setShowModal(false);
-        }
-      } else {
-        // Phantom not found in adapters, open modal
-        setSolanaModalVisible(true);
-        setShowModal(false);
-      }
-    } catch (error) {
-      console.error('Phantom connection error:', error);
-      
-      if (error.code === 4001 || error.message?.includes('rejected')) {
-        toast.error('Connection rejected by user');
-      } else {
-        // Fallback to modal
-        setSolanaModalVisible(true);
-        setShowModal(false);
-      }
-    } finally {
-      setConnecting(false);
-    }
-  }, [wallets, selectWallet, walletConnect, setSolanaModalVisible]);
-
-  // Handle Solana wallet connection
-  const handleSolanaConnect = useCallback(async () => {
-    // Always use wallet adapter for proper state management
-    if (isPhantomAvailable()) {
-      await connectPhantomViaAdapter();
-    } else {
-      // Use standard wallet modal
-      setSolanaModalVisible(true);
-      setShowModal(false);
-    }
-  }, [connectPhantomViaAdapter, setSolanaModalVisible]);
+  // Handle Solana wallet connection - use wallet adapter modal
+  const handleSolanaConnect = useCallback(() => {
+    // Simply open the wallet adapter modal - it handles everything properly
+    setSolanaModalVisible(true);
+    setShowModal(false);
+  }, [setSolanaModalVisible]);
 
   const hasAnyWallet = solanaConnected || evmConnected;
   const connectedCount = (solanaConnected ? 1 : 0) + (evmConnected ? 1 : 0);
