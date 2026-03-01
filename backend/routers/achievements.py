@@ -239,9 +239,20 @@ class CommunityBenchmarks(BaseModel):
 
 async def get_user_stats(wallet_address: str) -> Dict[str, Any]:
     """Calculate user statistics from their trades."""
-    trades = await db.journal_trades.find(
+    # Try both possible wallet address formats and collection
+    # Trades may be stored with or without wallet_address field
+    trades_with_wallet = await db.trading_journal.find(
         {"wallet_address": wallet_address, "status": {"$ne": "draft"}}
     ).sort("date_entry", 1).to_list(1000)
+    
+    # If no trades found with wallet_address, get all trades (for single-user mode)
+    # This handles legacy trades that weren't tagged with wallet
+    if not trades_with_wallet:
+        trades_with_wallet = await db.trading_journal.find(
+            {"status": {"$ne": "draft"}}
+        ).sort("date_entry", 1).to_list(1000)
+    
+    trades = trades_with_wallet
     
     if not trades:
         return {
