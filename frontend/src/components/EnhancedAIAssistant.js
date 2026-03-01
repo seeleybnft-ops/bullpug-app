@@ -398,6 +398,14 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                           : "bg-white/5 text-slate-300 rounded-bl-sm"
                       }`}
                     >
+                      {/* Show image if present in user message */}
+                      {msg.image && msg.role === "user" && (
+                        <img 
+                          src={msg.image} 
+                          alt="User uploaded" 
+                          className="max-w-full h-auto max-h-40 rounded-lg mb-2 border border-white/10"
+                        />
+                      )}
                       {msg.hasLiveData && msg.role === "assistant" && (
                         <div className="flex items-center gap-1 mb-1 text-[10px] text-[#00FFA3]">
                           <span className="w-1.5 h-1.5 bg-[#00FFA3] rounded-full animate-pulse" />
