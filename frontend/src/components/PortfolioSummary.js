@@ -214,6 +214,9 @@ export default function PortfolioSummary() {
             name: token.name,
             balance: token.balance,
             valueUsd: token.value_usd,
+            address: token.contract_address,  // Include contract address
+            priceUsd: token.price_usd,
+            change24h: token.change_24h,
             isNative: false,
             isStablecoin: token.is_stablecoin,
           });
