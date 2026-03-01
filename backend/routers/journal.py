@@ -18,6 +18,7 @@ router = APIRouter(prefix="/journal", tags=["journal"])
 
 class TradeEntry(BaseModel):
     trade_id: Optional[str] = None
+    wallet_address: Optional[str] = None  # Wallet address for multi-user support
     date_entry: str
     date_exit: Optional[str] = None
     asset: str
