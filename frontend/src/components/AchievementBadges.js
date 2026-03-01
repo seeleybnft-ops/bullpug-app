@@ -45,9 +45,10 @@ export default function AchievementBadges() {
   const [loading, setLoading] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [shareData, setShareData] = useState(null);
+  const [scanningWallet, setScanningWallet] = useState(false);
   const shareCardRef = useRef(null);
 
-  // Fetch user achievements
+  // Fetch user achievements and scan for new badges
   const fetchAchievements = useCallback(async () => {
     if (!connected || !publicKey) return;
     
@@ -76,6 +77,44 @@ export default function AchievementBadges() {
       console.error('Error fetching achievements:', e);
     }
     setLoading(false);
+  }, [connected, publicKey]);
+
+  // Scan wallet and calculate achievements from trades
+  const scanWalletForAchievements = useCallback(async () => {
+    if (!connected || !publicKey) return;
+    
+    setScanningWallet(true);
+    try {
+      // Trigger a full scan by fetching user achievements
+      // The backend will recalculate from all journal trades
+      const { data } = await axios.get(`${API}/achievements/user/${publicKey.toBase58()}`);
+      
+      setAchievements(data);
+      
+      // Show summary toast
+      if (data.stats?.total_trades > 0) {
+        toast.success(`Wallet Scanned: ${data.stats.total_trades} trades analyzed`, {
+          description: `${data.total_badges} badges earned, ${data.stats.win_rate}% win rate`,
+        });
+      }
+      
+      // Show new badges if any
+      if (data.new_badges?.length > 0) {
+        data.new_badges.forEach(badge => {
+          setTimeout(() => {
+            toast.success(`Badge Unlocked: ${badge.name}!`, {
+              description: badge.description,
+              icon: badge.icon,
+              duration: 6000,
+            });
+          }, 500);
+        });
+      }
+    } catch (e) {
+      console.error('Error scanning wallet:', e);
+      toast.error('Failed to scan wallet for achievements');
+    }
+    setScanningWallet(false);
   }, [connected, publicKey]);
 
   // Fetch community benchmarks
