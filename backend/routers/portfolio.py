@@ -359,6 +359,7 @@ async def fetch_solana_portfolio(address: str) -> ChainPortfolio:
     
     tokens = []
     native_balance = 0.0
+    raw_token_data = []  # Store raw data first
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -399,25 +400,55 @@ async def fetch_solana_portfolio(address: str) -> ChainPortfolio:
                     token_amount = info.get("tokenAmount", {})
                     
                     balance = float(token_amount.get("uiAmount", 0) or 0)
-                    if balance > 0.0001:
-                        tokens.append(TokenBalance(
-                            chain="solana",
-                            chain_name="Solana",
-                            chain_icon="◎",
-                            contract_address=info.get("mint"),
-                            symbol=info.get("mint", "???")[:8],
-                            name="SPL Token",
-                            balance=balance,
-                            decimals=token_amount.get("decimals", 9),
-                            is_native=False
-                        ))
+                    mint = info.get("mint")
+                    if balance > 0.0001 and mint:
+                        raw_token_data.append({
+                            "mint": mint,
+                            "balance": balance,
+                            "decimals": token_amount.get("decimals", 9)
+                        })
     
     except Exception as e:
         logger.error(f"Error fetching Solana portfolio for {address}: {e}")
     
+    # Fetch metadata for all tokens from DexScreener
+    mint_addresses = [t["mint"] for t in raw_token_data]
+    token_metadata = await get_solana_token_metadata(mint_addresses)
+    
+    # Build token list with metadata
+    total_token_value = 0
+    for raw in raw_token_data:
+        mint = raw["mint"]
+        meta = token_metadata.get(mint, {})
+        
+        # Calculate value
+        price_usd = meta.get("price_usd", 0)
+        value_usd = raw["balance"] * price_usd if price_usd else None
+        
+        if value_usd:
+            total_token_value += value_usd
+        
+        tokens.append(TokenBalance(
+            chain="solana",
+            chain_name="Solana",
+            chain_icon="◎",
+            contract_address=mint,
+            symbol=meta.get("symbol", mint[:6] + "..."),
+            name=meta.get("name", f"Token ({mint[:8]}...)"),
+            balance=raw["balance"],
+            decimals=raw["decimals"],
+            is_native=False,
+            price_usd=price_usd if price_usd > 0 else None,
+            value_usd=value_usd,
+            change_24h=meta.get("change_24h")
+        ))
+    
     # Get SOL price
     sol_price = await get_sol_price()
     native_value_usd = native_balance * sol_price if sol_price else None
+    
+    # Calculate total value (native + tokens)
+    total_value = (native_value_usd or 0) + total_token_value
     
     return ChainPortfolio(
         chain="solana",
@@ -429,7 +460,7 @@ async def fetch_solana_portfolio(address: str) -> ChainPortfolio:
         native_symbol="SOL",
         native_value_usd=native_value_usd,
         tokens=tokens,
-        total_value_usd=native_value_usd or 0,
+        total_value_usd=total_value,
         token_count=len(tokens)
     )
 
