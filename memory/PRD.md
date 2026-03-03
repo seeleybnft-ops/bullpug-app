@@ -236,11 +236,21 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ## Upcoming Tasks (P1)
 1. ~~Complete Auto-Trade Fetching (Alchemy Transfers API)~~ ✅ Done
 2. Integrate frontend with deployed smart contract (when unblocked)
+3. AI Trading Bot - Phase 2: Implement actual trade execution via Jupiter (wallet signing)
+
+## Completed This Session (Dec 2025)
+- [x] Reverted navbar from dropdown to flat layout with AI Trader standalone link
+- [x] Added AI Trading Bot card to Homepage Ecosystem section with "NEW" badge
+- [x] Generated custom AI Trading Bot image for homepage
+- [x] AI Trader nav link has purple highlight with Bot icon
+- [x] Mobile navigation includes AI Trader link
+- [x] All AI Trader backend endpoints verified working
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
 - Re-enable Plushie Sales shop
 - Re-enable NFT Gallery
+- AI Trading Bot - Phase 3: Fully automated trading mode
 - ~~Refactor TradingJournal.js into smaller components~~ ✅ Done
 
 ## License
