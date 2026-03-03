@@ -26,6 +26,7 @@ import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
+import AITrader from "@/pages/AITrader";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -132,6 +133,7 @@ function App() {
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/ai-trader" element={<AITrader />} />
                 </Routes>
                 <Footer />
                 <EnhancedAIAssistant />

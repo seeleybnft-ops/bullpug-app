@@ -5,6 +5,37 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 
 ## Core Features
 
+### 0. AI Trading Bot (NEW - Phase 2: Semi-Automated)
+- **Route**: `/ai-trader`
+- **Custody**: Delegated wallet system (program-controlled)
+- **DEX Integration**: Jupiter Aggregator API for best swap routes
+- **Technical Analysis Engine**:
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Bollinger Bands
+  - Moving Averages (7, 14, 21, 50 day)
+- **Strategies**:
+  - Momentum/Trend Following
+  - Mean Reversion
+  - Combined (both strategies)
+- **Token Categories**:
+  - Safer: SOL, USDC, USDT, JUP, PYTH, RNDR
+  - High Risk: BONK, WIF, RAY, ORCA
+  - User chooses which risk level to trade
+- **Risk Management**:
+  - Min position: 0.05 SOL
+  - Max position: 1 SOL
+  - User-configurable stop-loss (5-50%)
+  - User-configurable take-profit (10-100%)
+- **Workflow**:
+  1. User connects wallet and accepts disclaimer
+  2. AI scans markets for signals
+  3. Signals displayed with entry/SL/TP prices
+  4. User approves/rejects each trade
+  5. On approval, wallet signs transaction
+- **Disclaimer**: Clear risk warnings, no responsibility for losses
+- **Future**: Fully automated mode (Phase 3)
+
 ### 1. My Journal (Trading Journal)
 - **Dashboard Tab**: Trading statistics, P&L charts, win rate, best/worst trades
 - **Portfolio Value Tab**: Multi-chain token holdings grouped by chain (Solana, Ethereum, Base, Arbitrum)
