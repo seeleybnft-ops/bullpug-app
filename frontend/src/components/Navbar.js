@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
-import { Menu, X, MessageCircle, MessageSquare, User } from "lucide-react";
+import { Menu, X, MessageCircle, MessageSquare, User, Bot } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -55,9 +55,9 @@ export default function Navbar() {
     { name: t('nav.home'), path: "/" },
     { name: t('nav.lore') || "Origins", path: "/lore" },
     { name: "Journal", path: "/journal" },
-    { name: t('nav.game'), path: "/game" },
-    { name: t('nav.arena'), path: "/betting" },
-    { name: t('nav.forum'), path: "/forum" },
+    { name: t('nav.game') || "Game", path: "/game" },
+    { name: t('nav.arena') || "Arena", path: "/betting" },
+    { name: "AI Trader", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, special: true },
   ];
 
   return (
@@ -78,16 +78,22 @@ export default function Navbar() {
                 key={link.path}
                 to={link.path}
                 data-testid={`nav-${link.name.toLowerCase().replace(/\s/g, '-')}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
-                  location.pathname === link.path
-                    ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                    : 'text-slate-500 hover:text-white hover:bg-white/5'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 flex items-center gap-1 ${
+                  link.special
+                    ? location.pathname === link.path
+                      ? 'text-[#D946EF] bg-[#D946EF]/10 border border-[#D946EF]/30'
+                      : 'text-[#D946EF] hover:bg-[#D946EF]/10 border border-[#D946EF]/20'
+                    : location.pathname === link.path
+                      ? 'text-[#00FFA3] bg-[#00FFA3]/10'
+                      : 'text-slate-500 hover:text-white hover:bg-white/5'
                 }`}
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}
               >
+                {link.icon && link.icon}
                 {link.name}
               </Link>
             ))}
+
             {isAdmin && (
               <Link
                 to="/admin"
@@ -156,13 +162,18 @@ export default function Navbar() {
                 key={link.path}
                 to={link.path}
                 onClick={() => setOpen(false)}
-                className={`block px-3 py-2 rounded-lg text-sm font-medium ${
-                  location.pathname === link.path
-                    ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                    : 'text-slate-400 hover:text-white'
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                  link.special
+                    ? location.pathname === link.path
+                      ? 'text-[#D946EF] bg-[#D946EF]/10'
+                      : 'text-[#D946EF]'
+                    : location.pathname === link.path
+                      ? 'text-[#00FFA3] bg-[#00FFA3]/10'
+                      : 'text-slate-400 hover:text-white'
                 }`}
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}
               >
+                {link.icon && link.icon}
                 {link.name}
               </Link>
             ))}

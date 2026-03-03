@@ -20,6 +20,7 @@ const IMAGES = {
   maid: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/2sae826h_25.10.2024_17.06.12_REC.png",
   journal: "/images/journal-bullpug.jfif",
   aiAssistant: "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/sf7c7buf__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
+  aiTrader: "https://static.prod-images.emergentagent.com/jobs/eece36b0-bd7c-41e3-9663-864558bfa54c/images/10c51c75f771386ee3daf99c1093bfe14d32949443b7f3cbb1928d29c4fcbf5c.png",
 };
 
 const GALLERY = [
@@ -173,18 +174,24 @@ export default function HomePage() {
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-16" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             <span className="text-[#00FFA3]">Ecosystem</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {[
+              { icon: <Bot size={18} />, title: "AI Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.aiTrader, color: "#D946EF", isNew: true },
               { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
               { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
               { icon: <Gamepad2 size={18} />, title: "Speed Run Game", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
               { icon: <Zap size={18} />, title: "Betting Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.trader, color: "#00FFA3" },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
-                <div className="glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300">
+                <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''}`}>
                   <div className="h-44 overflow-hidden relative">
                     <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />
+                    {f.isNew && (
+                      <div className="absolute top-3 right-3 px-2 py-1 bg-[#D946EF] text-white text-[10px] font-bold rounded-full uppercase">
+                        New
+                      </div>
+                    )}
                   </div>
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-2">

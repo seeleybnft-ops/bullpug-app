@@ -28,7 +28,7 @@ export default function AITrader() {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toString();
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
   const [tokens, setTokens] = useState({ safer: [], high_risk: [] });
   const [signals, setSignals] = useState([]);
@@ -39,6 +39,7 @@ export default function AITrader() {
   const [scanning, setScanning] = useState(false);
   const [activeTab, setActiveTab] = useState("signals");
   const [showSettings, setShowSettings] = useState(false);
+  const [lastScan, setLastScan] = useState(null);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -112,9 +113,11 @@ export default function AITrader() {
     setScanning(true);
     try {
       const { data } = await axios.get(`${API}/ai-trader/scan-all/${walletAddress}`);
+      setLastScan(new Date());
       if (data.signals_generated > 0) {
         toast.success(`${data.signals_generated} trading signal(s) found!`);
         setSignals(prev => [...data.signals, ...prev]);
+        setActiveTab("signals"); // Switch to signals tab
       } else {
         toast.info("No strong trading signals at this time");
       }
@@ -153,17 +156,20 @@ export default function AITrader() {
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] text-white py-20 px-4">
+      <div className="min-h-screen bg-[#0A0A0F] text-white pt-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <Bot className="w-20 h-20 mx-auto mb-6 text-[#D946EF]" />
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center">
+            <Bot className="w-14 h-14 text-white" />
+          </div>
           <h1 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Orbitron' }}>
             AI Trading Bot
           </h1>
-          <p className="text-slate-400 mb-8">
-            Connect your wallet to access the Bullpug AI Trading Agent
+          <p className="text-slate-400 mb-8 max-w-md mx-auto">
+            Connect your wallet to access the Bullpug AI Trading Agent. 
+            Get AI-powered trading signals with technical analysis.
           </p>
           <Link to="/">
-            <Button className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3]">
+            <Button className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] px-8 py-6 text-lg font-bold rounded-xl">
               Go Home to Connect Wallet
             </Button>
           </Link>
@@ -173,20 +179,26 @@ export default function AITrader() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white py-8 px-4">
+    <div className="min-h-screen bg-[#0A0A0F] text-white pt-20 pb-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center shadow-lg shadow-[#D946EF]/20">
               <Bot className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ fontFamily: 'Orbitron' }}>
+              <h1 className="text-2xl font-bold flex items-center gap-2" style={{ fontFamily: 'Orbitron' }}>
                 AI Trading Bot
+                <span className="px-2 py-0.5 text-[10px] bg-[#D946EF]/20 text-[#D946EF] rounded-full font-normal">BETA</span>
               </h1>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-slate-400 flex items-center gap-2">
                 Bullpug AI Agent • Semi-Automated
+                {lastScan && (
+                  <span className="text-xs text-slate-500">
+                    • Last scan: {lastScan.toLocaleTimeString()}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -195,7 +207,8 @@ export default function AITrader() {
             <Button
               onClick={() => setShowSettings(true)}
               variant="outline"
-              className="border-white/20 text-slate-300"
+              className="border-white/20 text-slate-300 hover:text-white hover:bg-white/5"
+              data-testid="settings-btn"
             >
               <Settings className="w-4 h-4 mr-2" />
               Settings
@@ -203,7 +216,8 @@ export default function AITrader() {
             <Button
               onClick={scanMarkets}
               disabled={scanning || !disclaimerAccepted}
-              className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3]"
+              className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] hover:opacity-90 disabled:opacity-50"
+              data-testid="scan-markets-btn"
             >
               {scanning ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -272,31 +286,35 @@ export default function AITrader() {
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label="Win Rate"
-            value={`${history.stats.win_rate?.toFixed(1) || 0}%`}
+            value={loading ? "..." : `${history.stats.win_rate?.toFixed(1) || 0}%`}
             color={history.stats.win_rate >= 50 ? "#00FFA3" : "#FF6B6B"}
+            testId="stat-win-rate"
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
             label="Total P&L"
-            value={`${history.stats.total_pnl_sol >= 0 ? '+' : ''}${history.stats.total_pnl_sol?.toFixed(4) || 0} SOL`}
+            value={loading ? "..." : `${history.stats.total_pnl_sol >= 0 ? '+' : ''}${history.stats.total_pnl_sol?.toFixed(4) || 0} SOL`}
             color={history.stats.total_pnl_sol >= 0 ? "#00FFA3" : "#FF6B6B"}
+            testId="stat-pnl"
           />
           <StatCard
             icon={<History className="w-5 h-5" />}
             label="Total Trades"
-            value={history.stats.total_trades || 0}
+            value={loading ? "..." : history.stats.total_trades || 0}
             color="#D946EF"
+            testId="stat-trades"
           />
           <StatCard
             icon={<Target className="w-5 h-5" />}
             label="Open Positions"
-            value={positions.length}
+            value={loading ? "..." : positions.length}
             color="#00C2FF"
+            testId="stat-positions"
           />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-white/10 pb-2">
+        <div className="flex gap-2 mb-6 border-b border-white/10 pb-2 overflow-x-auto">
           {[
             { id: "signals", label: "Signals", icon: <Zap className="w-4 h-4" />, count: signals.length },
             { id: "positions", label: "Positions", icon: <Target className="w-4 h-4" />, count: positions.length },
@@ -306,10 +324,11 @@ export default function AITrader() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              data-testid={`tab-${tab.id}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "bg-[#D946EF]/20 text-[#D946EF]"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
               {tab.icon}
@@ -332,14 +351,26 @@ export default function AITrader() {
           <>
             {/* Signals Tab */}
             {activeTab === "signals" && (
-              <div className="space-y-4">
+              <div className="space-y-4" data-testid="signals-content">
                 {signals.length === 0 ? (
-                  <div className="text-center py-16 bg-white/5 rounded-2xl">
+                  <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/5" data-testid="no-signals">
                     <Zap className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                    <p className="text-slate-400">No pending signals</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Click "Scan Markets" to analyze tokens for trading opportunities
+                    <h3 className="text-lg font-semibold mb-2">No pending signals</h3>
+                    <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                      Click "Scan Markets" to analyze tokens for trading opportunities based on technical indicators like RSI, MACD, and Bollinger Bands.
                     </p>
+                    <Button
+                      onClick={scanMarkets}
+                      disabled={scanning || !disclaimerAccepted}
+                      className="bg-[#D946EF] hover:bg-[#D946EF]/80"
+                    >
+                      {scanning ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Zap className="w-4 h-4 mr-2" />
+                      )}
+                      {scanning ? "Scanning..." : "Scan Markets Now"}
+                    </Button>
                   </div>
                 ) : (
                   signals.map(signal => (
@@ -421,9 +452,9 @@ export default function AITrader() {
 }
 
 // Sub-components
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, testId }) {
   return (
-    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+    <div className="bg-white/5 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors" data-testid={testId}>
       <div className="flex items-center gap-2 text-slate-400 mb-2">
         {icon}
         <span className="text-xs">{label}</span>
