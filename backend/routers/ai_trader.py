@@ -850,7 +850,7 @@ async def reject_signal(signal_id: str, wallet_address: str):
 
 @router.get("/positions/{wallet_address}")
 async def get_open_positions(wallet_address: str):
-    """Get all open positions for a user"""
+    """Get all open positions for a user with P/L in SOL and USD"""
     # Query both collections for positions
     positions = []
     
@@ -868,19 +868,49 @@ async def get_open_positions(wallet_address: str):
     }, {"_id": 0}).sort("created_at", -1).to_list(50)
     positions.extend(pos_from_executions)
     
-    # Update positions with current prices
-    for pos in positions:
-        current_price = await get_token_price(pos.get("token_symbol", ""))
-        if current_price:
-            pos["current_price"] = current_price
-            entry_price = pos.get("entry_price", 0)
-            if entry_price > 0:
-                if pos.get("trade_type") == "buy":
-                    pos["unrealized_pnl_pct"] = ((current_price - entry_price) / entry_price) * 100
-                else:
-                    pos["unrealized_pnl_pct"] = ((entry_price - current_price) / entry_price) * 100
+    # Get SOL price for USD conversions
+    sol_price = await get_token_price("SOL") or 0
     
-    return {"positions": positions, "count": len(positions)}
+    # Update positions with current prices and calculate P/L
+    for pos in positions:
+        token_symbol = pos.get("token_symbol", "")
+        current_price = await get_token_price(token_symbol)
+        entry_price = pos.get("entry_price", 0)
+        amount_sol = pos.get("amount_sol", pos.get("input_sol", 0))
+        
+        pos["current_price"] = current_price
+        pos["sol_price_usd"] = sol_price
+        
+        if current_price and entry_price > 0:
+            # Calculate percentage change
+            if pos.get("trade_type") == "buy":
+                price_change_pct = ((current_price - entry_price) / entry_price) * 100
+            else:
+                price_change_pct = ((entry_price - current_price) / entry_price) * 100
+            
+            pos["unrealized_pnl_pct"] = round(price_change_pct, 2)
+            
+            # Calculate P/L in SOL
+            # If position went up 10%, our SOL value increased by 10%
+            pnl_sol = amount_sol * (price_change_pct / 100)
+            pos["unrealized_pnl_sol"] = round(pnl_sol, 6)
+            
+            # Calculate P/L in USD
+            pnl_usd = pnl_sol * sol_price if sol_price > 0 else 0
+            pos["unrealized_pnl_usd"] = round(pnl_usd, 2)
+            
+            # Current value in SOL and USD
+            current_value_sol = amount_sol + pnl_sol
+            pos["current_value_sol"] = round(current_value_sol, 6)
+            pos["current_value_usd"] = round(current_value_sol * sol_price, 2) if sol_price > 0 else 0
+        else:
+            pos["unrealized_pnl_pct"] = 0
+            pos["unrealized_pnl_sol"] = 0
+            pos["unrealized_pnl_usd"] = 0
+            pos["current_value_sol"] = amount_sol
+            pos["current_value_usd"] = round(amount_sol * sol_price, 2) if sol_price > 0 else 0
+    
+    return {"positions": positions, "count": len(positions), "sol_price_usd": sol_price}
 
 
 @router.get("/history/{wallet_address}")

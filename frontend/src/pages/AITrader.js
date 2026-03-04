@@ -409,6 +409,9 @@ export default function AITrader() {
       return;
     }
 
+    // Store the position ID to remove later
+    const positionId = position.execution_id || position.position_id;
+
     try {
       const loadingToast = toast.loading(
         <div>
@@ -432,11 +435,16 @@ export default function AITrader() {
       toast.dismiss(loadingToast);
 
       if (result) {
-        // Record the sell
+        // IMMEDIATELY remove the position from UI (optimistic update)
+        setPositions(prev => prev.filter(p => 
+          (p.execution_id || p.position_id) !== positionId
+        ));
+
+        // Record the sell in the background
         await axios.post(`${API}/ai-trader/close-position`, null, {
           params: {
             wallet_address: walletAddress,
-            position_id: position.execution_id || position.position_id,
+            position_id: positionId,
             tx_signature: result.signature,
             sell_amount: sellAmount,
             received_sol: result.outputAmount
@@ -462,6 +470,7 @@ export default function AITrader() {
           { duration: 8000 }
         );
 
+        // Refresh data to update stats (but UI already updated)
         fetchData();
       }
     } catch (e) {
@@ -1295,6 +1304,10 @@ function PositionCard({ position, onQuickSell }) {
   const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
   const [selling, setSelling] = useState(false);
   const pnlColor = position.unrealized_pnl_pct >= 0 ? "#00FFA3" : "#FF6B6B";
+  const pnlSol = position.unrealized_pnl_sol || 0;
+  const pnlUsd = position.unrealized_pnl_usd || 0;
+  const currentValueSol = position.current_value_sol || position.amount_sol || position.input_sol || 0;
+  const currentValueUsd = position.current_value_usd || 0;
   
   const handleQuickSell = async () => {
     if (sellAmount <= 0) return;
@@ -1319,18 +1332,25 @@ function PositionCard({ position, onQuickSell }) {
           </div>
           <div>
             <p className="font-bold">{position.token_symbol}</p>
-            <p className="text-xs text-slate-500">{position.amount_sol || position.input_sol} SOL invested</p>
+            <p className="text-xs text-slate-500">{(position.amount_sol || position.input_sol)?.toFixed(4)} SOL invested</p>
           </div>
         </div>
         
         <div className="flex items-center gap-4">
+          {/* P/L Display */}
           <div className="text-right">
-            <p className="font-mono font-bold" style={{ color: pnlColor }}>
+            <p className="font-mono font-bold text-lg" style={{ color: pnlColor }}>
               {position.unrealized_pnl_pct >= 0 ? "+" : ""}{(position.unrealized_pnl_pct || 0).toFixed(2)}%
             </p>
-            <p className="text-xs text-slate-500">
-              Entry: ${position.entry_price < 0.01 ? position.entry_price?.toFixed(6) : position.entry_price?.toFixed(4)}
-            </p>
+            <div className="flex items-center gap-2 text-xs">
+              <span style={{ color: pnlColor }} className="font-mono">
+                {pnlSol >= 0 ? "+" : ""}{pnlSol.toFixed(4)} SOL
+              </span>
+              <span className="text-slate-500">|</span>
+              <span style={{ color: pnlColor }} className="font-mono">
+                {pnlUsd >= 0 ? "+" : ""}${Math.abs(pnlUsd).toFixed(2)}
+              </span>
+            </div>
           </div>
           
           <Button
@@ -1342,6 +1362,28 @@ function PositionCard({ position, onQuickSell }) {
             <TrendingDown className="w-4 h-4 mr-1" />
             Sell
           </Button>
+        </div>
+      </div>
+      
+      {/* Position Details Row */}
+      <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-3 gap-4 text-xs">
+        <div>
+          <p className="text-slate-500">Entry Price</p>
+          <p className="font-mono text-white">
+            ${position.entry_price < 0.01 ? position.entry_price?.toFixed(6) : position.entry_price?.toFixed(4)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Current Price</p>
+          <p className="font-mono text-white">
+            ${position.current_price < 0.01 ? position.current_price?.toFixed(6) : position.current_price?.toFixed(4)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Current Value</p>
+          <p className="font-mono text-[#00C2FF]">
+            {currentValueSol.toFixed(4)} SOL <span className="text-slate-500">(${currentValueUsd.toFixed(2)})</span>
+          </p>
         </div>
       </div>
       

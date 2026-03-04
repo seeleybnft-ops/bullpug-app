@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
-import { Menu, X, MessageCircle, MessageSquare, User, Bot } from "lucide-react";
+import { Menu, X, MessageCircle, MessageSquare, User, Bot, Flame } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -58,6 +58,7 @@ export default function Navbar() {
     { name: t('nav.game') || "Game", path: "/game" },
     { name: t('nav.arena') || "Arena", path: "/betting" },
     { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, special: true },
+    { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, burn: true },
   ];
 
   return (
@@ -79,13 +80,17 @@ export default function Navbar() {
                 to={link.path}
                 data-testid={`nav-${link.name.toLowerCase().replace(/\s/g, '-')}`}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 flex items-center gap-1 ${
-                  link.special
+                  link.burn
                     ? location.pathname === link.path
-                      ? 'text-[#D946EF] bg-[#D946EF]/10 border border-[#D946EF]/30'
-                      : 'text-[#D946EF] hover:bg-[#D946EF]/10 border border-[#D946EF]/20'
-                    : location.pathname === link.path
-                      ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                      : 'text-slate-500 hover:text-white hover:bg-white/5'
+                      ? 'text-[#FF6B6B] bg-[#FF6B6B]/10 border border-[#FF6B6B]/30'
+                      : 'text-[#FF6B6B] hover:bg-[#FF6B6B]/10 border border-[#FF6B6B]/20'
+                    : link.special
+                      ? location.pathname === link.path
+                        ? 'text-[#D946EF] bg-[#D946EF]/10 border border-[#D946EF]/30'
+                        : 'text-[#D946EF] hover:bg-[#D946EF]/10 border border-[#D946EF]/20'
+                      : location.pathname === link.path
+                        ? 'text-[#00FFA3] bg-[#00FFA3]/10'
+                        : 'text-slate-500 hover:text-white hover:bg-white/5'
                 }`}
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}
               >
@@ -163,13 +168,17 @@ export default function Navbar() {
                 to={link.path}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                  link.special
+                  link.burn
                     ? location.pathname === link.path
-                      ? 'text-[#D946EF] bg-[#D946EF]/10'
-                      : 'text-[#D946EF]'
-                    : location.pathname === link.path
-                      ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'text-[#FF6B6B] bg-[#FF6B6B]/10'
+                      : 'text-[#FF6B6B]'
+                    : link.special
+                      ? location.pathname === link.path
+                        ? 'text-[#D946EF] bg-[#D946EF]/10'
+                        : 'text-[#D946EF]'
+                      : location.pathname === link.path
+                        ? 'text-[#00FFA3] bg-[#00FFA3]/10'
+                        : 'text-slate-400 hover:text-white'
                 }`}
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}
               >
