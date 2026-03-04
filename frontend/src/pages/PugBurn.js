@@ -25,9 +25,6 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const FIRE_PUG_LOGO = "https://customer-assets.emergentagent.com/job_2669ed2d-7cbd-4361-899c-7c07b9ccca0f/artifacts/i8t4nmv8_Fire.jpg";
 
-// Solana RPC endpoint
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
-
 // Token program IDs
 const TOKEN_PROGRAM_ID_STR = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
@@ -120,40 +117,13 @@ export default function PugBurn() {
     }
   };
 
-  // Helper function using XMLHttpRequest to avoid body stream issues
-  const rpcCall = (method, params) => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', SOLANA_RPC, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.error) {
-                reject(new Error(data.error.message));
-              } else {
-                resolve(data.result);
-              }
-            } catch (e) {
-              reject(e);
-            }
-          } else {
-            reject(new Error(`HTTP ${xhr.status}`));
-          }
-        }
-      };
-      xhr.send(JSON.stringify({
-        jsonrpc: '2.0',
-        id: Date.now(),
-        method,
-        params
-      }));
-    });
+  // Helper function to make RPC calls through backend (avoids CORS issues)
+  const rpcCall = async (method, params) => {
+    const response = await axios.post(`${API}/pugburn/rpc`, { method, params });
+    return response.data;
   };
 
-  // Get blockhash using XMLHttpRequest
+  // Get blockhash through backend proxy
   const getBlockhashDirect = async () => {
     const result = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
     return {
@@ -162,7 +132,7 @@ export default function PugBurn() {
     };
   };
 
-  // Send transaction using XMLHttpRequest
+  // Send transaction through backend proxy
   const sendTransactionDirect = async (serializedTx) => {
     const base64Tx = Buffer.from(serializedTx).toString('base64');
     return await rpcCall('sendTransaction', [
@@ -171,7 +141,7 @@ export default function PugBurn() {
     ]);
   };
 
-  // Confirm transaction using XMLHttpRequest
+  // Confirm transaction through backend proxy
   const confirmTransactionDirect = async (signature) => {
     const startTime = Date.now();
     const timeout = 60000;

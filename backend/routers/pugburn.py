@@ -272,3 +272,45 @@ async def get_cleanup_stats(wallet_address: str):
     except Exception as e:
         logger.error(f"Stats error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+class RpcRequest(BaseModel):
+    method: str
+    params: List[Any] = []
+
+
+@router.post("/rpc")
+async def proxy_rpc_call(request: RpcRequest):
+    """
+    Proxy RPC calls to Solana to avoid CORS issues.
+    Used for getLatestBlockhash, sendTransaction, getSignatureStatuses
+    """
+    rpc_url = SOLANA_RPC_URLS[0] if SOLANA_RPC_URLS else "https://api.mainnet-beta.solana.com"
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                rpc_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": request.method,
+                    "params": request.params
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "error" in data:
+                    raise HTTPException(status_code=400, detail=data["error"].get("message", "RPC Error"))
+                return data.get("result")
+            else:
+                raise HTTPException(status_code=response.status_code, detail="RPC request failed")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"RPC proxy error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
