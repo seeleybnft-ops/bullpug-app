@@ -1236,6 +1236,18 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
               <span className={`px-2 py-0.5 rounded text-xs ${riskColors.bg} ${riskColors.text}`}>
                 {signal.risk_category === "safer" ? "SAFER" : "HIGH RISK"}
               </span>
+              {signal.token_mint && (
+                <a
+                  href={`https://dexscreener.com/solana/${signal.token_mint}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[#00C2FF]/10 text-[#00C2FF] hover:bg-[#00C2FF]/20 transition-colors"
+                  title="View on DexScreener"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Chart
+                </a>
+              )}
             </div>
             <p className="text-sm text-slate-400">
               Confidence: <span className="text-white font-medium">{(signal.confidence * 100).toFixed(0)}%</span>
