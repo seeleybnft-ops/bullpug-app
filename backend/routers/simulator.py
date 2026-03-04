@@ -7,7 +7,7 @@ import numpy as np
 import uuid
 
 
-router = APIRouter(prefix="/exit-simulator", tags=["simulator"])
+router = APIRouter(prefix="/simulation", tags=["simulator"])
 
 
 class ExitSimulatorRequest(BaseModel):
@@ -19,15 +19,13 @@ class ExitSimulatorRequest(BaseModel):
 
 
 class MonteCarloRequest(BaseModel):
-    initial_investment: float
-    expected_return_percent: float
-    volatility_percent: float
-    time_horizon_days: int
-    num_simulations: int = 1000
-    exit_strategy: str = "fixed_target"
-    target_return_percent: Optional[float] = 100.0
-    stop_loss_percent: Optional[float] = 50.0
-    trailing_stop_percent: Optional[float] = None
+    token_amount: float
+    entry_price: float
+    volatility: float  # As decimal (0.5 = 50%)
+    drift: float  # As decimal
+    days: int
+    simulations: int = 1000
+    tax_rate: float = 0.15  # As decimal
 
 
 @router.post("")
@@ -108,110 +106,76 @@ async def run_exit_simulation(data: ExitSimulatorRequest):
 
 @router.post("/monte-carlo")
 async def run_monte_carlo_simulation(data: MonteCarloRequest):
-    """Run advanced Monte Carlo simulation with multiple exit strategies."""
-    daily_return = data.expected_return_percent / 100 / 252
-    daily_vol = data.volatility_percent / 100 / np.sqrt(252)
+    """Run Monte Carlo simulation for exit strategy analysis."""
+    
+    # Initial investment value
+    initial_value = data.token_amount * data.entry_price
+    
+    # Daily parameters (annualized to daily)
+    daily_drift = data.drift / 365
+    daily_vol = data.volatility / np.sqrt(365)
     
     all_paths = []
+    final_prices = []
     final_values = []
-    exit_stats = {"target": 0, "stop_loss": 0, "trailing_stop": 0, "time_expire": 0}
+    pnl_values = []
     
-    for _ in range(data.num_simulations):
-        price = 1.0
-        peak_price = 1.0
-        path = [1.0]
-        exit_day = data.time_horizon_days
-        exit_reason = "time_expire"
+    for sim in range(data.simulations):
+        price = data.entry_price
+        path = [price]
         
-        for day in range(data.time_horizon_days):
-            daily_change = np.random.normal(daily_return, daily_vol)
-            price *= (1 + daily_change)
+        for day in range(data.days):
+            # Geometric Brownian Motion
+            random_shock = np.random.normal(0, 1)
+            daily_return = daily_drift + daily_vol * random_shock
+            price = price * np.exp(daily_return)
             path.append(price)
-            peak_price = max(peak_price, price)
-            
-            current_return_pct = (price - 1) * 100
-            
-            # Check exit conditions
-            if data.exit_strategy in ["fixed_target", "combined"]:
-                if data.target_return_percent and current_return_pct >= data.target_return_percent:
-                    exit_day = day + 1
-                    exit_reason = "target"
-                    exit_stats["target"] += 1
-                    break
-            
-            if data.stop_loss_percent and current_return_pct <= -data.stop_loss_percent:
-                exit_day = day + 1
-                exit_reason = "stop_loss"
-                exit_stats["stop_loss"] += 1
-                break
-            
-            if data.trailing_stop_percent:
-                drawdown = (peak_price - price) / peak_price * 100
-                if drawdown >= data.trailing_stop_percent:
-                    exit_day = day + 1
-                    exit_reason = "trailing_stop"
-                    exit_stats["trailing_stop"] += 1
-                    break
-        else:
-            exit_stats["time_expire"] += 1
         
-        final_value = data.initial_investment * price
+        final_price = price
+        final_value = data.token_amount * final_price
+        pnl = final_value - initial_value
+        pnl_after_tax = pnl * (1 - data.tax_rate) if pnl > 0 else pnl
+        
+        final_prices.append(final_price)
         final_values.append(final_value)
+        pnl_values.append(pnl_after_tax)
         
-        if len(all_paths) < 50:
+        # Store sample paths (every 10th simulation, up to 50)
+        if sim % max(1, data.simulations // 50) == 0 and len(all_paths) < 50:
             all_paths.append({
-                "path": [round(p, 4) for p in path[::max(1, len(path)//50)]],
+                "path": [round(p, 8) for p in path[::max(1, len(path)//30)]],
+                "final_price": round(final_price, 8),
                 "final_value": round(final_value, 2),
-                "exit_day": exit_day,
-                "exit_reason": exit_reason
+                "pnl": round(pnl_after_tax, 2)
             })
     
-    # Calculate statistics
-    pnl_values = [v - data.initial_investment for v in final_values]
-    
-    # Risk metrics
-    returns = [(final_values[i] / data.initial_investment - 1) for i in range(len(final_values))]
-    avg_return = np.mean(returns)
-    std_return = np.std(returns) if len(returns) > 1 else 0
-    sharpe = (avg_return / std_return * np.sqrt(252 / data.time_horizon_days)) if std_return > 0 else 0
-    
-    # VaR and CVaR
-    var_95 = np.percentile(pnl_values, 5)
-    cvar_95 = np.mean([p for p in pnl_values if p <= var_95]) if any(p <= var_95 for p in pnl_values) else var_95
+    # Statistics
+    avg_final_price = np.mean(final_prices)
+    probability_of_profit = sum(1 for p in pnl_values if p > 0) / len(pnl_values) * 100
     
     return {
         "simulation_id": str(uuid.uuid4())[:8],
         "config": {
-            "initial_investment": data.initial_investment,
-            "expected_return_percent": data.expected_return_percent,
-            "volatility_percent": data.volatility_percent,
-            "time_horizon_days": data.time_horizon_days,
-            "num_simulations": data.num_simulations,
-            "exit_strategy": data.exit_strategy
+            "token_amount": data.token_amount,
+            "entry_price": data.entry_price,
+            "volatility": data.volatility,
+            "drift": data.drift,
+            "days": data.days,
+            "simulations": data.simulations,
+            "tax_rate": data.tax_rate
         },
-        "summary": {
-            "avg_final_value": round(np.mean(final_values), 2),
-            "median_final_value": round(np.median(final_values), 2),
-            "std_dev": round(np.std(final_values), 2),
-            "min_value": round(min(final_values), 2),
-            "max_value": round(max(final_values), 2),
-            "profitable_rate": round(sum(1 for v in final_values if v > data.initial_investment) / len(final_values) * 100, 1),
-            "avg_pnl": round(np.mean(pnl_values), 2),
-            "total_expected_pnl": round(np.mean(pnl_values) * data.num_simulations, 2)
-        },
-        "risk_metrics": {
-            "sharpe_ratio": round(sharpe, 3),
-            "var_95": round(var_95, 2),
-            "cvar_95": round(cvar_95, 2),
-            "max_drawdown_potential": round((1 - min(final_values) / data.initial_investment) * 100, 1)
-        },
-        "exit_statistics": {
-            "target_exits": exit_stats["target"],
-            "stop_loss_exits": exit_stats["stop_loss"],
-            "trailing_stop_exits": exit_stats["trailing_stop"],
-            "time_expire": exit_stats["time_expire"],
-            "target_hit_rate": round(exit_stats["target"] / data.num_simulations * 100, 1),
-            "stop_hit_rate": round(exit_stats["stop_loss"] / data.num_simulations * 100, 1)
+        "statistics": {
+            "initial_value": round(initial_value, 2),
+            "mean_final_price": round(avg_final_price, 8),
+            "median_final_price": round(np.median(final_prices), 8),
+            "min_final_price": round(min(final_prices), 8),
+            "max_final_price": round(max(final_prices), 8),
+            "mean_final_value": round(np.mean(final_values), 2),
+            "expected_pnl": round(np.mean(pnl_values), 2),
+            "probability_of_profit": round(probability_of_profit, 1),
+            "best_case_pnl": round(max(pnl_values), 2),
+            "worst_case_pnl": round(min(pnl_values), 2),
+            "std_dev_pnl": round(np.std(pnl_values), 2)
         },
         "percentiles": {
             "p5": round(np.percentile(final_values, 5), 2),
@@ -222,5 +186,10 @@ async def run_monte_carlo_simulation(data: MonteCarloRequest):
             "p90": round(np.percentile(final_values, 90), 2),
             "p95": round(np.percentile(final_values, 95), 2)
         },
-        "sample_paths": all_paths[:20]
+        "risk_metrics": {
+            "var_95": round(np.percentile(pnl_values, 5), 2),
+            "upside_potential": round(np.percentile(pnl_values, 95), 2),
+            "risk_reward_ratio": round(abs(np.percentile(pnl_values, 95) / np.percentile(pnl_values, 5)), 2) if np.percentile(pnl_values, 5) != 0 else 0
+        },
+        "sample_paths": all_paths
     }
