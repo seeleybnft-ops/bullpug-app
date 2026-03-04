@@ -8,14 +8,13 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { 
   Bot, Sparkles, ChevronDown, ChevronUp, 
-  Globe, TrendingUp, Wallet, Loader2, MessageSquare
+  Globe, Wallet, MessageSquare
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
-import { useWatchlist } from "./Watchlist";
 
 // Import extracted components
-import { TopPicksSection, ChatSection, InsightsSection } from "./journal";
+import { ChatSection, InsightsSection } from "./journal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -40,10 +39,6 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   const [language, setLanguage] = useState("en");
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   
-  // Watchlist hook
-  const { addToWatchlist, walletAddress: watchlistWallet } = useWatchlist();
-  const [addingToWatchlist, setAddingToWatchlist] = useState(null);
-  
   // Determine effective wallet address
   const effectiveWalletAddress = walletAddress || solanaAddress || evmAddress;
   
@@ -57,49 +52,13 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [volatilePicks, setVolatilePicks] = useState([]);
-  const [recsLoading, setRecsLoading] = useState(false);
-  const [lastRecsUpdate, setLastRecsUpdate] = useState(null);
-
-  // Add to watchlist handler
-  const handleAddToWatchlist = async (coin) => {
-    if (!watchlistWallet) {
-      toast.error("Connect wallet to add to watchlist");
-      return;
-    }
-    setAddingToWatchlist(coin.symbol);
-    await addToWatchlist({
-      symbol: coin.symbol,
-      name: coin.name,
-      contract_address: coin.contract_address,
-      dex_url: coin.dex_url,
-      platform: coin.platform || "Solana",
-      price: coin.price
-    });
-    setAddingToWatchlist(null);
-  };
 
   // Load initial data when wallet connects
   useEffect(() => {
     if (effectiveWalletAddress) {
       fetchInsights();
-      fetchRecommendations();
     }
   }, [effectiveWalletAddress, solanaAddress, evmAddress, language]);
-
-  // Fetch recommendations on mount
-  useEffect(() => {
-    fetchRecommendations();
-  }, []);
-
-  // Auto-refresh recommendations every hour
-  useEffect(() => {
-    const interval = setInterval(fetchRecommendations, 3600000);
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchInsights = async () => {
     setInsightsLoading(true);
@@ -113,23 +72,6 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
       setInsights("Connect your wallet and log trades to get personalized AI insights!");
     }
     setInsightsLoading(false);
-  };
-
-  const fetchRecommendations = async () => {
-    setRecsLoading(true);
-    try {
-      const { data } = await axios.get(`${API}/ai-suggestions/coin-recommendations`, {
-        params: { language }
-      });
-      setRecommendations(data.safe_picks || data.recommendations || []);
-      setVolatilePicks(data.volatile_picks || []);
-      setLastRecsUpdate(new Date());
-    } catch (e) {
-      console.error("Failed to fetch recommendations:", e);
-      setRecommendations([]);
-      setVolatilePicks([]);
-    }
-    setRecsLoading(false);
   };
 
   const sendChatMessage = async () => {
@@ -290,18 +232,12 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
               </p>
             </div>
 
-            {/* Show Top Picks even without wallet */}
-            <div className="border-t border-white/10 pt-4">
-              <TopPicksSection
-                recommendations={recommendations}
-                volatilePicks={volatilePicks}
-                loading={recsLoading}
-                lastUpdate={lastRecsUpdate}
-                onRefresh={fetchRecommendations}
-                onAddToWatchlist={handleAddToWatchlist}
-                addingToWatchlist={addingToWatchlist}
-                showAutoRefreshNotice={false}
-              />
+            {/* Direct user to AI Trader for Top Picks */}
+            <div className="text-center py-4 border-t border-white/10">
+              <p className="text-slate-400 text-xs">
+                Looking for token recommendations? Check out the{" "}
+                <a href="/ai-trader" className="text-[#D946EF] hover:underline">AI Trading Bot</a>
+              </p>
             </div>
           </div>
         )}
@@ -316,11 +252,10 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
 
       {expanded && (
         <div>
-          {/* Tabs */}
+          {/* Tabs - Removed Top Picks (moved to AI Trader) */}
           <div className="flex border-b border-white/10">
             {[
               { id: "chat", icon: MessageSquare, label: "Chat" },
-              { id: "recommendations", icon: TrendingUp, label: "Top Picks" },
               { id: "insights", icon: Sparkles, label: "Insights" },
             ].map(tab => (
               <button
@@ -355,26 +290,13 @@ export default function JournalAIAssistant({ walletAddress, solanaAddress, evmAd
               />
             )}
 
-            {/* Recommendations Tab */}
-            {activeTab === "recommendations" && (
-              <TopPicksSection
-                recommendations={recommendations}
-                volatilePicks={volatilePicks}
-                loading={recsLoading}
-                lastUpdate={lastRecsUpdate}
-                onRefresh={fetchRecommendations}
-                onAddToWatchlist={handleAddToWatchlist}
-                addingToWatchlist={addingToWatchlist}
-                showAutoRefreshNotice={true}
-              />
-            )}
-
-            {/* Insights Tab */}
+            {/* Insights Tab - Now connected to logged trades */}
             {activeTab === "insights" && (
               <InsightsSection
                 insights={insights}
                 loading={insightsLoading}
                 onRefresh={fetchInsights}
+                walletAddress={effectiveWalletAddress}
               />
             )}
           </div>

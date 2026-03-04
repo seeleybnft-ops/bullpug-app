@@ -149,6 +149,53 @@ async def delete_trade(trade_id: str):
     return {"message": "Trade deleted!", "trade_id": trade_id}
 
 
+@router.get("/trades/{wallet_address}/stats")
+async def get_trade_stats(wallet_address: str):
+    """Get aggregated statistics for a wallet's logged trades."""
+    trades = await db.trading_journal.find(
+        {"wallet_address": wallet_address, "status": "closed"},
+        {"_id": 0, "pnl": 1, "pnl_percent": 1, "asset": 1}
+    ).to_list(1000)
+    
+    if not trades:
+        return {
+            "total_trades": 0,
+            "win_rate": 0,
+            "total_pnl": 0,
+            "best_trade": None,
+            "worst_trade": None,
+            "avg_pnl": 0,
+            "wins": 0,
+            "losses": 0,
+            "top_assets": []
+        }
+    
+    pnls = [t.get("pnl", 0) or 0 for t in trades]
+    wins = sum(1 for p in pnls if p > 0)
+    losses = sum(1 for p in pnls if p < 0)
+    total = len(pnls)
+    
+    # Get top performing assets
+    asset_pnls = {}
+    for t in trades:
+        asset = t.get("asset", "Unknown")
+        asset_pnls[asset] = asset_pnls.get(asset, 0) + (t.get("pnl", 0) or 0)
+    
+    top_assets = sorted(asset_pnls.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    return {
+        "total_trades": total,
+        "win_rate": (wins / total * 100) if total > 0 else 0,
+        "total_pnl": sum(pnls),
+        "best_trade": max(pnls) if pnls else None,
+        "worst_trade": min(pnls) if pnls else None,
+        "avg_pnl": statistics.mean(pnls) if pnls else 0,
+        "wins": wins,
+        "losses": losses,
+        "top_assets": [{"asset": a, "pnl": p} for a, p in top_assets]
+    }
+
+
 @router.get("/dashboard")
 async def get_journal_dashboard():
     """Get trading journal dashboard statistics."""

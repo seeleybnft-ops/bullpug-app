@@ -67,29 +67,34 @@ async def get_live_crypto_price(symbol: str) -> Optional[Dict]:
 async def get_user_journal_summary(wallet_address: str) -> Dict:
     """Get summary of user's journal entries."""
     try:
-        trades = await db.journal_trades.find(
+        # Use trading_journal collection (the correct collection for logged trades)
+        trades = await db.trading_journal.find(
             {"wallet_address": wallet_address},
             {"_id": 0}
-        ).sort("entry_date", -1).limit(20).to_list(20)
+        ).sort("date_entry", -1).limit(20).to_list(20)
         
         if not trades:
             return {"has_trades": False}
         
-        total_pnl = sum(t.get("realized_pnl", 0) or t.get("pnl", 0) for t in trades if t.get("realized_pnl") or t.get("pnl"))
-        win_trades = len([t for t in trades if (t.get("realized_pnl", 0) or t.get("pnl", 0)) > 0])
-        loss_trades = len([t for t in trades if (t.get("realized_pnl", 0) or t.get("pnl", 0)) < 0])
+        total_pnl = sum(t.get("pnl", 0) or 0 for t in trades)
+        win_trades = len([t for t in trades if (t.get("pnl", 0) or 0) > 0])
+        loss_trades = len([t for t in trades if (t.get("pnl", 0) or 0) < 0])
         
-        tokens = list(set(t.get("token_symbol", t.get("asset", "")).upper() for t in trades if t.get("token_symbol") or t.get("asset")))
-        recent_notes = [t.get("notes", t.get("lessons", "")) for t in trades[:5] if t.get("notes") or t.get("lessons")]
+        tokens = list(set(t.get("asset", "").upper() for t in trades if t.get("asset")))
+        recent_notes = [t.get("lessons", "") for t in trades[:5] if t.get("lessons")]
         
         recent_trades_summary = []
         for t in trades[:5]:
             recent_trades_summary.append({
-                "asset": t.get("asset", t.get("token_symbol", "?")),
+                "asset": t.get("asset", "?"),
                 "type": t.get("trade_type", "?"),
-                "pnl": t.get("pnl", t.get("realized_pnl", 0)),
+                "pnl": t.get("pnl", 0),
+                "pnl_percent": t.get("pnl_percent", 0),
                 "strategy": t.get("strategy", "?"),
-                "grade": t.get("trade_grade", "?")
+                "grade": t.get("trade_grade", "?"),
+                "entry_reason": t.get("entry_reason", ""),
+                "what_went_well": t.get("what_went_well", ""),
+                "what_went_wrong": t.get("what_went_wrong", "")
             })
         
         return {
@@ -578,7 +583,7 @@ async def get_coin_recommendations(language: str = "en"):
             for term in search_terms:
                 try:
                     resp = await client.get(
-                        f"https://api.dexscreener.com/latest/dex/search",
+                        "https://api.dexscreener.com/latest/dex/search",
                         params={"q": term},
                         headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
                         timeout=10.0

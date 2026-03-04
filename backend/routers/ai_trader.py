@@ -838,3 +838,124 @@ async def scan_all_tokens(wallet_address: str):
         "tokens_scanned": len(tokens_to_scan),
         "signals_generated": len(signals)
     }
+
+
+
+@router.get("/new-pairs")
+async def get_new_pairs():
+    """Get newly created pairs (potential runners) from Solana DEXes.
+    
+    Criteria for inclusion:
+    - Created within last 24 hours
+    - Minimum $10K liquidity
+    - Minimum $5K volume
+    - On supported platforms (Pump.fun, Raydium, Orca, Meteora)
+    """
+    
+    try:
+        new_pairs = []
+        seen_symbols = set()
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Search for new pairs on Solana
+            search_terms = ["pump", "solana new", "raydium new"]
+            
+            for term in search_terms:
+                try:
+                    resp = await client.get(
+                        "https://api.dexscreener.com/latest/dex/search",
+                        params={"q": term},
+                        headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+                    )
+                    
+                    if resp.status_code != 200:
+                        continue
+                    
+                    data = resp.json()
+                    pairs = data.get("pairs", []) or []
+                    
+                    for pair in pairs:
+                        if pair.get("chainId") != "solana":
+                            continue
+                        
+                        base_token = pair.get("baseToken", {})
+                        symbol = base_token.get("symbol", "?").upper()
+                        
+                        # Skip duplicates and stablecoins
+                        if symbol in seen_symbols:
+                            continue
+                        if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA", "JUP"]:
+                            continue
+                        
+                        seen_symbols.add(symbol)
+                        
+                        # Check metrics
+                        volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
+                        liquidity_usd = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                        price_usd = float(pair.get("priceUsd", 0) or 0)
+                        price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+                        pair_created_at = pair.get("pairCreatedAt")
+                        
+                        # Check if pair is new (within 24 hours)
+                        is_new = False
+                        if pair_created_at:
+                            try:
+                                created_time = datetime.fromtimestamp(pair_created_at / 1000, tz=timezone.utc)
+                                age_hours = (datetime.now(timezone.utc) - created_time).total_seconds() / 3600
+                                is_new = age_hours < 24
+                            except (ValueError, TypeError, OSError):
+                                is_new = False
+                        
+                        # Filter: new + minimum criteria
+                        if is_new and liquidity_usd >= 10000 and volume_24h >= 5000:
+                            dex_id = (pair.get("dexId", "") or "").lower()
+                            platform = "Unknown"
+                            if "pump" in dex_id:
+                                platform = "Pump.fun"
+                            elif "raydium" in dex_id:
+                                platform = "Raydium"
+                            elif "orca" in dex_id:
+                                platform = "Orca"
+                            elif "meteora" in dex_id:
+                                platform = "Meteora"
+                            
+                            contract_address = base_token.get("address", "")
+                            pair_address = pair.get("pairAddress", "")
+                            dex_url = pair.get("url", "") or f"https://dexscreener.com/solana/{pair_address}"
+                            
+                            new_pairs.append({
+                                "symbol": symbol,
+                                "name": base_token.get("name", symbol),
+                                "price": price_usd,
+                                "change_24h": price_change_24h,
+                                "volume_24h": volume_24h,
+                                "liquidity_usd": liquidity_usd,
+                                "platform": platform,
+                                "contract_address": contract_address,
+                                "pair_address": pair_address,
+                                "dex_url": dex_url,
+                                "age_hours": age_hours if 'age_hours' in dir() else 0,
+                                "risk_level": "Extreme"
+                            })
+                            
+                except Exception as e:
+                    logger.warning(f"Search for {term} failed: {e}")
+                    continue
+        
+        # Sort by volume descending and take top 10
+        new_pairs.sort(key=lambda x: x["volume_24h"], reverse=True)
+        
+        return {
+            "pairs": new_pairs[:10],
+            "count": len(new_pairs[:10]),
+            "disclaimer": "New pairs are EXTREMELY HIGH RISK. Many fail within hours. Only trade what you can lose completely.",
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"New pairs error: {e}")
+        return {
+            "pairs": [],
+            "count": 0,
+            "error": str(e)
+        }

@@ -13,7 +13,8 @@ import {
   Bot, Settings, TrendingUp, TrendingDown, AlertTriangle, 
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
-  Wallet, History, Play, Pause, Info
+  Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
+  Rocket, CheckCircle, AlertCircle
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -40,6 +41,11 @@ export default function AITrader() {
   const [activeTab, setActiveTab] = useState("signals");
   const [showSettings, setShowSettings] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  
+  // Top Picks state (moved from Bullpug AI)
+  const [topPicks, setTopPicks] = useState({ safe: [], volatile: [], newPairs: [] });
+  const [topPicksLoading, setTopPicksLoading] = useState(false);
+  const [lastTopPicksUpdate, setLastTopPicksUpdate] = useState(null);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -78,12 +84,55 @@ export default function AITrader() {
     setLoading(false);
   }, [walletAddress]);
 
+  // Fetch Top Picks (Safe, Volatile, New Pairs)
+  const fetchTopPicks = useCallback(async () => {
+    setTopPicksLoading(true);
+    try {
+      const [recsRes, newPairsRes] = await Promise.all([
+        axios.get(`${API}/ai-suggestions/coin-recommendations`),
+        axios.get(`${API}/ai-trader/new-pairs`).catch(() => ({ data: { pairs: [] } }))
+      ]);
+      
+      setTopPicks({
+        safe: recsRes.data.safe_picks || [],
+        volatile: recsRes.data.volatile_picks || [],
+        newPairs: newPairsRes.data?.pairs || []
+      });
+      setLastTopPicksUpdate(new Date());
+    } catch (e) {
+      console.error("Error fetching top picks:", e);
+    }
+    setTopPicksLoading(false);
+  }, []);
+
+  // Copy to clipboard helper
+  const copyToClipboard = async (text, label = "Address") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied!`);
+    } catch (e) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      toast.success(`${label} copied!`);
+    }
+  };
+
   useEffect(() => {
     fetchData();
-    // Refresh every 30 seconds
+    fetchTopPicks();
+    // Refresh data every 30 seconds
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    // Refresh top picks every hour
+    const topPicksInterval = setInterval(fetchTopPicks, 3600000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(topPicksInterval);
+    };
+  }, [fetchData, fetchTopPicks]);
 
   // Accept disclaimer
   const acceptDisclaimer = () => {
@@ -417,31 +466,189 @@ export default function AITrader() {
               </div>
             )}
 
-            {/* Tokens Tab */}
+            {/* Tokens Tab - Now shows Top Picks */}
             {activeTab === "tokens" && (
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="flex items-center gap-2 text-lg font-bold mb-4">
-                    <Shield className="w-5 h-5 text-[#00FFA3]" />
-                    Safer Tokens
-                  </h3>
-                  <div className="space-y-2">
-                    {tokens.safer.map(token => (
-                      <TokenCard key={token.symbol} token={token} />
+              <div className="space-y-6" data-testid="tokens-content">
+                {/* Header with refresh */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Top Picks</h3>
+                    <p className="text-xs text-slate-500">
+                      AI-curated Solana tokens for trading
+                      {lastTopPicksUpdate && (
+                        <span className="ml-2">
+                          • Updated {lastTopPicksUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={fetchTopPicks}
+                    disabled={topPicksLoading}
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-slate-300"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${topPicksLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+
+                {/* Auto-refresh notice */}
+                <div className="px-3 py-2 bg-[#00FFA3]/5 rounded-lg text-xs text-slate-500 flex items-center gap-2 border border-[#00FFA3]/10">
+                  <span className="w-2 h-2 bg-[#00FFA3] rounded-full animate-pulse" />
+                  Auto-refreshes every hour • Click any token to generate a signal
+                </div>
+
+                {topPicksLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-20 bg-white/5 rounded-xl animate-pulse" />
                     ))}
                   </div>
-                </div>
-                <div>
-                  <h3 className="flex items-center gap-2 text-lg font-bold mb-4">
-                    <Skull className="w-5 h-5 text-[#FF6B6B]" />
-                    High Risk Tokens
-                  </h3>
-                  <div className="space-y-2">
-                    {tokens.high_risk.map(token => (
-                      <TokenCard key={token.symbol} token={token} />
-                    ))}
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Safe Picks */}
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-bold text-[#00FFA3] mb-3">
+                        <CheckCircle className="w-4 h-4" />
+                        SAFER PICKS
+                      </h4>
+                      <div className="space-y-2">
+                        {topPicks.safe.length > 0 ? (
+                          topPicks.safe.slice(0, 5).map((coin, i) => (
+                            <TopPickCard
+                              key={`safe-${i}`}
+                              coin={coin}
+                              index={i}
+                              type="safe"
+                              onCopy={copyToClipboard}
+                              onAnalyze={async () => {
+                                if (!disclaimerAccepted) {
+                                  toast.error("Please accept the disclaimer first");
+                                  return;
+                                }
+                                try {
+                                  setScanning(true);
+                                  const { data } = await axios.post(
+                                    `${API}/ai-trader/analyze/${coin.symbol}?wallet_address=${walletAddress}`
+                                  );
+                                  if (data.signal) {
+                                    toast.success(`Signal generated for ${coin.symbol}`);
+                                    setSignals(prev => [data.signal, ...prev]);
+                                    setActiveTab("signals");
+                                  } else {
+                                    toast.info(data.message || "No strong signal detected");
+                                  }
+                                } catch (e) {
+                                  toast.error("Failed to analyze token");
+                                }
+                                setScanning(false);
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <p className="text-slate-500 text-sm text-center py-4">No safe picks available</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Volatile Picks */}
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-bold text-[#FF6B6B] mb-3">
+                        <AlertCircle className="w-4 h-4" />
+                        HIGH RISK / HIGH REWARD
+                      </h4>
+                      <div className="space-y-2">
+                        {topPicks.volatile.length > 0 ? (
+                          topPicks.volatile.slice(0, 5).map((coin, i) => (
+                            <TopPickCard
+                              key={`volatile-${i}`}
+                              coin={coin}
+                              index={i}
+                              type="volatile"
+                              onCopy={copyToClipboard}
+                              onAnalyze={async () => {
+                                if (!disclaimerAccepted) {
+                                  toast.error("Please accept the disclaimer first");
+                                  return;
+                                }
+                                try {
+                                  setScanning(true);
+                                  const { data } = await axios.post(
+                                    `${API}/ai-trader/analyze/${coin.symbol}?wallet_address=${walletAddress}`
+                                  );
+                                  if (data.signal) {
+                                    toast.success(`Signal generated for ${coin.symbol}`);
+                                    setSignals(prev => [data.signal, ...prev]);
+                                    setActiveTab("signals");
+                                  } else {
+                                    toast.info(data.message || "No strong signal detected");
+                                  }
+                                } catch (e) {
+                                  toast.error("Failed to analyze token");
+                                }
+                                setScanning(false);
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <p className="text-slate-500 text-sm text-center py-4">No volatile picks available</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* New Pairs Section */}
+                {topPicks.newPairs && topPicks.newPairs.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-white/10">
+                    <h4 className="flex items-center gap-2 text-sm font-bold text-[#F5D300] mb-3">
+                      <Rocket className="w-4 h-4" />
+                      NEW PAIRS (Potential Runners)
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Recently created pairs that meet minimum criteria - extremely high risk
+                    </p>
+                    <div className="grid md:grid-cols-2 gap-2">
+                      {topPicks.newPairs.slice(0, 4).map((pair, i) => (
+                        <TopPickCard
+                          key={`new-${i}`}
+                          coin={pair}
+                          index={i}
+                          type="new"
+                          onCopy={copyToClipboard}
+                          onAnalyze={async () => {
+                            if (!disclaimerAccepted) {
+                              toast.error("Please accept the disclaimer first");
+                              return;
+                            }
+                            try {
+                              setScanning(true);
+                              const { data } = await axios.post(
+                                `${API}/ai-trader/analyze/${pair.symbol}?wallet_address=${walletAddress}`
+                              );
+                              if (data.signal) {
+                                toast.success(`Signal generated for ${pair.symbol}`);
+                                setSignals(prev => [data.signal, ...prev]);
+                                setActiveTab("signals");
+                              } else {
+                                toast.info(data.message || "No strong signal detected");
+                              }
+                            } catch (e) {
+                              toast.error("Failed to analyze token");
+                            }
+                            setScanning(false);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-slate-600 text-center mt-4">
+                  ⚠️ Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
+                </p>
               </div>
             )}
           </>
@@ -745,6 +952,111 @@ function SettingsModal({ settings, onSave, onClose }) {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// TopPickCard - Display coin from Top Picks with copy CA and trade link
+function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
+  const colors = {
+    safe: { bg: "bg-[#00FFA3]/5", border: "border-[#00FFA3]/20", text: "text-[#00FFA3]", hover: "hover:bg-[#00FFA3]/10" },
+    volatile: { bg: "bg-[#FF6B6B]/5", border: "border-[#FF6B6B]/20", text: "text-[#FF6B6B]", hover: "hover:bg-[#FF6B6B]/10" },
+    new: { bg: "bg-[#F5D300]/5", border: "border-[#F5D300]/20", text: "text-[#F5D300]", hover: "hover:bg-[#F5D300]/10" }
+  };
+  
+  const c = colors[type] || colors.safe;
+  
+  // Truncate address for display
+  const truncateAddress = (address) => {
+    if (!address) return "";
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  return (
+    <div 
+      className={`p-3 rounded-xl border transition-colors ${c.bg} ${c.border} ${c.hover}`}
+      data-testid={`top-pick-${coin.symbol}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${
+            type === "safe" 
+              ? 'bg-gradient-to-br from-[#00FFA3] to-[#00C2FF] text-black'
+              : type === "volatile"
+                ? 'bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] text-white'
+                : 'bg-gradient-to-br from-[#F5D300] to-[#FF8C00] text-black'
+          }`}>
+            {type === "new" ? "🚀" : index + 1}
+          </div>
+          <div>
+            <p className="font-medium text-white text-sm">{coin.symbol}</p>
+            <p className="text-[10px] text-slate-500">{coin.platform || "Solana"}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-sm text-white">
+            ${coin.price < 0.001 ? coin.price?.toFixed(6) : coin.price?.toFixed(4)}
+          </p>
+          <p className={`text-[10px] ${coin.change_24h >= 0 ? 'text-[#00FFA3]' : 'text-red-400'}`}>
+            {coin.change_24h >= 0 ? '+' : ''}{coin.change_24h?.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      {/* Contract Address & Actions */}
+      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+        {coin.contract_address ? (
+          <button 
+            onClick={() => onCopy(coin.contract_address, "Contract")}
+            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-white transition-colors group"
+            title="Click to copy contract address"
+          >
+            <Copy className="w-3 h-3" />
+            <span className="font-mono">{truncateAddress(coin.contract_address)}</span>
+          </button>
+        ) : (
+          <span className="text-[10px] text-slate-600">-</span>
+        )}
+        <div className="flex items-center gap-2">
+          {/* Analyze button */}
+          <button
+            onClick={onAnalyze}
+            className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
+            title="Generate trading signal"
+          >
+            <Zap className="w-3 h-3" />
+            Analyze
+          </button>
+          {/* DEX Link */}
+          {coin.dex_url ? (
+            <a 
+              href={coin.dex_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
+            >
+              <ExternalLink className="w-3 h-3" />
+              Trade
+            </a>
+          ) : (
+            <a 
+              href={`https://dexscreener.com/solana?q=${coin.symbol}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
+            >
+              <ExternalLink className="w-3 h-3" />
+              Find
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Reason if available */}
+      {coin.reason && (
+        <p className="mt-2 text-[10px] text-slate-400 line-clamp-2">{coin.reason}</p>
+      )}
     </div>
   );
 }
