@@ -1046,7 +1046,7 @@ export default function AITrader() {
                       Recently created pairs that meet minimum criteria - extremely high risk
                     </p>
                     <div className="grid md:grid-cols-2 gap-2">
-                      {topPicks.newPairs.slice(0, 4).map((pair, i) => (
+                      {topPicks.newPairs.slice(0, 5).map((pair, i) => (
                         <TopPickCard
                           key={`new-${i}`}
                           coin={pair}

@@ -1370,26 +1370,35 @@ async def scan_all_tokens(wallet_address: str):
 
 @router.get("/new-pairs")
 async def get_new_pairs():
-    """Get newly created pairs (potential runners) from Solana DEXes.
+    """Get recently created bonded pairs from Solana DEXes.
     
     Criteria for inclusion:
-    - Created within last 24-48 hours
-    - Minimum $10K liquidity
-    - Minimum $5K volume
-    - Bonded tokens (graduated from pump.fun to Raydium) are prioritized
-    - On supported platforms (Pump.fun, Raydium, Orca, Meteora)
+    - Bonded tokens only (on Raydium, Orca, or Meteora - NOT pump.fun)
+    - Created within last 14 days (336 hours)
+    - Minimum $15K liquidity
+    - Minimum $10K 24h volume
+    - Returns 5 most recent pairs meeting criteria
     """
     
     try:
         new_pairs = []
         seen_symbols = set()
+        skip_symbols = {"USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA", "JUP", "PYUSD", "USDG", 
+                       "BONK", "WIF", "POPCAT", "FARTCOIN", "AI16Z", "PNUT", "VIRTUAL", "GOAT",
+                       "MOODENG", "PEPE", "DOGE", "SHIB", "TRUMP", "MELANIA", "JTO", "W", "WEN"}
         
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            # Search for bonded tokens and new pairs on Solana
-            # "bonded" means graduated from pump.fun to Raydium
-            search_terms = ["raydium new", "pump bonded", "solana new", "pump"]
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Search for recent pairs on major DEXes with diverse terms
+            search_terms = [
+                "meme raydium", "sol meteora", "new raydium", "degen raydium", 
+                "pump raydium", "solana meme", "memecoin meteora", "cat raydium",
+                "dog raydium", "ai raydium", "trump raydium"
+            ]
             
             for term in search_terms:
+                if len(new_pairs) >= 15:  # Gather extras for filtering
+                    break
+                    
                 try:
                     resp = await client.get(
                         "https://api.dexscreener.com/latest/dex/search",
@@ -1410,13 +1419,9 @@ async def get_new_pairs():
                         base_token = pair.get("baseToken", {})
                         symbol = base_token.get("symbol", "?").upper()
                         
-                        # Skip duplicates and stablecoins
-                        if symbol in seen_symbols:
+                        # Skip duplicates and known tokens
+                        if symbol in seen_symbols or symbol in skip_symbols:
                             continue
-                        if symbol in ["USDC", "USDT", "SOL", "WSOL", "USD", "RAY", "ORCA", "JUP"]:
-                            continue
-                        
-                        seen_symbols.add(symbol)
                         
                         # Check metrics
                         volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
@@ -1426,74 +1431,74 @@ async def get_new_pairs():
                         pair_created_at = pair.get("pairCreatedAt")
                         dex_id = (pair.get("dexId", "") or "").lower()
                         
-                        # Check if pair is new (within 48 hours)
-                        age_hours = 999
-                        is_new = False
+                        # MUST be on a major DEX (bonded) - NOT pump.fun
+                        is_bonded = "raydium" in dex_id or "orca" in dex_id or "meteora" in dex_id
+                        if not is_bonded:
+                            continue
+                        
+                        # Check if pair is new (within 14 days / 336 hours)
+                        age_hours = 9999
                         if pair_created_at:
                             try:
                                 created_time = datetime.fromtimestamp(pair_created_at / 1000, tz=timezone.utc)
                                 age_hours = (datetime.now(timezone.utc) - created_time).total_seconds() / 3600
-                                is_new = age_hours < 48  # Extended to 48 hours to catch more tokens
                             except (ValueError, TypeError, OSError):
-                                is_new = False
+                                age_hours = 9999
                         
-                        # Check if bonded (on Raydium or other major DEX, not just pump.fun)
-                        is_bonded = "raydium" in dex_id or "orca" in dex_id or "meteora" in dex_id
+                        # Only include if created within 14 days
+                        if age_hours > 336:
+                            continue
+                        
+                        # Filter criteria: minimum liquidity and volume for bonded tokens
+                        if liquidity_usd < 15000 or volume_24h < 10000:
+                            continue
+                        
+                        # Skip if price is 0
+                        if price_usd <= 0:
+                            continue
+                        
+                        seen_symbols.add(symbol)
                         
                         # Determine platform
                         platform = "Unknown"
-                        if "pump" in dex_id:
-                            platform = "Pump.fun"
-                        elif "raydium" in dex_id:
+                        if "raydium" in dex_id:
                             platform = "Raydium"
                         elif "orca" in dex_id:
                             platform = "Orca"
                         elif "meteora" in dex_id:
                             platform = "Meteora"
                         
-                        # Filter criteria:
-                        # - Bonded tokens (on Raydium/Orca/Meteora) with good liquidity/volume
-                        # - OR new pump.fun tokens with high volume
-                        meets_criteria = (
-                            (is_bonded and liquidity_usd >= 15000 and volume_24h >= 10000) or
-                            (is_new and liquidity_usd >= 10000 and volume_24h >= 5000)
-                        )
+                        contract_address = base_token.get("address", "")
+                        pair_address = pair.get("pairAddress", "")
+                        dex_url = pair.get("url", "") or f"https://dexscreener.com/solana/{pair_address}"
                         
-                        if meets_criteria:
-                            contract_address = base_token.get("address", "")
-                            pair_address = pair.get("pairAddress", "")
-                            dex_url = pair.get("url", "") or f"https://dexscreener.com/solana/{pair_address}"
-                            
-                            # Risk level based on bonded status
-                            risk_level = "High" if is_bonded else "Extreme"
-                            
-                            new_pairs.append({
-                                "symbol": symbol,
-                                "name": base_token.get("name", symbol),
-                                "price": price_usd,
-                                "change_24h": price_change_24h,
-                                "volume_24h": volume_24h,
-                                "liquidity_usd": liquidity_usd,
-                                "platform": platform,
-                                "contract_address": contract_address,
-                                "pair_address": pair_address,
-                                "dex_url": dex_url,
-                                "age_hours": age_hours,
-                                "is_bonded": is_bonded,
-                                "risk_level": risk_level
-                            })
+                        new_pairs.append({
+                            "symbol": symbol,
+                            "name": base_token.get("name", symbol),
+                            "price": price_usd,
+                            "change_24h": price_change_24h,
+                            "volume_24h": volume_24h,
+                            "liquidity_usd": liquidity_usd,
+                            "platform": platform,
+                            "contract_address": contract_address,
+                            "pair_address": pair_address,
+                            "dex_url": dex_url,
+                            "age_hours": round(age_hours, 1),
+                            "is_bonded": True,
+                            "risk_level": "High"
+                        })
                             
                 except Exception as e:
                     logger.warning(f"Search for {term} failed: {e}")
                     continue
         
-        # Sort: bonded first, then by volume
-        new_pairs.sort(key=lambda x: (not x.get("is_bonded", False), -x["volume_24h"]))
+        # Sort by most recent (lowest age)
+        new_pairs.sort(key=lambda x: x.get("age_hours", 9999))
         
         return {
-            "pairs": new_pairs[:15],  # Return up to 15 pairs
-            "count": len(new_pairs[:15]),
-            "disclaimer": "New pairs are HIGH RISK. Bonded tokens have graduated from pump.fun but are still risky. Only trade what you can lose.",
+            "pairs": new_pairs[:5],  # Return exactly 5 pairs
+            "count": len(new_pairs[:5]),
+            "disclaimer": "New bonded pairs are HIGH RISK. These have graduated to major DEXes. Only trade what you can lose.",
             "generated_at": datetime.now(timezone.utc).isoformat()
         }
         
