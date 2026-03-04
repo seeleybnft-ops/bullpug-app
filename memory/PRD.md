@@ -251,6 +251,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **Connected Insights tab to logged trades via `/api/journal/trades/{wallet}/stats`**
 - [x] **Removed Top Picks tab from Journal AI Assistant**
 - [x] **Fixed ai_suggestions to read from correct `trading_journal` collection**
+- [x] **Renamed "AI Trading Bot" to "Bullpug Trading Bot" throughout**
+- [x] **Updated Trading Bot image to user-provided bull pug with glowing eyes**
+- [x] **Reordered Ecosystem section: My Journal, Origins, Bullpug AI Assistant, Bullpug Trading Bot, Cosmic Runner, P2P Arena**
+- [x] **Moved Recent Jackpot Winners below Ecosystem section**
+- [x] **Changed hero button from "Cosmic Runner" to "My Journal"**
+- [x] **Added 5-minute auto-scan feature for signals with countdown timer**
+- [x] **Added Quick Trade button on signal cards for one-click trading**
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet

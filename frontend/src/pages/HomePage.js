@@ -21,6 +21,8 @@ const IMAGES = {
   journal: "/images/journal-bullpug.jfif",
   aiAssistant: "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/sf7c7buf__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
   tradingBot: "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg",
+  origins: "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.02.50_rec.png",
+  arena: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/21uetroq__b0085b46-ef12-44f5-a395-fe4cf39e34bf.jfif",
 };
 
 const GALLERY = [
@@ -174,12 +176,15 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
+              { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
               { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
               { icon: <Bot size={18} />, title: "Bullpug Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.tradingBot, color: "#D946EF", isNew: true },
+              { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
+              { icon: <Zap size={18} />, title: "P2P Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.arena, color: "#00FFA3" },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''}`}>
-                  <div className="h-52 overflow-hidden relative">
+                  <div className="h-44 overflow-hidden relative">
                     <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />
                     {f.isNew && (
