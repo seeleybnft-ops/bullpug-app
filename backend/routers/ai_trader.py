@@ -32,7 +32,8 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
 # Jupiter API Configuration
-JUPITER_BASE_URL = "https://api.jup.ag"
+JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1"
+JUPITER_SWAP_URL = "https://lite-api.jup.ag/swap/v1"
 
 # Token Mint Addresses (Solana)
 TOKENS = {
@@ -370,7 +371,7 @@ async def get_jupiter_quote(
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
-                f"{JUPITER_BASE_URL}/swap/v1/quote",
+                f"{JUPITER_QUOTE_URL}/quote",
                 params={
                     "inputMint": input_mint,
                     "outputMint": output_mint,
@@ -381,7 +382,7 @@ async def get_jupiter_quote(
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.warning(f"Jupiter quote failed: {response.status_code}")
+                logger.warning(f"Jupiter quote failed: {response.status_code} - {response.text}")
                 return None
     except Exception as e:
         logger.error(f"Jupiter quote error: {e}")
@@ -804,6 +805,148 @@ async def get_swap_quote(
         raise HTTPException(status_code=503, detail="Unable to get quote from Jupiter")
     
     return quote
+
+
+@router.post("/swap-transaction")
+async def get_swap_transaction(
+    user_public_key: str,
+    input_mint: str,
+    output_mint: str,
+    amount_lamports: int,
+    slippage_bps: int = 100
+):
+    """Get serialized swap transaction from Jupiter for wallet signing.
+    
+    This endpoint:
+    1. Gets a quote from Jupiter
+    2. Requests the swap transaction data
+    3. Returns the serialized transaction for the frontend to sign
+    """
+    try:
+        # Step 1: Get quote
+        quote = await get_jupiter_quote(input_mint, output_mint, amount_lamports, slippage_bps)
+        if not quote:
+            raise HTTPException(status_code=503, detail="Unable to get quote from Jupiter")
+        
+        # Step 2: Get swap transaction
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            swap_response = await client.post(
+                f"{JUPITER_SWAP_URL}/swap",
+                json={
+                    "quoteResponse": quote,
+                    "userPublicKey": user_public_key,
+                    "wrapAndUnwrapSol": True,
+                    "dynamicComputeUnitLimit": True,
+                    "dynamicSlippage": True,
+                    "priorityLevelWithMaxLamports": {
+                        "maxLamports": 1000000,
+                        "priorityLevel": "medium"
+                    }
+                },
+                headers={"Accept": "application/json", "Content-Type": "application/json"}
+            )
+            
+            if swap_response.status_code != 200:
+                logger.error(f"Jupiter swap failed: {swap_response.status_code} - {swap_response.text}")
+                raise HTTPException(
+                    status_code=503, 
+                    detail=f"Jupiter swap request failed: {swap_response.text}"
+                )
+            
+            swap_data = swap_response.json()
+            
+            return {
+                "success": True,
+                "swapTransaction": swap_data.get("swapTransaction"),
+                "lastValidBlockHeight": swap_data.get("lastValidBlockHeight"),
+                "quote": {
+                    "inputMint": quote.get("inputMint"),
+                    "outputMint": quote.get("outputMint"),
+                    "inAmount": quote.get("inAmount"),
+                    "outAmount": quote.get("outAmount"),
+                    "priceImpactPct": quote.get("priceImpactPct"),
+                    "slippageBps": quote.get("slippageBps")
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Swap transaction error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to build swap transaction: {str(e)}")
+
+
+@router.post("/execute-swap")
+async def execute_swap_record(
+    wallet_address: str,
+    signal_id: str,
+    tx_signature: str,
+    input_amount: float,
+    output_amount: float
+):
+    """Record a completed swap execution after the user signs the transaction.
+    
+    Called by the frontend after successfully signing and submitting the transaction.
+    """
+    try:
+        # Find the signal
+        signal = await db.ai_trader_signals.find_one({"signal_id": signal_id})
+        if not signal:
+            raise HTTPException(status_code=404, detail="Signal not found")
+        
+        # Update execution record
+        await db.ai_trader_executions.update_one(
+            {"signal_id": signal_id},
+            {
+                "$set": {
+                    "status": "executed",
+                    "tx_signature": tx_signature,
+                    "executed_at": datetime.now(timezone.utc).isoformat(),
+                    "actual_input_amount": input_amount,
+                    "actual_output_amount": output_amount
+                }
+            }
+        )
+        
+        # Update signal status
+        await db.ai_trader_signals.update_one(
+            {"signal_id": signal_id},
+            {"$set": {"status": "executed"}}
+        )
+        
+        # Record in trade history
+        trade_record = {
+            "wallet_address": wallet_address,
+            "signal_id": signal_id,
+            "tx_signature": tx_signature,
+            "token_symbol": signal.get("token_symbol"),
+            "trade_type": signal.get("signal_type"),
+            "input_amount": input_amount,
+            "output_amount": output_amount,
+            "entry_price": signal.get("entry_price"),
+            "executed_at": datetime.now(timezone.utc).isoformat(),
+            "status": "open"
+        }
+        
+        await db.ai_trader_history.insert_one(trade_record)
+        
+        return {
+            "success": True,
+            "message": "Trade executed successfully",
+            "tx_signature": tx_signature,
+            "trade": {
+                "token": signal.get("token_symbol"),
+                "type": signal.get("signal_type"),
+                "input": input_amount,
+                "output": output_amount
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Execute swap record error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/scan-all/{wallet_address}")

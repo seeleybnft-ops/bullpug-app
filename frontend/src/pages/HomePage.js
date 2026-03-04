@@ -21,7 +21,7 @@ const IMAGES = {
   journal: "/images/journal-bullpug.jfif",
   aiAssistant: "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/sf7c7buf__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
   tradingBot: "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg",
-  origins: "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.02.50_rec.png",
+  origins: "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/0sush9lb_BULLPUG.jfif",
   arena: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/21uetroq__b0085b46-ef12-44f5-a395-fe4cf39e34bf.jfif",
 };
 

@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { VersionedTransaction } from "@solana/web3.js";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,6 +22,15 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TRADING_BOT_IMAGE = "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg";
 const AUTO_SCAN_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+// Token mint addresses
+const TOKENS = {
+  SOL: "So11111111111111111111111111111111111111112",
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+  WIF: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+};
+
 // Risk level colors
 const RISK_COLORS = {
   safer: { bg: "bg-[#00FFA3]/10", text: "text-[#00FFA3]", border: "border-[#00FFA3]/30" },
@@ -28,7 +38,8 @@ const RISK_COLORS = {
 };
 
 export default function AITrader() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const walletAddress = publicKey?.toString();
   const autoScanRef = useRef(null);
   const [nextScanIn, setNextScanIn] = useState(null);
@@ -246,35 +257,148 @@ export default function AITrader() {
     }
   };
 
-  // Quick Trade - Auto-approve and execute with pre-filled settings
-  const quickTrade = async (signal) => {
+  // Execute Jupiter Swap - Actually sign and submit the transaction
+  const executeJupiterSwap = async (signal) => {
+    if (!signTransaction || !connection) {
+      toast.error("Wallet not ready for signing");
+      return null;
+    }
+
     try {
+      const tokenMint = signal.token_mint || TOKENS[signal.token_symbol];
+      const solMint = TOKENS.SOL;
+      const amountLamports = Math.floor(signal.suggested_position_sol * 1e9);
+      
+      // Determine input/output based on buy/sell
+      const inputMint = signal.signal_type === "buy" ? solMint : tokenMint;
+      const outputMint = signal.signal_type === "buy" ? tokenMint : solMint;
+      
+      // Get swap transaction from backend
+      const { data: swapData } = await axios.post(`${API}/ai-trader/swap-transaction`, null, {
+        params: {
+          user_public_key: walletAddress,
+          input_mint: inputMint,
+          output_mint: outputMint,
+          amount_lamports: amountLamports,
+          slippage_bps: 100
+        }
+      });
+
+      if (!swapData.success || !swapData.swapTransaction) {
+        throw new Error("Failed to get swap transaction");
+      }
+
+      // Deserialize the transaction
+      const swapTransactionBuf = Buffer.from(swapData.swapTransaction, "base64");
+      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+      // Sign the transaction
+      const signedTransaction = await signTransaction(transaction);
+
+      // Send the signed transaction
+      const txSignature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        maxRetries: 3
+      });
+
+      // Wait for confirmation
+      const confirmation = await connection.confirmTransaction(txSignature, "confirmed");
+      
+      if (confirmation.value.err) {
+        throw new Error("Transaction failed on-chain");
+      }
+
+      return {
+        signature: txSignature,
+        inputAmount: amountLamports / 1e9,
+        outputAmount: parseFloat(swapData.quote.outAmount) / 1e9
+      };
+
+    } catch (err) {
+      console.error("Jupiter swap error:", err);
+      throw err;
+    }
+  };
+
+  // Quick Trade - Execute swap with wallet signing
+  const quickTrade = async (signal) => {
+    if (!signTransaction) {
+      toast.error("Wallet does not support transaction signing");
+      return;
+    }
+
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(
+        <div>
+          <p className="font-bold">Preparing Swap...</p>
+          <p className="text-sm">{signal.signal_type.toUpperCase()} {signal.token_symbol}</p>
+          <p className="text-xs text-slate-400">Please approve in your wallet</p>
+        </div>
+      );
+
       // First approve the signal
-      const { data } = await axios.post(`${API}/ai-trader/signals/approve`, {
+      await axios.post(`${API}/ai-trader/signals/approve`, {
         signal_id: signal.signal_id,
         wallet_address: walletAddress
       });
+
+      // Execute the swap
+      const result = await executeJupiterSwap(signal);
       
-      // Remove from pending signals
-      setSignals(prev => prev.filter(s => s.signal_id !== signal.signal_id));
-      
-      // Show success with trade details
-      toast.success(
-        <div>
-          <p className="font-bold">Quick Trade Initiated!</p>
-          <p className="text-sm">{signal.signal_type.toUpperCase()} {signal.token_symbol}</p>
-          <p className="text-sm">Position: {signal.suggested_position_sol} SOL</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Check your wallet to confirm the transaction
-          </p>
-        </div>,
-        { duration: 5000 }
-      );
-      
-      // Refresh data to show new position
-      fetchData();
+      toast.dismiss(loadingToast);
+
+      if (result) {
+        // Record the execution
+        await axios.post(`${API}/ai-trader/execute-swap`, null, {
+          params: {
+            wallet_address: walletAddress,
+            signal_id: signal.signal_id,
+            tx_signature: result.signature,
+            input_amount: result.inputAmount,
+            output_amount: result.outputAmount
+          }
+        });
+
+        // Remove from pending signals
+        setSignals(prev => prev.filter(s => s.signal_id !== signal.signal_id));
+
+        // Show success
+        toast.success(
+          <div>
+            <p className="font-bold text-[#00FFA3]">Trade Executed!</p>
+            <p className="text-sm">{signal.signal_type.toUpperCase()} {signal.token_symbol}</p>
+            <p className="text-xs">
+              <a 
+                href={`https://solscan.io/tx/${result.signature}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#00C2FF] hover:underline"
+              >
+                View on Solscan →
+              </a>
+            </p>
+          </div>,
+          { duration: 8000 }
+        );
+
+        // Refresh data
+        fetchData();
+      }
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Quick trade failed");
+      toast.dismiss();
+      const errorMsg = e.message || "Trade failed";
+      if (errorMsg.includes("User rejected")) {
+        toast.info("Transaction cancelled by user");
+      } else {
+        toast.error(
+          <div>
+            <p className="font-bold">Trade Failed</p>
+            <p className="text-xs">{errorMsg}</p>
+          </div>
+        );
+      }
     }
   };
 
