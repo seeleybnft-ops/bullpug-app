@@ -1342,11 +1342,40 @@ function PositionCard({ position, onQuickSell, onDelete }) {
   const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
   const [selling, setSelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [holdTime, setHoldTime] = useState("");
   const pnlColor = position.unrealized_pnl_pct >= 0 ? "#00FFA3" : "#FF6B6B";
   const pnlSol = position.unrealized_pnl_sol || 0;
   const pnlUsd = position.unrealized_pnl_usd || 0;
   const currentValueSol = position.current_value_sol || position.amount_sol || position.input_sol || 0;
   const currentValueUsd = position.current_value_usd || 0;
+  
+  // Calculate and update hold time
+  useEffect(() => {
+    const calculateHoldTime = () => {
+      const createdAt = new Date(position.created_at);
+      const now = new Date();
+      const diffMs = now - createdAt;
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+      
+      if (days > 0) {
+        setHoldTime(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setHoldTime(`${hours}h ${minutes}m ${seconds}s`);
+      } else if (minutes > 0) {
+        setHoldTime(`${minutes}m ${seconds}s`);
+      } else {
+        setHoldTime(`${seconds}s`);
+      }
+    };
+    
+    calculateHoldTime();
+    const interval = setInterval(calculateHoldTime, 1000);
+    return () => clearInterval(interval);
+  }, [position.created_at]);
   
   const handleQuickSell = async () => {
     if (sellAmount <= 0) return;
@@ -1456,6 +1485,26 @@ function PositionCard({ position, onQuickSell, onDelete }) {
             {currentValueSol.toFixed(4)} SOL <span className="text-slate-500">(${currentValueUsd.toFixed(2)})</span>
           </p>
         </div>
+      </div>
+      
+      {/* Hold Time Display */}
+      <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs">
+          <Timer className="w-4 h-4 text-[#D946EF]" />
+          <span className="text-slate-400">Holding for:</span>
+          <span className="font-mono text-[#D946EF] font-medium">{holdTime}</span>
+        </div>
+        {position.token_mint && (
+          <a
+            href={`https://dexscreener.com/solana/${position.token_mint}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-[#00C2FF] hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" />
+            DexScreener
+          </a>
+        )}
       </div>
       
       {/* Quick Sell Input */}
