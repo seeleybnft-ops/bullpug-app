@@ -283,6 +283,8 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Scans for empty token accounts and displays reclaimable SOL
   - Backend endpoint `/api/pugburn/scan/{wallet}` uses Solana RPC
   - Sol-Incinerator API key stored securely in backend/.env
+  - Supports both SPL Token and Token-2022 program accounts
+  - Backend RPC proxy for reliable transaction submission
 - [x] **Enhanced P/L Display in Positions Tab**
   - Shows unrealized P/L in percentage, SOL, and USD
   - Displays entry price, current price, and current value
@@ -291,6 +293,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Position removed immediately from UI (optimistic update)
   - Uses setPositions() filter before API call completes
   - No page refresh required after selling
+- [x] **Tokens Tab Enhancement (December 2025)**
+  - Fixed to display 15 pairs total: 5 Safe, 5 Volatile, 5 New Pairs
+  - New Pairs now only shows BONDED tokens (graduated to Raydium/Orca/Meteora)
+  - Excludes pump.fun tokens - must be on major DEXes
+  - Criteria: Created within 14 days, min $15K liquidity, min $10K volume
+  - Backend endpoint `/api/ai-trader/new-pairs` returns bonded pairs only
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
