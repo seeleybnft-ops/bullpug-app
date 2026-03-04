@@ -245,6 +245,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] AI Trader nav link has purple highlight with Bot icon
 - [x] Mobile navigation includes AI Trader link
 - [x] All AI Trader backend endpoints verified working
+- [x] **Moved "Top Picks" from Bullpug AI (Journal) to AI Trading Bot "Tokens" tab**
+- [x] **TopPickCard component with Copy CA button, DEX Trade link, Analyze button**
+- [x] **New `/api/ai-trader/new-pairs` endpoint for potential runners (new pairs <24h)**
+- [x] **Connected Insights tab to logged trades via `/api/journal/trades/{wallet}/stats`**
+- [x] **Removed Top Picks tab from Journal AI Assistant**
+- [x] **Fixed ai_suggestions to read from correct `trading_journal` collection**
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
