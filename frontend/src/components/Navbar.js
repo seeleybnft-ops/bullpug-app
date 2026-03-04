@@ -57,7 +57,7 @@ export default function Navbar() {
     { name: "Journal", path: "/journal" },
     { name: t('nav.game') || "Game", path: "/game" },
     { name: t('nav.arena') || "Arena", path: "/betting" },
-    { name: "AI Trader", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, special: true },
+    { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, special: true },
   ];
 
   return (

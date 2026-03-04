@@ -1,9 +1,9 @@
 /**
- * AI Trading Bot Page - Bullpug AI Agent
- * Semi-automated trading with user approval
+ * Bullpug Trading Bot Page - Semi-automated trading with AI signals
+ * Features: Auto-scan every 5 minutes, Quick Trade, Jupiter integration
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,12 @@ import {
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
-  Rocket, CheckCircle, AlertCircle
+  Rocket, CheckCircle, AlertCircle, Timer
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const TRADING_BOT_IMAGE = "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg";
+const AUTO_SCAN_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Risk level colors
 const RISK_COLORS = {
@@ -28,6 +30,8 @@ const RISK_COLORS = {
 export default function AITrader() {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toString();
+  const autoScanRef = useRef(null);
+  const [nextScanIn, setNextScanIn] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
@@ -41,6 +45,7 @@ export default function AITrader() {
   const [activeTab, setActiveTab] = useState("signals");
   const [showSettings, setShowSettings] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
   
   // Top Picks state (moved from Bullpug AI)
   const [topPicks, setTopPicks] = useState({ safe: [], volatile: [], newPairs: [] });
@@ -134,12 +139,50 @@ export default function AITrader() {
     };
   }, [fetchData, fetchTopPicks]);
 
+  // Auto-scan every 5 minutes when enabled and disclaimer accepted
+  useEffect(() => {
+    if (!disclaimerAccepted || !walletAddress || !autoScanEnabled) {
+      if (autoScanRef.current) {
+        clearInterval(autoScanRef.current);
+        autoScanRef.current = null;
+      }
+      setNextScanIn(null);
+      return;
+    }
+
+    // Start countdown timer
+    let countdown = AUTO_SCAN_INTERVAL / 1000;
+    setNextScanIn(countdown);
+    
+    const countdownInterval = setInterval(() => {
+      countdown -= 1;
+      if (countdown <= 0) {
+        countdown = AUTO_SCAN_INTERVAL / 1000;
+      }
+      setNextScanIn(countdown);
+    }, 1000);
+
+    // Auto-scan interval
+    autoScanRef.current = setInterval(() => {
+      if (!scanning) {
+        scanMarkets();
+      }
+    }, AUTO_SCAN_INTERVAL);
+
+    return () => {
+      clearInterval(countdownInterval);
+      if (autoScanRef.current) {
+        clearInterval(autoScanRef.current);
+      }
+    };
+  }, [disclaimerAccepted, walletAddress, autoScanEnabled, scanning]);
+
   // Accept disclaimer
   const acceptDisclaimer = () => {
     setDisclaimerAccepted(true);
     setShowDisclaimer(false);
     localStorage.setItem(`ai_trader_disclaimer_${walletAddress}`, "true");
-    toast.success("Disclaimer accepted - AI Trader enabled");
+    toast.success("Disclaimer accepted - Bullpug Trading Bot enabled");
   };
 
   // Save settings
@@ -203,18 +246,50 @@ export default function AITrader() {
     }
   };
 
+  // Quick Trade - Auto-approve and execute with pre-filled settings
+  const quickTrade = async (signal) => {
+    try {
+      // First approve the signal
+      const { data } = await axios.post(`${API}/ai-trader/signals/approve`, {
+        signal_id: signal.signal_id,
+        wallet_address: walletAddress
+      });
+      
+      // Remove from pending signals
+      setSignals(prev => prev.filter(s => s.signal_id !== signal.signal_id));
+      
+      // Show success with trade details
+      toast.success(
+        <div>
+          <p className="font-bold">Quick Trade Initiated!</p>
+          <p className="text-sm">{signal.signal_type.toUpperCase()} {signal.token_symbol}</p>
+          <p className="text-sm">Position: {signal.suggested_position_sol} SOL</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Check your wallet to confirm the transaction
+          </p>
+        </div>,
+        { duration: 5000 }
+      );
+      
+      // Refresh data to show new position
+      fetchData();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Quick trade failed");
+    }
+  };
+
   if (!connected) {
     return (
       <div className="min-h-screen bg-[#0A0A0F] text-white pt-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center">
-            <Bot className="w-14 h-14 text-white" />
+          <div className="w-28 h-28 mx-auto mb-6 rounded-2xl overflow-hidden shadow-lg shadow-[#D946EF]/30">
+            <img src={TRADING_BOT_IMAGE} alt="Bullpug Trading Bot" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Orbitron' }}>
-            AI Trading Bot
+            Bullpug Trading Bot
           </h1>
           <p className="text-slate-400 mb-8 max-w-md mx-auto">
-            Connect your wallet to access the Bullpug AI Trading Agent. 
+            Connect your wallet to access the Bullpug Trading Bot. 
             Get AI-powered trading signals with technical analysis.
           </p>
           <Link to="/">
@@ -227,25 +302,39 @@ export default function AITrader() {
     );
   }
 
+  // Format countdown timer
+  const formatCountdown = (seconds) => {
+    if (!seconds) return "";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-white pt-20 pb-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#00FFA3] flex items-center justify-center shadow-lg shadow-[#D946EF]/20">
-              <Bot className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg shadow-[#D946EF]/20">
+              <img src={TRADING_BOT_IMAGE} alt="Bullpug Trading Bot" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2" style={{ fontFamily: 'Orbitron' }}>
-                AI Trading Bot
+                Bullpug Trading Bot
                 <span className="px-2 py-0.5 text-[10px] bg-[#D946EF]/20 text-[#D946EF] rounded-full font-normal">BETA</span>
               </h1>
               <p className="text-sm text-slate-400 flex items-center gap-2">
-                Bullpug AI Agent • Semi-Automated
+                Semi-Automated Trading
                 {lastScan && (
                   <span className="text-xs text-slate-500">
                     • Last scan: {lastScan.toLocaleTimeString()}
+                  </span>
+                )}
+                {autoScanEnabled && nextScanIn && (
+                  <span className="text-xs text-[#00FFA3] flex items-center gap-1">
+                    <Timer className="w-3 h-3" />
+                    Next: {formatCountdown(nextScanIn)}
                   </span>
                 )}
               </p>
@@ -253,6 +342,16 @@ export default function AITrader() {
           </div>
           
           <div className="flex gap-3">
+            {/* Auto-scan toggle */}
+            <Button
+              onClick={() => setAutoScanEnabled(!autoScanEnabled)}
+              variant="outline"
+              className={`border-white/20 ${autoScanEnabled ? 'text-[#00FFA3] border-[#00FFA3]/30' : 'text-slate-500'}`}
+              data-testid="auto-scan-toggle"
+              title={autoScanEnabled ? "Auto-scan enabled (5 min)" : "Auto-scan disabled"}
+            >
+              {autoScanEnabled ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+            </Button>
             <Button
               onClick={() => setShowSettings(true)}
               variant="outline"
@@ -273,7 +372,7 @@ export default function AITrader() {
               ) : (
                 <Zap className="w-4 h-4 mr-2" />
               )}
-              {scanning ? "Scanning..." : "Scan Markets"}
+              {scanning ? "Scanning..." : "Scan Now"}
             </Button>
           </div>
         </div>
@@ -428,6 +527,7 @@ export default function AITrader() {
                       signal={signal}
                       onApprove={() => approveSignal(signal.signal_id)}
                       onReject={() => rejectSignal(signal.signal_id)}
+                      onQuickTrade={quickTrade}
                     />
                   ))
                 )}
@@ -671,12 +771,19 @@ function StatCard({ icon, label, value, color, testId }) {
   );
 }
 
-function SignalCard({ signal, onApprove, onReject }) {
+function SignalCard({ signal, onApprove, onReject, onQuickTrade }) {
   const [expanded, setExpanded] = useState(false);
-  const riskColors = RISK_COLORS[signal.risk_category];
+  const [quickTrading, setQuickTrading] = useState(false);
+  const riskColors = RISK_COLORS[signal.risk_category] || RISK_COLORS.safer;
+  
+  const handleQuickTrade = async () => {
+    setQuickTrading(true);
+    await onQuickTrade(signal);
+    setQuickTrading(false);
+  };
   
   return (
-    <div className={`bg-white/5 rounded-2xl p-5 border ${riskColors.border}`}>
+    <div className={`bg-white/5 rounded-2xl p-5 border ${riskColors.border}`} data-testid={`signal-${signal.signal_id}`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
@@ -711,16 +818,32 @@ function SignalCard({ signal, onApprove, onReject }) {
             variant="outline"
             size="sm"
             className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10"
+            data-testid={`reject-signal-${signal.signal_id}`}
           >
             <X className="w-4 h-4" />
           </Button>
           <Button
             onClick={onApprove}
             size="sm"
-            className="bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
+            className="bg-white/10 text-white hover:bg-white/20"
+            data-testid={`approve-signal-${signal.signal_id}`}
           >
             <Check className="w-4 h-4 mr-1" />
             Approve
+          </Button>
+          <Button
+            onClick={handleQuickTrade}
+            disabled={quickTrading}
+            size="sm"
+            className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] text-white hover:opacity-90"
+            data-testid={`quick-trade-${signal.signal_id}`}
+          >
+            {quickTrading ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4 mr-1" />
+            )}
+            Quick Trade
           </Button>
         </div>
       </div>

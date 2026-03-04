@@ -20,7 +20,7 @@ const IMAGES = {
   maid: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/2sae826h_25.10.2024_17.06.12_REC.png",
   journal: "/images/journal-bullpug.jfif",
   aiAssistant: "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/sf7c7buf__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
-  aiTrader: "https://static.prod-images.emergentagent.com/jobs/eece36b0-bd7c-41e3-9663-864558bfa54c/images/10c51c75f771386ee3daf99c1093bfe14d32949443b7f3cbb1928d29c4fcbf5c.png",
+  tradingBot: "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg",
 };
 
 const GALLERY = [
@@ -89,9 +89,9 @@ export default function HomePage() {
               Meet Bullpug, the fearless and loyal guardian of the Memecoin Universe. Born from a cosmic mix-up when the stars of the Bull constellation collided with the energy of a pug-shaped nebula.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link to="/game">
-                <Button data-testid="hero-game-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
-                  <Gamepad2 className="w-4 h-4 mr-2" /> Cosmic Runner
+              <Link to="/journal">
+                <Button data-testid="hero-journal-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
+                  <BarChart3 className="w-4 h-4 mr-2" /> My Journal
                 </Button>
               </Link>
             </div>
@@ -106,9 +106,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* RECENT JACKPOT WINNERS */}
-      <RecentWinners />
 
       {/* MARKET DASHBOARD */}
       <section className="py-12 md:py-16" data-testid="market-dashboard-section">
@@ -168,23 +165,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* FEATURES / ECOSYSTEM */}
       <section className="py-24 md:py-32" data-testid="features-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-16" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             <span className="text-[#00FFA3]">Ecosystem</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: <Bot size={18} />, title: "AI Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.aiTrader, color: "#D946EF", isNew: true },
               { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
               { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
-              { icon: <Gamepad2 size={18} />, title: "Speed Run Game", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
-              { icon: <Zap size={18} />, title: "Betting Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.trader, color: "#00FFA3" },
+              { icon: <Bot size={18} />, title: "Bullpug Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.tradingBot, color: "#D946EF", isNew: true },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''}`}>
-                  <div className="h-44 overflow-hidden relative">
+                  <div className="h-52 overflow-hidden relative">
                     <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />
                     {f.isNew && (
@@ -206,6 +201,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* RECENT JACKPOT WINNERS - Moved below Ecosystem */}
+      <RecentWinners />
 
       {/* TOKENOMICS */}
       <section className="py-24 md:py-32" data-testid="tokenomics-section">
