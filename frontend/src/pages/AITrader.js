@@ -140,12 +140,9 @@ export default function AITrader() {
   useEffect(() => {
     fetchData();
     fetchTopPicks();
-    // Refresh data every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    // Refresh top picks every hour
+    // Only refresh top picks periodically (every hour), no auto-refresh for main data
     const topPicksInterval = setInterval(fetchTopPicks, 3600000);
     return () => {
-      clearInterval(interval);
       clearInterval(topPicksInterval);
     };
   }, [fetchData, fetchTopPicks]);
@@ -955,8 +952,8 @@ export default function AITrader() {
                                   toast.error("Please accept the disclaimer first");
                                   return;
                                 }
+                                const loadingToast = toast.loading(`Analyzing ${coin.symbol}...`);
                                 try {
-                                  setScanning(true);
                                   const params = new URLSearchParams({
                                     wallet_address: walletAddress,
                                     ...(coin.contract_address && { contract_address: coin.contract_address })
@@ -964,6 +961,7 @@ export default function AITrader() {
                                   const { data } = await axios.post(
                                     `${API}/ai-trader/analyze/${coin.symbol}?${params}`
                                   );
+                                  toast.dismiss(loadingToast);
                                   if (data.signal) {
                                     toast.success(`Signal generated for ${coin.symbol}`);
                                     setSignals(prev => [data.signal, ...prev]);
@@ -972,9 +970,9 @@ export default function AITrader() {
                                     toast.info(data.message || "No strong signal detected");
                                   }
                                 } catch (e) {
+                                  toast.dismiss(loadingToast);
                                   toast.error(e.response?.data?.message || "Failed to analyze token");
                                 }
-                                setScanning(false);
                               }}
                             />
                           ))
@@ -1005,8 +1003,8 @@ export default function AITrader() {
                                   toast.error("Please accept the disclaimer first");
                                   return;
                                 }
+                                const loadingToast = toast.loading(`Analyzing ${coin.symbol}...`);
                                 try {
-                                  setScanning(true);
                                   const params = new URLSearchParams({
                                     wallet_address: walletAddress,
                                     ...(coin.contract_address && { contract_address: coin.contract_address })
@@ -1014,6 +1012,7 @@ export default function AITrader() {
                                   const { data } = await axios.post(
                                     `${API}/ai-trader/analyze/${coin.symbol}?${params}`
                                   );
+                                  toast.dismiss(loadingToast);
                                   if (data.signal) {
                                     toast.success(`Signal generated for ${coin.symbol}`);
                                     setSignals(prev => [data.signal, ...prev]);
@@ -1022,9 +1021,9 @@ export default function AITrader() {
                                     toast.info(data.message || "No strong signal detected");
                                   }
                                 } catch (e) {
+                                  toast.dismiss(loadingToast);
                                   toast.error(e.response?.data?.message || "Failed to analyze token");
                                 }
-                                setScanning(false);
                               }}
                             />
                           ))
@@ -1060,8 +1059,8 @@ export default function AITrader() {
                               toast.error("Please accept the disclaimer first");
                               return;
                             }
+                            const loadingToast = toast.loading(`Analyzing ${pair.symbol}...`);
                             try {
-                              setScanning(true);
                               const params = new URLSearchParams({
                                 wallet_address: walletAddress,
                                 ...(pair.contract_address && { contract_address: pair.contract_address })
@@ -1069,6 +1068,7 @@ export default function AITrader() {
                               const { data } = await axios.post(
                                 `${API}/ai-trader/analyze/${pair.symbol}?${params}`
                               );
+                              toast.dismiss(loadingToast);
                               if (data.signal) {
                                 toast.success(`Signal generated for ${pair.symbol}`);
                                 setSignals(prev => [data.signal, ...prev]);
@@ -1077,9 +1077,9 @@ export default function AITrader() {
                                 toast.info(data.message || "No strong signal detected");
                               }
                             } catch (e) {
+                              toast.dismiss(loadingToast);
                               toast.error(e.response?.data?.message || "Failed to analyze token");
                             }
-                            setScanning(false);
                           }}
                         />
                       ))}
