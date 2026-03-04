@@ -258,6 +258,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **Changed hero button from "Cosmic Runner" to "My Journal"**
 - [x] **Added 5-minute auto-scan feature for signals with countdown timer**
 - [x] **Added Quick Trade button on signal cards for one-click trading**
+- [x] **P1 COMPLETE: Jupiter DEX swap execution with wallet signing**
+- [x] **New `/api/ai-trader/swap-transaction` endpoint using Jupiter lite-api**
+- [x] **New `/api/ai-trader/execute-swap` endpoint to record completed trades**
+- [x] **Frontend Quick Trade executes real swaps via Jupiter with wallet signature**
+- [x] **Updated Origins image to flying bullpug with horns**
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
