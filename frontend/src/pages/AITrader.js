@@ -15,7 +15,7 @@ import {
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
-  Rocket, CheckCircle, AlertCircle, Timer
+  Rocket, CheckCircle, AlertCircle, Timer, Trash2
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -489,6 +489,31 @@ export default function AITrader() {
     }
   };
 
+  // Delete/Remove position (doesn't sell, just removes from tracking)
+  const deletePosition = async (position) => {
+    const positionId = position.execution_id || position.position_id;
+    
+    try {
+      await axios.delete(`${API}/ai-trader/delete-position`, {
+        params: {
+          wallet_address: walletAddress,
+          position_id: positionId
+        }
+      });
+      
+      // Remove from UI immediately
+      setPositions(prev => prev.filter(p => 
+        (p.execution_id || p.position_id) !== positionId
+      ));
+      
+      toast.success(`${position.token_symbol} position removed`);
+    } catch (e) {
+      console.error("Delete position error:", e);
+      toast.error("Failed to remove position");
+    }
+  };
+
+
   // Quick Buy from Tokens tab - Buy token directly
   const quickBuyToken = async (coin, buyAmountSol) => {
     if (!signTransaction) {
@@ -844,6 +869,7 @@ export default function AITrader() {
                       key={pos.execution_id || pos.position_id} 
                       position={pos} 
                       onQuickSell={quickSell}
+                      onDelete={deletePosition}
                     />
                   ))
                 )}
@@ -1299,10 +1325,11 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   );
 }
 
-function PositionCard({ position, onQuickSell }) {
+function PositionCard({ position, onQuickSell, onDelete }) {
   const [showSellInput, setShowSellInput] = useState(false);
   const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
   const [selling, setSelling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const pnlColor = position.unrealized_pnl_pct >= 0 ? "#00FFA3" : "#FF6B6B";
   const pnlSol = position.unrealized_pnl_sol || 0;
   const pnlUsd = position.unrealized_pnl_usd || 0;
@@ -1315,6 +1342,15 @@ function PositionCard({ position, onQuickSell }) {
     await onQuickSell(position, sellAmount);
     setSelling(false);
     setShowSellInput(false);
+  };
+  
+  const handleDelete = async () => {
+    if (!window.confirm(`Remove ${position.token_symbol} position? This won't sell the token, just removes it from tracking.`)) {
+      return;
+    }
+    setDeleting(true);
+    await onDelete(position);
+    setDeleting(false);
   };
   
   return (
@@ -1353,15 +1389,26 @@ function PositionCard({ position, onQuickSell }) {
             </div>
           </div>
           
-          <Button
-            onClick={() => setShowSellInput(!showSellInput)}
-            size="sm"
-            className="bg-[#FF6B6B]/20 text-[#FF6B6B] hover:bg-[#FF6B6B]/30"
-            data-testid={`sell-btn-${position.token_symbol}`}
-          >
-            <TrendingDown className="w-4 h-4 mr-1" />
-            Sell
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowSellInput(!showSellInput)}
+              size="sm"
+              className="bg-[#FF6B6B]/20 text-[#FF6B6B] hover:bg-[#FF6B6B]/30"
+              data-testid={`sell-btn-${position.token_symbol}`}
+            >
+              <TrendingDown className="w-4 h-4 mr-1" />
+              Sell
+            </Button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-[#FF6B6B] transition-colors"
+              title="Remove position (won't sell)"
+              data-testid={`delete-btn-${position.token_symbol}`}
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -1422,34 +1469,90 @@ function PositionCard({ position, onQuickSell }) {
 }
 
 function TradeHistoryCard({ trade }) {
-  const isProfitable = trade.pnl_sol > 0;
+  const isProfitable = (trade.pnl_sol || 0) > 0;
+  const isSell = trade.trade_type === "sell";
+  const pnlSol = trade.pnl_sol || trade.realized_pnl_sol || 0;
+  const pnlPct = trade.pnl_pct || trade.realized_pnl_pct || 0;
+  const inputSol = trade.input_sol || trade.amount_sol || 0;
+  const receivedSol = trade.received_sol || trade.output_amount || 0;
   
   return (
-    <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-          isProfitable ? "bg-[#00FFA3]/20" : "bg-[#FF6B6B]/20"
-        }`}>
-          {isProfitable ? (
-            <TrendingUp className="w-4 h-4 text-[#00FFA3]" />
-          ) : (
-            <TrendingDown className="w-4 h-4 text-[#FF6B6B]" />
-          )}
+    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            isSell 
+              ? (isProfitable ? "bg-[#00FFA3]/20" : "bg-[#FF6B6B]/20")
+              : "bg-[#00C2FF]/20"
+          }`}>
+            {isSell ? (
+              isProfitable ? <TrendingUp className="w-5 h-5 text-[#00FFA3]" /> : <TrendingDown className="w-5 h-5 text-[#FF6B6B]" />
+            ) : (
+              <ArrowRight className="w-5 h-5 text-[#00C2FF]" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-bold">{trade.token_symbol}</p>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-semibold ${
+                isSell ? "bg-[#FF6B6B]/20 text-[#FF6B6B]" : "bg-[#00C2FF]/20 text-[#00C2FF]"
+              }`}>
+                {isSell ? "SOLD" : "BUY"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {new Date(trade.executed_at || trade.created_at).toLocaleString()}
+            </p>
+          </div>
         </div>
+        
+        {isSell && (
+          <div className="text-right">
+            <p className={`font-mono font-bold text-lg ${isProfitable ? "text-[#00FFA3]" : "text-[#FF6B6B]"}`}>
+              {isProfitable ? "+" : ""}{pnlPct.toFixed(2)}%
+            </p>
+            <p className={`text-sm font-mono ${isProfitable ? "text-[#00FFA3]" : "text-[#FF6B6B]"}`}>
+              {isProfitable ? "+" : ""}{pnlSol.toFixed(4)} SOL
+            </p>
+          </div>
+        )}
+      </div>
+      
+      {/* Trade details */}
+      <div className="grid grid-cols-3 gap-4 text-xs pt-3 border-t border-white/5">
         <div>
-          <p className="font-medium">{trade.token_symbol}</p>
-          <p className="text-xs text-slate-500">
-            {new Date(trade.created_at).toLocaleDateString()}
+          <p className="text-slate-500">{isSell ? "Sold" : "Invested"}</p>
+          <p className="font-mono text-white">{inputSol.toFixed(4)} SOL</p>
+        </div>
+        {isSell && (
+          <div>
+            <p className="text-slate-500">Received</p>
+            <p className="font-mono text-white">{receivedSol.toFixed(4)} SOL</p>
+          </div>
+        )}
+        <div>
+          <p className="text-slate-500">Status</p>
+          <p className={`font-semibold ${
+            trade.status === "open" ? "text-[#00C2FF]" : 
+            trade.status === "closed" ? "text-[#00FFA3]" : "text-slate-400"
+          }`}>
+            {trade.status === "open" ? "Open" : trade.status === "closed" ? "Closed" : trade.status}
           </p>
         </div>
       </div>
       
-      <div className="text-right">
-        <p className={`font-mono ${isProfitable ? "text-[#00FFA3]" : "text-[#FF6B6B]"}`}>
-          {isProfitable ? "+" : ""}{trade.pnl_sol?.toFixed(4)} SOL
-        </p>
-        <p className="text-xs text-slate-500">{trade.status}</p>
-      </div>
+      {/* Transaction link */}
+      {trade.tx_signature && (
+        <a 
+          href={`https://solscan.io/tx/${trade.tx_signature}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 pt-3 border-t border-white/5 flex items-center gap-1 text-xs text-[#00C2FF] hover:underline"
+        >
+          <ExternalLink className="w-3 h-3" />
+          View on Solscan
+        </a>
+      )}
     </div>
   );
 }

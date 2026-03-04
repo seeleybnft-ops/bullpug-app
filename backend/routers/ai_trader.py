@@ -1223,6 +1223,48 @@ async def close_position(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/delete-position")
+async def delete_position(
+    wallet_address: str,
+    position_id: str
+):
+    """Manually delete/remove a position without selling (for cleanup purposes)."""
+    try:
+        # Find and delete from positions collection
+        result = await db.ai_trader_positions.delete_one({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"position_id": position_id},
+                {"execution_id": position_id}
+            ]
+        })
+        
+        # Also try executions collection
+        if result.deleted_count == 0:
+            result = await db.ai_trader_executions.delete_one({
+                "wallet_address": wallet_address,
+                "execution_id": position_id,
+                "status": "open"
+            })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Position not found")
+        
+        return {
+            "success": True,
+            "message": "Position removed",
+            "position_id": position_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete position error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
 @router.get("/scan-all/{wallet_address}")
 async def scan_all_tokens(wallet_address: str):
     """Scan all available tokens and return any signals.
