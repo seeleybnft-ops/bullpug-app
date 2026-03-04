@@ -649,7 +649,6 @@ export default function AITrader() {
                     <SignalCard
                       key={signal.signal_id}
                       signal={signal}
-                      onApprove={() => approveSignal(signal.signal_id)}
                       onReject={() => rejectSignal(signal.signal_id)}
                       onQuickTrade={quickTrade}
                     />
@@ -754,8 +753,12 @@ export default function AITrader() {
                                 }
                                 try {
                                   setScanning(true);
+                                  const params = new URLSearchParams({
+                                    wallet_address: walletAddress,
+                                    ...(coin.contract_address && { contract_address: coin.contract_address })
+                                  });
                                   const { data } = await axios.post(
-                                    `${API}/ai-trader/analyze/${coin.symbol}?wallet_address=${walletAddress}`
+                                    `${API}/ai-trader/analyze/${coin.symbol}?${params}`
                                   );
                                   if (data.signal) {
                                     toast.success(`Signal generated for ${coin.symbol}`);
@@ -765,7 +768,7 @@ export default function AITrader() {
                                     toast.info(data.message || "No strong signal detected");
                                   }
                                 } catch (e) {
-                                  toast.error("Failed to analyze token");
+                                  toast.error(e.response?.data?.message || "Failed to analyze token");
                                 }
                                 setScanning(false);
                               }}
@@ -799,8 +802,12 @@ export default function AITrader() {
                                 }
                                 try {
                                   setScanning(true);
+                                  const params = new URLSearchParams({
+                                    wallet_address: walletAddress,
+                                    ...(coin.contract_address && { contract_address: coin.contract_address })
+                                  });
                                   const { data } = await axios.post(
-                                    `${API}/ai-trader/analyze/${coin.symbol}?wallet_address=${walletAddress}`
+                                    `${API}/ai-trader/analyze/${coin.symbol}?${params}`
                                   );
                                   if (data.signal) {
                                     toast.success(`Signal generated for ${coin.symbol}`);
@@ -810,7 +817,7 @@ export default function AITrader() {
                                     toast.info(data.message || "No strong signal detected");
                                   }
                                 } catch (e) {
-                                  toast.error("Failed to analyze token");
+                                  toast.error(e.response?.data?.message || "Failed to analyze token");
                                 }
                                 setScanning(false);
                               }}
@@ -849,8 +856,12 @@ export default function AITrader() {
                             }
                             try {
                               setScanning(true);
+                              const params = new URLSearchParams({
+                                wallet_address: walletAddress,
+                                ...(pair.contract_address && { contract_address: pair.contract_address })
+                              });
                               const { data } = await axios.post(
-                                `${API}/ai-trader/analyze/${pair.symbol}?wallet_address=${walletAddress}`
+                                `${API}/ai-trader/analyze/${pair.symbol}?${params}`
                               );
                               if (data.signal) {
                                 toast.success(`Signal generated for ${pair.symbol}`);
@@ -860,7 +871,7 @@ export default function AITrader() {
                                 toast.info(data.message || "No strong signal detected");
                               }
                             } catch (e) {
-                              toast.error("Failed to analyze token");
+                              toast.error(e.response?.data?.message || "Failed to analyze token");
                             }
                             setScanning(false);
                           }}
@@ -895,14 +906,16 @@ function StatCard({ icon, label, value, color, testId }) {
   );
 }
 
-function SignalCard({ signal, onApprove, onReject, onQuickTrade }) {
+function SignalCard({ signal, onReject, onQuickTrade }) {
   const [expanded, setExpanded] = useState(false);
   const [quickTrading, setQuickTrading] = useState(false);
+  const [positionSol, setPositionSol] = useState(signal.suggested_position_sol);
   const riskColors = RISK_COLORS[signal.risk_category] || RISK_COLORS.safer;
   
   const handleQuickTrade = async () => {
     setQuickTrading(true);
-    await onQuickTrade(signal);
+    // Pass the custom position to the trade function
+    await onQuickTrade({ ...signal, suggested_position_sol: positionSol });
     setQuickTrading(false);
   };
   
@@ -947,17 +960,8 @@ function SignalCard({ signal, onApprove, onReject, onQuickTrade }) {
             <X className="w-4 h-4" />
           </Button>
           <Button
-            onClick={onApprove}
-            size="sm"
-            className="bg-white/10 text-white hover:bg-white/20"
-            data-testid={`approve-signal-${signal.signal_id}`}
-          >
-            <Check className="w-4 h-4 mr-1" />
-            Approve
-          </Button>
-          <Button
             onClick={handleQuickTrade}
-            disabled={quickTrading}
+            disabled={quickTrading || positionSol <= 0}
             size="sm"
             className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] text-white hover:opacity-90"
             data-testid={`quick-trade-${signal.signal_id}`}
@@ -986,8 +990,20 @@ function SignalCard({ signal, onApprove, onReject, onQuickTrade }) {
           <p className="font-mono text-[#00FFA3]">${signal.take_profit_price < 0.01 ? signal.take_profit_price.toFixed(8) : signal.take_profit_price.toFixed(4)}</p>
         </div>
         <div>
-          <p className="text-slate-500">Position</p>
-          <p className="font-mono">{signal.suggested_position_sol} SOL</p>
+          <p className="text-slate-500 mb-1">Position (SOL)</p>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              value={positionSol}
+              onChange={(e) => setPositionSol(Math.max(0.01, parseFloat(e.target.value) || 0))}
+              step="0.01"
+              min="0.01"
+              max="10"
+              className="w-20 bg-white/10 border border-white/20 rounded px-2 py-1 text-sm font-mono text-white focus:border-[#00FFA3] focus:outline-none"
+              data-testid={`position-input-${signal.signal_id}`}
+            />
+            <span className="text-slate-500 text-xs">SOL</span>
+          </div>
         </div>
       </div>
       

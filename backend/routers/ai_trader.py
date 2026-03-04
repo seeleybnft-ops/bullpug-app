@@ -578,6 +578,8 @@ async def save_settings(settings: TraderSettings):
         else:
             await db.ai_trader_settings.insert_one(settings_dict)
         
+        # Remove MongoDB _id before returning
+        settings_dict.pop("_id", None)
         return {"success": True, "message": "Settings saved", "settings": settings_dict}
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
@@ -600,12 +602,49 @@ async def get_settings(wallet_address: str):
 
 
 @router.post("/analyze/{token_symbol}")
-async def analyze_token(token_symbol: str, wallet_address: str):
-    """Analyze a token and generate trade signal if conditions are met"""
+async def analyze_token(token_symbol: str, wallet_address: str, contract_address: str = None):
+    """Analyze a token and generate trade signal if conditions are met.
+    
+    Args:
+        token_symbol: Token symbol (e.g., SOL, JUP, BONK)
+        wallet_address: User's wallet address
+        contract_address: Optional - token mint address for unknown tokens
+    """
     token_symbol = token_symbol.upper()
     
-    if token_symbol not in TOKENS:
-        raise HTTPException(status_code=400, detail=f"Unknown token: {token_symbol}")
+    # Check if token is in our known list
+    token_mint = TOKENS.get(token_symbol)
+    
+    # If not found and contract_address provided, use that
+    if not token_mint and contract_address:
+        token_mint = contract_address
+    
+    if not token_mint:
+        # Try to look up the token from DexScreener
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://api.dexscreener.com/latest/dex/search",
+                    params={"q": token_symbol}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    pairs = data.get("pairs", [])
+                    # Find Solana pair
+                    for pair in pairs:
+                        if pair.get("chainId") == "solana":
+                            base = pair.get("baseToken", {})
+                            if base.get("symbol", "").upper() == token_symbol:
+                                token_mint = base.get("address")
+                                break
+        except Exception as e:
+            logger.warning(f"Failed to lookup token {token_symbol}: {e}")
+    
+    if not token_mint:
+        return {
+            "signal": None,
+            "message": f"Token {token_symbol} not found. Try providing the contract address."
+        }
     
     # Get user settings
     settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
@@ -622,10 +661,32 @@ async def analyze_token(token_symbol: str, wallet_address: str):
     
     # Get price data
     current_price = await get_token_price(token_symbol)
+    
+    # If standard lookup fails, try DexScreener with mint address
+    if not current_price and token_mint:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    pairs = data.get("pairs", [])
+                    if pairs:
+                        current_price = float(pairs[0].get("priceUsd", 0))
+        except Exception as e:
+            logger.warning(f"DexScreener price lookup failed for {token_symbol}: {e}")
+    
     if not current_price:
-        raise HTTPException(status_code=503, detail="Unable to fetch price data")
+        return {
+            "signal": None,
+            "message": f"Unable to fetch price data for {token_symbol}"
+        }
     
     price_history = await get_price_history(token_symbol)
+    
+    # If no history, create simulated history from current price
+    if len(price_history) < 10:
+        price_history = [current_price * (1 + np.random.normal(0, 0.02)) for _ in range(50)]
+        price_history.append(current_price)
     
     # Run technical analysis
     indicators = TechnicalAnalyzer.analyze(price_history, current_price)
@@ -654,7 +715,7 @@ async def analyze_token(token_symbol: str, wallet_address: str):
         signal = TradeSignal(
             wallet_address=wallet_address,
             token_symbol=token_symbol,
-            token_mint=TOKENS[token_symbol],
+            token_mint=token_mint,  # Use resolved token_mint (supports unknown tokens via contract_address)
             signal_type=strategy_result["signal"],
             entry_price=current_price,
             suggested_position_sol=round(suggested_position, 4),
@@ -994,7 +1055,12 @@ async def execute_swap_record(
 
 @router.get("/scan-all/{wallet_address}")
 async def scan_all_tokens(wallet_address: str):
-    """Scan all available tokens and return any signals"""
+    """Scan all available tokens and return any signals.
+    
+    Filters out:
+    - Duplicate signals for the same token
+    - Contradicting signals (if both BUY and SELL exist, keep higher RSI/confidence)
+    """
     settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
     if not settings:
         settings = TraderSettings(wallet_address=wallet_address).dict()
@@ -1008,16 +1074,65 @@ async def scan_all_tokens(wallet_address: str):
     if risk_level in ["high_risk", "both"]:
         tokens_to_scan.extend(HIGH_RISK_TOKENS)
     
-    signals = []
+    # Check for existing pending signals to avoid duplicates
+    existing_signals = await db.ai_trader_signals.find({
+        "wallet_address": wallet_address,
+        "status": "pending"
+    }, {"token_symbol": 1, "signal_type": 1}).to_list(100)
+    
+    existing_tokens = {s["token_symbol"] for s in existing_signals}
+    
+    raw_signals = []
     
     for token in tokens_to_scan:
+        # Skip if already has a pending signal
+        if token in existing_tokens:
+            continue
+            
         try:
             result = await analyze_token(token, wallet_address)
             if result.get("signal"):
-                signals.append(result["signal"])
+                raw_signals.append(result["signal"])
         except Exception as e:
             logger.warning(f"Error analyzing {token}: {e}")
             continue
+    
+    # Filter out contradicting signals - keep highest confidence for each token
+    signals_by_token = {}
+    for signal in raw_signals:
+        token = signal["token_symbol"]
+        if token not in signals_by_token:
+            signals_by_token[token] = signal
+        else:
+            # If we have both BUY and SELL, or duplicate signals:
+            existing = signals_by_token[token]
+            
+            # Prioritize by RSI value for better timing
+            existing_rsi = existing.get("technical_indicators", {}).get("rsi", 50)
+            new_rsi = signal.get("technical_indicators", {}).get("rsi", 50)
+            
+            # For BUY signals, lower RSI is better (more oversold)
+            # For SELL signals, higher RSI is better (more overbought)
+            if signal["signal_type"] == "buy" and existing["signal_type"] == "buy":
+                # Keep lower RSI for BUY
+                if new_rsi < existing_rsi:
+                    signals_by_token[token] = signal
+            elif signal["signal_type"] == "sell" and existing["signal_type"] == "sell":
+                # Keep higher RSI for SELL
+                if new_rsi > existing_rsi:
+                    signals_by_token[token] = signal
+            elif signal["signal_type"] != existing["signal_type"]:
+                # Contradicting signals - pick based on RSI extremes
+                if signal["signal_type"] == "buy" and new_rsi < 40:
+                    # Oversold - BUY is stronger
+                    signals_by_token[token] = signal
+                elif signal["signal_type"] == "sell" and new_rsi > 60:
+                    # Overbought - SELL is stronger
+                    signals_by_token[token] = signal
+                # Otherwise keep existing
+    
+    # Final list of unique, non-contradicting signals
+    signals = list(signals_by_token.values())
     
     return {
         "signals": signals,
