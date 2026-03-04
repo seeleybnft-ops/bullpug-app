@@ -120,7 +120,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     if (isOpen && messages.length === 0 && !isLoading && historyLoaded) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
+        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
     }
