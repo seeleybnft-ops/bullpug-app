@@ -851,20 +851,34 @@ async def reject_signal(signal_id: str, wallet_address: str):
 @router.get("/positions/{wallet_address}")
 async def get_open_positions(wallet_address: str):
     """Get all open positions for a user"""
-    positions = await db.ai_trader_executions.find({
+    # Query both collections for positions
+    positions = []
+    
+    # From positions collection (Quick Buy from Tokens tab)
+    pos_from_positions = await db.ai_trader_positions.find({
         "wallet_address": wallet_address,
         "status": "open"
     }, {"_id": 0}).sort("created_at", -1).to_list(50)
+    positions.extend(pos_from_positions)
+    
+    # From executions collection (from Signals)
+    pos_from_executions = await db.ai_trader_executions.find({
+        "wallet_address": wallet_address,
+        "status": "open"
+    }, {"_id": 0}).sort("created_at", -1).to_list(50)
+    positions.extend(pos_from_executions)
     
     # Update positions with current prices
     for pos in positions:
-        current_price = await get_token_price(pos["token_symbol"])
+        current_price = await get_token_price(pos.get("token_symbol", ""))
         if current_price:
             pos["current_price"] = current_price
-            if pos["trade_type"] == "buy":
-                pos["unrealized_pnl_pct"] = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
-            else:
-                pos["unrealized_pnl_pct"] = ((pos["entry_price"] - current_price) / pos["entry_price"]) * 100
+            entry_price = pos.get("entry_price", 0)
+            if entry_price > 0:
+                if pos.get("trade_type") == "buy":
+                    pos["unrealized_pnl_pct"] = ((current_price - entry_price) / entry_price) * 100
+                else:
+                    pos["unrealized_pnl_pct"] = ((entry_price - current_price) / entry_price) * 100
     
     return {"positions": positions, "count": len(positions)}
 
@@ -1050,6 +1064,132 @@ async def execute_swap_record(
         raise
     except Exception as e:
         logger.error(f"Execute swap record error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/add-position")
+async def add_position(
+    wallet_address: str,
+    token_symbol: str,
+    tx_signature: str,
+    input_sol: float,
+    output_amount: float,
+    entry_price: float,
+    token_mint: str = None
+):
+    """Add a new position after buying a token directly from Tokens tab."""
+    try:
+        position_id = str(uuid.uuid4())
+        
+        position = {
+            "position_id": position_id,
+            "wallet_address": wallet_address,
+            "token_symbol": token_symbol.upper(),
+            "token_mint": token_mint,
+            "trade_type": "buy",
+            "input_sol": input_sol,
+            "amount_sol": input_sol,
+            "output_amount": output_amount,
+            "entry_price": entry_price,
+            "tx_signature": tx_signature,
+            "status": "open",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "unrealized_pnl_pct": 0
+        }
+        
+        await db.ai_trader_positions.insert_one(position)
+        
+        # Also add to history
+        history_record = {
+            **position,
+            "execution_id": position_id
+        }
+        await db.ai_trader_history.insert_one(history_record)
+        
+        return {
+            "success": True,
+            "message": "Position added",
+            "position_id": position_id,
+            "position": {k: v for k, v in position.items() if k != "_id"}
+        }
+        
+    except Exception as e:
+        logger.error(f"Add position error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/close-position")
+async def close_position(
+    wallet_address: str,
+    position_id: str,
+    tx_signature: str,
+    sell_amount: float,
+    received_sol: float
+):
+    """Close (sell) an existing position."""
+    try:
+        # Find the position
+        position = await db.ai_trader_positions.find_one({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"position_id": position_id},
+                {"execution_id": position_id}
+            ]
+        })
+        
+        if not position:
+            raise HTTPException(status_code=404, detail="Position not found")
+        
+        # Calculate P&L
+        input_sol = position.get("input_sol", position.get("amount_sol", 0))
+        pnl_sol = received_sol - sell_amount
+        pnl_pct = ((received_sol / input_sol) - 1) * 100 if input_sol > 0 else 0
+        
+        # Update position status
+        await db.ai_trader_positions.update_one(
+            {"_id": position["_id"]},
+            {
+                "$set": {
+                    "status": "closed",
+                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                    "close_tx_signature": tx_signature,
+                    "sell_amount": sell_amount,
+                    "received_sol": received_sol,
+                    "realized_pnl_sol": pnl_sol,
+                    "realized_pnl_pct": pnl_pct
+                }
+            }
+        )
+        
+        # Add to history
+        close_record = {
+            "wallet_address": wallet_address,
+            "position_id": position_id,
+            "token_symbol": position.get("token_symbol"),
+            "trade_type": "sell",
+            "input_sol": sell_amount,
+            "received_sol": received_sol,
+            "pnl_sol": pnl_sol,
+            "pnl_pct": pnl_pct,
+            "tx_signature": tx_signature,
+            "executed_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.ai_trader_history.insert_one(close_record)
+        
+        return {
+            "success": True,
+            "message": "Position closed",
+            "position_id": position_id,
+            "pnl": {
+                "sol": pnl_sol,
+                "percent": pnl_pct
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Close position error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

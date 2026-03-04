@@ -402,6 +402,166 @@ export default function AITrader() {
     }
   };
 
+  // Quick Sell - Sell position with editable amount
+  const quickSell = async (position, sellAmount) => {
+    if (!signTransaction) {
+      toast.error("Wallet does not support transaction signing");
+      return;
+    }
+
+    try {
+      const loadingToast = toast.loading(
+        <div>
+          <p className="font-bold">Preparing Sell...</p>
+          <p className="text-sm">SELL {position.token_symbol}</p>
+          <p className="text-xs text-slate-400">Please approve in your wallet</p>
+        </div>
+      );
+
+      // Create a sell signal object
+      const sellSignal = {
+        signal_type: "sell",
+        token_symbol: position.token_symbol,
+        token_mint: position.token_mint || TOKENS[position.token_symbol],
+        suggested_position_sol: sellAmount
+      };
+
+      // Execute the swap (token -> SOL)
+      const result = await executeJupiterSwap(sellSignal);
+      
+      toast.dismiss(loadingToast);
+
+      if (result) {
+        // Record the sell
+        await axios.post(`${API}/ai-trader/close-position`, null, {
+          params: {
+            wallet_address: walletAddress,
+            position_id: position.execution_id || position.position_id,
+            tx_signature: result.signature,
+            sell_amount: sellAmount,
+            received_sol: result.outputAmount
+          }
+        });
+
+        toast.success(
+          <div>
+            <p className="font-bold text-[#00FFA3]">Position Sold!</p>
+            <p className="text-sm">SOLD {position.token_symbol}</p>
+            <p className="text-sm">Received: {result.outputAmount.toFixed(4)} SOL</p>
+            <p className="text-xs">
+              <a 
+                href={`https://solscan.io/tx/${result.signature}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#00C2FF] hover:underline"
+              >
+                View on Solscan →
+              </a>
+            </p>
+          </div>,
+          { duration: 8000 }
+        );
+
+        fetchData();
+      }
+    } catch (e) {
+      toast.dismiss();
+      const errorMsg = e.message || "Sell failed";
+      if (errorMsg.includes("User rejected")) {
+        toast.info("Transaction cancelled by user");
+      } else {
+        toast.error(
+          <div>
+            <p className="font-bold">Sell Failed</p>
+            <p className="text-xs">{errorMsg}</p>
+          </div>
+        );
+      }
+    }
+  };
+
+  // Quick Buy from Tokens tab - Buy token directly
+  const quickBuyToken = async (coin, buyAmountSol) => {
+    if (!signTransaction) {
+      toast.error("Wallet does not support transaction signing");
+      return;
+    }
+
+    try {
+      const loadingToast = toast.loading(
+        <div>
+          <p className="font-bold">Preparing Buy...</p>
+          <p className="text-sm">BUY {coin.symbol}</p>
+          <p className="text-xs text-slate-400">Please approve in your wallet</p>
+        </div>
+      );
+
+      // Create a buy signal object
+      const buySignal = {
+        signal_type: "buy",
+        token_symbol: coin.symbol,
+        token_mint: coin.contract_address || TOKENS[coin.symbol],
+        suggested_position_sol: buyAmountSol
+      };
+
+      // Execute the swap (SOL -> token)
+      const result = await executeJupiterSwap(buySignal);
+      
+      toast.dismiss(loadingToast);
+
+      if (result) {
+        // Record the buy as a position
+        await axios.post(`${API}/ai-trader/add-position`, null, {
+          params: {
+            wallet_address: walletAddress,
+            token_symbol: coin.symbol,
+            token_mint: coin.contract_address,
+            tx_signature: result.signature,
+            input_sol: buyAmountSol,
+            output_amount: result.outputAmount,
+            entry_price: coin.price
+          }
+        });
+
+        toast.success(
+          <div>
+            <p className="font-bold text-[#00FFA3]">Token Purchased!</p>
+            <p className="text-sm">BOUGHT {coin.symbol}</p>
+            <p className="text-sm">Spent: {buyAmountSol} SOL</p>
+            <p className="text-xs">
+              <a 
+                href={`https://solscan.io/tx/${result.signature}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#00C2FF] hover:underline"
+              >
+                View on Solscan →
+              </a>
+            </p>
+          </div>,
+          { duration: 8000 }
+        );
+
+        // Switch to positions tab and refresh
+        setActiveTab("positions");
+        fetchData();
+      }
+    } catch (e) {
+      toast.dismiss();
+      const errorMsg = e.message || "Buy failed";
+      if (errorMsg.includes("User rejected")) {
+        toast.info("Transaction cancelled by user");
+      } else {
+        toast.error(
+          <div>
+            <p className="font-bold">Buy Failed</p>
+            <p className="text-xs">{errorMsg}</p>
+          </div>
+        );
+      }
+    }
+  };
+
   if (!connected) {
     return (
       <div className="min-h-screen bg-[#0A0A0F] text-white pt-24 px-4">
@@ -589,9 +749,9 @@ export default function AITrader() {
         <div className="flex gap-2 mb-6 border-b border-white/10 pb-2 overflow-x-auto">
           {[
             { id: "signals", label: "Signals", icon: <Zap className="w-4 h-4" />, count: signals.length },
+            { id: "tokens", label: "Tokens", icon: <DollarSign className="w-4 h-4" /> },
             { id: "positions", label: "Positions", icon: <Target className="w-4 h-4" />, count: positions.length },
-            { id: "history", label: "History", icon: <History className="w-4 h-4" /> },
-            { id: "tokens", label: "Tokens", icon: <DollarSign className="w-4 h-4" /> }
+            { id: "history", label: "History", icon: <History className="w-4 h-4" /> }
           ].map(tab => (
             <button
               key={tab.id}
@@ -659,15 +819,23 @@ export default function AITrader() {
 
             {/* Positions Tab */}
             {activeTab === "positions" && (
-              <div className="space-y-4">
+              <div className="space-y-4" data-testid="positions-content">
+                {/* Risk Calculator */}
+                <RiskCalculator settings={settings} />
+                
                 {positions.length === 0 ? (
-                  <div className="text-center py-16 bg-white/5 rounded-2xl">
+                  <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/5">
                     <Target className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                     <p className="text-slate-400">No open positions</p>
+                    <p className="text-sm text-slate-500 mt-1">Buy tokens from the Tokens tab to create positions</p>
                   </div>
                 ) : (
                   positions.map(pos => (
-                    <PositionCard key={pos.execution_id} position={pos} />
+                    <PositionCard 
+                      key={pos.execution_id || pos.position_id} 
+                      position={pos} 
+                      onQuickSell={quickSell}
+                    />
                   ))
                 )}
               </div>
@@ -746,6 +914,7 @@ export default function AITrader() {
                               index={i}
                               type="safe"
                               onCopy={copyToClipboard}
+                              onQuickBuy={quickBuyToken}
                               onAnalyze={async () => {
                                 if (!disclaimerAccepted) {
                                   toast.error("Please accept the disclaimer first");
@@ -795,6 +964,7 @@ export default function AITrader() {
                               index={i}
                               type="volatile"
                               onCopy={copyToClipboard}
+                              onQuickBuy={quickBuyToken}
                               onAnalyze={async () => {
                                 if (!disclaimerAccepted) {
                                   toast.error("Please accept the disclaimer first");
@@ -849,6 +1019,7 @@ export default function AITrader() {
                           index={i}
                           type="new"
                           onCopy={copyToClipboard}
+                          onQuickBuy={quickBuyToken}
                           onAnalyze={async () => {
                             if (!disclaimerAccepted) {
                               toast.error("Please accept the disclaimer first");
@@ -902,6 +1073,96 @@ function StatCard({ icon, label, value, color, testId }) {
         <span className="text-xs">{label}</span>
       </div>
       <p className="text-xl font-bold" style={{ color }}>{value}</p>
+    </div>
+  );
+}
+
+// Risk Calculator Component
+function RiskCalculator({ settings }) {
+  const [positionSize, setPositionSize] = useState(0.1);
+  const [entryPrice, setEntryPrice] = useState(1);
+  const [stopLoss, setStopLoss] = useState(10);
+  const [takeProfit, setTakeProfit] = useState(25);
+  
+  const maxLoss = positionSize * (stopLoss / 100);
+  const potentialProfit = positionSize * (takeProfit / 100);
+  const riskRewardRatio = takeProfit / stopLoss;
+  
+  return (
+    <div className="bg-white/5 rounded-xl p-4 border border-[#D946EF]/20 mb-4" data-testid="risk-calculator">
+      <h4 className="flex items-center gap-2 text-sm font-bold text-[#D946EF] mb-4">
+        <AlertTriangle className="w-4 h-4" />
+        Risk Calculator
+      </h4>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div>
+          <label className="text-[10px] text-slate-500 block mb-1">Position (SOL)</label>
+          <input
+            type="number"
+            value={positionSize}
+            onChange={(e) => setPositionSize(Math.max(0.01, parseFloat(e.target.value) || 0))}
+            step="0.01"
+            min="0.01"
+            className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#D946EF] focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 block mb-1">Entry Price ($)</label>
+          <input
+            type="number"
+            value={entryPrice}
+            onChange={(e) => setEntryPrice(Math.max(0.000001, parseFloat(e.target.value) || 0))}
+            step="0.01"
+            min="0.000001"
+            className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#D946EF] focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 block mb-1">Stop Loss (%)</label>
+          <input
+            type="number"
+            value={stopLoss}
+            onChange={(e) => setStopLoss(Math.max(1, parseFloat(e.target.value) || 0))}
+            step="1"
+            min="1"
+            max="100"
+            className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#FF6B6B] focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 block mb-1">Take Profit (%)</label>
+          <input
+            type="number"
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(Math.max(1, parseFloat(e.target.value) || 0))}
+            step="1"
+            min="1"
+            className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#00FFA3] focus:outline-none"
+          />
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="bg-[#FF6B6B]/10 rounded-lg p-2">
+          <p className="text-[10px] text-slate-500">Max Loss</p>
+          <p className="text-sm font-bold text-[#FF6B6B]">-{maxLoss.toFixed(4)} SOL</p>
+        </div>
+        <div className="bg-[#00FFA3]/10 rounded-lg p-2">
+          <p className="text-[10px] text-slate-500">Potential Profit</p>
+          <p className="text-sm font-bold text-[#00FFA3]">+{potentialProfit.toFixed(4)} SOL</p>
+        </div>
+        <div className={`${riskRewardRatio >= 2 ? 'bg-[#00FFA3]/10' : 'bg-[#F5D300]/10'} rounded-lg p-2`}>
+          <p className="text-[10px] text-slate-500">Risk:Reward</p>
+          <p className={`text-sm font-bold ${riskRewardRatio >= 2 ? 'text-[#00FFA3]' : 'text-[#F5D300]'}`}>
+            1:{riskRewardRatio.toFixed(1)}
+          </p>
+        </div>
+      </div>
+      
+      <p className="text-[10px] text-slate-500 text-center mt-2">
+        {riskRewardRatio >= 2 ? '✓ Good risk:reward ratio (≥1:2)' : '⚠ Consider higher take profit for better R:R'}
+      </p>
     </div>
   );
 }
@@ -1029,11 +1290,22 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   );
 }
 
-function PositionCard({ position }) {
+function PositionCard({ position, onQuickSell }) {
+  const [showSellInput, setShowSellInput] = useState(false);
+  const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
+  const [selling, setSelling] = useState(false);
   const pnlColor = position.unrealized_pnl_pct >= 0 ? "#00FFA3" : "#FF6B6B";
   
+  const handleQuickSell = async () => {
+    if (sellAmount <= 0) return;
+    setSelling(true);
+    await onQuickSell(position, sellAmount);
+    setSelling(false);
+    setShowSellInput(false);
+  };
+  
   return (
-    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+    <div className="bg-white/5 rounded-xl p-4 border border-white/10" data-testid={`position-${position.token_symbol}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -1047,19 +1319,62 @@ function PositionCard({ position }) {
           </div>
           <div>
             <p className="font-bold">{position.token_symbol}</p>
-            <p className="text-xs text-slate-500">{position.amount_sol} SOL</p>
+            <p className="text-xs text-slate-500">{position.amount_sol || position.input_sol} SOL invested</p>
           </div>
         </div>
         
-        <div className="text-right">
-          <p className="font-mono font-bold" style={{ color: pnlColor }}>
-            {position.unrealized_pnl_pct >= 0 ? "+" : ""}{position.unrealized_pnl_pct?.toFixed(2)}%
-          </p>
-          <p className="text-xs text-slate-500">
-            Entry: ${position.entry_price < 0.01 ? position.entry_price.toFixed(6) : position.entry_price.toFixed(4)}
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="font-mono font-bold" style={{ color: pnlColor }}>
+              {position.unrealized_pnl_pct >= 0 ? "+" : ""}{(position.unrealized_pnl_pct || 0).toFixed(2)}%
+            </p>
+            <p className="text-xs text-slate-500">
+              Entry: ${position.entry_price < 0.01 ? position.entry_price?.toFixed(6) : position.entry_price?.toFixed(4)}
+            </p>
+          </div>
+          
+          <Button
+            onClick={() => setShowSellInput(!showSellInput)}
+            size="sm"
+            className="bg-[#FF6B6B]/20 text-[#FF6B6B] hover:bg-[#FF6B6B]/30"
+            data-testid={`sell-btn-${position.token_symbol}`}
+          >
+            <TrendingDown className="w-4 h-4 mr-1" />
+            Sell
+          </Button>
         </div>
       </div>
+      
+      {/* Quick Sell Input */}
+      {showSellInput && (
+        <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-slate-500 mb-1 block">Sell Amount (SOL value)</label>
+            <input
+              type="number"
+              value={sellAmount}
+              onChange={(e) => setSellAmount(Math.max(0.01, parseFloat(e.target.value) || 0))}
+              step="0.01"
+              min="0.01"
+              max={position.amount_sol || 10}
+              className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm font-mono text-white focus:border-[#FF6B6B] focus:outline-none"
+              placeholder="Amount in SOL"
+            />
+          </div>
+          <Button
+            onClick={handleQuickSell}
+            disabled={selling || sellAmount <= 0}
+            className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] text-white hover:opacity-90 mt-5"
+          >
+            {selling ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4 mr-1" />
+            )}
+            {selling ? "Selling..." : "Quick Sell"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1220,7 +1535,11 @@ function SettingsModal({ settings, onSave, onClose }) {
 }
 
 // TopPickCard - Display coin from Top Picks with copy CA and trade link
-function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
+function TopPickCard({ coin, index, type, onCopy, onAnalyze, onQuickBuy }) {
+  const [showBuyInput, setShowBuyInput] = useState(false);
+  const [buyAmount, setBuyAmount] = useState(0.1);
+  const [buying, setBuying] = useState(false);
+  
   const colors = {
     safe: { bg: "bg-[#00FFA3]/5", border: "border-[#00FFA3]/20", text: "text-[#00FFA3]", hover: "hover:bg-[#00FFA3]/10" },
     volatile: { bg: "bg-[#FF6B6B]/5", border: "border-[#FF6B6B]/20", text: "text-[#FF6B6B]", hover: "hover:bg-[#FF6B6B]/10" },
@@ -1229,11 +1548,18 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
   
   const c = colors[type] || colors.safe;
   
-  // Truncate address for display
   const truncateAddress = (address) => {
     if (!address) return "";
     if (address.length <= 12) return address;
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleQuickBuy = async () => {
+    if (buyAmount <= 0) return;
+    setBuying(true);
+    await onQuickBuy(coin, buyAmount);
+    setBuying(false);
+    setShowBuyInput(false);
   };
 
   return (
@@ -1282,7 +1608,6 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
           <span className="text-[10px] text-slate-600">-</span>
         )}
         <div className="flex items-center gap-2">
-          {/* Analyze button */}
           <button
             onClick={onAnalyze}
             className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
@@ -1291,7 +1616,14 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
             <Zap className="w-3 h-3" />
             Analyze
           </button>
-          {/* DEX Link */}
+          <button
+            onClick={() => setShowBuyInput(!showBuyInput)}
+            className="flex items-center gap-1 text-[10px] bg-[#00FFA3]/20 text-[#00FFA3] px-2 py-1 rounded hover:bg-[#00FFA3]/30 transition-colors"
+            title="Quick buy this token"
+          >
+            <DollarSign className="w-3 h-3" />
+            Buy
+          </button>
           {coin.dex_url ? (
             <a 
               href={coin.dex_url}
@@ -1300,23 +1632,36 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze }) {
               className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
             >
               <ExternalLink className="w-3 h-3" />
-              Trade
             </a>
-          ) : (
-            <a 
-              href={`https://dexscreener.com/solana?q=${coin.symbol}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center gap-1 text-[10px] ${c.text} hover:text-white transition-colors`}
-            >
-              <ExternalLink className="w-3 h-3" />
-              Find
-            </a>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Reason if available */}
+      {/* Quick Buy Input */}
+      {showBuyInput && (
+        <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-2">
+          <input
+            type="number"
+            value={buyAmount}
+            onChange={(e) => setBuyAmount(Math.max(0.01, parseFloat(e.target.value) || 0))}
+            step="0.01"
+            min="0.01"
+            max="10"
+            className="flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-sm font-mono text-white focus:border-[#00FFA3] focus:outline-none"
+            placeholder="SOL amount"
+          />
+          <Button
+            onClick={handleQuickBuy}
+            disabled={buying || buyAmount <= 0}
+            size="sm"
+            className="bg-gradient-to-r from-[#00FFA3] to-[#00C2FF] text-black hover:opacity-90"
+          >
+            {buying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}
+            {buying ? "" : "Buy"}
+          </Button>
+        </div>
+      )}
+
       {coin.reason && (
         <p className="mt-2 text-[10px] text-slate-400 line-clamp-2">{coin.reason}</p>
       )}
