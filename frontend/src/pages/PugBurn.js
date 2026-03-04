@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction, Connection, clusterApiUrl } from "@solana/web3.js";
+import { PublicKey, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createCloseAccountInstruction } from "@solana/spl-token";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,8 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const FIRE_PUG_LOGO = "https://customer-assets.emergentagent.com/job_2669ed2d-7cbd-4361-899c-7c07b9ccca0f/artifacts/i8t4nmv8_Fire.jpg";
 
-// Solana RPC endpoint - using mainnet
-const SOLANA_RPC = clusterApiUrl('mainnet-beta');
+// Solana RPC endpoint
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 
 // Token program IDs
 const TOKEN_PROGRAM_ID_STR = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -120,6 +120,78 @@ export default function PugBurn() {
     }
   };
 
+  // Helper function to get blockhash using direct fetch (avoids web3.js body stream issues)
+  const getBlockhashDirect = async () => {
+    const response = await fetch(SOLANA_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getLatestBlockhash',
+        params: [{ commitment: 'confirmed' }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return {
+      blockhash: data.result.value.blockhash,
+      lastValidBlockHeight: data.result.value.lastValidBlockHeight
+    };
+  };
+
+  // Helper function to send transaction using direct fetch
+  const sendTransactionDirect = async (serializedTx) => {
+    const response = await fetch(SOLANA_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'sendTransaction',
+        params: [
+          Buffer.from(serializedTx).toString('base64'),
+          { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }
+        ]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.result;
+  };
+
+  // Helper function to confirm transaction using direct fetch
+  const confirmTransactionDirect = async (signature, blockhash, lastValidBlockHeight) => {
+    const startTime = Date.now();
+    const timeout = 60000; // 60 seconds
+    
+    while (Date.now() - startTime < timeout) {
+      const response = await fetch(SOLANA_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getSignatureStatuses',
+          params: [[signature]]
+        })
+      });
+      const data = await response.json();
+      
+      if (data.result?.value?.[0]) {
+        const status = data.result.value[0];
+        if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+          return { confirmed: true, err: status.err };
+        }
+      }
+      
+      // Wait 2 seconds before checking again
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    throw new Error('Transaction confirmation timeout');
+  };
+
   // Execute cleanup - close selected accounts
   const executeCleanup = async () => {
     if (!signTransaction) {
@@ -142,12 +214,6 @@ export default function PugBurn() {
     );
     
     try {
-      // Create a FRESH connection for this operation to avoid "body stream already read"
-      const freshConnection = new Connection(SOLANA_RPC, {
-        commitment: "confirmed",
-        confirmTransactionInitialTimeout: 60000
-      });
-      
       const owner = publicKey;
       
       // Process in batches of 7 to avoid transaction size limits
@@ -201,30 +267,22 @@ export default function PugBurn() {
         
         if (batchTransaction.instructions.length === 0) continue;
         
-        // Get blockhash from fresh connection
-        const { blockhash, lastValidBlockHeight } = await freshConnection.getLatestBlockhash("confirmed");
+        // Get blockhash using direct fetch (avoids web3.js body stream issues)
+        const { blockhash, lastValidBlockHeight } = await getBlockhashDirect();
         batchTransaction.recentBlockhash = blockhash;
         batchTransaction.feePayer = owner;
         
         // Sign with wallet
         const signedTx = await signTransaction(batchTransaction);
         
-        // Send using fresh connection
-        const txSignature = await freshConnection.sendRawTransaction(signedTx.serialize(), {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
-          maxRetries: 3
-        });
+        // Send using direct fetch
+        const txSignature = await sendTransactionDirect(signedTx.serialize());
         
-        // Wait for confirmation with fresh connection
-        const confirmation = await freshConnection.confirmTransaction({
-          signature: txSignature,
-          blockhash,
-          lastValidBlockHeight
-        }, "confirmed");
+        // Wait for confirmation using direct fetch
+        const confirmation = await confirmTransactionDirect(txSignature, blockhash, lastValidBlockHeight);
         
-        if (confirmation.value.err) {
-          console.error("Transaction failed:", confirmation.value.err);
+        if (confirmation.err) {
+          console.error("Transaction failed:", confirmation.err);
           continue;
         }
         
