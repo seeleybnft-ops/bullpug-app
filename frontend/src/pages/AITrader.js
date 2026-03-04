@@ -1797,7 +1797,14 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze, onQuickBuy }) {
             {type === "new" ? "🚀" : index + 1}
           </div>
           <div>
-            <p className="font-medium text-white text-sm">{coin.symbol}</p>
+            <div className="flex items-center gap-1">
+              <p className="font-medium text-white text-sm">{coin.symbol}</p>
+              {coin.is_bonded && (
+                <span className="px-1.5 py-0.5 text-[8px] bg-[#00FFA3]/20 text-[#00FFA3] rounded font-bold">
+                  BONDED
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-500">{coin.platform || "Solana"}</p>
           </div>
         </div>

@@ -52,13 +52,13 @@ export default function Navbar() {
   };
 
   const NAV_LINKS = [
-    { name: t('nav.home'), path: "/" },
-    { name: t('nav.lore') || "Origins", path: "/lore" },
-    { name: "Journal", path: "/journal" },
-    { name: t('nav.game') || "Game", path: "/game" },
-    { name: t('nav.arena') || "Arena", path: "/betting" },
-    { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, special: true },
-    { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, burn: true },
+    { name: t('nav.home'), path: "/", color: "#00FFA3" },
+    { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
+    { name: "Journal", path: "/journal", color: "#F5D300" },
+    { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
+    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3" },
+    { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, color: "#D946EF", hasBorder: true },
+    { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
   ];
 
   return (
@@ -80,19 +80,20 @@ export default function Navbar() {
                 to={link.path}
                 data-testid={`nav-${link.name.toLowerCase().replace(/\s/g, '-')}`}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 flex items-center gap-1 ${
-                  link.burn
+                  link.hasBorder
                     ? location.pathname === link.path
-                      ? 'text-[#FF6B6B] bg-[#FF6B6B]/10 border border-[#FF6B6B]/30'
-                      : 'text-[#FF6B6B] hover:bg-[#FF6B6B]/10 border border-[#FF6B6B]/20'
-                    : link.special
-                      ? location.pathname === link.path
-                        ? 'text-[#D946EF] bg-[#D946EF]/10 border border-[#D946EF]/30'
-                        : 'text-[#D946EF] hover:bg-[#D946EF]/10 border border-[#D946EF]/20'
-                      : location.pathname === link.path
-                        ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                      ? `bg-opacity-10 border`
+                      : `hover:bg-opacity-10 border border-opacity-20`
+                    : location.pathname === link.path
+                      ? `bg-opacity-10`
+                      : `hover:bg-white/5`
                 }`}
-                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+                style={{ 
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  color: link.color,
+                  backgroundColor: location.pathname === link.path ? `${link.color}15` : 'transparent',
+                  borderColor: link.hasBorder ? `${link.color}40` : 'transparent'
+                }}
               >
                 {link.icon && link.icon}
                 {link.name}
@@ -167,20 +168,12 @@ export default function Navbar() {
                 key={link.path}
                 to={link.path}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                  link.burn
-                    ? location.pathname === link.path
-                      ? 'text-[#FF6B6B] bg-[#FF6B6B]/10'
-                      : 'text-[#FF6B6B]'
-                    : link.special
-                      ? location.pathname === link.path
-                        ? 'text-[#D946EF] bg-[#D946EF]/10'
-                        : 'text-[#D946EF]'
-                      : location.pathname === link.path
-                        ? 'text-[#00FFA3] bg-[#00FFA3]/10'
-                        : 'text-slate-400 hover:text-white'
-                }`}
-                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium`}
+                style={{ 
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  color: link.color,
+                  backgroundColor: location.pathname === link.path ? `${link.color}15` : 'transparent'
+                }}
               >
                 {link.icon && link.icon}
                 {link.name}

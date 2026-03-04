@@ -207,9 +207,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* RECENT JACKPOT WINNERS - Moved below Ecosystem */}
-      <RecentWinners />
-
       {/* TOKENOMICS */}
       <section className="py-24 md:py-32" data-testid="tokenomics-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -262,6 +259,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* RECENT JACKPOT WINNERS - Below Tokenomics */}
+      <RecentWinners />
 
       {/* GALLERY */}
       <section className="py-24 md:py-32" data-testid="gallery-section">
