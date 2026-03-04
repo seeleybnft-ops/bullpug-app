@@ -419,6 +419,14 @@ async def get_token_price(token_symbol: str) -> Optional[float]:
     if not token_mint:
         return None
     
+    return await get_token_price_by_mint(token_mint)
+
+
+async def get_token_price_by_mint(token_mint: str) -> Optional[float]:
+    """Get current token price in USD by mint address"""
+    if not token_mint:
+        return None
+    
     try:
         # Use DexScreener for price
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -432,7 +440,7 @@ async def get_token_price(token_symbol: str) -> Optional[float]:
                     best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
                     return float(best_pair.get("priceUsd", 0) or 0)
     except Exception as e:
-        logger.warning(f"Price fetch error for {token_symbol}: {e}")
+        logger.warning(f"Price fetch error for {token_mint}: {e}")
     
     return None
 
@@ -874,7 +882,13 @@ async def get_open_positions(wallet_address: str):
     # Update positions with current prices and calculate P/L
     for pos in positions:
         token_symbol = pos.get("token_symbol", "")
+        token_mint = pos.get("token_mint", TOKENS.get(token_symbol))
+        
+        # Try to get price - first by symbol, then by mint address from position
         current_price = await get_token_price(token_symbol)
+        if not current_price and token_mint:
+            current_price = await get_token_price_by_mint(token_mint)
+        
         entry_price = pos.get("entry_price", 0)
         amount_sol = pos.get("amount_sol", pos.get("input_sol", 0))
         

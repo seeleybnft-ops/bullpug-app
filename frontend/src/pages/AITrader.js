@@ -1375,18 +1375,24 @@ function PositionCard({ position, onQuickSell, onDelete }) {
         <div className="flex items-center gap-4">
           {/* P/L Display */}
           <div className="text-right">
-            <p className="font-mono font-bold text-lg" style={{ color: pnlColor }}>
-              {position.unrealized_pnl_pct >= 0 ? "+" : ""}{(position.unrealized_pnl_pct || 0).toFixed(2)}%
-            </p>
-            <div className="flex items-center gap-2 text-xs">
-              <span style={{ color: pnlColor }} className="font-mono">
-                {pnlSol >= 0 ? "+" : ""}{pnlSol.toFixed(4)} SOL
-              </span>
-              <span className="text-slate-500">|</span>
-              <span style={{ color: pnlColor }} className="font-mono">
-                {pnlUsd >= 0 ? "+" : ""}${Math.abs(pnlUsd).toFixed(2)}
-              </span>
-            </div>
+            {position.current_price ? (
+              <>
+                <p className="font-mono font-bold text-lg" style={{ color: pnlColor }}>
+                  {position.unrealized_pnl_pct >= 0 ? "+" : ""}{(position.unrealized_pnl_pct || 0).toFixed(2)}%
+                </p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span style={{ color: pnlColor }} className="font-mono">
+                    {pnlSol >= 0 ? "+" : ""}{pnlSol.toFixed(4)} SOL
+                  </span>
+                  <span className="text-slate-500">|</span>
+                  <span style={{ color: pnlColor }} className="font-mono">
+                    {pnlUsd >= 0 ? "+" : ""}${Math.abs(pnlUsd).toFixed(2)}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Price unavailable</p>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
@@ -1417,13 +1423,19 @@ function PositionCard({ position, onQuickSell, onDelete }) {
         <div>
           <p className="text-slate-500">Entry Price</p>
           <p className="font-mono text-white">
-            ${position.entry_price < 0.01 ? position.entry_price?.toFixed(6) : position.entry_price?.toFixed(4)}
+            {position.entry_price 
+              ? `$${position.entry_price < 0.01 ? position.entry_price?.toFixed(8) : position.entry_price?.toFixed(6)}`
+              : "N/A"
+            }
           </p>
         </div>
         <div>
           <p className="text-slate-500">Current Price</p>
           <p className="font-mono text-white">
-            ${position.current_price < 0.01 ? position.current_price?.toFixed(6) : position.current_price?.toFixed(4)}
+            {position.current_price 
+              ? `$${position.current_price < 0.01 ? position.current_price?.toFixed(8) : position.current_price?.toFixed(6)}`
+              : <span className="text-slate-500">Loading...</span>
+            }
           </p>
         </div>
         <div>
