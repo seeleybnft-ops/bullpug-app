@@ -10,8 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, Transaction, Connection, clusterApiUrl } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createCloseAccountInstruction } from "@solana/spl-token";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,17 @@ import {
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const BULLPUG_LOGO = "https://bullpug.com/wp-content/uploads/2024/10/04.10.2024_13.24.29_rec-1.png";
+const FIRE_PUG_LOGO = "https://customer-assets.emergentagent.com/job_2669ed2d-7cbd-4361-899c-7c07b9ccca0f/artifacts/i8t4nmv8_Fire.jpg";
+
+// Solana RPC endpoint - using mainnet
+const SOLANA_RPC = clusterApiUrl('mainnet-beta');
+
+// Token program IDs
+const TOKEN_PROGRAM_ID_STR = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
 export default function PugBurn() {
   const { publicKey, connected, signTransaction } = useWallet();
-  const { connection } = useConnection();
   const walletAddress = publicKey?.toString();
 
   const [loading, setLoading] = useState(false);
@@ -56,20 +62,41 @@ export default function PugBurn() {
     setSelectedAccounts([]);
     setCleanupComplete(false);
     
+    const loadingToast = toast.loading("Scanning wallet for empty accounts...");
+    
     try {
       const { data } = await axios.get(`${API}/pugburn/scan/${walletAddress}`);
       setScanResult(data);
       
+      toast.dismiss(loadingToast);
+      
       // Auto-select all vacant accounts
       if (data.vacant_accounts?.length > 0) {
         setSelectedAccounts(data.vacant_accounts.map(a => a.address));
-        toast.success(`Found ${data.vacant_accounts.length} vacant accounts!`);
+        toast.success(
+          <div>
+            <p className="font-bold text-[#00FFA3]">Found {data.vacant_accounts.length} vacant accounts!</p>
+            <p className="text-xs">Scanned {data.total_accounts_scanned} total accounts</p>
+            <p className="text-xs">Reclaimable: ~{data.total_reclaimable_sol?.toFixed(4)} SOL</p>
+          </div>
+        );
       } else {
-        toast.info("No vacant accounts found - your wallet is clean!");
+        toast.success(
+          <div>
+            <p className="font-bold">Wallet is clean!</p>
+            <p className="text-xs">Scanned {data.total_accounts_scanned} accounts - no empty ones found</p>
+          </div>
+        );
       }
     } catch (e) {
       console.error("Scan error:", e);
-      toast.error("Failed to scan wallet");
+      toast.dismiss(loadingToast);
+      toast.error(
+        <div>
+          <p className="font-bold">Scan failed</p>
+          <p className="text-xs">{e.response?.data?.detail || e.message || "Unknown error"}</p>
+        </div>
+      );
     }
     
     setScanning(false);
@@ -95,20 +122,36 @@ export default function PugBurn() {
 
   // Execute cleanup - close selected accounts
   const executeCleanup = async () => {
-    if (!signTransaction || !connection || selectedAccounts.length === 0) {
-      toast.error("Cannot proceed - check wallet connection");
+    if (!signTransaction) {
+      toast.error("Wallet does not support transaction signing");
+      return;
+    }
+    
+    if (selectedAccounts.length === 0) {
+      toast.error("No accounts selected to close");
       return;
     }
 
     setCleaning(true);
     
+    const loadingToast = toast.loading(
+      <div>
+        <p className="font-bold">Preparing cleanup...</p>
+        <p className="text-xs text-slate-400">Building transactions for {selectedAccounts.length} accounts</p>
+      </div>
+    );
+    
     try {
-      // Build close account instructions
-      const transaction = new Transaction();
+      // Create a FRESH connection for this operation to avoid "body stream already read"
+      const freshConnection = new Connection(SOLANA_RPC, {
+        commitment: "confirmed",
+        confirmTransactionInitialTimeout: 60000
+      });
+      
       const owner = publicKey;
       
-      // Process in batches of 10 to avoid transaction size limits
-      const batchSize = 10;
+      // Process in batches of 7 to avoid transaction size limits
+      const batchSize = 7;
       const accountBatches = [];
       
       for (let i = 0; i < selectedAccounts.length; i += batchSize) {
@@ -118,21 +161,36 @@ export default function PugBurn() {
       let totalReclaimed = 0;
       let successCount = 0;
       
-      for (const batch of accountBatches) {
+      for (let batchIndex = 0; batchIndex < accountBatches.length; batchIndex++) {
+        const batch = accountBatches[batchIndex];
+        
+        toast.loading(
+          <div>
+            <p className="font-bold">Processing batch {batchIndex + 1}/{accountBatches.length}</p>
+            <p className="text-xs text-slate-400">Please approve in your wallet</p>
+          </div>,
+          { id: loadingToast }
+        );
+        
         const batchTransaction = new Transaction();
         
         for (const accountAddress of batch) {
           try {
             const accountPubkey = new PublicKey(accountAddress);
             
-            // Create close account instruction
-            // Closing sends rent SOL to the owner
+            // Find the account details to get the correct program ID
+            const accountDetails = scanResult?.vacant_accounts?.find(a => a.address === accountAddress);
+            const programId = accountDetails?.program_id === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" 
+              ? TOKEN_2022_PROGRAM_ID 
+              : TOKEN_PROGRAM_ID;
+            
+            // Create close account instruction with correct program
             const closeInstruction = createCloseAccountInstruction(
               accountPubkey,  // Account to close
               owner,          // Destination for rent SOL
               owner,          // Owner/authority
               [],             // No multi-signers
-              TOKEN_PROGRAM_ID
+              programId
             );
             
             batchTransaction.add(closeInstruction);
@@ -143,27 +201,35 @@ export default function PugBurn() {
         
         if (batchTransaction.instructions.length === 0) continue;
         
-        // Get recent blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        // Get blockhash from fresh connection
+        const { blockhash, lastValidBlockHeight } = await freshConnection.getLatestBlockhash("confirmed");
         batchTransaction.recentBlockhash = blockhash;
         batchTransaction.feePayer = owner;
         
-        // Sign and send
+        // Sign with wallet
         const signedTx = await signTransaction(batchTransaction);
-        const txSignature = await connection.sendRawTransaction(signedTx.serialize(), {
+        
+        // Send using fresh connection
+        const txSignature = await freshConnection.sendRawTransaction(signedTx.serialize(), {
           skipPreflight: false,
-          preflightCommitment: "confirmed"
+          preflightCommitment: "confirmed",
+          maxRetries: 3
         });
         
-        // Wait for confirmation
-        await connection.confirmTransaction({
+        // Wait for confirmation with fresh connection
+        const confirmation = await freshConnection.confirmTransaction({
           signature: txSignature,
           blockhash,
           lastValidBlockHeight
-        });
+        }, "confirmed");
+        
+        if (confirmation.value.err) {
+          console.error("Transaction failed:", confirmation.value.err);
+          continue;
+        }
         
         successCount += batch.length;
-        totalReclaimed += batch.length * 0.00203928; // Approximate rent per account
+        totalReclaimed += batch.length * 0.00203928;
         
         toast.success(
           <div>
@@ -190,6 +256,7 @@ export default function PugBurn() {
       }));
       setSelectedAccounts([]);
       
+      toast.dismiss(loadingToast);
       toast.success(
         <div>
           <p className="font-bold text-[#00FFA3]">Cleanup Complete!</p>
@@ -201,6 +268,7 @@ export default function PugBurn() {
       
     } catch (e) {
       console.error("Cleanup error:", e);
+      toast.dismiss(loadingToast);
       const errorMsg = e.message || "Cleanup failed";
       
       if (errorMsg.includes("User rejected")) {
@@ -224,15 +292,10 @@ export default function PugBurn() {
       <div className="min-h-screen bg-[#0A0A0F] text-white pt-24 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <div className="relative inline-block mb-6">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] p-1 shadow-lg shadow-[#FF6B6B]/30">
-              <div className="w-full h-full rounded-xl bg-[#0A0A0F] flex items-center justify-center">
-                <Flame className="w-12 h-12 text-[#FF6B6B]" />
-              </div>
-            </div>
             <img 
-              src={BULLPUG_LOGO} 
-              alt="Bullpug" 
-              className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full ring-2 ring-[#0A0A0F]"
+              src={FIRE_PUG_LOGO} 
+              alt="PugBurn" 
+              className="w-32 h-32 rounded-2xl ring-4 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/30 object-cover"
             />
           </div>
           
@@ -280,23 +343,16 @@ export default function PugBurn() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF6B6B] to-[#FF8C00] p-0.5 shadow-lg shadow-[#FF6B6B]/20">
-                <div className="w-full h-full rounded-xl bg-[#0A0A0F] flex items-center justify-center">
-                  <Flame className="w-7 h-7 text-[#FF6B6B]" />
-                </div>
-              </div>
-              <img 
-                src={BULLPUG_LOGO} 
-                alt="Bullpug" 
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full ring-2 ring-[#0A0A0F]"
-              />
-            </div>
+            <img 
+              src={FIRE_PUG_LOGO} 
+              alt="PugBurn" 
+              className="w-14 h-14 rounded-xl ring-2 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/20 object-cover"
+            />
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2" style={{ fontFamily: 'Orbitron' }}>
                 Pug<span className="text-[#FF6B6B]">Burn</span>
                 <span className="px-2 py-0.5 text-[10px] bg-[#FF6B6B]/20 text-[#FF6B6B] rounded-full font-normal">
-                  Powered by Bullpug
+                  Powered by Sol-Incinerator
                 </span>
               </h1>
               <p className="text-sm text-slate-400">
@@ -445,9 +501,16 @@ export default function PugBurn() {
                       </button>
                       
                       <div className="flex-1 min-w-0">
-                        <p className="font-mono text-sm text-white truncate">
-                          {account.address}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-sm text-white truncate">
+                            {account.address}
+                          </p>
+                          {account.program_id === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" && (
+                            <span className="px-1.5 py-0.5 text-[9px] bg-[#D946EF]/20 text-[#D946EF] rounded font-semibold">
+                              Token-2022
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">
                           Mint: {account.mint?.slice(0, 8)}...{account.mint?.slice(-6)}
                         </p>

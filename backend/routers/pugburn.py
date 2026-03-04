@@ -20,8 +20,15 @@ router = APIRouter(prefix="/pugburn", tags=["PugBurn"])
 SOL_INCINERATOR_API_KEY = os.environ.get("SOL_INCINERATOR_API_KEY", "")
 SOL_INCINERATOR_BASE_URL = "https://api.sol-incinerator.com"
 
-# Solana RPC endpoint (public or custom)
-SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+# Multiple Solana RPC endpoints for reliability
+ALCHEMY_API_KEY = os.environ.get("ALCHEMY_API_KEY", "")
+SOLANA_RPC_URLS = [
+    f"https://solana-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}" if ALCHEMY_API_KEY else None,
+    "https://api.mainnet-beta.solana.com",
+    "https://rpc.ankr.com/solana",
+]
+# Filter out None values
+SOLANA_RPC_URLS = [url for url in SOLANA_RPC_URLS if url]
 
 # Rent per token account (approximately 0.00203928 SOL for an ATA)
 RENT_PER_ACCOUNT_SOL = 0.00203928
@@ -34,6 +41,7 @@ class VacantAccount(BaseModel):
     symbol: Optional[str] = None
     balance: float = 0
     rent_recoverable: float = RENT_PER_ACCOUNT_SOL
+    program_id: str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"  # SPL Token by default
 
 
 class ScanResult(BaseModel):
@@ -52,32 +60,57 @@ class CloseAccountsRequest(BaseModel):
 
 
 async def get_token_accounts_via_rpc(wallet_address: str) -> List[Dict[str, Any]]:
-    """Fetch all token accounts for a wallet using Solana RPC"""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                SOLANA_RPC_URL,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "getTokenAccountsByOwner",
-                    "params": [
-                        wallet_address,
-                        {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
-                        {"encoding": "jsonParsed"}
-                    ]
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if "result" in data and "value" in data["result"]:
-                    return data["result"]["value"]
-            
-            return []
-    except Exception as e:
-        logger.error(f"RPC error fetching token accounts: {e}")
-        return []
+    """Fetch all token accounts for a wallet using Solana RPC with multiple fallbacks"""
+    
+    # Scan both SPL Token and Token-2022 programs
+    token_programs = [
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022
+    ]
+    
+    all_accounts = []
+    
+    for program_id in token_programs:
+        for rpc_url in SOLANA_RPC_URLS:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        rpc_url,
+                        json={
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "getTokenAccountsByOwner",
+                            "params": [
+                                wallet_address,
+                                {"programId": program_id},
+                                {"encoding": "jsonParsed"}
+                            ]
+                        },
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "result" in data and "value" in data["result"]:
+                            accounts = data["result"]["value"]
+                            # Tag accounts with their program type
+                            for acc in accounts:
+                                acc["_program_id"] = program_id
+                            all_accounts.extend(accounts)
+                            logger.info(f"Found {len(accounts)} accounts from {program_id[:8]}... via {rpc_url}")
+                            break  # Success, move to next program
+                        elif "error" in data:
+                            logger.warning(f"RPC {rpc_url} error for {program_id[:8]}: {data['error']}")
+                            continue
+                    
+            except Exception as e:
+                logger.warning(f"RPC {rpc_url} failed for {program_id[:8]}: {e}")
+                continue
+    
+    if not all_accounts:
+        logger.error("All RPC endpoints failed for all programs")
+    
+    return all_accounts
 
 
 async def scan_with_sol_incinerator(wallet_address: str) -> Optional[Dict]:
@@ -149,6 +182,7 @@ async def scan_vacant_accounts(wallet_address: str) -> ScanResult:
                 pubkey = account.get("pubkey", "")
                 account_info = account.get("account", {})
                 parsed_info = account_info.get("data", {}).get("parsed", {}).get("info", {})
+                program_id = account.get("_program_id", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
                 
                 token_amount = parsed_info.get("tokenAmount", {})
                 balance = float(token_amount.get("uiAmount") or 0)
@@ -161,7 +195,8 @@ async def scan_vacant_accounts(wallet_address: str) -> ScanResult:
                         mint=mint,
                         symbol=None,  # Would need additional lookup
                         balance=balance,
-                        rent_recoverable=RENT_PER_ACCOUNT_SOL
+                        rent_recoverable=RENT_PER_ACCOUNT_SOL,
+                        program_id=program_id
                     ))
             except Exception as e:
                 logger.warning(f"Error parsing account: {e}")
