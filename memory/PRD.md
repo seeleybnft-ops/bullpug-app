@@ -276,6 +276,22 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **New `/api/ai-trader/add-position` endpoint for direct token purchases**
 - [x] **New `/api/ai-trader/close-position` endpoint with P&L calculation**
 
+## Completed This Session (Dec 2025 - Latest)
+- [x] **PugBurn Page** - New Solana account cleanup service at `/pugburn`
+  - Bullpug branding with flame icon and orange/red styling
+  - Feature cards: Reclaim SOL, Clean Wallet, Safe & Secure
+  - Scans for empty token accounts and displays reclaimable SOL
+  - Backend endpoint `/api/pugburn/scan/{wallet}` uses Solana RPC
+  - Sol-Incinerator API key stored securely in backend/.env
+- [x] **Enhanced P/L Display in Positions Tab**
+  - Shows unrealized P/L in percentage, SOL, and USD
+  - Displays entry price, current price, and current value
+  - Backend fetches live SOL price for USD conversions
+- [x] **Instant UI Update on Quick Sell**
+  - Position removed immediately from UI (optimistic update)
+  - Uses setPositions() filter before API call completes
+  - No page refresh required after selling
+
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
 - Re-enable Plushie Sales shop
