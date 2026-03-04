@@ -236,7 +236,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 ## Upcoming Tasks (P1)
 1. ~~Complete Auto-Trade Fetching (Alchemy Transfers API)~~ ✅ Done
 2. Integrate frontend with deployed smart contract (when unblocked)
-3. AI Trading Bot - Phase 2: Implement actual trade execution via Jupiter (wallet signing)
+3. ~~AI Trading Bot - Phase 2: Implement actual trade execution via Jupiter~~ ✅ Done
 
 ## Completed This Session (Dec 2025)
 - [x] Reverted navbar from dropdown to flat layout with AI Trader standalone link
@@ -263,6 +263,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **New `/api/ai-trader/execute-swap` endpoint to record completed trades**
 - [x] **Frontend Quick Trade executes real swaps via Jupiter with wallet signature**
 - [x] **Updated Origins image to flying bullpug with horns**
+- [x] **Editable SOL position in Signals - manual input field for Quick Trade**
+- [x] **Removed Approve button from Signals (only Reject + Quick Trade)**
+- [x] **Duplicate signal prevention - filters out same-token duplicates**
+- [x] **Contradicting signal filtering - keeps higher RSI priority**
+- [x] **Fixed Analyze button - now accepts contract_address for unknown tokens**
+- [x] **Analyze endpoint looks up tokens via DexScreener when not in known list**
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
