@@ -120,75 +120,76 @@ export default function PugBurn() {
     }
   };
 
-  // Helper function to get blockhash using direct fetch (avoids web3.js body stream issues)
-  const getBlockhashDirect = async () => {
-    const response = await fetch(SOLANA_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  // Helper function using XMLHttpRequest to avoid body stream issues
+  const rpcCall = (method, params) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', SOLANA_RPC, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.error) {
+                reject(new Error(data.error.message));
+              } else {
+                resolve(data.result);
+              }
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(`HTTP ${xhr.status}`));
+          }
+        }
+      };
+      xhr.send(JSON.stringify({
         jsonrpc: '2.0',
-        id: 1,
-        method: 'getLatestBlockhash',
-        params: [{ commitment: 'confirmed' }]
-      })
+        id: Date.now(),
+        method,
+        params
+      }));
     });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+  };
+
+  // Get blockhash using XMLHttpRequest
+  const getBlockhashDirect = async () => {
+    const result = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
     return {
-      blockhash: data.result.value.blockhash,
-      lastValidBlockHeight: data.result.value.lastValidBlockHeight
+      blockhash: result.value.blockhash,
+      lastValidBlockHeight: result.value.lastValidBlockHeight
     };
   };
 
-  // Helper function to send transaction using direct fetch
+  // Send transaction using XMLHttpRequest
   const sendTransactionDirect = async (serializedTx) => {
-    const response = await fetch(SOLANA_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'sendTransaction',
-        params: [
-          Buffer.from(serializedTx).toString('base64'),
-          { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }
-        ]
-      })
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.result;
+    const base64Tx = Buffer.from(serializedTx).toString('base64');
+    return await rpcCall('sendTransaction', [
+      base64Tx,
+      { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }
+    ]);
   };
 
-  // Helper function to confirm transaction using direct fetch
-  const confirmTransactionDirect = async (signature, blockhash, lastValidBlockHeight) => {
+  // Confirm transaction using XMLHttpRequest
+  const confirmTransactionDirect = async (signature) => {
     const startTime = Date.now();
-    const timeout = 60000; // 60 seconds
+    const timeout = 60000;
     
     while (Date.now() - startTime < timeout) {
-      const response = await fetch(SOLANA_RPC, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'getSignatureStatuses',
-          params: [[signature]]
-        })
-      });
-      const data = await response.json();
-      
-      if (data.result?.value?.[0]) {
-        const status = data.result.value[0];
-        if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-          return { confirmed: true, err: status.err };
+      try {
+        const result = await rpcCall('getSignatureStatuses', [[signature]]);
+        if (result?.value?.[0]) {
+          const status = result.value[0];
+          if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+            return { confirmed: true, err: status.err };
+          }
         }
+      } catch (e) {
+        console.log('Checking status...', e.message);
       }
-      
-      // Wait 2 seconds before checking again
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    
     throw new Error('Transaction confirmation timeout');
   };
 
