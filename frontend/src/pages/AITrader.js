@@ -141,7 +141,7 @@ export default function AITrader() {
     fetchData();
     fetchTopPicks();
     // Only refresh top picks periodically (every hour), no auto-refresh for main data
-    const topPicksInterval = setInterval(fetchTopPicks, 3600000);
+    const topPicksInterval = setInterval(fetchTopPicks, 300000); // Refresh every 5 minutes
     return () => {
       clearInterval(topPicksInterval);
     };
