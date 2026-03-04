@@ -269,6 +269,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **Contradicting signal filtering - keeps higher RSI priority**
 - [x] **Fixed Analyze button - now accepts contract_address for unknown tokens**
 - [x] **Analyze endpoint looks up tokens via DexScreener when not in known list**
+- [x] **Quick Sell from Positions tab with editable amount**
+- [x] **Risk Calculator showing Max Loss, Potential Profit, Risk:Reward ratio**
+- [x] **Quick Buy from Tokens tab with editable amounts, adds to positions**
+- [x] **Tab order: Signals → Tokens → Positions → History**
+- [x] **New `/api/ai-trader/add-position` endpoint for direct token purchases**
+- [x] **New `/api/ai-trader/close-position` endpoint with P&L calculation**
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
