@@ -140,7 +140,7 @@ export default function AITrader() {
   useEffect(() => {
     fetchData();
     fetchTopPicks();
-    // Only refresh top picks periodically (every hour), no auto-refresh for main data
+    // Refresh top picks every 5 minutes, no auto-refresh for main data
     const topPicksInterval = setInterval(fetchTopPicks, 300000); // Refresh every 5 minutes
     return () => {
       clearInterval(topPicksInterval);
@@ -920,7 +920,7 @@ export default function AITrader() {
                 {/* Auto-refresh notice */}
                 <div className="px-3 py-2 bg-[#00FFA3]/5 rounded-lg text-xs text-slate-500 flex items-center gap-2 border border-[#00FFA3]/10">
                   <span className="w-2 h-2 bg-[#00FFA3] rounded-full animate-pulse" />
-                  Auto-refreshes every hour • Click any token to generate a signal
+                  Auto-refreshes every 5 mins • Click any token to generate a signal
                 </div>
 
                 {topPicksLoading ? (
