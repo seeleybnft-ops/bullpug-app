@@ -344,6 +344,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - [x] **Bullpug AI Image Upload Fix (March 2026)**
   - Fixed ImagePart import error by using FileContent from emergentintegrations
   - AI chat now correctly analyzes uploaded images
+- [x] **Telegram Bot Integration (March 2026)**
+  - Bot username: @Bullpugbot
+  - Users link Telegram via 6-character code
+  - Receives breakout and price alerts in Telegram
+  - Commands: /start, /help, /status, /alerts, /enable, /disable, /unlink
+  - Webhook configured for real-time message handling
+  - 7 API endpoints: bot-info, generate-link-code, verify-code, link-account, status, unlink, toggle-alerts, webhook
+  - Frontend UI in Alerts tab with modal for linking
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
