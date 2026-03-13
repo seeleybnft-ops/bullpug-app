@@ -348,10 +348,22 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Bot username: @Bullpugbot
   - Users link Telegram via 6-character code
   - Receives breakout and price alerts in Telegram
-  - Commands: /start, /help, /status, /alerts, /enable, /disable, /unlink
   - Webhook configured for real-time message handling
-  - 7 API endpoints: bot-info, generate-link-code, verify-code, link-account, status, unlink, toggle-alerts, webhook
   - Frontend UI in Alerts tab with modal for linking
+- [x] **Enhanced Alert Cards (March 2026)**
+  - DexScreener link button on each alert
+  - Watchlist star to add/remove from watchlist
+  - Quick Buy panel with amount input and buy button
+  - Token address validation for quick buy
+- [x] **Telegram Trading Commands (March 2026)**
+  - `/trade` - Opens trading menu with quick actions
+  - `/buy SYMBOL AMOUNT` - Buy tokens (e.g., /buy BONK 0.5)
+  - `/sell SYMBOL %` - Sell position percentage (e.g., /sell BONK 50)
+  - `/price SYMBOL` - Check current token price
+  - `/trending` - View trending Solana tokens
+  - `/positions` - View open trading positions
+  - Orders stored in telegram_pending_orders collection
+  - Updated /help with all trading commands
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
