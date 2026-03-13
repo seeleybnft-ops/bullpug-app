@@ -15,7 +15,7 @@ import {
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
-  Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3
+  Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3, Bell
 } from "lucide-react";
 import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 
@@ -63,6 +63,98 @@ export default function AITrader() {
   const [topPicks, setTopPicks] = useState({ safe: [], volatile: [], newPairs: [] });
   const [topPicksLoading, setTopPicksLoading] = useState(false);
   const [lastTopPicksUpdate, setLastTopPicksUpdate] = useState(null);
+  
+  // Price Alerts state
+  const [priceAlerts, setPriceAlerts] = useState([]);
+  const [triggeredAlerts, setTriggeredAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+
+  // Check for triggered alerts
+  const checkAlerts = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await axios.get(`${API}/ai-trader/alerts/check/${walletAddress}`);
+      if (response.data.triggered_alerts?.length > 0) {
+        setTriggeredAlerts(response.data.triggered_alerts);
+        // Show notification for each triggered alert
+        response.data.triggered_alerts.forEach(alert => {
+          toast.success(
+            `🚨 ALERT: ${alert.symbol} - ${alert.trigger_reason}`,
+            { duration: 10000 }
+          );
+          // Request browser notification permission and show notification
+          if (Notification.permission === "granted") {
+            new Notification(`Bullpug Alert: ${alert.symbol}`, {
+              body: alert.trigger_reason,
+              icon: "/logo.png"
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Check alerts error:", err);
+    }
+  }, [walletAddress]);
+
+  // Fetch price alerts
+  const fetchAlerts = useCallback(async () => {
+    if (!walletAddress) return;
+    setAlertsLoading(true);
+    try {
+      const response = await axios.get(`${API}/ai-trader/alerts/${walletAddress}`);
+      setPriceAlerts(response.data.alerts || []);
+    } catch (err) {
+      console.error("Fetch alerts error:", err);
+    }
+    setAlertsLoading(false);
+  }, [walletAddress]);
+
+  // Scan for breakout candidates
+  const scanForBreakouts = async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await axios.post(`${API}/ai-trader/alerts/breakout-scan?wallet_address=${walletAddress}`);
+      if (response.data.new_alerts?.length > 0) {
+        toast.success(`Found ${response.data.count} potential breakout candidates!`);
+        fetchAlerts();
+      } else {
+        toast.info("No new breakout candidates found");
+      }
+    } catch (err) {
+      toast.error("Breakout scan failed");
+    }
+  };
+
+  // Delete an alert
+  const deleteAlert = async (alertId) => {
+    try {
+      await axios.delete(`${API}/ai-trader/alerts/${alertId}`);
+      setPriceAlerts(prev => prev.filter(a => a.alert_id !== alertId));
+      toast.success("Alert deleted");
+    } catch (err) {
+      toast.error("Failed to delete alert");
+    }
+  };
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Check alerts periodically
+  useEffect(() => {
+    if (!walletAddress || !disclaimerAccepted) return;
+    
+    // Initial check
+    checkAlerts();
+    fetchAlerts();
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkAlerts, 30000);
+    return () => clearInterval(interval);
+  }, [walletAddress, disclaimerAccepted, checkAlerts, fetchAlerts]);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -793,6 +885,7 @@ export default function AITrader() {
           {[
             { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
             { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
+            { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
             { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
             { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
           ].map(tab => (
@@ -1102,6 +1195,139 @@ export default function AITrader() {
                 <p className="text-[10px] text-slate-600 text-center mt-4">
                   ⚠️ Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
                 </p>
+              </div>
+            )}
+            
+            {/* Alerts Tab */}
+            {activeTab === "alerts" && (
+              <div className="space-y-4" data-testid="alerts-tab">
+                {/* Alerts Header */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-[#F5D300]" />
+                      Price Alerts & Breakout Scanner
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Get notified when tokens break out or hit your price targets
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={scanForBreakouts}
+                      className="bg-gradient-to-r from-[#F5D300] to-[#FF8C00] text-black hover:opacity-90"
+                      size="sm"
+                      data-testid="scan-breakouts-btn"
+                    >
+                      <Zap className="w-4 h-4 mr-1" />
+                      Scan Breakouts
+                    </Button>
+                    <Button
+                      onClick={fetchAlerts}
+                      variant="outline"
+                      size="sm"
+                      className="border-white/20"
+                      data-testid="refresh-alerts-btn"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Triggered Alerts Banner */}
+                {triggeredAlerts.length > 0 && (
+                  <div className="bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl p-4">
+                    <h4 className="font-bold text-[#00FFA3] flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Recently Triggered ({triggeredAlerts.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {triggeredAlerts.map((alert, i) => (
+                        <div key={i} className="flex items-center justify-between bg-black/20 rounded-lg p-2 text-sm">
+                          <div>
+                            <span className="font-bold text-white">{alert.symbol}</span>
+                            <span className="text-slate-400 ml-2">{alert.trigger_reason}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500">
+                            {new Date(alert.triggered_at).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Info Banner */}
+                <div className="bg-[#F5D300]/10 border border-[#F5D300]/20 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-[#F5D300] flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-slate-300">
+                      <p><strong>Breakout Alerts</strong> trigger when a token gains &gt;10% in 1 hour with high volume.</p>
+                      <p className="mt-1 text-slate-500">Enable browser notifications to get alerts even when the tab is in the background.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Active Alerts List */}
+                {alertsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#F5D300]" />
+                  </div>
+                ) : priceAlerts.length > 0 ? (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-bold text-slate-400">Active Alerts ({priceAlerts.length})</h4>
+                    {priceAlerts.map((alert) => (
+                      <div 
+                        key={alert.alert_id} 
+                        className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center justify-between"
+                        data-testid={`alert-${alert.alert_id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            alert.alert_type.includes("up") ? "bg-[#00FFA3]/20" : "bg-[#FF6B6B]/20"
+                          }`}>
+                            {alert.alert_type.includes("up") ? (
+                              <TrendingUp className="w-5 h-5 text-[#00FFA3]" />
+                            ) : (
+                              <TrendingDown className="w-5 h-5 text-[#FF6B6B]" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white">{alert.symbol}</p>
+                            <p className="text-xs text-slate-500">
+                              {alert.alert_type === "breakout_up" && "Breakout Up Alert"}
+                              {alert.alert_type === "breakout_down" && "Breakdown Alert"}
+                              {alert.alert_type === "price_above" && `Target: $${alert.target_price?.toFixed(6)}`}
+                              {alert.alert_type === "price_below" && `Target: $${alert.target_price?.toFixed(6)}`}
+                            </p>
+                            {alert.scan_reason && (
+                              <p className="text-[10px] text-[#F5D300] mt-0.5">{alert.scan_reason}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500">
+                            {new Date(alert.created_at).toLocaleDateString()}
+                          </span>
+                          <Button
+                            onClick={() => deleteAlert(alert.alert_id)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-slate-400 hover:text-[#FF6B6B] hover:bg-[#FF6B6B]/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white/5 rounded-xl border border-dashed border-white/10">
+                    <AlertCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">No active alerts</p>
+                    <p className="text-xs text-slate-500 mt-1">Click "Scan Breakouts" to find potential opportunities</p>
+                  </div>
+                )}
               </div>
             )}
           </>

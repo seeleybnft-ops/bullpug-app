@@ -23,8 +23,12 @@ export default function Footer() {
             <div className="flex flex-col gap-2">
               {[
                 {t:"My Journal", p:"/journal"},
+                {t:"AI Trading Bot", p:"/ai-trader"},
+                {t:"PugBurn", p:"/pugburn"},
                 {t:"P2P Arena", p:"/betting"},
-                {t:"Cosmic Runner", p:"/game"}
+                {t:"Cosmic Runner", p:"/game"},
+                {t:"Skin Store", p:"/skins"},
+                {t:"Forum", p:"/forum"}
               ].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}

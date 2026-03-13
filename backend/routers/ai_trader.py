@@ -360,8 +360,6 @@ class StrategyEngine:
         reasoning = []
         
         # Calculate support and resistance from Bollinger Bands and MAs
-        upper_resistance = bollinger["upper"]
-        lower_support = bollinger["lower"]
         middle_line = bollinger["middle"]
         bb_position = bollinger["position"]
         
@@ -1633,3 +1631,299 @@ async def get_new_pairs():
             "count": 0,
             "error": str(e)
         }
+
+
+
+# ============================================================================
+# PRICE ALERTS SYSTEM
+# ============================================================================
+
+class PriceAlert(BaseModel):
+    wallet_address: str
+    symbol: str
+    token_mint: Optional[str] = None
+    alert_type: str  # "breakout_up", "breakout_down", "price_above", "price_below"
+    target_price: Optional[float] = None
+    created_at: Optional[str] = None
+    triggered: bool = False
+    triggered_at: Optional[str] = None
+
+
+class CreateAlertRequest(BaseModel):
+    wallet_address: str
+    symbol: str
+    token_mint: Optional[str] = None
+    alert_type: str = "breakout_up"  # breakout_up, breakout_down, price_above, price_below
+    target_price: Optional[float] = None
+
+
+@router.post("/alerts/create")
+async def create_price_alert(request: CreateAlertRequest):
+    """Create a new price alert for breakout signals or price targets."""
+    try:
+        alert_id = str(uuid.uuid4())[:8]
+        
+        alert_doc = {
+            "alert_id": alert_id,
+            "wallet_address": request.wallet_address,
+            "symbol": request.symbol.upper(),
+            "token_mint": request.token_mint,
+            "alert_type": request.alert_type,
+            "target_price": request.target_price,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "triggered": False,
+            "triggered_at": None,
+            "active": True
+        }
+        
+        await db.price_alerts.insert_one(alert_doc)
+        
+        return {
+            "success": True,
+            "alert_id": alert_id,
+            "message": f"Alert created for {request.symbol.upper()}"
+        }
+    except Exception as e:
+        logger.error(f"Create alert error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/{wallet_address}")
+async def get_price_alerts(wallet_address: str):
+    """Get all price alerts for a wallet."""
+    try:
+        alerts = await db.price_alerts.find(
+            {"wallet_address": wallet_address, "active": True},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        return {
+            "alerts": alerts,
+            "count": len(alerts)
+        }
+    except Exception as e:
+        logger.error(f"Get alerts error: {e}")
+        return {"alerts": [], "count": 0, "error": str(e)}
+
+
+@router.delete("/alerts/{alert_id}")
+async def delete_price_alert(alert_id: str):
+    """Delete a price alert."""
+    try:
+        result = await db.price_alerts.update_one(
+            {"alert_id": alert_id},
+            {"$set": {"active": False}}
+        )
+        
+        return {
+            "success": result.modified_count > 0,
+            "message": "Alert deleted" if result.modified_count > 0 else "Alert not found"
+        }
+    except Exception as e:
+        logger.error(f"Delete alert error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/check/{wallet_address}")
+async def check_alerts(wallet_address: str):
+    """Check if any alerts have been triggered based on current market conditions."""
+    try:
+        alerts = await db.price_alerts.find(
+            {"wallet_address": wallet_address, "active": True, "triggered": False},
+            {"_id": 0}
+        ).to_list(50)
+        
+        if not alerts:
+            return {"triggered_alerts": [], "count": 0}
+        
+        triggered = []
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Group alerts by symbol for efficient fetching
+            symbols = list(set(a["symbol"] for a in alerts))
+            
+            for symbol in symbols:
+                symbol_alerts = [a for a in alerts if a["symbol"] == symbol]
+                
+                # Fetch current price
+                token_mint = symbol_alerts[0].get("token_mint") or TOKENS.get(symbol)
+                current_price = None
+                price_change_1h = 0
+                volume_24h = 0
+                
+                if token_mint:
+                    try:
+                        response = await client.get(
+                            f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
+                        )
+                        if response.status_code == 200:
+                            pairs = response.json().get("pairs", [])
+                            if pairs:
+                                best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                                current_price = float(best_pair.get("priceUsd", 0) or 0)
+                                
+                                # Get price indicators for breakout detection
+                                price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+                                volume_24h = float(best_pair.get("volume", {}).get("h24", 0) or 0)
+                    except Exception as e:
+                        logger.warning(f"Price fetch failed for {symbol}: {e}")
+                
+                if current_price is None or current_price == 0:
+                    continue
+                
+                # Check each alert
+                for alert in symbol_alerts:
+                    alert_triggered = False
+                    trigger_reason = ""
+                    
+                    if alert["alert_type"] == "price_above" and alert.get("target_price"):
+                        if current_price >= alert["target_price"]:
+                            alert_triggered = True
+                            trigger_reason = f"Price ${current_price:.6f} reached target ${alert['target_price']:.6f}"
+                    
+                    elif alert["alert_type"] == "price_below" and alert.get("target_price"):
+                        if current_price <= alert["target_price"]:
+                            alert_triggered = True
+                            trigger_reason = f"Price ${current_price:.6f} dropped to target ${alert['target_price']:.6f}"
+                    
+                    elif alert["alert_type"] == "breakout_up":
+                        # Breakout up: >10% gain in 1h with high volume
+                        if price_change_1h > 10 and volume_24h > 50000:
+                            alert_triggered = True
+                            trigger_reason = f"BREAKOUT UP: +{price_change_1h:.1f}% in 1h, Vol: ${volume_24h:,.0f}"
+                    
+                    elif alert["alert_type"] == "breakout_down":
+                        # Breakout down: >10% drop in 1h
+                        if price_change_1h < -10:
+                            alert_triggered = True
+                            trigger_reason = f"BREAKDOWN: {price_change_1h:.1f}% in 1h"
+                    
+                    if alert_triggered:
+                        # Mark as triggered
+                        await db.price_alerts.update_one(
+                            {"alert_id": alert["alert_id"]},
+                            {"$set": {
+                                "triggered": True, 
+                                "triggered_at": datetime.now(timezone.utc).isoformat(),
+                                "trigger_price": current_price,
+                                "trigger_reason": trigger_reason
+                            }}
+                        )
+                        
+                        triggered.append({
+                            "alert_id": alert["alert_id"],
+                            "symbol": symbol,
+                            "alert_type": alert["alert_type"],
+                            "current_price": current_price,
+                            "target_price": alert.get("target_price"),
+                            "trigger_reason": trigger_reason,
+                            "triggered_at": datetime.now(timezone.utc).isoformat()
+                        })
+        
+        return {
+            "triggered_alerts": triggered,
+            "count": len(triggered)
+        }
+    except Exception as e:
+        logger.error(f"Check alerts error: {e}")
+        return {"triggered_alerts": [], "count": 0, "error": str(e)}
+
+
+@router.post("/alerts/breakout-scan")
+async def scan_for_breakouts(wallet_address: str):
+    """Scan market for potential breakout candidates and create alerts automatically."""
+    try:
+        new_alerts = []
+        
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Scan for tokens showing breakout potential
+            # Look for tokens near Bollinger Band upper/lower bounds with increasing volume
+            
+            search_terms = ["solana meme trending", "raydium pump"]
+            
+            for term in search_terms:
+                try:
+                    response = await client.get(
+                        "https://api.dexscreener.com/latest/dex/search",
+                        params={"q": term}
+                    )
+                    
+                    if response.status_code != 200:
+                        continue
+                    
+                    pairs = response.json().get("pairs", [])
+                    
+                    for pair in pairs[:20]:
+                        if pair.get("chainId") != "solana":
+                            continue
+                        
+                        base = pair.get("baseToken", {})
+                        symbol = base.get("symbol", "").upper()
+                        
+                        if symbol in ["USDC", "USDT", "SOL", "WSOL"]:
+                            continue
+                        
+                        # Check for breakout indicators
+                        price_change_1h = float(pair.get("priceChange", {}).get("h1", 0) or 0)
+                        price_change_6h = float(pair.get("priceChange", {}).get("h6", 0) or 0)
+                        price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+                        volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
+                        liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                        
+                        # Breakout candidate criteria:
+                        # - Good liquidity (>$30K)
+                        # - High volume (>$50K)
+                        # - Price consolidating (small 1h move) but building (6h+ move)
+                        is_breakout_candidate = (
+                            liquidity > 30000 and
+                            volume_24h > 50000 and
+                            abs(price_change_1h) < 5 and  # Consolidating
+                            (price_change_6h > 15 or price_change_24h > 30)  # Building momentum
+                        )
+                        
+                        if is_breakout_candidate:
+                            # Check if alert already exists
+                            existing = await db.price_alerts.find_one({
+                                "wallet_address": wallet_address,
+                                "symbol": symbol,
+                                "active": True,
+                                "triggered": False
+                            })
+                            
+                            if not existing:
+                                alert_id = str(uuid.uuid4())[:8]
+                                token_address = base.get("address", "")
+                                
+                                alert_doc = {
+                                    "alert_id": alert_id,
+                                    "wallet_address": wallet_address,
+                                    "symbol": symbol,
+                                    "token_mint": token_address,
+                                    "alert_type": "breakout_up",
+                                    "target_price": None,  # Auto-triggered by momentum
+                                    "created_at": datetime.now(timezone.utc).isoformat(),
+                                    "triggered": False,
+                                    "active": True,
+                                    "auto_created": True,
+                                    "scan_reason": f"Building momentum: +{price_change_6h:.1f}% (6h), Vol: ${volume_24h:,.0f}"
+                                }
+                                
+                                await db.price_alerts.insert_one(alert_doc)
+                                new_alerts.append({
+                                    "alert_id": alert_id,
+                                    "symbol": symbol,
+                                    "reason": alert_doc["scan_reason"]
+                                })
+                                
+                except Exception as e:
+                    logger.warning(f"Breakout scan failed for term {term}: {e}")
+        
+        return {
+            "success": True,
+            "new_alerts": new_alerts,
+            "count": len(new_alerts),
+            "message": f"Created {len(new_alerts)} breakout alerts"
+        }
+    except Exception as e:
+        logger.error(f"Breakout scan error: {e}")
+        return {"success": False, "new_alerts": [], "error": str(e)}

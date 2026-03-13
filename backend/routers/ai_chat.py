@@ -10,7 +10,7 @@ import httpx
 import re
 from datetime import datetime, timezone
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from utils.database import db
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -1034,12 +1034,14 @@ Provide a helpful response using the real-time data above when relevant. Be spec
                 system_message=system_message
             ).with_model("openai", "gpt-4o")
             
-            # Send message with image
-            from emergentintegrations.llm.chat import ImagePart
+            # Extract base64 data (remove data URI prefix if present)
+            image_base64 = chat.image.split(",")[-1] if "," in chat.image else chat.image
+            
+            # Send message with image using FileContent
             response = await llm_chat.send_message(
                 UserMessage(
                     text=prompt,
-                    images=[ImagePart(base64_data=chat.image.split(",")[-1] if "," in chat.image else chat.image)]
+                    file_contents=[FileContent(content_type="image/png", file_content_base64=image_base64)]
                 )
             )
         else:
