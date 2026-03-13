@@ -309,22 +309,22 @@ export default function TradingJournal() {
   };
 
   return (
-    <div className="pt-20 pb-16 min-h-screen" data-testid="trading-journal-page">
+    <div className="pt-16 sm:pt-20 pb-12 sm:pb-16 min-h-screen safe-area-padding" data-testid="trading-journal-page">
       <div className="stars-bg fixed inset-0 -z-10" />
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               My <span className="text-[#00C2FF]">Journal</span>
             </h1>
-            <p className="text-slate-500 text-sm mt-1">Track, analyze, simulate exits & improve your trading</p>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">Track, analyze, simulate exits & improve your trading</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               onClick={exportCSV}
               variant="outline"
               data-testid="export-csv-btn"
-              className="border-white/20 text-slate-400 hover:text-white rounded-xl px-4 py-2 text-xs uppercase"
+              className="border-white/20 text-slate-400 hover:text-white rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-[10px] sm:text-xs uppercase"
             >
               <Download className="w-3 h-3 mr-1" /> CSV
             </Button>
@@ -332,45 +332,45 @@ export default function TradingJournal() {
               onClick={exportPDF}
               variant="outline"
               data-testid="export-pdf-btn"
-              className="border-white/20 text-slate-400 hover:text-white rounded-xl px-4 py-2 text-xs uppercase"
+              className="border-white/20 text-slate-400 hover:text-white rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-[10px] sm:text-xs uppercase"
             >
               <FileText className="w-3 h-3 mr-1" /> PDF
             </Button>
             <Button
               onClick={() => { setEditingTrade(null); setShowForm(true); }}
               data-testid="new-trade-btn"
-              className="bg-[#00FFA3] text-black font-bold rounded-xl px-6 py-5 text-sm uppercase hover:scale-[1.02] transition-transform"
+              className="bg-[#00FFA3] text-black font-bold rounded-lg sm:rounded-xl px-4 sm:px-6 py-3 sm:py-5 text-xs sm:text-sm uppercase hover:scale-[1.02] transition-transform"
             >
-              <Plus className="w-4 h-4 mr-2" /> Log Trade
+              <Plus className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden xs:inline">Log </span>Trade
             </Button>
           </div>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6 flex-wrap">
-            <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF] rounded-lg font-bold text-xs uppercase">
-              <BarChart3 className="w-4 h-4 mr-2" />Dashboard
+          <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-4 sm:mb-6 flex flex-wrap overflow-x-auto tabs-container gap-1">
+            <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden xs:inline">Dashboard</span><span className="xs:hidden">Dash</span>
             </TabsTrigger>
-            <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="data-[state=active]:bg-[#9945FF]/10 data-[state=active]:text-[#9945FF] rounded-lg font-bold text-xs uppercase">
-              <DollarSign className="w-4 h-4 mr-2" />Portfolio Value
+            <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="data-[state=active]:bg-[#9945FF]/10 data-[state=active]:text-[#9945FF] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Portfolio Value</span><span className="sm:hidden">Port</span>
             </TabsTrigger>
-            <TabsTrigger value="import" data-testid="tab-import" className="data-[state=active]:bg-[#627EEA]/10 data-[state=active]:text-[#627EEA] rounded-lg font-bold text-xs uppercase">
-              <Download className="w-4 h-4 mr-2" />Import
+            <TabsTrigger value="import" data-testid="tab-import" className="data-[state=active]:bg-[#627EEA]/10 data-[state=active]:text-[#627EEA] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Import
             </TabsTrigger>
-            <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
-              <BookOpen className="w-4 h-4 mr-2" />Trades
+            <TabsTrigger value="trades" data-testid="tab-trades" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Trades
             </TabsTrigger>
-            <TabsTrigger value="simulator" data-testid="tab-simulator" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
-              <Calculator className="w-4 h-4 mr-2" />Exit Sim
+            <TabsTrigger value="simulator" data-testid="tab-simulator" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <Calculator className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden xs:inline">Exit </span>Sim
             </TabsTrigger>
-            <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-xs uppercase">
-              <Trophy className="w-4 h-4 mr-2" />Achievements
+            <TabsTrigger value="achievements" data-testid="tab-achievements" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <Trophy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Achievements</span><span className="sm:hidden">Awards</span>
             </TabsTrigger>
-            <TabsTrigger value="watchlist" data-testid="tab-watchlist" className="data-[state=active]:bg-[#FFD700]/10 data-[state=active]:text-[#FFD700] rounded-lg font-bold text-xs uppercase">
-              <Star className="w-4 h-4 mr-2" />Watchlist
+            <TabsTrigger value="watchlist" data-testid="tab-watchlist" className="data-[state=active]:bg-[#FFD700]/10 data-[state=active]:text-[#FFD700] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden xs:inline">Watch</span><span className="xs:hidden">★</span>
             </TabsTrigger>
-            <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#FF6B6B]/10 data-[state=active]:text-[#FF6B6B] rounded-lg font-bold text-xs uppercase">
-              <Activity className="w-4 h-4 mr-2" />Backup
+            <TabsTrigger value="backups" data-testid="tab-backups" className="data-[state=active]:bg-[#FF6B6B]/10 data-[state=active]:text-[#FF6B6B] rounded-lg font-bold text-[10px] sm:text-xs uppercase px-2 sm:px-3">
+              <Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Backup
             </TabsTrigger>
           </TabsList>
 

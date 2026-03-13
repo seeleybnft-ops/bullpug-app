@@ -347,39 +347,163 @@ class StrategyEngine:
         }
     
     @staticmethod
+    def breakout_strategy(indicators: Dict[str, Any]) -> Dict[str, Any]:
+        """Breakout Strategy - Detects price breaking through support/resistance levels"""
+        bollinger = indicators["bollinger"]
+        rsi = indicators["rsi"]
+        macd = indicators["macd"]
+        current_price = indicators["current_price"]
+        moving_averages = indicators["moving_averages"]
+        
+        signal = None
+        confidence = 0.0
+        reasoning = []
+        
+        # Calculate support and resistance from Bollinger Bands and MAs
+        upper_resistance = bollinger["upper"]
+        lower_support = bollinger["lower"]
+        middle_line = bollinger["middle"]
+        bb_position = bollinger["position"]
+        
+        # Get moving averages for additional S/R levels
+        sma_7 = moving_averages.get("sma_7", middle_line)
+        sma_21 = moving_averages.get("sma_21", middle_line)
+        sma_50 = moving_averages.get("sma_50", middle_line)
+        
+        # Bullish Breakout Detection
+        # Price breaking above upper Bollinger Band with momentum confirmation
+        if bb_position > 0.95:  # Price at or above upper band
+            if macd["histogram"] > 0 and rsi < 80:  # Momentum confirming, not extremely overbought
+                signal = "buy"
+                confidence = 0.60
+                reasoning.append("BREAKOUT: Price breaking above upper Bollinger Band")
+                reasoning.append(f"MACD histogram positive ({macd['histogram']:.6f})")
+                
+                # Additional confidence if breaking above key MAs
+                if current_price > sma_21 and current_price > sma_50:
+                    confidence += 0.15
+                    reasoning.append("Price above 21 and 50 SMA - strong breakout")
+                
+                # RSI confirmation
+                if 50 < rsi < 70:
+                    confidence += 0.10
+                    reasoning.append("RSI in bullish momentum zone")
+        
+        # Price breaking above key moving average resistance
+        elif current_price > sma_50 and sma_7 > sma_21 > sma_50:
+            if macd["histogram"] > 0:
+                signal = "buy"
+                confidence = 0.50
+                reasoning.append("BREAKOUT: Price above 50 SMA with bullish MA alignment")
+                reasoning.append("Moving averages in bullish order (7 > 21 > 50)")
+                
+                if rsi > 50 and rsi < 70:
+                    confidence += 0.10
+                    reasoning.append("RSI confirming bullish momentum")
+        
+        # Bearish Breakdown Detection
+        # Price breaking below lower Bollinger Band
+        elif bb_position < 0.05:  # Price at or below lower band
+            if macd["histogram"] < 0 and rsi > 20:  # Momentum confirming, not extremely oversold
+                signal = "sell"
+                confidence = 0.55
+                reasoning.append("BREAKDOWN: Price breaking below lower Bollinger Band")
+                reasoning.append(f"MACD histogram negative ({macd['histogram']:.6f})")
+                
+                # Additional confidence if breaking below key MAs
+                if current_price < sma_21 and current_price < sma_50:
+                    confidence += 0.15
+                    reasoning.append("Price below 21 and 50 SMA - strong breakdown")
+        
+        # Price breaking below key moving average support
+        elif current_price < sma_50 and sma_7 < sma_21 < sma_50:
+            if macd["histogram"] < 0:
+                signal = "sell"
+                confidence = 0.45
+                reasoning.append("BREAKDOWN: Price below 50 SMA with bearish MA alignment")
+                reasoning.append("Moving averages in bearish order (7 < 21 < 50)")
+        
+        # False breakout detection - reduces confidence
+        if signal == "buy" and rsi > 75:
+            confidence -= 0.15
+            reasoning.append("Warning: RSI overbought - possible false breakout")
+        elif signal == "sell" and rsi < 25:
+            confidence -= 0.15
+            reasoning.append("Warning: RSI oversold - possible false breakdown")
+        
+        return {
+            "signal": signal,
+            "confidence": max(0, min(confidence, 0.85)),
+            "strategy": "breakout",
+            "reasoning": "; ".join(reasoning)
+        }
+    
+    @staticmethod
     def combined_strategy(indicators: Dict[str, Any]) -> Dict[str, Any]:
-        """Combined strategy using both momentum and mean reversion"""
+        """Combined strategy using momentum, mean reversion, and breakout"""
         momentum = StrategyEngine.momentum_strategy(indicators)
         mean_rev = StrategyEngine.mean_reversion_strategy(indicators)
+        breakout = StrategyEngine.breakout_strategy(indicators)
         
-        # If both agree, high confidence
-        if momentum["signal"] and mean_rev["signal"] and momentum["signal"] == mean_rev["signal"]:
+        strategies = [momentum, mean_rev, breakout]
+        
+        # Count agreeing signals
+        buy_signals = [s for s in strategies if s["signal"] == "buy"]
+        sell_signals = [s for s in strategies if s["signal"] == "sell"]
+        
+        # If all three agree, very high confidence
+        if len(buy_signals) == 3:
+            avg_confidence = sum(s["confidence"] for s in buy_signals) / 3
             return {
-                "signal": momentum["signal"],
-                "confidence": min((momentum["confidence"] + mean_rev["confidence"]) / 2 + 0.15, 0.95),
+                "signal": "buy",
+                "confidence": min(avg_confidence + 0.20, 0.95),
                 "strategy": "combined",
-                "reasoning": f"Both strategies agree: {momentum['reasoning']} | {mean_rev['reasoning']}"
+                "reasoning": f"All strategies agree BUY: {buy_signals[0]['reasoning']} | {buy_signals[1]['reasoning']} | {buy_signals[2]['reasoning']}"
             }
         
-        # Use the higher confidence signal
-        if momentum["confidence"] > mean_rev["confidence"] and momentum["signal"]:
-            return momentum
-        elif mean_rev["signal"]:
-            return mean_rev
-        elif momentum["signal"]:
-            return momentum
+        if len(sell_signals) == 3:
+            avg_confidence = sum(s["confidence"] for s in sell_signals) / 3
+            return {
+                "signal": "sell",
+                "confidence": min(avg_confidence + 0.20, 0.95),
+                "strategy": "combined",
+                "reasoning": f"All strategies agree SELL: {sell_signals[0]['reasoning']} | {sell_signals[1]['reasoning']} | {sell_signals[2]['reasoning']}"
+            }
         
-        # Fallback: if any signal exists, use it even with lower confidence
-        if momentum["signal"]:
-            return momentum
-        if mean_rev["signal"]:
-            return mean_rev
+        # If two agree, moderate boost
+        if len(buy_signals) >= 2:
+            best = max(buy_signals, key=lambda x: x["confidence"])
+            return {
+                "signal": "buy",
+                "confidence": min(best["confidence"] + 0.10, 0.90),
+                "strategy": "combined",
+                "reasoning": f"Multiple strategies agree BUY: {best['reasoning']}"
+            }
+        
+        if len(sell_signals) >= 2:
+            best = max(sell_signals, key=lambda x: x["confidence"])
+            return {
+                "signal": "sell",
+                "confidence": min(best["confidence"] + 0.10, 0.90),
+                "strategy": "combined",
+                "reasoning": f"Multiple strategies agree SELL: {best['reasoning']}"
+            }
+        
+        # Prioritize breakout signals (they indicate strong moves)
+        if breakout["signal"] and breakout["confidence"] >= 0.50:
+            return breakout
+        
+        # Use the highest confidence signal
+        all_signals = [s for s in strategies if s["signal"]]
+        if all_signals:
+            best = max(all_signals, key=lambda x: x["confidence"])
+            return best
         
         return {
             "signal": None,
             "confidence": 0,
             "strategy": "combined",
-            "reasoning": "No clear signal from either strategy"
+            "reasoning": "No clear signal from any strategy"
         }
 
 

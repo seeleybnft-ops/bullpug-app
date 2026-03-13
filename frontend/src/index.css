@@ -82,3 +82,231 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* ==================== MOBILE RESPONSIVENESS ==================== */
+
+/* Mobile-first responsive utilities */
+@layer utilities {
+  /* Hide on mobile, show on desktop */
+  .mobile-hide {
+    @apply hidden md:block;
+  }
+  
+  /* Show on mobile, hide on desktop */
+  .mobile-only {
+    @apply block md:hidden;
+  }
+  
+  /* Responsive text sizing */
+  .text-responsive-sm {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-base {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-lg {
+    @apply text-base sm:text-lg md:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl;
+  }
+  
+  /* Responsive padding */
+  .px-responsive {
+    @apply px-3 sm:px-4 md:px-6;
+  }
+  
+  .py-responsive {
+    @apply py-3 sm:py-4 md:py-6;
+  }
+  
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  /* Responsive gaps */
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  /* Responsive cards */
+  .card-responsive {
+    @apply p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl;
+  }
+}
+
+/* Mobile navigation adjustments */
+@media (max-width: 768px) {
+  /* Navbar mobile optimizations */
+  nav {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  /* Reduce nav items spacing on mobile */
+  nav .flex.gap-6,
+  nav .flex.gap-8 {
+    gap: 0.5rem !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  /* Make nav links smaller on mobile */
+  nav a {
+    font-size: 0.65rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  /* Stack header elements on mobile */
+  .header-responsive {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: flex-start !important;
+  }
+  
+  /* Full-width buttons on mobile */
+  .btn-mobile-full {
+    width: 100% !important;
+  }
+  
+  /* Stat cards - 2 columns on mobile */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  /* Trading cards - stack on mobile */
+  .trade-card {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  /* Position cards - vertical layout */
+  .position-card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  
+  /* Tabs overflow scroll on mobile */
+  .tabs-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .tabs-container::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Modal responsive */
+  .modal-responsive {
+    max-width: calc(100vw - 2rem) !important;
+    max-height: calc(100vh - 4rem) !important;
+    margin: 1rem !important;
+  }
+  
+  /* Input fields wider on mobile */
+  input[type="number"],
+  input[type="text"] {
+    min-width: 80px !important;
+  }
+  
+  /* Token cards grid - single column on very small screens */
+  .token-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Small mobile (< 375px) */
+@media (max-width: 375px) {
+  /* Even smaller text for tiny screens */
+  nav a {
+    font-size: 0.6rem !important;
+    padding: 0.2rem 0.4rem !important;
+  }
+  
+  /* Stack everything vertically */
+  .flex-mobile-col {
+    flex-direction: column !important;
+  }
+  
+  /* Reduce padding on very small screens */
+  .p-responsive {
+    padding: 0.5rem !important;
+  }
+}
+
+/* Tablet (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Token cards - 2 columns on tablet */
+  .token-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  /* Stats - 4 columns on tablet */
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* Desktop (> 1024px) */
+@media (min-width: 1024px) {
+  /* Token cards - 2 columns side by side */
+  .token-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Touch-friendly tap targets */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase button/link sizes for touch */
+  button,
+  a,
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Larger touch targets for small buttons */
+  button.btn-sm {
+    min-height: 36px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: max(0px)) {
+  .safe-area-padding {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Animations - reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+

@@ -15,8 +15,9 @@ import {
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
-  Rocket, CheckCircle, AlertCircle, Timer, Trash2
+  Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3
 } from "lucide-react";
+import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TRADING_BOT_IMAGE = "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg";
@@ -745,59 +746,70 @@ export default function AITrader() {
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <StatCard
-            icon={<TrendingUp className="w-5 h-5" />}
+            icon={<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />}
             label="Win Rate"
             value={loading ? "..." : `${history.stats.win_rate?.toFixed(1) || 0}%`}
             color={history.stats.win_rate >= 50 ? "#00FFA3" : "#FF6B6B"}
             testId="stat-win-rate"
           />
           <StatCard
-            icon={<DollarSign className="w-5 h-5" />}
+            icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />}
             label="Total P&L"
             value={loading ? "..." : `${history.stats.total_pnl_sol >= 0 ? '+' : ''}${history.stats.total_pnl_sol?.toFixed(4) || 0} SOL`}
             color={history.stats.total_pnl_sol >= 0 ? "#00FFA3" : "#FF6B6B"}
             testId="stat-pnl"
           />
           <StatCard
-            icon={<History className="w-5 h-5" />}
+            icon={<History className="w-4 h-4 sm:w-5 sm:h-5" />}
             label="Total Trades"
             value={loading ? "..." : history.stats.total_trades || 0}
             color="#D946EF"
             testId="stat-trades"
           />
           <StatCard
-            icon={<Target className="w-5 h-5" />}
+            icon={<Target className="w-4 h-4 sm:w-5 sm:h-5" />}
             label="Open Positions"
             value={loading ? "..." : positions.length}
             color="#00C2FF"
             testId="stat-positions"
           />
         </div>
+        
+        {/* Share Performance Button */}
+        {history.stats.total_trades > 0 && (
+          <div className="flex justify-end mb-4">
+            <ShareButton 
+              type="performance" 
+              data={history.stats}
+              className="px-3 py-1.5 text-xs"
+            />
+          </div>
+        )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-white/10 pb-2 overflow-x-auto">
+        <div className="flex gap-1 sm:gap-2 mb-4 sm:mb-6 border-b border-white/10 pb-2 overflow-x-auto tabs-container">
           {[
-            { id: "signals", label: "Signals", icon: <Zap className="w-4 h-4" />, count: signals.length },
-            { id: "tokens", label: "Tokens", icon: <DollarSign className="w-4 h-4" /> },
-            { id: "positions", label: "Positions", icon: <Target className="w-4 h-4" />, count: positions.length },
-            { id: "history", label: "History", icon: <History className="w-4 h-4" /> }
+            { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
+            { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
+            { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
+            { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-testid={`tab-${tab.id}`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "bg-[#D946EF]/20 text-[#D946EF]"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
               {tab.icon}
-              {tab.label}
+              <span className="hidden xs:inline sm:inline">{tab.label}</span>
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="px-1.5 py-0.5 bg-[#D946EF] text-white text-xs rounded-full">
+                <span className="px-1 sm:px-1.5 py-0.5 bg-[#D946EF] text-white text-[10px] sm:text-xs rounded-full">
                   {tab.count}
                 </span>
               )}
@@ -1216,24 +1228,24 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   };
   
   return (
-    <div className={`bg-white/5 rounded-2xl p-5 border ${riskColors.border}`} data-testid={`signal-${signal.signal_id}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+    <div className={`bg-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-5 border ${riskColors.border}`} data-testid={`signal-${signal.signal_id}`}>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
             signal.signal_type === "buy" ? "bg-[#00FFA3]/20" : "bg-[#FF6B6B]/20"
           }`}>
             {signal.signal_type === "buy" ? (
-              <TrendingUp className="w-6 h-6 text-[#00FFA3]" />
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-[#00FFA3]" />
             ) : (
-              <TrendingDown className="w-6 h-6 text-[#FF6B6B]" />
+              <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-[#FF6B6B]" />
             )}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-bold">
                 {signal.signal_type.toUpperCase()} {signal.token_symbol}
               </h3>
-              <span className={`px-2 py-0.5 rounded text-xs ${riskColors.bg} ${riskColors.text}`}>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs ${riskColors.bg} ${riskColors.text}`}>
                 {signal.risk_category === "safer" ? "SAFER" : "HIGH RISK"}
               </span>
               {signal.token_mint && (
@@ -1241,15 +1253,15 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
                   href={`https://dexscreener.com/solana/${signal.token_mint}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[#00C2FF]/10 text-[#00C2FF] hover:bg-[#00C2FF]/20 transition-colors"
+                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs bg-[#00C2FF]/10 text-[#00C2FF] hover:bg-[#00C2FF]/20 transition-colors"
                   title="View on DexScreener"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  Chart
+                  <span className="hidden sm:inline">Chart</span>
                 </a>
               )}
             </div>
-            <p className="text-sm text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-400">
               Confidence: <span className="text-white font-medium">{(signal.confidence * 100).toFixed(0)}%</span>
               {" • "}
               Strategy: <span className="text-white">{signal.strategy}</span>
@@ -1257,12 +1269,13 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-end">
+          <ShareButton type="signal" data={signal} className="hidden sm:flex" />
           <Button
             onClick={onReject}
             variant="outline"
             size="sm"
-            className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10"
+            className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10 px-2 sm:px-3"
             data-testid={`reject-signal-${signal.signal_id}`}
           >
             <X className="w-4 h-4" />
@@ -1271,7 +1284,7 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
             onClick={handleQuickTrade}
             disabled={quickTrading || positionSol <= 0}
             size="sm"
-            className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] text-white hover:opacity-90"
+            className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] text-white hover:opacity-90 text-xs sm:text-sm"
             data-testid={`quick-trade-${signal.signal_id}`}
           >
             {quickTrading ? (
@@ -1279,26 +1292,26 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
             ) : (
               <Zap className="w-4 h-4 mr-1" />
             )}
-            Quick Trade
+            <span className="hidden xs:inline">Quick </span>Trade
           </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-4 gap-4 mt-4 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-3 sm:mt-4 text-xs sm:text-sm">
         <div>
-          <p className="text-slate-500">Entry</p>
+          <p className="text-slate-500 text-[10px] sm:text-xs">Entry</p>
           <p className="font-mono">${signal.entry_price < 0.01 ? signal.entry_price.toFixed(8) : signal.entry_price.toFixed(4)}</p>
         </div>
         <div>
-          <p className="text-slate-500">Stop Loss</p>
+          <p className="text-slate-500 text-[10px] sm:text-xs">Stop Loss</p>
           <p className="font-mono text-[#FF6B6B]">${signal.stop_loss_price < 0.01 ? signal.stop_loss_price.toFixed(8) : signal.stop_loss_price.toFixed(4)}</p>
         </div>
         <div>
-          <p className="text-slate-500">Take Profit</p>
+          <p className="text-slate-500 text-[10px] sm:text-xs">Take Profit</p>
           <p className="font-mono text-[#00FFA3]">${signal.take_profit_price < 0.01 ? signal.take_profit_price.toFixed(8) : signal.take_profit_price.toFixed(4)}</p>
         </div>
         <div>
-          <p className="text-slate-500 mb-1">Position (SOL)</p>
+          <p className="text-slate-500 text-[10px] sm:text-xs mb-1">Position (SOL)</p>
           <div className="flex items-center gap-1">
             <input
               type="number"
@@ -1307,26 +1320,29 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
               step="0.01"
               min="0.01"
               max="10"
-              className="w-20 bg-white/10 border border-white/20 rounded px-2 py-1 text-sm font-mono text-white focus:border-[#00FFA3] focus:outline-none"
+              className="w-16 sm:w-20 bg-white/10 border border-white/20 rounded px-2 py-1 text-xs sm:text-sm font-mono text-white focus:border-[#00FFA3] focus:outline-none"
               data-testid={`position-input-${signal.signal_id}`}
             />
-            <span className="text-slate-500 text-xs">SOL</span>
+            <span className="text-slate-500 text-[10px] sm:text-xs">SOL</span>
           </div>
         </div>
       </div>
       
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-xs text-slate-500 mt-3 hover:text-white"
-      >
-        {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        {expanded ? "Hide" : "Show"} Analysis
-      </button>
+      <div className="flex items-center justify-between mt-3">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 hover:text-white"
+        >
+          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {expanded ? "Hide" : "Show"} Analysis
+        </button>
+        <ShareButton type="signal" data={signal} className="sm:hidden" />
+      </div>
       
       {expanded && (
-        <div className="mt-3 p-3 bg-black/20 rounded-xl text-sm">
+        <div className="mt-3 p-2 sm:p-3 bg-black/20 rounded-lg sm:rounded-xl text-xs sm:text-sm">
           <p className="text-slate-400 mb-2">{signal.reasoning}</p>
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-3 gap-2 text-[10px] sm:text-xs">
             <div>RSI: <span className="text-white">{signal.technical_indicators?.rsi?.toFixed(1)}</span></div>
             <div>Trend: <span className="text-white">{signal.technical_indicators?.short_trend}</span></div>
             <div>BB Pos: <span className="text-white">{(signal.technical_indicators?.bollinger?.position * 100)?.toFixed(0)}%</span></div>
@@ -1766,6 +1782,10 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze, onQuickBuy }) {
   
   const c = colors[type] || colors.safe;
   
+  // Determine HOT and TRENDING status
+  const isHot = coin.volume_24h && coin.volume_24h > 100000; // >$100K volume = HOT
+  const isTrending = coin.change_24h && coin.change_24h > 50; // >50% gain = TRENDING
+  
   const truncateAddress = (address) => {
     if (!address) return "";
     if (address.length <= 12) return address;
@@ -1797,11 +1817,21 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze, onQuickBuy }) {
             {type === "new" ? "🚀" : index + 1}
           </div>
           <div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <p className="font-medium text-white text-sm">{coin.symbol}</p>
               {coin.is_bonded && (
                 <span className="px-1.5 py-0.5 text-[8px] bg-[#00FFA3]/20 text-[#00FFA3] rounded font-bold">
                   BONDED
+                </span>
+              )}
+              {isHot && (
+                <span className="px-1.5 py-0.5 text-[8px] bg-[#FF6B6B]/30 text-[#FF6B6B] rounded font-bold animate-pulse">
+                  🔥 HOT
+                </span>
+              )}
+              {isTrending && (
+                <span className="px-1.5 py-0.5 text-[8px] bg-[#00FFA3]/30 text-[#00FFA3] rounded font-bold">
+                  📈 TRENDING
                 </span>
               )}
             </div>
@@ -1819,7 +1849,7 @@ function TopPickCard({ coin, index, type, onCopy, onAnalyze, onQuickBuy }) {
       </div>
 
       {/* Contract Address & Actions */}
-      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-2">
         {coin.contract_address ? (
           <button 
             onClick={() => onCopy(coin.contract_address, "Contract")}

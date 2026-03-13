@@ -318,47 +318,47 @@ export default function PugBurn() {
   // Not connected view
   if (!connected) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] text-white pt-24 px-4">
+      <div className="min-h-screen bg-[#0A0A0F] text-white pt-20 sm:pt-24 px-3 sm:px-4">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="relative inline-block mb-6">
+          <div className="relative inline-block mb-4 sm:mb-6">
             <img 
               src={FIRE_PUG_LOGO} 
               alt="PugBurn" 
-              className="w-32 h-32 rounded-2xl ring-4 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/30 object-cover"
+              className="w-20 h-20 sm:w-32 sm:h-32 rounded-xl sm:rounded-2xl ring-4 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/30 object-cover"
             />
           </div>
           
-          <h1 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Orbitron' }}>
+          <h1 className="text-2xl sm:text-4xl font-bold mb-3 sm:mb-4" style={{ fontFamily: 'Orbitron' }}>
             Pug<span className="text-[#FF6B6B]">Burn</span>
           </h1>
-          <p className="text-lg text-slate-400 mb-2">Solana Account Cleanup</p>
-          <p className="text-slate-500 mb-8 max-w-md mx-auto">
+          <p className="text-base sm:text-lg text-slate-400 mb-2">Solana Account Cleanup</p>
+          <p className="text-sm sm:text-base text-slate-500 mb-6 sm:mb-8 max-w-md mx-auto px-4">
             Reclaim SOL locked in empty token accounts. Every closed account returns ~0.002 SOL to your wallet.
           </p>
           
           <Link to="/">
-            <Button className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] px-8 py-6 text-lg font-bold rounded-xl hover:opacity-90">
-              <Wallet className="w-5 h-5 mr-2" />
+            <Button className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg font-bold rounded-xl hover:opacity-90">
+              <Wallet className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Connect Wallet to Start
             </Button>
           </Link>
           
           {/* Feature cards */}
-          <div className="grid md:grid-cols-3 gap-4 mt-12">
-            <div className="bg-white/5 rounded-xl p-5 border border-white/10">
-              <Coins className="w-8 h-8 text-[#00FFA3] mb-3" />
-              <h3 className="font-bold mb-2">Reclaim SOL</h3>
-              <p className="text-sm text-slate-400">Get back ~0.002 SOL for each empty account closed</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-8 sm:mt-12">
+            <div className="bg-white/5 rounded-xl p-4 sm:p-5 border border-white/10">
+              <Coins className="w-6 h-6 sm:w-8 sm:h-8 text-[#00FFA3] mb-2 sm:mb-3 mx-auto sm:mx-0" />
+              <h3 className="font-bold mb-1 sm:mb-2 text-sm sm:text-base">Reclaim SOL</h3>
+              <p className="text-xs sm:text-sm text-slate-400">Get back ~0.002 SOL for each empty account closed</p>
             </div>
-            <div className="bg-white/5 rounded-xl p-5 border border-white/10">
-              <Sparkles className="w-8 h-8 text-[#D946EF] mb-3" />
-              <h3 className="font-bold mb-2">Clean Wallet</h3>
-              <p className="text-sm text-slate-400">Remove clutter from airdrops and old tokens</p>
+            <div className="bg-white/5 rounded-xl p-4 sm:p-5 border border-white/10">
+              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-[#D946EF] mb-2 sm:mb-3 mx-auto sm:mx-0" />
+              <h3 className="font-bold mb-1 sm:mb-2 text-sm sm:text-base">Clean Wallet</h3>
+              <p className="text-xs sm:text-sm text-slate-400">Remove clutter from airdrops and old tokens</p>
             </div>
-            <div className="bg-white/5 rounded-xl p-5 border border-white/10">
-              <Shield className="w-8 h-8 text-[#00C2FF] mb-3" />
-              <h3 className="font-bold mb-2">Safe & Secure</h3>
-              <p className="text-sm text-slate-400">Only closes empty accounts - your tokens are safe</p>
+            <div className="bg-white/5 rounded-xl p-4 sm:p-5 border border-white/10">
+              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-[#00C2FF] mb-2 sm:mb-3 mx-auto sm:mx-0" />
+              <h3 className="font-bold mb-1 sm:mb-2 text-sm sm:text-base">Safe & Secure</h3>
+              <p className="text-xs sm:text-sm text-slate-400">Only closes empty accounts - your tokens are safe</p>
             </div>
           </div>
         </div>
@@ -367,24 +367,24 @@ export default function PugBurn() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white pt-20 pb-8 px-4">
+    <div className="min-h-screen bg-[#0A0A0F] text-white pt-16 sm:pt-20 pb-6 sm:pb-8 px-3 sm:px-4 safe-area-padding">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
             <img 
               src={FIRE_PUG_LOGO} 
               alt="PugBurn" 
-              className="w-14 h-14 rounded-xl ring-2 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/20 object-cover"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl ring-2 ring-[#FF6B6B]/30 shadow-lg shadow-[#FF6B6B]/20 object-cover"
             />
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2" style={{ fontFamily: 'Orbitron' }}>
+              <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 flex-wrap" style={{ fontFamily: 'Orbitron' }}>
                 Pug<span className="text-[#FF6B6B]">Burn</span>
-                <span className="px-2 py-0.5 text-[10px] bg-[#FF6B6B]/20 text-[#FF6B6B] rounded-full font-normal">
+                <span className="px-2 py-0.5 text-[8px] sm:text-[10px] bg-[#FF6B6B]/20 text-[#FF6B6B] rounded-full font-normal">
                   Powered by Sol-Incinerator
                 </span>
               </h1>
-              <p className="text-sm text-slate-400">
+              <p className="text-xs sm:text-sm text-slate-400">
                 Solana Account Cleanup & SOL Reclaim
               </p>
             </div>
@@ -393,7 +393,7 @@ export default function PugBurn() {
           <Button
             onClick={scanWallet}
             disabled={scanning}
-            className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] hover:opacity-90"
+            className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] hover:opacity-90 w-full sm:w-auto"
             data-testid="scan-wallet-btn"
           >
             {scanning ? (
@@ -406,16 +406,16 @@ export default function PugBurn() {
         </div>
 
         {/* Info Banner */}
-        <div className="bg-gradient-to-r from-[#FF6B6B]/10 to-[#FF8C00]/10 rounded-xl p-4 mb-6 border border-[#FF6B6B]/20">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+        <div className="bg-gradient-to-r from-[#FF6B6B]/10 to-[#FF8C00]/10 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-[#FF6B6B]/20">
+          <div className="flex items-start gap-2 sm:gap-3">
+            <Info className="w-4 h-4 sm:w-5 sm:h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-slate-300">
+              <p className="text-xs sm:text-sm text-slate-300">
                 <span className="font-bold text-white">How it works:</span> When you receive tokens on Solana, 
                 a small amount of SOL (~0.002) is reserved as "rent" for each token account. 
                 When those accounts are empty, you can close them and reclaim that SOL!
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1">
                 Only empty accounts are shown. Your tokens and balances are completely safe.
               </p>
             </div>
