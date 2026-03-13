@@ -333,6 +333,17 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Touch-friendly tap targets
   - Safe area padding for notched phones
   - Responsive text sizing utilities
+- [x] **Real-Time Price Alerts (March 2026)**
+  - New Alerts tab in AI Trading Bot
+  - Breakout scanner auto-creates alerts for promising tokens
+  - Browser notifications for triggered alerts
+  - 5 API endpoints: create, get, delete, check, breakout-scan
+  - Triggers on: >10% 1h price change with high volume
+- [x] **Footer Ecosystem Links (March 2026)**
+  - Added 7 ecosystem pages: My Journal, AI Trading Bot, PugBurn, P2P Arena, Cosmic Runner, Skin Store, Forum
+- [x] **Bullpug AI Image Upload Fix (March 2026)**
+  - Fixed ImagePart import error by using FileContent from emergentintegrations
+  - AI chat now correctly analyzes uploaded images
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
