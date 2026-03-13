@@ -17,16 +17,28 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Strategies**:
   - Momentum/Trend Following
   - Mean Reversion
-  - Combined (both strategies)
+  - **Breakout Strategy (NEW)** - Detects price breaking through support/resistance levels
+  - Combined (all three strategies)
 - **Token Categories**:
   - Safer: SOL, USDC, USDT, JUP, PYTH, RNDR
   - High Risk: BONK, WIF, RAY, ORCA
   - User chooses which risk level to trade
+- **Tokens Tab Features**:
+  - Safe Picks: 5 low-risk tokens
+  - Volatile Picks: 5 high-risk/high-reward tokens
+  - New Pairs: 5 recently bonded tokens (on Raydium/Orca/Meteora)
+  - **HOT Badge**: Tokens with >$100K 24h volume
+  - **TRENDING Badge**: Tokens with >50% 24h price change
 - **Risk Management**:
   - Min position: 0.05 SOL
   - Max position: 1 SOL
   - User-configurable stop-loss (5-50%)
   - User-configurable take-profit (10-100%)
+- **Social Sharing** (NEW):
+  - Share Trade Results with P/L on X (Twitter)
+  - Share AI Signals with custom formatting
+  - Share Portfolio Performance (weekly/monthly)
+  - Share Leaderboard Rankings
 - **Workflow**:
   1. User connects wallet and accepts disclaimer
   2. AI scans markets for signals
@@ -299,6 +311,28 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Excludes pump.fun tokens - must be on major DEXes
   - Criteria: Created within 14 days, min $15K liquidity, min $10K volume
   - Backend endpoint `/api/ai-trader/new-pairs` returns bonded pairs only
+- [x] **Breakout Trading Strategy (March 2026)**
+  - New strategy detecting price breaking through support/resistance levels
+  - Uses Bollinger Bands and Moving Averages for S/R detection
+  - Integrated into combined_strategy for multi-strategy analysis
+  - False breakout detection reduces confidence when RSI extreme
+- [x] **HOT & TRENDING Badges (March 2026)**
+  - HOT badge (🔥) for tokens with >$100K 24h volume
+  - TRENDING badge (📈) for tokens with >50% price change
+  - Displayed on TopPickCard in Tokens tab
+- [x] **Social Sharing Features (March 2026)**
+  - Share Trade Results on X with P/L branding
+  - Share AI Signals with entry/target/stop prices
+  - Share Portfolio Performance (weekly/monthly summaries)
+  - Share Leaderboard Rankings with stats
+  - New `/app/frontend/src/components/SocialShare.js` component
+- [x] **Mobile Responsiveness (March 2026)**
+  - Comprehensive mobile CSS in index.css
+  - Horizontal scrolling tabs on mobile
+  - Stacked layouts for cards and forms
+  - Touch-friendly tap targets
+  - Safe area padding for notched phones
+  - Responsive text sizing utilities
 
 ## Future Tasks (P2)
 - Deploy smart contract to Mainnet
