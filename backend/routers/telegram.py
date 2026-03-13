@@ -368,11 +368,25 @@ Get real-time price alerts and breakout notifications directly in Telegram.
         msg = """
 🐕 <b>Bullpug Alerts - Commands</b>
 
+<b>Account:</b>
 /status - Check if your wallet is linked
 /alerts - View your active price alerts
 /disable - Pause alert notifications
 /enable - Resume alert notifications
 /unlink - Disconnect your wallet
+
+<b>Trading:</b>
+/trade - Open trading menu
+/buy [SYMBOL] [SOL] - Buy a token
+/sell [SYMBOL] [%] - Sell position
+/positions - View open positions
+/price [SYMBOL] - Check token price
+/trending - View trending tokens
+
+<b>Examples:</b>
+<code>/buy BONK 0.5</code> - Buy 0.5 SOL of BONK
+<code>/sell BONK 50</code> - Sell 50% of BONK
+<code>/price SOL</code> - Check SOL price
 
 <i>Need help? Visit bullpug.com</i>
 """
@@ -458,8 +472,425 @@ Linked: {account.get("linked_at", "Unknown")[:10]}
         else:
             await send_telegram_message(chat_id, "❌ No linked account found.")
     
+    elif cmd == "/trade":
+        await handle_trade_command(chat_id, command)
+    
+    elif cmd == "/buy":
+        await handle_buy_command(chat_id, command)
+    
+    elif cmd == "/sell":
+        await handle_sell_command(chat_id, command)
+    
+    elif cmd == "/positions":
+        await handle_positions_command(chat_id)
+    
+    elif cmd == "/price":
+        await handle_price_command(chat_id, command)
+    
+    elif cmd == "/trending":
+        await handle_trending_command(chat_id)
+    
     else:
         await send_telegram_message(chat_id, "❓ Unknown command. Use /help to see available commands.")
+
+
+# ============================================================================
+# TRADING COMMANDS
+# ============================================================================
+
+async def handle_trade_command(chat_id: int, command: str):
+    """Show trading menu with quick actions."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet from the Bullpug app first.")
+        return
+    
+    msg = """
+💹 <b>Bullpug Trading Menu</b>
+
+<b>Quick Commands:</b>
+• /buy [SYMBOL] [SOL_AMOUNT] - Buy a token
+  Example: <code>/buy BONK 0.5</code>
+
+• /sell [SYMBOL] [PERCENTAGE] - Sell a position
+  Example: <code>/sell BONK 50</code> (sells 50%)
+
+• /positions - View your open positions
+
+• /price [SYMBOL] - Check current price
+  Example: <code>/price SOL</code>
+
+• /trending - View trending tokens
+
+<b>Quick Buy Buttons:</b>
+"""
+    
+    # Add inline keyboard for quick buys (we'll send as text commands for simplicity)
+    msg += """
+🟢 <code>/buy BONK 0.1</code>
+🟢 <code>/buy WIF 0.1</code>
+🟢 <code>/buy SOL 0.1</code>
+
+⚠️ <i>Trading involves risk. Only trade what you can afford to lose.</i>
+"""
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_buy_command(chat_id: int, command: str):
+    """Handle buy command: /buy SYMBOL AMOUNT"""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    parts = command.split()
+    if len(parts) < 3:
+        await send_telegram_message(
+            chat_id, 
+            "❌ Invalid format.\n\nUsage: <code>/buy SYMBOL SOL_AMOUNT</code>\nExample: <code>/buy BONK 0.5</code>"
+        )
+        return
+    
+    symbol = parts[1].upper()
+    try:
+        amount = float(parts[2])
+        if amount < 0.01 or amount > 10:
+            await send_telegram_message(chat_id, "❌ Amount must be between 0.01 and 10 SOL")
+            return
+    except ValueError:
+        await send_telegram_message(chat_id, "❌ Invalid amount. Please enter a number.")
+        return
+    
+    wallet_address = account.get("wallet_address")
+    
+    # Fetch current price
+    await send_telegram_message(chat_id, f"🔄 Fetching price for {symbol}...")
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # Get token info from DexScreener
+        try:
+            response = await client.get(
+                "https://api.dexscreener.com/latest/dex/search",
+                params={"q": f"{symbol} solana"}
+            )
+            
+            if response.status_code != 200:
+                await send_telegram_message(chat_id, "❌ Failed to fetch price. Please try again.")
+                return
+            
+            pairs = response.json().get("pairs", [])
+            solana_pairs = [p for p in pairs if p.get("chainId") == "solana" and p.get("baseToken", {}).get("symbol", "").upper() == symbol]
+            
+            if not solana_pairs:
+                await send_telegram_message(chat_id, f"❌ Token {symbol} not found on Solana DEXes.")
+                return
+            
+            # Get the pair with highest liquidity
+            best_pair = max(solana_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+            current_price = float(best_pair.get("priceUsd", 0))
+            token_address = best_pair.get("baseToken", {}).get("address", "")
+            
+            if not token_address:
+                await send_telegram_message(chat_id, "❌ Token address not found.")
+                return
+            
+            # Create a pending trade order
+            order_id = str(uuid.uuid4())[:8]
+            
+            await db.telegram_pending_orders.insert_one({
+                "order_id": order_id,
+                "chat_id": chat_id,
+                "wallet_address": wallet_address,
+                "order_type": "buy",
+                "symbol": symbol,
+                "token_address": token_address,
+                "amount_sol": amount,
+                "price_at_order": current_price,
+                "status": "pending_confirmation",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+            
+            # Send confirmation message
+            msg = f"""
+🛒 <b>Buy Order Preview</b>
+
+Token: <b>{symbol}</b>
+Amount: <b>{amount} SOL</b>
+Price: <code>${current_price:.8f}</code>
+Estimated tokens: ~{(amount * 180 / current_price):.2f} {symbol}
+
+<a href="https://dexscreener.com/solana/{token_address}">📊 View Chart</a>
+
+⚠️ To confirm this trade, you must approve it in the Bullpug app.
+
+Order ID: <code>{order_id}</code>
+<i>This order will expire in 5 minutes.</i>
+
+To execute:
+1. Open Bullpug AI Trading Bot
+2. Go to Signals tab
+3. Approve the pending order
+
+Or reply <code>/confirm {order_id}</code> to queue for next app approval.
+"""
+            await send_telegram_message(chat_id, msg)
+            
+        except Exception as e:
+            logger.error(f"Buy command error: {e}")
+            await send_telegram_message(chat_id, f"❌ Error processing buy order: {str(e)[:100]}")
+
+
+async def handle_sell_command(chat_id: int, command: str):
+    """Handle sell command: /sell SYMBOL PERCENTAGE"""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    parts = command.split()
+    if len(parts) < 2:
+        await send_telegram_message(
+            chat_id, 
+            "❌ Invalid format.\n\nUsage: <code>/sell SYMBOL [PERCENTAGE]</code>\nExample: <code>/sell BONK 50</code> (sells 50%)\n\nOmit percentage to sell 100%"
+        )
+        return
+    
+    symbol = parts[1].upper()
+    percentage = 100  # Default to 100%
+    
+    if len(parts) >= 3:
+        try:
+            percentage = float(parts[2])
+            if percentage < 1 or percentage > 100:
+                await send_telegram_message(chat_id, "❌ Percentage must be between 1 and 100")
+                return
+        except ValueError:
+            await send_telegram_message(chat_id, "❌ Invalid percentage. Please enter a number.")
+            return
+    
+    wallet_address = account.get("wallet_address")
+    
+    # Check if user has a position in this token
+    position = await db.ai_trader_positions.find_one({
+        "wallet_address": wallet_address,
+        "symbol": symbol
+    })
+    
+    if not position:
+        await send_telegram_message(chat_id, f"❌ You don't have an open position in {symbol}")
+        return
+    
+    # Create pending sell order
+    order_id = str(uuid.uuid4())[:8]
+    
+    await db.telegram_pending_orders.insert_one({
+        "order_id": order_id,
+        "chat_id": chat_id,
+        "wallet_address": wallet_address,
+        "order_type": "sell",
+        "symbol": symbol,
+        "token_address": position.get("token_mint"),
+        "percentage": percentage,
+        "position_amount": position.get("amount"),
+        "entry_price": position.get("entry_price"),
+        "status": "pending_confirmation",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    msg = f"""
+💰 <b>Sell Order Preview</b>
+
+Token: <b>{symbol}</b>
+Selling: <b>{percentage}%</b> of position
+Amount: ~{position.get('amount', 0) * percentage / 100:.6f} {symbol}
+Entry Price: <code>${position.get('entry_price', 0):.8f}</code>
+
+Order ID: <code>{order_id}</code>
+<i>This order will expire in 5 minutes.</i>
+
+⚠️ To confirm, approve in the Bullpug app or reply:
+<code>/confirm {order_id}</code>
+"""
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_positions_command(chat_id: int):
+    """Show user's open positions."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    wallet_address = account.get("wallet_address")
+    
+    positions = await db.ai_trader_positions.find(
+        {"wallet_address": wallet_address},
+        {"_id": 0}
+    ).to_list(20)
+    
+    if not positions:
+        await send_telegram_message(chat_id, "📭 No open positions.\n\nUse /buy SYMBOL AMOUNT to open a position.")
+        return
+    
+    msg = "📊 <b>Your Open Positions</b>\n\n"
+    
+    for pos in positions:
+        symbol = pos.get("symbol", "???")
+        amount = pos.get("amount", 0)
+        entry_price = pos.get("entry_price", 0)
+        
+        msg += f"• <b>{symbol}</b>\n"
+        msg += f"  Amount: {amount:.6f}\n"
+        msg += f"  Entry: ${entry_price:.8f}\n"
+        msg += f"  <code>/sell {symbol} 100</code> to close\n\n"
+    
+    msg += f"<i>Total: {len(positions)} positions</i>"
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_price_command(chat_id: int, command: str):
+    """Check current price of a token."""
+    parts = command.split()
+    if len(parts) < 2:
+        await send_telegram_message(
+            chat_id, 
+            "❌ Invalid format.\n\nUsage: <code>/price SYMBOL</code>\nExample: <code>/price BONK</code>"
+        )
+        return
+    
+    symbol = parts[1].upper()
+    
+    await send_telegram_message(chat_id, f"🔄 Fetching {symbol} price...")
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            response = await client.get(
+                "https://api.dexscreener.com/latest/dex/search",
+                params={"q": f"{symbol} solana"}
+            )
+            
+            if response.status_code != 200:
+                await send_telegram_message(chat_id, "❌ Failed to fetch price.")
+                return
+            
+            pairs = response.json().get("pairs", [])
+            solana_pairs = [p for p in pairs if p.get("chainId") == "solana" and p.get("baseToken", {}).get("symbol", "").upper() == symbol]
+            
+            if not solana_pairs:
+                await send_telegram_message(chat_id, f"❌ Token {symbol} not found on Solana.")
+                return
+            
+            best_pair = max(solana_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+            
+            price = float(best_pair.get("priceUsd", 0))
+            change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
+            change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+            volume = float(best_pair.get("volume", {}).get("h24", 0) or 0)
+            liquidity = float(best_pair.get("liquidity", {}).get("usd", 0) or 0)
+            token_address = best_pair.get("baseToken", {}).get("address", "")
+            
+            emoji_24h = "🟢" if change_24h >= 0 else "🔴"
+            emoji_1h = "📈" if change_1h >= 0 else "📉"
+            
+            msg = f"""
+💰 <b>{symbol} Price</b>
+
+Price: <code>${price:.8f}</code>
+
+{emoji_1h} 1H: {'+' if change_1h >= 0 else ''}{change_1h:.2f}%
+{emoji_24h} 24H: {'+' if change_24h >= 0 else ''}{change_24h:.2f}%
+
+📊 Volume (24h): ${volume:,.0f}
+💧 Liquidity: ${liquidity:,.0f}
+
+<a href="https://dexscreener.com/solana/{token_address}">📊 View Chart</a>
+
+<b>Quick Trade:</b>
+<code>/buy {symbol} 0.1</code>
+"""
+            
+            await send_telegram_message(chat_id, msg)
+            
+        except Exception as e:
+            logger.error(f"Price command error: {e}")
+            await send_telegram_message(chat_id, "❌ Error fetching price. Please try again.")
+
+
+async def handle_trending_command(chat_id: int):
+    """Show trending tokens on Solana."""
+    await send_telegram_message(chat_id, "🔄 Fetching trending tokens...")
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            response = await client.get(
+                "https://api.dexscreener.com/latest/dex/search",
+                params={"q": "solana meme trending"}
+            )
+            
+            if response.status_code != 200:
+                await send_telegram_message(chat_id, "❌ Failed to fetch trending tokens.")
+                return
+            
+            pairs = response.json().get("pairs", [])
+            solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
+            
+            # Sort by 24h volume
+            solana_pairs.sort(key=lambda x: float(x.get("volume", {}).get("h24", 0) or 0), reverse=True)
+            
+            seen_symbols = set()
+            trending = []
+            
+            for pair in solana_pairs[:20]:
+                symbol = pair.get("baseToken", {}).get("symbol", "").upper()
+                if symbol in seen_symbols or symbol in ["USDC", "USDT", "SOL", "WSOL"]:
+                    continue
+                seen_symbols.add(symbol)
+                
+                price = float(pair.get("priceUsd", 0) or 0)
+                change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+                volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+                
+                if volume > 10000:  # Minimum volume filter
+                    trending.append({
+                        "symbol": symbol,
+                        "price": price,
+                        "change_24h": change_24h,
+                        "volume": volume
+                    })
+                
+                if len(trending) >= 10:
+                    break
+            
+            if not trending:
+                await send_telegram_message(chat_id, "❌ No trending tokens found.")
+                return
+            
+            msg = "🔥 <b>Trending on Solana</b>\n\n"
+            
+            for i, t in enumerate(trending, 1):
+                emoji = "🟢" if t["change_24h"] >= 0 else "🔴"
+                hot = "🔥" if t["change_24h"] > 50 else ""
+                
+                msg += f"{i}. <b>{t['symbol']}</b> {hot}\n"
+                msg += f"   ${t['price']:.6f} {emoji} {'+' if t['change_24h'] >= 0 else ''}{t['change_24h']:.1f}%\n"
+                msg += f"   Vol: ${t['volume']:,.0f}\n\n"
+            
+            msg += "<b>Quick Buy:</b>\n"
+            for t in trending[:3]:
+                msg += f"<code>/buy {t['symbol']} 0.1</code>\n"
+            
+            await send_telegram_message(chat_id, msg)
+            
+        except Exception as e:
+            logger.error(f"Trending command error: {e}")
+            await send_telegram_message(chat_id, "❌ Error fetching trending tokens.")
 
 
 # ============================================================================
