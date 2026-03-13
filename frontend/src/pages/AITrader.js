@@ -68,6 +68,58 @@ export default function AITrader() {
   const [priceAlerts, setPriceAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  
+  // Telegram state
+  const [telegramLinked, setTelegramLinked] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState(null);
+  const [telegramLinkCode, setTelegramLinkCode] = useState(null);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [telegramLoading, setTelegramLoading] = useState(false);
+
+  // Fetch Telegram status
+  const fetchTelegramStatus = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const response = await axios.get(`${API}/telegram/status/${walletAddress}`);
+      setTelegramLinked(response.data.linked);
+      setTelegramStatus(response.data);
+    } catch (err) {
+      console.error("Telegram status error:", err);
+    }
+  }, [walletAddress]);
+
+  // Generate Telegram link code
+  const generateTelegramCode = async () => {
+    if (!walletAddress) return;
+    setTelegramLoading(true);
+    try {
+      const response = await axios.post(`${API}/telegram/generate-link-code`, {
+        wallet_address: walletAddress
+      });
+      if (response.data.success) {
+        setTelegramLinkCode(response.data);
+        setShowTelegramModal(true);
+      } else {
+        toast.error("Failed to generate code");
+      }
+    } catch (err) {
+      toast.error("Failed to generate Telegram link code");
+    }
+    setTelegramLoading(false);
+  };
+
+  // Unlink Telegram
+  const unlinkTelegram = async () => {
+    if (!walletAddress) return;
+    try {
+      await axios.post(`${API}/telegram/unlink/${walletAddress}`);
+      setTelegramLinked(false);
+      setTelegramStatus(null);
+      toast.success("Telegram unlinked");
+    } catch (err) {
+      toast.error("Failed to unlink Telegram");
+    }
+  };
 
   // Check for triggered alerts
   const checkAlerts = useCallback(async () => {
@@ -150,11 +202,12 @@ export default function AITrader() {
     // Initial check
     checkAlerts();
     fetchAlerts();
+    fetchTelegramStatus();
     
     // Check every 30 seconds
     const interval = setInterval(checkAlerts, 30000);
     return () => clearInterval(interval);
-  }, [walletAddress, disclaimerAccepted, checkAlerts, fetchAlerts]);
+  }, [walletAddress, disclaimerAccepted, checkAlerts, fetchAlerts, fetchTelegramStatus]);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -1201,6 +1254,115 @@ export default function AITrader() {
             {/* Alerts Tab */}
             {activeTab === "alerts" && (
               <div className="space-y-4" data-testid="alerts-tab">
+                {/* Telegram Connection Banner */}
+                <div className={`rounded-xl p-4 border ${telegramLinked ? 'bg-[#0088CC]/10 border-[#0088CC]/30' : 'bg-[#0088CC]/5 border-[#0088CC]/20'}`}>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${telegramLinked ? 'bg-[#0088CC]/30' : 'bg-[#0088CC]/20'}`}>
+                        <svg className="w-5 h-5 text-[#0088CC]" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white flex items-center gap-2">
+                          Telegram Alerts
+                          {telegramLinked && <span className="text-[10px] px-2 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] rounded-full">Connected</span>}
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          {telegramLinked 
+                            ? `Alerts will be sent to ${telegramStatus?.telegram_username ? '@' + telegramStatus.telegram_username : 'your Telegram'}`
+                            : 'Get alerts directly in Telegram, even when offline!'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {telegramLinked ? (
+                        <Button
+                          onClick={unlinkTelegram}
+                          variant="outline"
+                          size="sm"
+                          className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Unlink
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={generateTelegramCode}
+                          disabled={telegramLoading}
+                          size="sm"
+                          className="bg-[#0088CC] hover:bg-[#0088CC]/80 text-white"
+                          data-testid="link-telegram-btn"
+                        >
+                          {telegramLoading ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Bell className="w-4 h-4 mr-1" />
+                          )}
+                          Link Telegram
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Telegram Link Modal */}
+                {showTelegramModal && telegramLinkCode && (
+                  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowTelegramModal(false)}>
+                    <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-[#0088CC]/30" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                          <svg className="w-5 h-5 text-[#0088CC]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                          </svg>
+                          Link Telegram
+                        </h3>
+                        <button onClick={() => setShowTelegramModal(false)} className="text-slate-400 hover:text-white">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="bg-[#0088CC]/10 rounded-xl p-4 text-center">
+                          <p className="text-sm text-slate-400 mb-2">Your link code:</p>
+                          <p className="text-3xl font-mono font-bold text-[#0088CC] tracking-widest">{telegramLinkCode.code}</p>
+                          <p className="text-xs text-slate-500 mt-2">Expires in 15 minutes</p>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <p className="font-bold">Instructions:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                            <li>Open Telegram</li>
+                            <li>Search for <span className="text-[#0088CC] font-medium">@{telegramLinkCode.bot_username}</span></li>
+                            <li>Send the code: <span className="font-mono text-white">{telegramLinkCode.code}</span></li>
+                          </ol>
+                        </div>
+                        
+                        <a
+                          href={telegramLinkCode.bot_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-3 bg-[#0088CC] hover:bg-[#0088CC]/80 text-white font-medium rounded-xl transition-colors"
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                          </svg>
+                          Open Telegram
+                        </a>
+                        
+                        <Button
+                          onClick={() => { setShowTelegramModal(false); fetchTelegramStatus(); }}
+                          variant="outline"
+                          className="w-full border-white/20"
+                        >
+                          I've sent the code
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Alerts Header */}
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
@@ -1263,7 +1425,12 @@ export default function AITrader() {
                     <Info className="w-4 h-4 text-[#F5D300] flex-shrink-0 mt-0.5" />
                     <div className="text-xs text-slate-300">
                       <p><strong>Breakout Alerts</strong> trigger when a token gains &gt;10% in 1 hour with high volume.</p>
-                      <p className="mt-1 text-slate-500">Enable browser notifications to get alerts even when the tab is in the background.</p>
+                      <p className="mt-1 text-slate-500">
+                        {telegramLinked 
+                          ? '✅ Telegram connected - you\'ll receive alerts there too!'
+                          : 'Link Telegram above to receive alerts even when offline.'
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -56,6 +56,7 @@ from routers.watchlist import router as watchlist_router
 from routers.ai_trader import router as ai_trader_router
 from routers.pugburn import router as pugburn_router
 from routers.simulator import router as simulator_router
+from routers.telegram import router as telegram_router
 from routers.pot import get_pot_data
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
 from utils.database import db
@@ -129,6 +130,7 @@ api_router.include_router(watchlist_router)
 api_router.include_router(ai_trader_router)
 api_router.include_router(pugburn_router)
 api_router.include_router(simulator_router)
+api_router.include_router(telegram_router)
 
 # Register the complete api_router with the app
 app.include_router(api_router)

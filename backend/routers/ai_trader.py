@@ -1810,15 +1810,25 @@ async def check_alerts(wallet_address: str):
                             }}
                         )
                         
-                        triggered.append({
+                        alert_info = {
                             "alert_id": alert["alert_id"],
                             "symbol": symbol,
                             "alert_type": alert["alert_type"],
                             "current_price": current_price,
                             "target_price": alert.get("target_price"),
                             "trigger_reason": trigger_reason,
-                            "triggered_at": datetime.now(timezone.utc).isoformat()
-                        })
+                            "triggered_at": datetime.now(timezone.utc).isoformat(),
+                            "token_mint": alert.get("token_mint")
+                        }
+                        
+                        triggered.append(alert_info)
+                        
+                        # Send Telegram notification
+                        try:
+                            from routers.telegram import send_breakout_alert
+                            await send_breakout_alert(wallet_address, alert_info)
+                        except Exception as tg_err:
+                            logger.warning(f"Telegram notification failed: {tg_err}")
         
         return {
             "triggered_alerts": triggered,
