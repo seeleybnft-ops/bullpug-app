@@ -1388,7 +1388,7 @@ export default function AITrader() {
                 onRefreshCustodial={fetchCustodialWallet}
                 onWithdraw={withdrawFromCustodial}
                 walletAddress={walletAddress}
-                walletConnected={walletConnected}
+                walletConnected={connected}
               />
             )}
             
