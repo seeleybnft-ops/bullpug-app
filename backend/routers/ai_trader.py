@@ -74,7 +74,7 @@ class TraderSettings(BaseModel):
     max_position_sol: float = Field(default=0.5, ge=MIN_POSITION_SOL, le=MAX_POSITION_SOL)
     min_position_sol: float = Field(default=MIN_POSITION_SOL, ge=MIN_POSITION_SOL)
     stop_loss_percent: float = Field(default=10.0, ge=1.0, le=50.0)
-    take_profit_percent: float = Field(default=20.0, ge=5.0, le=100.0)
+    take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)
     max_daily_trades: int = Field(default=5, ge=1, le=20)
     auto_approve: bool = False  # Legacy field
     # Phase 3: Auto-Trade Settings
@@ -82,11 +82,13 @@ class TraderSettings(BaseModel):
     auto_trade_mode: str = Field(default="conservative", pattern="^(conservative|moderate|aggressive)$")
     auto_min_confidence: float = Field(default=0.65, ge=0.5, le=0.95)  # Min confidence to auto-execute
     auto_max_daily_trades: int = Field(default=3, ge=1, le=10)  # Max auto-trades per day
-    auto_max_position_sol: float = Field(default=0.2, ge=0.05, le=1.0)  # Max position for auto-trades
+    auto_max_position_sol: float = Field(default=0.2, ge=0.01, le=1.0)  # Max position for auto-trades
     auto_cooldown_minutes: int = Field(default=30, ge=5, le=120)  # Cooldown between auto-trades
     auto_require_multiple_signals: bool = True  # Require 2+ strategies to agree
     auto_pause_on_loss: bool = True  # Pause auto-trading after a loss
     auto_total_daily_limit_sol: float = Field(default=1.0, ge=0.1, le=5.0)  # Max total SOL per day
+    auto_stop_loss_percent: float = Field(default=10.0, ge=2.0, le=50.0)  # Stop loss for auto-trades
+    auto_take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)  # Take profit for auto-trades
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -2067,7 +2069,9 @@ async def get_auto_trade_status(wallet_address: str):
                 "cooldown_minutes": settings.get("auto_cooldown_minutes", 30),
                 "require_multiple_signals": settings.get("auto_require_multiple_signals", True),
                 "pause_on_loss": settings.get("auto_pause_on_loss", True),
-                "total_daily_limit_sol": settings.get("auto_total_daily_limit_sol", 1.0)
+                "total_daily_limit_sol": settings.get("auto_total_daily_limit_sol", 1.0),
+                "stop_loss_percent": settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10)),
+                "take_profit_percent": settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20))
             },
             "today_stats": today_stats
         }
@@ -2343,8 +2347,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             "token_mint": token_mint,
                             "amount_sol": position_sol,
                             "entry_price": current_price,
-                            "stop_loss_price": current_price * (1 - settings.get("stop_loss_percent", 10) / 100),
-                            "take_profit_price": current_price * (1 + settings.get("take_profit_percent", 20) / 100),
+                            "stop_loss_price": current_price * (1 - settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10)) / 100),
+                            "take_profit_price": current_price * (1 + settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20)) / 100),
                             "trade_type": "buy",
                             "status": "open",
                             "auto_trade": True,

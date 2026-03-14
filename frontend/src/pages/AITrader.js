@@ -1727,7 +1727,9 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
     auto_cooldown_minutes: status?.settings?.cooldown_minutes || 30,
     auto_require_multiple_signals: status?.settings?.require_multiple_signals !== false,
     auto_pause_on_loss: status?.settings?.pause_on_loss !== false,
-    auto_total_daily_limit_sol: status?.settings?.total_daily_limit_sol || 1.0
+    auto_total_daily_limit_sol: status?.settings?.total_daily_limit_sol || 1.0,
+    auto_stop_loss_percent: status?.settings?.stop_loss_percent || 10,
+    auto_take_profit_percent: status?.settings?.take_profit_percent || 20
   });
 
   // Safe clipboard copy with fallback
@@ -1764,7 +1766,9 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
         auto_cooldown_minutes: status.settings.cooldown_minutes || 30,
         auto_require_multiple_signals: status.settings.require_multiple_signals !== false,
         auto_pause_on_loss: status.settings.pause_on_loss !== false,
-        auto_total_daily_limit_sol: status.settings.total_daily_limit_sol || 1.0
+        auto_total_daily_limit_sol: status.settings.total_daily_limit_sol || 1.0,
+        auto_stop_loss_percent: status.settings.stop_loss_percent || 10,
+        auto_take_profit_percent: status.settings.take_profit_percent || 20
       });
     }
   }, [status]);
@@ -2216,6 +2220,48 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
                 <span>5 min</span>
                 <span>120 min</span>
               </div>
+            </div>
+
+            {/* Stop Loss */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Stop Loss: {settingsForm.auto_stop_loss_percent}%
+              </label>
+              <input
+                type="range"
+                min="2"
+                max="50"
+                step="1"
+                value={settingsForm.auto_stop_loss_percent}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_stop_loss_percent: parseInt(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>2%</span>
+                <span>50%</span>
+              </div>
+              <p className="text-[10px] text-[#FF6B6B] mt-1">Auto-sell if price drops by this %</p>
+            </div>
+
+            {/* Take Profit */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Take Profit: {settingsForm.auto_take_profit_percent}%
+              </label>
+              <input
+                type="range"
+                min="5"
+                max="200"
+                step="5"
+                value={settingsForm.auto_take_profit_percent}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_take_profit_percent: parseInt(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>5%</span>
+                <span>200%</span>
+              </div>
+              <p className="text-[10px] text-[#00FFA3] mt-1">Auto-sell if price rises by this %</p>
             </div>
           </div>
 
