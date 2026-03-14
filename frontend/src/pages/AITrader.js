@@ -8,6 +8,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { VersionedTransaction } from "@solana/web3.js";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import axios from "axios";
 import {
@@ -81,6 +82,10 @@ export default function AITrader() {
   const [autoTradeStatus, setAutoTradeStatus] = useState(null);
   const [autoTradeLogs, setAutoTradeLogs] = useState([]);
   const [autoTradeLoading, setAutoTradeLoading] = useState(false);
+  
+  // Custodial Wallet state
+  const [custodialWallet, setCustodialWallet] = useState(null);
+  const [custodialLoading, setCustodialLoading] = useState(false);
 
   // Fetch Telegram status
   const fetchTelegramStatus = useCallback(async () => {
@@ -344,6 +349,39 @@ export default function AITrader() {
     }
   };
 
+  // Fetch Custodial Wallet Info
+  const fetchCustodialWallet = useCallback(async () => {
+    if (!walletAddress) return;
+    setCustodialLoading(true);
+    try {
+      const response = await axios.get(`${API}/custodial-wallet/info/${walletAddress}`);
+      setCustodialWallet(response.data);
+    } catch (err) {
+      console.error("Custodial wallet error:", err);
+    }
+    setCustodialLoading(false);
+  }, [walletAddress]);
+
+  // Withdraw from Custodial Wallet
+  const withdrawFromCustodial = async (amount) => {
+    if (!walletAddress || !amount) return;
+    const loadingToast = toast.loading("Processing withdrawal...");
+    try {
+      const response = await axios.post(`${API}/custodial-wallet/withdraw`, {
+        user_wallet: walletAddress,
+        amount_sol: parseFloat(amount)
+      });
+      toast.dismiss(loadingToast);
+      if (response.data.success) {
+        toast.success(`Withdrew ${amount} SOL! TX: ${response.data.tx_signature?.slice(0, 8)}...`);
+        fetchCustodialWallet();
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(err.response?.data?.detail || "Withdrawal failed");
+    }
+  };
+
   // Copy to clipboard helper
   const copyToClipboard = async (text, label = "Address") => {
     try {
@@ -364,12 +402,13 @@ export default function AITrader() {
     fetchData();
     fetchTopPicks();
     fetchAutoTradeStatus();
+    fetchCustodialWallet();
     // Refresh top picks every 5 minutes, no auto-refresh for main data
     const topPicksInterval = setInterval(fetchTopPicks, 300000); // Refresh every 5 minutes
     return () => {
       clearInterval(topPicksInterval);
     };
-  }, [fetchData, fetchTopPicks, fetchAutoTradeStatus]);
+  }, [fetchData, fetchTopPicks, fetchAutoTradeStatus, fetchCustodialWallet]);
 
   // Auto-scan every 5 minutes when enabled and disclaimer accepted
   useEffect(() => {
@@ -1345,6 +1384,11 @@ export default function AITrader() {
                 onUpdateSettings={updateAutoTradeSettings}
                 onRunScan={runAutoTradeScan}
                 onRefresh={fetchAutoTradeStatus}
+                custodialWallet={custodialWallet}
+                onRefreshCustodial={fetchCustodialWallet}
+                onWithdraw={withdrawFromCustodial}
+                walletAddress={walletAddress}
+                walletConnected={walletConnected}
               />
             )}
             
@@ -1670,8 +1714,11 @@ function RiskCalculator({ settings }) {
 }
 
 // Auto-Trade Tab Component
-function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRunScan, onRefresh }) {
+function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRunScan, onRefresh, custodialWallet, onRefreshCustodial, onWithdraw, walletAddress, walletConnected }) {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [settingsForm, setSettingsForm] = useState({
     auto_trade_mode: status?.settings?.mode || "conservative",
     auto_min_confidence: status?.settings?.min_confidence || 0.65,
@@ -1775,6 +1822,180 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
               Auto-trading executes real trades with your funds. Use with caution and only risk what you can afford to lose.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Custodial Wallet Card - For Automated Execution */}
+      <div className="rounded-2xl p-5 bg-gradient-to-br from-[#D946EF]/5 to-[#00C2FF]/5 border border-[#D946EF]/20">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#D946EF]/20 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-[#D946EF]" />
+            </div>
+            <div>
+              <h4 className="font-bold text-white flex items-center gap-2">
+                Trading Wallet
+                <span className="text-[8px] px-1.5 py-0.5 bg-[#D946EF]/20 text-[#D946EF] rounded-full">HYBRID</span>
+              </h4>
+              <p className="text-xs text-slate-400">Deposit SOL for automated execution</p>
+            </div>
+          </div>
+          <button onClick={onRefreshCustodial} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <RefreshCw className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+
+        {custodialWallet ? (
+          <>
+            {/* Balance Display */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-black/30 rounded-xl p-3">
+                <p className="text-[10px] text-slate-500 uppercase mb-1">Available Balance</p>
+                <p className="text-2xl font-bold text-[#00FFA3]">{custodialWallet.balance_sol?.toFixed(4)} SOL</p>
+              </div>
+              <div className="bg-black/30 rounded-xl p-3">
+                <p className="text-[10px] text-slate-500 uppercase mb-1">Max Deposit</p>
+                <p className="text-2xl font-bold text-slate-300">{custodialWallet.max_deposit_sol} SOL</p>
+                <p className="text-[10px] text-slate-500">Can add: {custodialWallet.available_deposit_sol?.toFixed(4)} SOL</p>
+              </div>
+            </div>
+
+            {/* Deposit Address */}
+            <div className="bg-black/20 rounded-xl p-3 mb-4">
+              <p className="text-[10px] text-slate-500 uppercase mb-1">Deposit Address</p>
+              <div className="flex items-center gap-2">
+                <code className="text-xs text-white font-mono flex-1 truncate">{custodialWallet.wallet_address}</code>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(custodialWallet.wallet_address);
+                    toast.success("Address copied!");
+                  }}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-300" />
+                </button>
+              </div>
+              <p className="text-[10px] text-[#F5D300] mt-2">
+                Send SOL directly to this address or use Deposit button below
+              </p>
+            </div>
+
+            {/* Deposit/Withdraw Actions */}
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowDepositModal(true)}
+                disabled={custodialWallet.available_deposit_sol <= 0}
+                className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80 disabled:opacity-50"
+                data-testid="deposit-btn"
+              >
+                <ArrowRight className="w-4 h-4 mr-2 rotate-90" />
+                Deposit
+              </Button>
+              <Button
+                onClick={() => {
+                  const amount = prompt(`Withdraw SOL (max: ${custodialWallet.balance_sol?.toFixed(4)})`);
+                  if (amount && parseFloat(amount) > 0) {
+                    onWithdraw(amount);
+                  }
+                }}
+                disabled={custodialWallet.balance_sol <= 0.00001}
+                variant="outline"
+                className="flex-1 border-white/20 text-slate-300 disabled:opacity-50"
+                data-testid="withdraw-btn"
+              >
+                <ArrowRight className="w-4 h-4 mr-2 -rotate-90" />
+                Withdraw
+              </Button>
+            </div>
+
+            {/* Deposit Modal */}
+            {showDepositModal && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-white/10">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-[#D946EF]" />
+                    Deposit to Trading Wallet
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Amount (SOL)</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          max={custodialWallet.available_deposit_sol}
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          placeholder={`Max: ${custodialWallet.available_deposit_sol?.toFixed(4)}`}
+                          className="flex-1 bg-black/40 border-white/10"
+                        />
+                        <Button
+                          onClick={() => setDepositAmount(custodialWallet.available_deposit_sol?.toFixed(4))}
+                          variant="outline"
+                          className="border-white/20"
+                        >
+                          Max
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#F5D300]/10 rounded-xl p-3 border border-[#F5D300]/20">
+                      <p className="text-xs text-[#F5D300] flex items-center gap-2">
+                        <Info className="w-4 h-4" />
+                        Send {depositAmount || '0'} SOL to:
+                      </p>
+                      <code className="text-[10px] text-white font-mono mt-1 block break-all">
+                        {custodialWallet.wallet_address}
+                      </code>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500">
+                      After sending, click "Confirm Deposit" once the transaction is complete on-chain.
+                    </p>
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => {
+                          setShowDepositModal(false);
+                          setDepositAmount("");
+                        }}
+                        variant="outline"
+                        className="flex-1 border-white/20"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          // Copy address and close
+                          navigator.clipboard.writeText(custodialWallet.wallet_address);
+                          toast.success("Address copied! Send SOL and refresh balance.");
+                          setShowDepositModal(false);
+                          setDepositAmount("");
+                        }}
+                        className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Address
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-slate-500 text-sm">Loading trading wallet...</p>
+          </div>
+        )}
+
+        {/* Info about custodial wallet */}
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <p className="text-[10px] text-slate-500">
+            <span className="text-[#D946EF]">Hybrid Mode:</span> Funds in this wallet can be used for automated trades. 
+            Your main wallet remains untouched. Max limit: {custodialWallet?.max_deposit_sol || 0.5} SOL for safety.
+          </p>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 """
 AI Trading Bot - Bullpug AI Agent
 Semi-automated trading system with user approval for each trade.
+Now with optional custodial wallet for fully automated trading.
 
 Features:
 - Technical analysis (RSI, MACD, Moving Averages, Bollinger Bands)
@@ -8,6 +9,7 @@ Features:
 - Risk management (stop-loss, take-profit, position sizing)
 - Jupiter DEX integration for trade execution
 - User-controlled risk parameters
+- Custodial wallet integration for automated execution
 """
 
 import os
@@ -30,6 +32,10 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
+
+# Token constants
+SOL_MINT = "So11111111111111111111111111111111111111112"
+LAMPORTS_PER_SOL = 1_000_000_000
 
 # Jupiter API Configuration
 JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1"
@@ -2347,6 +2353,53 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             "created_at": datetime.now(timezone.utc).isoformat()
                         }
                         
+                        # Try to execute via custodial wallet
+                        tx_signature = None
+                        execution_success = False
+                        execution_error = None
+                        
+                        try:
+                            # Check if user has custodial wallet with sufficient balance
+                            from routers.custodial_wallet import get_wallet_balance, get_or_create_custodial_wallet, execute_auto_trade
+                            
+                            custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+                            
+                            if custodial_wallet:
+                                custodial_balance = await get_wallet_balance(custodial_wallet["custodial_address"])
+                                required_lamports = int(position_sol * LAMPORTS_PER_SOL)
+                                
+                                if custodial_balance >= required_lamports + 50000:  # Extra for fees
+                                    # Execute actual trade via custodial wallet
+                                    logger.info(f"Executing auto-trade via custodial wallet: {position_sol} SOL for {symbol}")
+                                    
+                                    trade_result = await execute_auto_trade(
+                                        user_wallet=wallet_address,
+                                        input_mint=SOL_MINT,
+                                        output_mint=token_mint,
+                                        amount_lamports=required_lamports
+                                    )
+                                    
+                                    if trade_result.get("success"):
+                                        tx_signature = trade_result.get("tx_signature")
+                                        execution_success = True
+                                        position_doc["tx_signature"] = tx_signature
+                                        position_doc["executed_on_chain"] = True
+                                        logger.info(f"Auto-trade executed successfully: {tx_signature}")
+                                else:
+                                    execution_error = f"Insufficient custodial balance: {custodial_balance/LAMPORTS_PER_SOL:.4f} SOL"
+                                    logger.warning(execution_error)
+                            else:
+                                execution_error = "No custodial wallet - position recorded for manual execution"
+                                logger.info(execution_error)
+                                
+                        except Exception as exec_error:
+                            execution_error = f"Execution failed: {str(exec_error)}"
+                            logger.error(f"Auto-trade execution error: {exec_error}")
+                        
+                        # Save position regardless of execution success
+                        position_doc["executed_on_chain"] = execution_success
+                        position_doc["execution_error"] = execution_error
+                        
                         await db.ai_trader_positions.insert_one(position_doc)
                         
                         # Log the auto-trade
@@ -2362,6 +2415,9 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             "strategy": combined["strategy"],
                             "reason": trade_reason,
                             "success": True,
+                            "executed_on_chain": execution_success,
+                            "tx_signature": tx_signature,
+                            "execution_error": execution_error,
                             "position_id": position_id,
                             "created_at": datetime.now(timezone.utc).isoformat()
                         }
@@ -2374,7 +2430,9 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             "amount_sol": position_sol,
                             "entry_price": current_price,
                             "confidence": trade_confidence,
-                            "reason": trade_reason
+                            "reason": trade_reason,
+                            "executed_on_chain": execution_success,
+                            "tx_signature": tx_signature
                         })
                         
                         # Only execute one trade per scan in conservative mode
