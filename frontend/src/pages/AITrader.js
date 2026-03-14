@@ -2145,15 +2145,15 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
               </label>
               <input
                 type="range"
-                min="0.05"
+                min="0.01"
                 max="1"
-                step="0.05"
+                step="0.01"
                 value={settingsForm.auto_max_position_sol}
                 onChange={(e) => setSettingsForm(f => ({ ...f, auto_max_position_sol: parseFloat(e.target.value) }))}
                 className="w-full"
               />
               <div className="flex justify-between text-[10px] text-slate-500">
-                <span>0.05 SOL</span>
+                <span>0.01 SOL</span>
                 <span>1 SOL</span>
               </div>
             </div>
@@ -2829,15 +2829,15 @@ function SettingsModal({ settings, onSave, onClose }) {
             </label>
             <input
               type="range"
-              min="0.05"
+              min="0.01"
               max="1"
-              step="0.05"
+              step="0.01"
               value={form.max_position_sol}
               onChange={(e) => setForm({ ...form, max_position_sol: parseFloat(e.target.value) })}
               className="w-full"
             />
             <div className="flex justify-between text-xs text-slate-500">
-              <span>0.05 SOL</span>
+              <span>0.01 SOL</span>
               <span>1 SOL</span>
             </div>
           </div>
