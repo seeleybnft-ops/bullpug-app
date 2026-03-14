@@ -430,5 +430,33 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Toast notifications when achievements unlock
 - Compact view mode for in-game display
 
+### Custodial Wallet for Automated Trading (March 2026)
+- **Hybrid Model**: Server-side hot wallet for automated trade execution
+- **Security Features**:
+  - Fernet symmetric encryption for private keys
+  - Encryption key stored in `CUSTODIAL_ENCRYPTION_KEY` environment variable
+  - Keys never exposed in API responses
+- **Deposit/Withdraw System**:
+  - Max deposit limit: 0.5 SOL (for safety)
+  - Deposit via direct transfer to custodial address
+  - Withdraw returns funds to user's main wallet
+  - Transaction fee buffer (10000 lamports) reserved
+- **UI Components**:
+  - Trading Wallet card in Auto-Trade tab
+  - Balance display with available deposit space
+  - Deposit address with copy button
+  - Deposit/Withdraw action buttons
+  - Deposit modal with instructions
+- **Backend Endpoints**:
+  - `GET /api/custodial-wallet/info/{wallet}` - Get/create wallet info
+  - `GET /api/custodial-wallet/address/{wallet}` - Get deposit address
+  - `POST /api/custodial-wallet/prepare-deposit` - Validate deposit
+  - `POST /api/custodial-wallet/withdraw` - Process withdrawal
+  - `GET /api/custodial-wallet/transactions/{wallet}` - Transaction history
+- **Auto-Trade Integration**:
+  - Auto-trade scanner checks custodial wallet balance before execution
+  - Trades execute via Jupiter API using custodial wallet
+  - Execution status tracked in position records and logs
+
 ## License
 MIT License - Bullpug 2025
