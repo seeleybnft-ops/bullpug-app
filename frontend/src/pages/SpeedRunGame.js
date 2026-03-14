@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Play, RotateCcw, Clock, User, Volume2, VolumeX, Store, Sparkles, Award, ChevronLeft, ChevronRight, ArrowUp } from "lucide-react";
-import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, collectFeedback, winFeedback } from "@/utils/sounds";
+import { Play, RotateCcw, Clock, User, Volume2, VolumeX, Store, Sparkles, Award, ChevronLeft, ChevronRight, ArrowUp, Music, Music2, Trophy } from "lucide-react";
+import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, collectFeedback, winFeedback, startBackgroundMusic, stopBackgroundMusic, isMusicPlaying, setMusicVolume, getMusicVolume } from "@/utils/sounds";
 import { getSkinById, SKINS } from "@/config/skins";
 import SkinStore from "@/components/SkinStore";
 import JackpotDisplay from "@/components/JackpotDisplay";
+import GameAchievements from "@/components/GameAchievements";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -97,6 +98,7 @@ export default function SpeedRunGame() {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
   const [showNameInput, setShowNameInput] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [musicOn, setMusicOn] = useState(false);
   const [showSkinStore, setShowSkinStore] = useState(false);
   const [currentSkinId, setCurrentSkinId] = useState(() => localStorage.getItem("bullpugSkin") || "default");
   const [currentStage, setCurrentStage] = useState(1);
@@ -117,6 +119,23 @@ export default function SpeedRunGame() {
     setSoundEnabled(newValue);
     if (newValue) playSoundIfEnabled('click');
   };
+
+  const toggleMusic = () => {
+    const newValue = !musicOn;
+    setMusicOn(newValue);
+    if (newValue) {
+      startBackgroundMusic();
+    } else {
+      stopBackgroundMusic();
+    }
+  };
+
+  // Stop music when game ends
+  useEffect(() => {
+    return () => {
+      stopBackgroundMusic();
+    };
+  }, []);
 
   const handleSkinSelect = (skinId) => {
     setCurrentSkinId(skinId);
@@ -217,44 +236,101 @@ export default function SpeedRunGame() {
       doubleScore: null
     },
     lastPowerupSpawn: 0,
-    // Dynamic background elements
-    stars: Array.from({ length: 200 }, () => ({
+    // Dynamic background elements - ENHANCED for Subway Surfers style
+    // Far background stars (slowest parallax layer)
+    stars: Array.from({ length: 300 }, () => ({
       x: Math.random() * W,
       y: Math.random() * HORIZON_Y * 1.5,
       z: Math.random(), // depth for parallax
-      size: Math.random() * 2.5 + 0.5,
+      size: Math.random() * 3 + 0.5,
       twinkle: Math.random() * Math.PI * 2,
-      speed: 0.2 + Math.random() * 0.5
+      speed: 0.1 + Math.random() * 0.3,
+      color: Math.random() > 0.8 ? 'blue' : Math.random() > 0.5 ? 'yellow' : 'white'
     })),
-    nebulas: Array.from({ length: 12 }, () => ({
+    // Nebulas - multiple layers
+    nebulas: Array.from({ length: 15 }, () => ({
       x: Math.random() * W * 1.5,
       y: Math.random() * HORIZON_Y,
-      z: Math.random() * 0.8 + 0.2, // depth
-      size: 80 + Math.random() * 150,
+      z: Math.random() * 0.8 + 0.2,
+      size: 100 + Math.random() * 200,
       hue: Math.random() * 360,
-      alpha: 0.06 + Math.random() * 0.1,
-      speed: 0.3 + Math.random() * 0.5
+      alpha: 0.08 + Math.random() * 0.12,
+      speed: 0.2 + Math.random() * 0.4,
+      type: Math.random() > 0.5 ? 'swirl' : 'cloud'
     })),
-    // Distant galaxies/planets
-    cosmicObjects: Array.from({ length: 5 }, () => ({
+    // Distant galaxies/planets - more variety
+    cosmicObjects: Array.from({ length: 8 }, () => ({
       x: Math.random() * W,
-      y: 20 + Math.random() * (HORIZON_Y - 40),
-      size: 15 + Math.random() * 40,
-      type: Math.random() > 0.5 ? 'galaxy' : 'planet',
+      y: 15 + Math.random() * (HORIZON_Y - 30),
+      size: 20 + Math.random() * 60,
+      type: ['galaxy', 'planet', 'ring-planet', 'sun'][Math.floor(Math.random() * 4)],
       hue: Math.random() * 360,
       rotation: Math.random() * Math.PI * 2,
-      speed: 0.1 + Math.random() * 0.2
+      speed: 0.05 + Math.random() * 0.15,
+      rings: Math.random() > 0.5,
+      moons: Math.floor(Math.random() * 3)
     })),
+    // Mid-distance floating asteroids (NEW)
+    asteroids: Array.from({ length: 20 }, () => ({
+      x: Math.random() * W * 1.2,
+      y: HORIZON_Y * 0.6 + Math.random() * (GROUND_Y - HORIZON_Y) * 0.5,
+      z: 0.3 + Math.random() * 0.5,
+      size: 8 + Math.random() * 25,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.02,
+      speedX: 0.3 + Math.random() * 0.8,
+      wobble: Math.random() * Math.PI * 2,
+      type: Math.floor(Math.random() * 3) // 0: round, 1: jagged, 2: elongated
+    })),
+    // Cosmic dust particles (NEW - near-field particles)
+    cosmicDust: Array.from({ length: 60 }, () => ({
+      x: Math.random() * W,
+      y: HORIZON_Y + Math.random() * (H - HORIZON_Y),
+      z: Math.random(),
+      size: 1 + Math.random() * 3,
+      alpha: 0.1 + Math.random() * 0.4,
+      speed: 1 + Math.random() * 3,
+      color: Math.random() > 0.5 ? 'cyan' : Math.random() > 0.5 ? 'magenta' : 'gold'
+    })),
+    // Space station silhouettes in distance (NEW)
+    spaceStations: Array.from({ length: 2 }, () => ({
+      x: Math.random() * W * 0.8 + W * 0.1,
+      y: HORIZON_Y * 0.5 + Math.random() * 30,
+      size: 30 + Math.random() * 50,
+      rotation: Math.random() * Math.PI * 0.1,
+      rotSpeed: 0.0005 + Math.random() * 0.001,
+      lights: Array.from({ length: 4 }, () => ({
+        offset: Math.random() * 20 - 10,
+        phase: Math.random() * Math.PI * 2,
+        color: Math.random() > 0.5 ? '#00FFFF' : '#FF00FF'
+      }))
+    })),
+    // Comet trails (NEW)
+    comets: [],
+    cometTimer: 0,
     // Shooting stars for dramatic space traversal effect
     shootingStars: [],
     shootingStarTimer: 0,
-    // Speed lines (warp effect) emanating from horizon
-    speedLines: Array.from({ length: 30 }, () => ({
-      angle: (Math.random() - 0.5) * Math.PI * 0.6, // spread around center
-      length: 20 + Math.random() * 80,
-      speed: 2 + Math.random() * 4,
-      distance: Math.random() * 200, // distance from horizon
-      alpha: 0.1 + Math.random() * 0.3
+    // Speed lines (warp effect) emanating from horizon - MORE dramatic
+    speedLines: Array.from({ length: 50 }, () => ({
+      angle: (Math.random() - 0.5) * Math.PI * 0.7,
+      length: 30 + Math.random() * 120,
+      speed: 3 + Math.random() * 6,
+      distance: Math.random() * 250,
+      alpha: 0.15 + Math.random() * 0.35,
+      color: Math.random() > 0.7 ? 'cyan' : Math.random() > 0.5 ? 'magenta' : 'white'
+    })),
+    // Glowing horizon line (NEW - Subway Surfers style)
+    horizonGlow: {
+      intensity: 0.5,
+      hue: 280,
+      pulse: 0
+    },
+    // Track edge lights (NEW - like street lights in Subway Surfers)
+    trackLights: Array.from({ length: 12 }, (_, i) => ({
+      depth: i / 12,
+      brightness: 0.5 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2
     })),
     backgroundHue: 240,
     frame: 0,
@@ -564,6 +640,91 @@ export default function SpeedRunGame() {
           obj.hue = Math.random() * 360;
         }
       });
+
+      // Move floating asteroids (NEW - mid-layer parallax)
+      if (g.asteroids) {
+        g.asteroids.forEach(ast => {
+          ast.x -= bgSpeed * ast.speedX * (1 - ast.z * 0.3);
+          ast.rotation += ast.rotSpeed;
+          ast.wobble += 0.03;
+          ast.y += Math.sin(ast.wobble) * 0.3; // Gentle floating
+          if (ast.x < -ast.size * 2) {
+            ast.x = W + ast.size * 2;
+            ast.y = HORIZON_Y * 0.5 + Math.random() * (GROUND_Y - HORIZON_Y) * 0.4;
+            ast.z = 0.3 + Math.random() * 0.5;
+          }
+        });
+      }
+
+      // Move cosmic dust particles (NEW - near-field particles for depth)
+      if (g.cosmicDust) {
+        g.cosmicDust.forEach(dust => {
+          dust.x -= dust.speed * (1 + g.speed * 0.5);
+          if (dust.x < -5) {
+            dust.x = W + 5;
+            dust.y = HORIZON_Y + Math.random() * (H - HORIZON_Y);
+            dust.alpha = 0.1 + Math.random() * 0.4;
+          }
+        });
+      }
+
+      // Update space stations (NEW - slow rotation)
+      if (g.spaceStations) {
+        g.spaceStations.forEach(station => {
+          station.rotation += station.rotSpeed;
+          station.x -= bgSpeed * 0.1;
+          if (station.x < -station.size) {
+            station.x = W + station.size;
+            station.y = HORIZON_Y * 0.4 + Math.random() * 40;
+          }
+          station.lights.forEach(light => {
+            light.phase += 0.05;
+          });
+        });
+      }
+
+      // Spawn comets periodically (NEW - dramatic effect)
+      if (g.cometTimer !== undefined) {
+        g.cometTimer++;
+        if (g.cometTimer > 300 && Math.random() < 0.02) { // Every ~5 seconds chance
+          g.comets.push({
+            x: W + 100,
+            y: Math.random() * HORIZON_Y * 0.6,
+            speed: 4 + Math.random() * 4,
+            angle: Math.PI + (Math.random() - 0.5) * 0.2,
+            size: 15 + Math.random() * 25,
+            tailLength: 80 + Math.random() * 120,
+            hue: Math.random() > 0.5 ? 180 : 30, // Cyan or orange
+            alpha: 0.8
+          });
+          g.cometTimer = 0;
+        }
+      }
+
+      // Move comets
+      if (g.comets) {
+        g.comets = g.comets.filter(comet => {
+          comet.x += Math.cos(comet.angle) * comet.speed;
+          comet.y += Math.sin(comet.angle) * comet.speed * 0.2;
+          comet.alpha -= 0.003;
+          return comet.x > -comet.tailLength && comet.alpha > 0;
+        });
+      }
+
+      // Update horizon glow (NEW - pulsing effect)
+      if (g.horizonGlow) {
+        g.horizonGlow.pulse += 0.02;
+        g.horizonGlow.intensity = 0.4 + Math.sin(g.horizonGlow.pulse) * 0.2;
+        g.horizonGlow.hue = (g.backgroundHue + 40) % 360;
+      }
+
+      // Update track lights (NEW)
+      if (g.trackLights) {
+        g.trackLights.forEach(light => {
+          light.phase += 0.08;
+          light.brightness = 0.3 + Math.sin(light.phase) * 0.3 + 0.3;
+        });
+      }
       
       // Spawn shooting stars periodically (more at higher speeds)
       g.shootingStarTimer++;
@@ -772,39 +933,173 @@ export default function SpeedRunGame() {
       // Deep space background - color changes with stage (stageTheme already declared above)
       const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
       const hue = g.backgroundHue;
-      bgGrad.addColorStop(0, `hsl(${hue}, 40%, 2%)`);
-      bgGrad.addColorStop(0.4, `hsl(${hue}, 50%, 6%)`);
-      bgGrad.addColorStop(1, `hsl(${hue}, 45%, 8%)`);
+      bgGrad.addColorStop(0, `hsl(${hue}, 50%, 1%)`);
+      bgGrad.addColorStop(0.25, `hsl(${hue}, 55%, 4%)`);
+      bgGrad.addColorStop(0.5, `hsl(${hue}, 50%, 6%)`);
+      bgGrad.addColorStop(1, `hsl(${hue}, 45%, 10%)`);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Cosmic objects (distant galaxies and planets)
+      // Draw comets (behind everything else) - NEW
+      if (g.comets) {
+        g.comets.forEach(comet => {
+          ctx.save();
+          ctx.translate(comet.x, comet.y);
+          
+          // Comet tail (gradient trail)
+          const tailGrad = ctx.createLinearGradient(comet.tailLength, 0, 0, 0);
+          tailGrad.addColorStop(0, 'transparent');
+          tailGrad.addColorStop(0.3, `hsla(${comet.hue}, 80%, 60%, ${comet.alpha * 0.2})`);
+          tailGrad.addColorStop(0.7, `hsla(${comet.hue}, 90%, 70%, ${comet.alpha * 0.5})`);
+          tailGrad.addColorStop(1, `hsla(${comet.hue}, 100%, 90%, ${comet.alpha})`);
+          
+          ctx.strokeStyle = tailGrad;
+          ctx.lineWidth = comet.size * 0.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(comet.tailLength, 0);
+          ctx.lineTo(0, 0);
+          ctx.stroke();
+          
+          // Comet head (glowing nucleus)
+          const headGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, comet.size);
+          headGrad.addColorStop(0, `hsla(${comet.hue}, 100%, 95%, ${comet.alpha})`);
+          headGrad.addColorStop(0.3, `hsla(${comet.hue}, 90%, 80%, ${comet.alpha * 0.7})`);
+          headGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = headGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, comet.size, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.restore();
+        });
+      }
+
+      // Draw space stations (silhouettes in far distance) - NEW
+      if (g.spaceStations) {
+        g.spaceStations.forEach(station => {
+          ctx.save();
+          ctx.translate(station.x, station.y);
+          ctx.rotate(station.rotation);
+          
+          // Main structure (dark silhouette)
+          ctx.fillStyle = 'rgba(20, 20, 40, 0.6)';
+          // Central hub
+          ctx.beginPath();
+          ctx.arc(0, 0, station.size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          // Solar panels
+          ctx.fillRect(-station.size, -station.size * 0.08, station.size * 0.7, station.size * 0.16);
+          ctx.fillRect(station.size * 0.3, -station.size * 0.08, station.size * 0.7, station.size * 0.16);
+          // Antennae
+          ctx.fillRect(-station.size * 0.05, -station.size * 0.5, station.size * 0.1, station.size * 0.3);
+          
+          // Blinking lights
+          station.lights.forEach((light, i) => {
+            const blinkAlpha = (Math.sin(light.phase) + 1) * 0.5;
+            ctx.fillStyle = light.color;
+            ctx.globalAlpha = blinkAlpha * 0.8;
+            ctx.beginPath();
+            ctx.arc(light.offset, (i - 1.5) * 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        });
+      }
+
+      // Cosmic objects (distant galaxies and planets) - ENHANCED
       g.cosmicObjects.forEach(obj => {
         ctx.save();
         ctx.translate(obj.x, obj.y);
         ctx.rotate(obj.rotation);
         
         if (obj.type === 'galaxy') {
-          // Spiral galaxy
+          // Spiral galaxy with arms
           const galaxyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, obj.size);
-          galaxyGrad.addColorStop(0, `hsla(${obj.hue}, 70%, 80%, 0.4)`);
-          galaxyGrad.addColorStop(0.3, `hsla(${obj.hue + 30}, 60%, 50%, 0.2)`);
-          galaxyGrad.addColorStop(0.7, `hsla(${obj.hue + 60}, 50%, 30%, 0.1)`);
+          galaxyGrad.addColorStop(0, `hsla(${obj.hue}, 80%, 90%, 0.5)`);
+          galaxyGrad.addColorStop(0.2, `hsla(${obj.hue + 20}, 70%, 70%, 0.3)`);
+          galaxyGrad.addColorStop(0.5, `hsla(${obj.hue + 40}, 60%, 50%, 0.15)`);
           galaxyGrad.addColorStop(1, 'transparent');
           ctx.fillStyle = galaxyGrad;
           ctx.beginPath();
           ctx.ellipse(0, 0, obj.size, obj.size * 0.4, 0, 0, Math.PI * 2);
           ctx.fill();
+          // Spiral arm suggestion
+          ctx.strokeStyle = `hsla(${obj.hue}, 60%, 70%, 0.2)`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let a = 0; a < Math.PI * 4; a += 0.1) {
+            const r = obj.size * 0.1 + a * obj.size * 0.08;
+            const x = Math.cos(a) * r * Math.cos(0.3);
+            const y = Math.sin(a) * r * 0.4;
+            a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        } else if (obj.type === 'ring-planet') {
+          // Planet with rings (Saturn-like)
+          const planetGrad = ctx.createRadialGradient(-obj.size * 0.15, -obj.size * 0.15, 0, 0, 0, obj.size * 0.4);
+          planetGrad.addColorStop(0, `hsla(${obj.hue}, 40%, 70%, 0.7)`);
+          planetGrad.addColorStop(0.6, `hsla(${obj.hue + 15}, 50%, 50%, 0.5)`);
+          planetGrad.addColorStop(1, `hsla(${obj.hue + 30}, 40%, 30%, 0.3)`);
+          // Rings (behind planet)
+          ctx.strokeStyle = `hsla(${obj.hue + 60}, 30%, 60%, 0.4)`;
+          ctx.lineWidth = obj.size * 0.15;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, obj.size * 0.8, obj.size * 0.2, 0, Math.PI, Math.PI * 2);
+          ctx.stroke();
+          // Planet body
+          ctx.fillStyle = planetGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, obj.size * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+          // Rings (in front of planet)
+          ctx.strokeStyle = `hsla(${obj.hue + 60}, 30%, 60%, 0.5)`;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, obj.size * 0.8, obj.size * 0.2, 0, 0, Math.PI);
+          ctx.stroke();
+        } else if (obj.type === 'sun') {
+          // Distant sun/star with corona
+          const sunGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, obj.size);
+          sunGrad.addColorStop(0, `hsla(40, 100%, 95%, 0.9)`);
+          sunGrad.addColorStop(0.2, `hsla(30, 100%, 70%, 0.6)`);
+          sunGrad.addColorStop(0.5, `hsla(20, 90%, 50%, 0.3)`);
+          sunGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = sunGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, obj.size, 0, Math.PI * 2);
+          ctx.fill();
+          // Solar flares
+          ctx.strokeStyle = `hsla(35, 100%, 70%, 0.3)`;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 / 8) * i + obj.rotation * 2;
+            const len = obj.size * (0.8 + Math.sin(g.frame * 0.05 + i) * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle) * obj.size * 0.3, Math.sin(angle) * obj.size * 0.3);
+            ctx.lineTo(Math.cos(angle) * len, Math.sin(angle) * len);
+            ctx.stroke();
+          }
         } else {
-          // Planet
+          // Regular planet
           const planetGrad = ctx.createRadialGradient(-obj.size * 0.2, -obj.size * 0.2, 0, 0, 0, obj.size * 0.8);
-          planetGrad.addColorStop(0, `hsla(${obj.hue}, 50%, 60%, 0.6)`);
-          planetGrad.addColorStop(0.6, `hsla(${obj.hue + 20}, 40%, 40%, 0.4)`);
-          planetGrad.addColorStop(1, `hsla(${obj.hue + 40}, 30%, 20%, 0.2)`);
+          planetGrad.addColorStop(0, `hsla(${obj.hue}, 50%, 65%, 0.7)`);
+          planetGrad.addColorStop(0.5, `hsla(${obj.hue + 20}, 45%, 45%, 0.5)`);
+          planetGrad.addColorStop(1, `hsla(${obj.hue + 40}, 35%, 25%, 0.25)`);
           ctx.fillStyle = planetGrad;
           ctx.beginPath();
           ctx.arc(0, 0, obj.size * 0.5, 0, Math.PI * 2);
           ctx.fill();
+          // Surface detail lines
+          ctx.strokeStyle = `hsla(${obj.hue + 30}, 30%, 40%, 0.3)`;
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 3; i++) {
+            const y = (i - 1) * obj.size * 0.15;
+            ctx.beginPath();
+            ctx.ellipse(0, y, obj.size * 0.45, obj.size * 0.08, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
         ctx.restore();
       });
@@ -827,13 +1122,70 @@ export default function SpeedRunGame() {
       // Stars with twinkling and parallax movement
       g.stars.forEach(s => {
         const brightness = (0.4 + Math.sin(s.twinkle) * 0.4) * stageTheme.starBrightness;
-        // Slight color variation based on stage
-        const starHue = stageTheme.hue === -1 ? (g.frame * 2 + s.twinkle * 50) % 360 : (stageTheme.hue + 60 + Math.sin(s.twinkle) * 30);
-        ctx.fillStyle = `hsla(${starHue}, 20%, 100%, ${brightness})`;
+        // Color variation
+        let starHue;
+        if (s.color === 'blue') starHue = 220;
+        else if (s.color === 'yellow') starHue = 45;
+        else starHue = stageTheme.hue === -1 ? (g.frame * 2 + s.twinkle * 50) % 360 : (stageTheme.hue + 60 + Math.sin(s.twinkle) * 30);
+        ctx.fillStyle = `hsla(${starHue}, ${s.color === 'white' ? '10' : '60'}%, 100%, ${brightness})`;
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size * (0.8 + Math.sin(s.twinkle) * 0.2), 0, Math.PI * 2);
         ctx.fill();
+        // Star glow for larger stars
+        if (s.size > 2) {
+          ctx.fillStyle = `hsla(${starHue}, 60%, 80%, ${brightness * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       });
+
+      // Floating asteroids in mid-distance (NEW)
+      if (g.asteroids) {
+        g.asteroids.forEach(ast => {
+          ctx.save();
+          ctx.translate(ast.x, ast.y);
+          ctx.rotate(ast.rotation);
+          
+          const scale = 0.3 + ast.z * 0.7;
+          const size = ast.size * scale;
+          
+          // Asteroid body with rocky texture
+          ctx.fillStyle = `rgba(60, 50, 70, ${0.4 + ast.z * 0.4})`;
+          ctx.beginPath();
+          
+          if (ast.type === 0) {
+            // Rounded asteroid
+            ctx.arc(0, 0, size, 0, Math.PI * 2);
+          } else if (ast.type === 1) {
+            // Jagged asteroid
+            for (let i = 0; i < 8; i++) {
+              const angle = (Math.PI * 2 / 8) * i;
+              const r = size * (0.7 + Math.sin(i * 3.7) * 0.3);
+              i === 0 ? ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r) : ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+            ctx.closePath();
+          } else {
+            // Elongated asteroid
+            ctx.ellipse(0, 0, size * 1.3, size * 0.6, 0, 0, Math.PI * 2);
+          }
+          ctx.fill();
+          
+          // Surface highlights
+          ctx.fillStyle = `rgba(100, 90, 120, ${0.3 + ast.z * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(-size * 0.2, -size * 0.2, size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Shadow
+          ctx.fillStyle = `rgba(20, 15, 30, ${0.3 + ast.z * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(size * 0.2, size * 0.2, size * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.restore();
+        });
+      }
 
       // Shooting stars - dramatic streaks across the sky
       g.shootingStars.forEach(ss => {
@@ -862,15 +1214,15 @@ export default function SpeedRunGame() {
         ctx.fill();
       });
 
-      // Speed lines (warp effect) - emanate from vanishing point
+      // Speed lines (warp effect) - emanate from vanishing point - ENHANCED with colors
       ctx.save();
       ctx.translate(VANISHING_X, HORIZON_Y);
       g.speedLines.forEach(line => {
         const startDist = line.distance;
-        const endDist = line.distance + line.length * (1 + g.speed * 0.2);
+        const endDist = line.distance + line.length * (1 + g.speed * 0.3);
         
         // Calculate alpha based on distance (fade out as they get further)
-        const distAlpha = Math.max(0, 1 - line.distance / 350) * line.alpha * (g.speed / 4);
+        const distAlpha = Math.max(0, 1 - line.distance / 350) * line.alpha * (g.speed / 3);
         
         if (distAlpha > 0.02) {
           const startX = Math.cos(line.angle) * startDist;
@@ -878,13 +1230,19 @@ export default function SpeedRunGame() {
           const endX = Math.cos(line.angle) * endDist;
           const endY = Math.sin(line.angle) * endDist * 0.6;
           
+          // Color based on line.color
+          let lineColor;
+          if (line.color === 'cyan') lineColor = '180, 255, 255';
+          else if (line.color === 'magenta') lineColor = '255, 100, 255';
+          else lineColor = '200, 220, 255';
+          
           const lineGrad = ctx.createLinearGradient(startX, startY, endX, endY);
           lineGrad.addColorStop(0, 'transparent');
-          lineGrad.addColorStop(0.5, `rgba(150, 180, 255, ${distAlpha * 0.5})`);
-          lineGrad.addColorStop(1, `rgba(200, 220, 255, ${distAlpha})`);
+          lineGrad.addColorStop(0.4, `rgba(${lineColor}, ${distAlpha * 0.3})`);
+          lineGrad.addColorStop(1, `rgba(${lineColor}, ${distAlpha})`);
           
           ctx.strokeStyle = lineGrad;
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.5 + g.speed * 0.1;
           ctx.beginPath();
           ctx.moveTo(startX, startY);
           ctx.lineTo(endX, endY);
@@ -892,6 +1250,34 @@ export default function SpeedRunGame() {
         }
       });
       ctx.restore();
+
+      // Horizon glow effect (NEW - Subway Surfers style glowing horizon)
+      if (g.horizonGlow) {
+        const glowGrad = ctx.createRadialGradient(VANISHING_X, HORIZON_Y, 0, VANISHING_X, HORIZON_Y, 300);
+        const glowHue = g.horizonGlow.hue;
+        const glowIntensity = g.horizonGlow.intensity;
+        glowGrad.addColorStop(0, `hsla(${glowHue}, 80%, 60%, ${glowIntensity * 0.4})`);
+        glowGrad.addColorStop(0.3, `hsla(${glowHue + 30}, 70%, 50%, ${glowIntensity * 0.2})`);
+        glowGrad.addColorStop(0.6, `hsla(${glowHue + 60}, 60%, 40%, ${glowIntensity * 0.1})`);
+        glowGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(0, 0, W, HORIZON_Y + 100);
+      }
+
+      // Cosmic dust particles (NEW - near-field floating particles)
+      if (g.cosmicDust) {
+        g.cosmicDust.forEach(dust => {
+          let dustColor;
+          if (dust.color === 'cyan') dustColor = '0, 255, 255';
+          else if (dust.color === 'magenta') dustColor = '255, 0, 255';
+          else dustColor = '255, 215, 0';
+          
+          ctx.fillStyle = `rgba(${dustColor}, ${dust.alpha})`;
+          ctx.beginPath();
+          ctx.arc(dust.x, dust.y, dust.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
 
       // 3D Track/Ground
       // Draw track lanes with perspective
@@ -949,6 +1335,53 @@ export default function SpeedRunGame() {
       ctx.moveTo(VANISHING_X + 25, HORIZON_Y);
       ctx.lineTo(VANISHING_X + LANE_WIDTH * 2.7, GROUND_Y);
       ctx.stroke();
+
+      // Track lights on edges (NEW - Subway Surfers style)
+      if (g.trackLights) {
+        g.trackLights.forEach((light, i) => {
+          const depth = (light.depth + g.trackOffset * 0.5) % 1;
+          if (depth < 0.1) return;
+          
+          const y = getDepthY(depth);
+          const spread = (LANE_WIDTH * 2.7 - 25) * depth + 25;
+          const scale = getDepthScale(depth);
+          const brightness = light.brightness * (0.5 + depth * 0.5);
+          
+          // Left light
+          const leftX = VANISHING_X - spread;
+          const lightGlow = ctx.createRadialGradient(leftX, y, 0, leftX, y, 20 * scale);
+          lightGlow.addColorStop(0, `rgba(0, 255, 163, ${brightness})`);
+          lightGlow.addColorStop(0.3, `rgba(0, 255, 163, ${brightness * 0.5})`);
+          lightGlow.addColorStop(1, 'transparent');
+          ctx.fillStyle = lightGlow;
+          ctx.beginPath();
+          ctx.arc(leftX, y, 20 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Light core
+          ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+          ctx.beginPath();
+          ctx.arc(leftX, y, 3 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Right light
+          const rightX = VANISHING_X + spread;
+          const rightGlow = ctx.createRadialGradient(rightX, y, 0, rightX, y, 20 * scale);
+          rightGlow.addColorStop(0, `rgba(217, 70, 239, ${brightness})`);
+          rightGlow.addColorStop(0.3, `rgba(217, 70, 239, ${brightness * 0.5})`);
+          rightGlow.addColorStop(1, 'transparent');
+          ctx.fillStyle = rightGlow;
+          ctx.beginPath();
+          ctx.arc(rightX, y, 20 * scale, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Light core
+          ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+          ctx.beginPath();
+          ctx.arc(rightX, y, 3 * scale, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
 
       // Draw obstacles (sorted by depth for proper rendering - far first)
       const sortedObstacles = [...g.obstacles].sort((a, b) => a.depth - b.depth);
@@ -1760,6 +2193,11 @@ export default function SpeedRunGame() {
               className="p-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all">
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
+            <button onClick={toggleMusic} data-testid="game-music-toggle"
+              className={`p-2 rounded-full border transition-all ${musicOn ? 'bg-[#D946EF]/20 border-[#D946EF]/40 text-[#D946EF]' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+              title={musicOn ? "Music On" : "Music Off"}>
+              {musicOn ? <Music size={18} /> : <Music2 size={18} />}
+            </button>
           </div>
           <p className="text-slate-500 text-sm">Dodge meteors, black holes & aliens through deep space!</p>
           
@@ -1887,6 +2325,15 @@ export default function SpeedRunGame() {
           <div className="lg:col-span-1 space-y-4">
             {/* Jackpot Display */}
             <JackpotDisplay />
+            
+            {/* Game Achievements */}
+            <div className="glass-card rounded-2xl p-4">
+              <GameAchievements 
+                currentScore={score}
+                totalMoonCheese={totalMoonCheese}
+                currentStage={currentStage}
+              />
+            </div>
             
             <div className="glass-card rounded-2xl p-4">
               <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">

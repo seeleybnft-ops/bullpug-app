@@ -15,7 +15,8 @@ import {
   Check, X, Loader2, RefreshCw, Zap, Shield, Skull,
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
-  Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3, Bell
+  Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3, Bell,
+  Cpu, ToggleLeft, ToggleRight, Activity, TrendingUp as TrendUp
 } from "lucide-react";
 import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 
@@ -75,6 +76,11 @@ export default function AITrader() {
   const [telegramLinkCode, setTelegramLinkCode] = useState(null);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLoading, setTelegramLoading] = useState(false);
+  
+  // Auto-Trade state
+  const [autoTradeStatus, setAutoTradeStatus] = useState(null);
+  const [autoTradeLogs, setAutoTradeLogs] = useState([]);
+  const [autoTradeLoading, setAutoTradeLoading] = useState(false);
 
   // Fetch Telegram status
   const fetchTelegramStatus = useCallback(async () => {
@@ -267,6 +273,77 @@ export default function AITrader() {
     setTopPicksLoading(false);
   }, []);
 
+  // Fetch Auto-Trade Status
+  const fetchAutoTradeStatus = useCallback(async () => {
+    if (!walletAddress) return;
+    setAutoTradeLoading(true);
+    try {
+      const [statusRes, logsRes] = await Promise.all([
+        axios.get(`${API}/ai-trader/auto-trade/status/${walletAddress}`),
+        axios.get(`${API}/ai-trader/auto-trade/logs/${walletAddress}?limit=20`)
+      ]);
+      setAutoTradeStatus(statusRes.data);
+      setAutoTradeLogs(logsRes.data.logs || []);
+    } catch (err) {
+      console.error("Auto-trade status error:", err);
+    }
+    setAutoTradeLoading(false);
+  }, [walletAddress]);
+
+  // Toggle Auto-Trade
+  const toggleAutoTrade = async (enabled) => {
+    if (!walletAddress) return;
+    try {
+      const response = await axios.post(`${API}/ai-trader/auto-trade/toggle/${walletAddress}?enabled=${enabled}`);
+      if (response.data.success) {
+        toast.success(response.data.message);
+        fetchAutoTradeStatus();
+      }
+    } catch (err) {
+      toast.error("Failed to toggle auto-trade");
+    }
+  };
+
+  // Update Auto-Trade Settings
+  const updateAutoTradeSettings = async (settingsUpdate) => {
+    if (!walletAddress) return;
+    try {
+      const response = await axios.put(`${API}/ai-trader/auto-trade/settings/${walletAddress}`, settingsUpdate);
+      if (response.data.success) {
+        toast.success("Auto-trade settings updated");
+        fetchAutoTradeStatus();
+      }
+    } catch (err) {
+      toast.error("Failed to update auto-trade settings");
+    }
+  };
+
+  // Manually Trigger Auto-Trade Scan
+  const runAutoTradeScan = async () => {
+    if (!walletAddress) return;
+    const loadingToast = toast.loading("Running auto-trade scan...");
+    try {
+      const response = await axios.post(`${API}/ai-trader/auto-trade/scan-and-execute/${walletAddress}`);
+      toast.dismiss(loadingToast);
+      
+      if (response.data.success) {
+        const trades = response.data.trades || [];
+        if (trades.length > 0) {
+          toast.success(`Auto-trade executed ${trades.length} trade(s)!`);
+          fetchData();
+        } else {
+          toast.info(response.data.message || "No trades executed");
+        }
+      } else {
+        toast.info(response.data.message || "Auto-trade scan complete");
+      }
+      fetchAutoTradeStatus();
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error("Auto-trade scan failed");
+    }
+  };
+
   // Copy to clipboard helper
   const copyToClipboard = async (text, label = "Address") => {
     try {
@@ -286,12 +363,13 @@ export default function AITrader() {
   useEffect(() => {
     fetchData();
     fetchTopPicks();
+    fetchAutoTradeStatus();
     // Refresh top picks every 5 minutes, no auto-refresh for main data
     const topPicksInterval = setInterval(fetchTopPicks, 300000); // Refresh every 5 minutes
     return () => {
       clearInterval(topPicksInterval);
     };
-  }, [fetchData, fetchTopPicks]);
+  }, [fetchData, fetchTopPicks, fetchAutoTradeStatus]);
 
   // Auto-scan every 5 minutes when enabled and disclaimer accepted
   useEffect(() => {
@@ -938,6 +1016,7 @@ export default function AITrader() {
           {[
             { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
             { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
+            { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
             { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
             { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
             { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
@@ -957,6 +1036,11 @@ export default function AITrader() {
               {tab.count !== undefined && tab.count > 0 && (
                 <span className="px-1 sm:px-1.5 py-0.5 bg-[#D946EF] text-white text-[10px] sm:text-xs rounded-full">
                   {tab.count}
+                </span>
+              )}
+              {tab.badge && (
+                <span className="px-1 sm:px-1.5 py-0.5 bg-[#00FFA3] text-black text-[10px] sm:text-xs rounded-full font-bold">
+                  {tab.badge}
                 </span>
               )}
             </button>
@@ -1249,6 +1333,19 @@ export default function AITrader() {
                   ⚠️ Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
                 </p>
               </div>
+            )}
+            
+            {/* Auto-Trade Tab */}
+            {activeTab === "autotrade" && (
+              <AutoTradeTab 
+                status={autoTradeStatus}
+                logs={autoTradeLogs}
+                loading={autoTradeLoading}
+                onToggle={toggleAutoTrade}
+                onUpdateSettings={updateAutoTradeSettings}
+                onRunScan={runAutoTradeScan}
+                onRefresh={fetchAutoTradeStatus}
+              />
             )}
             
             {/* Alerts Tab */}
@@ -1568,6 +1665,436 @@ function RiskCalculator({ settings }) {
       <p className="text-[10px] text-slate-500 text-center mt-2">
         {riskRewardRatio >= 2 ? '✓ Good risk:reward ratio (≥1:2)' : '⚠ Consider higher take profit for better R:R'}
       </p>
+    </div>
+  );
+}
+
+// Auto-Trade Tab Component
+function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRunScan, onRefresh }) {
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    auto_trade_mode: status?.settings?.mode || "conservative",
+    auto_min_confidence: status?.settings?.min_confidence || 0.65,
+    auto_max_daily_trades: status?.settings?.max_daily_trades || 3,
+    auto_max_position_sol: status?.settings?.max_position_sol || 0.2,
+    auto_cooldown_minutes: status?.settings?.cooldown_minutes || 30,
+    auto_require_multiple_signals: status?.settings?.require_multiple_signals !== false,
+    auto_pause_on_loss: status?.settings?.pause_on_loss !== false,
+    auto_total_daily_limit_sol: status?.settings?.total_daily_limit_sol || 1.0
+  });
+
+  // Update form when status changes
+  useEffect(() => {
+    if (status?.settings) {
+      setSettingsForm({
+        auto_trade_mode: status.settings.mode || "conservative",
+        auto_min_confidence: status.settings.min_confidence || 0.65,
+        auto_max_daily_trades: status.settings.max_daily_trades || 3,
+        auto_max_position_sol: status.settings.max_position_sol || 0.2,
+        auto_cooldown_minutes: status.settings.cooldown_minutes || 30,
+        auto_require_multiple_signals: status.settings.require_multiple_signals !== false,
+        auto_pause_on_loss: status.settings.pause_on_loss !== false,
+        auto_total_daily_limit_sol: status.settings.total_daily_limit_sol || 1.0
+      });
+    }
+  }, [status]);
+
+  const handleSaveSettings = () => {
+    onUpdateSettings(settingsForm);
+    setShowSettingsPanel(false);
+  };
+
+  if (loading && !status) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-[#D946EF]" />
+      </div>
+    );
+  }
+
+  const isEnabled = status?.auto_trade_enabled;
+  const isPaused = status?.auto_paused;
+  const todayStats = status?.today_stats || { trades_executed: 0, total_sol_used: 0 };
+
+  return (
+    <div className="space-y-6" data-testid="autotrade-tab">
+      {/* Main Toggle Card */}
+      <div className={`rounded-2xl p-6 border transition-all ${
+        isEnabled && !isPaused 
+          ? 'bg-gradient-to-br from-[#00FFA3]/10 to-[#00C2FF]/10 border-[#00FFA3]/30' 
+          : 'bg-white/5 border-white/10'
+      }`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+              isEnabled && !isPaused ? 'bg-[#00FFA3]/20' : 'bg-white/10'
+            }`}>
+              <Cpu className={`w-7 h-7 ${isEnabled && !isPaused ? 'text-[#00FFA3]' : 'text-slate-500'}`} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                Auto-Trade Bot
+                {isEnabled && (
+                  <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+                    isPaused ? 'bg-[#F5D300]/20 text-[#F5D300]' : 'bg-[#00FFA3]/20 text-[#00FFA3]'
+                  }`}>
+                    {isPaused ? 'PAUSED' : 'ACTIVE'}
+                  </span>
+                )}
+              </h3>
+              <p className="text-sm text-slate-400">
+                {isEnabled 
+                  ? isPaused 
+                    ? status.pause_reason || 'Auto-trading is paused'
+                    : 'Automatically executing trades based on AI signals'
+                  : 'Enable to let AI execute trades automatically'
+                }
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => onToggle(!isEnabled)}
+            className={`relative w-16 h-8 rounded-full transition-all ${
+              isEnabled ? 'bg-[#00FFA3]' : 'bg-slate-700'
+            }`}
+            data-testid="auto-trade-toggle"
+          >
+            <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all ${
+              isEnabled ? 'left-9' : 'left-1'
+            }`} />
+          </button>
+        </div>
+
+        {/* Warning Banner */}
+        <div className="flex items-start gap-2 px-4 py-3 bg-[#FF6B6B]/10 border border-[#FF6B6B]/20 rounded-xl text-sm">
+          <AlertTriangle className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[#FF6B6B] font-medium">High Risk Feature</p>
+            <p className="text-slate-400 text-xs mt-1">
+              Auto-trading executes real trades with your funds. Use with caution and only risk what you can afford to lose.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Today's Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <Activity className="w-4 h-4" />
+            <span className="text-xs">Trades Today</span>
+          </div>
+          <p className="text-xl font-bold text-white">
+            {todayStats.trades_executed}/{status?.settings?.max_daily_trades || 3}
+          </p>
+        </div>
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-xs">SOL Used</span>
+          </div>
+          <p className="text-xl font-bold text-white">
+            {todayStats.total_sol_used?.toFixed(3) || '0.000'}
+          </p>
+        </div>
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <Target className="w-4 h-4" />
+            <span className="text-xs">Mode</span>
+          </div>
+          <p className="text-xl font-bold capitalize" style={{ color: 
+            status?.settings?.mode === 'aggressive' ? '#FF6B6B' : 
+            status?.settings?.mode === 'moderate' ? '#F5D300' : '#00FFA3'
+          }}>
+            {status?.settings?.mode || 'Conservative'}
+          </p>
+        </div>
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <div className="flex items-center gap-2 text-slate-400 mb-1">
+            <Timer className="w-4 h-4" />
+            <span className="text-xs">Cooldown</span>
+          </div>
+          <p className="text-xl font-bold text-white">
+            {status?.settings?.cooldown_minutes || 30}m
+          </p>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          onClick={onRunScan}
+          disabled={!isEnabled || isPaused}
+          className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] hover:opacity-90 disabled:opacity-50"
+          data-testid="run-auto-scan-btn"
+        >
+          <Zap className="w-4 h-4 mr-2" />
+          Run Auto-Scan Now
+        </Button>
+        <Button
+          onClick={() => setShowSettingsPanel(!showSettingsPanel)}
+          variant="outline"
+          className="border-white/20 text-slate-300"
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          Configure Settings
+        </Button>
+        <Button
+          onClick={onRefresh}
+          variant="outline"
+          className="border-white/20 text-slate-300"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Settings Panel */}
+      {showSettingsPanel && (
+        <div className="bg-[#12121A] rounded-2xl p-6 border border-white/10 space-y-5">
+          <h4 className="font-bold text-lg flex items-center gap-2">
+            <Settings className="w-5 h-5 text-[#D946EF]" />
+            Auto-Trade Configuration
+          </h4>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            {/* Mode Selection */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Trading Mode</label>
+              <select
+                value={settingsForm.auto_trade_mode}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_trade_mode: e.target.value }))}
+                className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
+              >
+                <option value="conservative">Conservative (Safest)</option>
+                <option value="moderate">Moderate (Balanced)</option>
+                <option value="aggressive">Aggressive (Risky)</option>
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {settingsForm.auto_trade_mode === 'conservative' && 'Higher confidence required, one trade per scan'}
+                {settingsForm.auto_trade_mode === 'moderate' && 'Balanced approach with standard settings'}
+                {settingsForm.auto_trade_mode === 'aggressive' && 'Lower confidence threshold, more frequent trades'}
+              </p>
+            </div>
+
+            {/* Min Confidence */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Min Confidence: {(settingsForm.auto_min_confidence * 100).toFixed(0)}%
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="0.9"
+                step="0.05"
+                value={settingsForm.auto_min_confidence}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_min_confidence: parseFloat(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>50%</span>
+                <span>90%</span>
+              </div>
+            </div>
+
+            {/* Max Position */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Max Position: {settingsForm.auto_max_position_sol} SOL
+              </label>
+              <input
+                type="range"
+                min="0.05"
+                max="1"
+                step="0.05"
+                value={settingsForm.auto_max_position_sol}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_max_position_sol: parseFloat(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>0.05 SOL</span>
+                <span>1 SOL</span>
+              </div>
+            </div>
+
+            {/* Daily Limit */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Daily SOL Limit: {settingsForm.auto_total_daily_limit_sol} SOL
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={settingsForm.auto_total_daily_limit_sol}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_total_daily_limit_sol: parseFloat(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>0.1 SOL</span>
+                <span>5 SOL</span>
+              </div>
+            </div>
+
+            {/* Max Daily Trades */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Max Daily Trades: {settingsForm.auto_max_daily_trades}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={settingsForm.auto_max_daily_trades}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_max_daily_trades: parseInt(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>1</span>
+                <span>10</span>
+              </div>
+            </div>
+
+            {/* Cooldown */}
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">
+                Cooldown: {settingsForm.auto_cooldown_minutes} minutes
+              </label>
+              <input
+                type="range"
+                min="5"
+                max="120"
+                step="5"
+                value={settingsForm.auto_cooldown_minutes}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_cooldown_minutes: parseInt(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>5 min</span>
+                <span>120 min</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Toggle Options */}
+          <div className="flex flex-wrap gap-4 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settingsForm.auto_require_multiple_signals}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_require_multiple_signals: e.target.checked }))}
+                className="w-4 h-4 rounded border-white/30"
+              />
+              <span className="text-sm text-slate-300">Require 2+ strategies to agree</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settingsForm.auto_pause_on_loss}
+                onChange={(e) => setSettingsForm(f => ({ ...f, auto_pause_on_loss: e.target.checked }))}
+                className="w-4 h-4 rounded border-white/30"
+              />
+              <span className="text-sm text-slate-300">Pause after a loss</span>
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={() => setShowSettingsPanel(false)}
+              variant="outline"
+              className="flex-1 border-white/20"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSettings}
+              className="flex-1 bg-[#D946EF] hover:bg-[#D946EF]/80"
+            >
+              Save Settings
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Log */}
+      <div>
+        <h4 className="font-bold text-sm text-slate-400 mb-3 flex items-center gap-2">
+          <History className="w-4 h-4" />
+          Recent Activity
+        </h4>
+        
+        {logs.length === 0 ? (
+          <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
+            <Activity className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+            <p className="text-slate-500 text-sm">No auto-trade activity yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {logs.map((log, i) => (
+              <div 
+                key={log.log_id || i}
+                className={`flex items-center justify-between p-3 rounded-xl border ${
+                  log.action === 'auto_buy' ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' :
+                  log.action === 'auto_sell' ? 'bg-[#FF6B6B]/5 border-[#FF6B6B]/20' :
+                  'bg-white/5 border-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    log.action === 'auto_buy' ? 'bg-[#00FFA3]/20' :
+                    log.action === 'auto_sell' ? 'bg-[#FF6B6B]/20' :
+                    log.action === 'auto_enabled' ? 'bg-[#D946EF]/20' :
+                    'bg-slate-700'
+                  }`}>
+                    {log.action === 'auto_buy' && <TrendingUp className="w-4 h-4 text-[#00FFA3]" />}
+                    {log.action === 'auto_sell' && <TrendingDown className="w-4 h-4 text-[#FF6B6B]" />}
+                    {log.action === 'auto_enabled' && <Play className="w-4 h-4 text-[#D946EF]" />}
+                    {log.action === 'auto_disabled' && <Pause className="w-4 h-4 text-slate-400" />}
+                    {log.action === 'auto_skip' && <X className="w-4 h-4 text-slate-400" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {log.action === 'auto_buy' && `AUTO BUY ${log.token_symbol}`}
+                      {log.action === 'auto_sell' && `AUTO SELL ${log.token_symbol}`}
+                      {log.action === 'auto_enabled' && 'Auto-trading enabled'}
+                      {log.action === 'auto_disabled' && 'Auto-trading disabled'}
+                      {log.action === 'auto_skip' && `Skipped ${log.token_symbol}`}
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate max-w-[200px]">
+                      {log.reason}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {log.amount_sol && (
+                    <p className="text-sm font-mono text-white">{log.amount_sol?.toFixed(3)} SOL</p>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* How It Works */}
+      <div className="bg-[#D946EF]/5 rounded-xl p-4 border border-[#D946EF]/20">
+        <h4 className="font-bold text-sm text-[#D946EF] mb-2 flex items-center gap-2">
+          <Info className="w-4 h-4" />
+          How Auto-Trading Works
+        </h4>
+        <ul className="text-xs text-slate-400 space-y-1">
+          <li>• AI continuously scans markets for opportunities based on technical analysis</li>
+          <li>• When signals meet your confidence threshold, trades are executed automatically</li>
+          <li>• Positions are managed with your configured stop-loss and take-profit levels</li>
+          <li>• Daily limits and cooldowns prevent over-trading</li>
+          <li>• You can pause or disable auto-trading at any time</li>
+        </ul>
+      </div>
     </div>
   );
 }

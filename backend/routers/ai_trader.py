@@ -70,7 +70,34 @@ class TraderSettings(BaseModel):
     stop_loss_percent: float = Field(default=10.0, ge=1.0, le=50.0)
     take_profit_percent: float = Field(default=20.0, ge=5.0, le=100.0)
     max_daily_trades: int = Field(default=5, ge=1, le=20)
-    auto_approve: bool = False  # For future fully-automated mode
+    auto_approve: bool = False  # Legacy field
+    # Phase 3: Auto-Trade Settings
+    auto_trade_enabled: bool = False  # Master toggle for auto-trading
+    auto_trade_mode: str = Field(default="conservative", pattern="^(conservative|moderate|aggressive)$")
+    auto_min_confidence: float = Field(default=0.65, ge=0.5, le=0.95)  # Min confidence to auto-execute
+    auto_max_daily_trades: int = Field(default=3, ge=1, le=10)  # Max auto-trades per day
+    auto_max_position_sol: float = Field(default=0.2, ge=0.05, le=1.0)  # Max position for auto-trades
+    auto_cooldown_minutes: int = Field(default=30, ge=5, le=120)  # Cooldown between auto-trades
+    auto_require_multiple_signals: bool = True  # Require 2+ strategies to agree
+    auto_pause_on_loss: bool = True  # Pause auto-trading after a loss
+    auto_total_daily_limit_sol: float = Field(default=1.0, ge=0.1, le=5.0)  # Max total SOL per day
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class AutoTradeLog(BaseModel):
+    """Log entry for auto-executed trades"""
+    log_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    wallet_address: str
+    token_symbol: str
+    token_mint: str
+    action: str  # "auto_buy", "auto_sell", "auto_skip", "auto_pause"
+    amount_sol: Optional[float] = None
+    entry_price: Optional[float] = None
+    confidence: float
+    strategy: str
+    reason: str
+    success: bool
+    error_message: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -1937,3 +1964,591 @@ async def scan_for_breakouts(wallet_address: str):
     except Exception as e:
         logger.error(f"Breakout scan error: {e}")
         return {"success": False, "new_alerts": [], "error": str(e)}
+
+
+
+# ============================================================================
+# PHASE 3: AUTO-TRADING SYSTEM
+# ============================================================================
+
+class AutoTradeSettingsUpdate(BaseModel):
+    """Update auto-trade settings"""
+    auto_trade_enabled: Optional[bool] = None
+    auto_trade_mode: Optional[str] = None
+    auto_min_confidence: Optional[float] = None
+    auto_max_daily_trades: Optional[int] = None
+    auto_max_position_sol: Optional[float] = None
+    auto_cooldown_minutes: Optional[int] = None
+    auto_require_multiple_signals: Optional[bool] = None
+    auto_pause_on_loss: Optional[bool] = None
+    auto_total_daily_limit_sol: Optional[float] = None
+
+
+@router.get("/auto-trade/status/{wallet_address}")
+async def get_auto_trade_status(wallet_address: str):
+    """Get auto-trade status and settings for a wallet."""
+    try:
+        settings = await db.trader_settings.find_one(
+            {"wallet_address": wallet_address},
+            {"_id": 0}
+        )
+        
+        if not settings:
+            return {
+                "auto_trade_enabled": False,
+                "settings": None,
+                "today_stats": {
+                    "trades_executed": 0,
+                    "total_sol_used": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "pnl_sol": 0
+                }
+            }
+        
+        # Get today's auto-trade stats
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        today_logs = await db.auto_trade_logs.find({
+            "wallet_address": wallet_address,
+            "created_at": {"$gte": today_start},
+            "action": {"$in": ["auto_buy", "auto_sell"]}
+        }).to_list(100)
+        
+        today_stats = {
+            "trades_executed": len([l for l in today_logs if l.get("success")]),
+            "total_sol_used": sum(l.get("amount_sol", 0) for l in today_logs if l.get("success") and l.get("action") == "auto_buy"),
+            "wins": 0,
+            "losses": 0,
+            "pnl_sol": 0
+        }
+        
+        # Check if auto-trading should be paused
+        auto_paused = False
+        pause_reason = None
+        
+        if settings.get("auto_pause_on_loss"):
+            # Check for recent losses
+            recent_loss = await db.auto_trade_logs.find_one({
+                "wallet_address": wallet_address,
+                "created_at": {"$gte": today_start},
+                "action": "auto_sell",
+                "success": True
+            }, sort=[("created_at", -1)])
+            
+            if recent_loss and recent_loss.get("pnl_sol", 0) < 0:
+                auto_paused = True
+                pause_reason = "Paused after loss - resume manually"
+        
+        # Check daily limits
+        if today_stats["trades_executed"] >= settings.get("auto_max_daily_trades", 3):
+            auto_paused = True
+            pause_reason = "Daily trade limit reached"
+        
+        if today_stats["total_sol_used"] >= settings.get("auto_total_daily_limit_sol", 1.0):
+            auto_paused = True
+            pause_reason = "Daily SOL limit reached"
+        
+        return {
+            "auto_trade_enabled": settings.get("auto_trade_enabled", False),
+            "auto_paused": auto_paused,
+            "pause_reason": pause_reason,
+            "settings": {
+                "mode": settings.get("auto_trade_mode", "conservative"),
+                "min_confidence": settings.get("auto_min_confidence", 0.65),
+                "max_daily_trades": settings.get("auto_max_daily_trades", 3),
+                "max_position_sol": settings.get("auto_max_position_sol", 0.2),
+                "cooldown_minutes": settings.get("auto_cooldown_minutes", 30),
+                "require_multiple_signals": settings.get("auto_require_multiple_signals", True),
+                "pause_on_loss": settings.get("auto_pause_on_loss", True),
+                "total_daily_limit_sol": settings.get("auto_total_daily_limit_sol", 1.0)
+            },
+            "today_stats": today_stats
+        }
+    except Exception as e:
+        logger.error(f"Auto-trade status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auto-trade/toggle/{wallet_address}")
+async def toggle_auto_trade(wallet_address: str, enabled: bool = True):
+    """Enable or disable auto-trading for a wallet."""
+    try:
+        result = await db.trader_settings.update_one(
+            {"wallet_address": wallet_address},
+            {
+                "$set": {
+                    "auto_trade_enabled": enabled,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            },
+            upsert=True
+        )
+        
+        # Log the toggle
+        await db.auto_trade_logs.insert_one({
+            "log_id": str(uuid.uuid4())[:8],
+            "wallet_address": wallet_address,
+            "token_symbol": "-",
+            "token_mint": "-",
+            "action": "auto_enabled" if enabled else "auto_disabled",
+            "confidence": 0,
+            "strategy": "-",
+            "reason": f"Auto-trading {'enabled' if enabled else 'disabled'} by user",
+            "success": True,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "auto_trade_enabled": enabled,
+            "message": f"Auto-trading {'enabled' if enabled else 'disabled'}"
+        }
+    except Exception as e:
+        logger.error(f"Toggle auto-trade error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/auto-trade/settings/{wallet_address}")
+async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSettingsUpdate):
+    """Update auto-trade settings."""
+    try:
+        update_data = {k: v for k, v in settings.dict().items() if v is not None}
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = await db.trader_settings.update_one(
+            {"wallet_address": wallet_address},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "updated_fields": list(update_data.keys()),
+            "message": "Auto-trade settings updated"
+        }
+    except Exception as e:
+        logger.error(f"Update auto-trade settings error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/auto-trade/logs/{wallet_address}")
+async def get_auto_trade_logs(wallet_address: str, limit: int = 50):
+    """Get auto-trade activity logs."""
+    try:
+        logs = await db.auto_trade_logs.find(
+            {"wallet_address": wallet_address},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {
+            "logs": logs,
+            "count": len(logs)
+        }
+    except Exception as e:
+        logger.error(f"Get auto-trade logs error: {e}")
+        return {"logs": [], "count": 0, "error": str(e)}
+
+
+@router.post("/auto-trade/scan-and-execute/{wallet_address}")
+async def auto_trade_scan_and_execute(wallet_address: str):
+    """
+    Main auto-trading function: Scan market and execute trades automatically.
+    This should be called periodically (every 5 minutes) by the frontend or a scheduler.
+    """
+    try:
+        # Get user settings
+        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        
+        if not settings:
+            return {"success": False, "message": "Settings not found", "trades": []}
+        
+        if not settings.get("auto_trade_enabled"):
+            return {"success": False, "message": "Auto-trading is disabled", "trades": []}
+        
+        # Check daily limits
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        today_trades = await db.auto_trade_logs.count_documents({
+            "wallet_address": wallet_address,
+            "created_at": {"$gte": today_start},
+            "action": "auto_buy",
+            "success": True
+        })
+        
+        max_daily = settings.get("auto_max_daily_trades", 3)
+        if today_trades >= max_daily:
+            return {
+                "success": False,
+                "message": f"Daily trade limit reached ({today_trades}/{max_daily})",
+                "trades": []
+            }
+        
+        # Check cooldown
+        last_trade = await db.auto_trade_logs.find_one(
+            {
+                "wallet_address": wallet_address,
+                "action": "auto_buy",
+                "success": True
+            },
+            sort=[("created_at", -1)]
+        )
+        
+        cooldown_minutes = settings.get("auto_cooldown_minutes", 30)
+        if last_trade:
+            last_trade_time = datetime.fromisoformat(last_trade["created_at"].replace("Z", "+00:00"))
+            time_since = (datetime.now(timezone.utc) - last_trade_time).total_seconds() / 60
+            if time_since < cooldown_minutes:
+                return {
+                    "success": False,
+                    "message": f"Cooldown active ({int(cooldown_minutes - time_since)} minutes remaining)",
+                    "trades": []
+                }
+        
+        # Get auto-trade mode settings
+        mode = settings.get("auto_trade_mode", "conservative")
+        min_confidence = settings.get("auto_min_confidence", 0.65)
+        max_position = settings.get("auto_max_position_sol", 0.2)
+        require_multiple = settings.get("auto_require_multiple_signals", True)
+        risk_level = settings.get("risk_level", "safer")
+        
+        # Adjust confidence based on mode
+        if mode == "aggressive":
+            min_confidence = max(0.5, min_confidence - 0.1)
+        elif mode == "moderate":
+            min_confidence = min_confidence
+        else:  # conservative
+            min_confidence = min(0.8, min_confidence + 0.1)
+        
+        # Get tokens to scan based on risk level
+        tokens_to_scan = []
+        if risk_level in ["safer", "both"]:
+            tokens_to_scan.extend(["SOL", "JUP", "PYTH", "RNDR"])
+        if risk_level in ["high_risk", "both"]:
+            tokens_to_scan.extend(["BONK", "WIF", "RAY"])
+        
+        executed_trades = []
+        skipped = []
+        
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            for symbol in tokens_to_scan[:5]:  # Limit to 5 tokens per scan
+                try:
+                    token_mint = TOKENS.get(symbol)
+                    if not token_mint:
+                        continue
+                    
+                    # Get price data
+                    response = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
+                    )
+                    
+                    if response.status_code != 200:
+                        continue
+                    
+                    pairs = response.json().get("pairs", [])
+                    if not pairs:
+                        continue
+                    
+                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                    
+                    # Get price history for analysis
+                    prices = []
+                    current_price = float(best_pair.get("priceUsd", 0) or 0)
+                    
+                    if current_price <= 0:
+                        continue
+                    
+                    # Simulate price history from price changes
+                    price_change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
+                    price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
+                    price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+                    
+                    # Create synthetic price history
+                    price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
+                    price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
+                    price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
+                    
+                    # Generate approximate price history
+                    for i in range(50):
+                        factor = i / 50
+                        if i < 12:  # Last 6 hours
+                            prices.append(price_6h_ago + (current_price - price_6h_ago) * (i / 12))
+                        elif i < 24:  # 6-12 hours ago
+                            prices.append(price_24h_ago + (price_6h_ago - price_24h_ago) * ((i - 12) / 12))
+                        else:  # 12-24 hours ago
+                            prices.append(price_24h_ago * (1 + (i - 24) * 0.001))
+                    
+                    prices.append(current_price)
+                    
+                    # Calculate indicators
+                    indicators = TechnicalAnalysis.calculate_all_indicators(prices)
+                    indicators["current_price"] = current_price
+                    
+                    # Run strategies
+                    momentum = StrategyEngine.momentum_strategy(indicators)
+                    mean_rev = StrategyEngine.mean_reversion_strategy(indicators)
+                    breakout = StrategyEngine.breakout_strategy(indicators)
+                    combined = StrategyEngine.combined_strategy(indicators)
+                    
+                    # Count agreeing signals
+                    strategies = [momentum, mean_rev, breakout]
+                    buy_signals = [s for s in strategies if s["signal"] == "buy"]
+                    
+                    # Determine if we should trade
+                    should_trade = False
+                    trade_confidence = combined["confidence"]
+                    trade_reason = combined["reasoning"]
+                    
+                    if combined["signal"] == "buy" and trade_confidence >= min_confidence:
+                        if require_multiple:
+                            # Need at least 2 strategies to agree
+                            if len(buy_signals) >= 2:
+                                should_trade = True
+                                trade_reason = f"Multiple strategies agree ({len(buy_signals)}/3): {trade_reason}"
+                        else:
+                            should_trade = True
+                    
+                    if should_trade:
+                        # Check if we already have a position
+                        existing_position = await db.ai_trader_positions.find_one({
+                            "wallet_address": wallet_address,
+                            "token_mint": token_mint
+                        })
+                        
+                        if existing_position:
+                            skipped.append({
+                                "symbol": symbol,
+                                "reason": "Already have position"
+                            })
+                            continue
+                        
+                        # Calculate position size
+                        position_sol = min(max_position, settings.get("max_position_sol", 0.5))
+                        
+                        # Create position record
+                        position_id = str(uuid.uuid4())[:8]
+                        execution_id = f"auto_{str(uuid.uuid4())[:6]}"
+                        
+                        position_doc = {
+                            "position_id": position_id,
+                            "execution_id": execution_id,
+                            "wallet_address": wallet_address,
+                            "token_symbol": symbol,
+                            "token_mint": token_mint,
+                            "amount_sol": position_sol,
+                            "entry_price": current_price,
+                            "stop_loss_price": current_price * (1 - settings.get("stop_loss_percent", 10) / 100),
+                            "take_profit_price": current_price * (1 + settings.get("take_profit_percent", 20) / 100),
+                            "trade_type": "buy",
+                            "status": "open",
+                            "auto_trade": True,
+                            "confidence": trade_confidence,
+                            "strategy": combined["strategy"],
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        await db.ai_trader_positions.insert_one(position_doc)
+                        
+                        # Log the auto-trade
+                        log_doc = {
+                            "log_id": str(uuid.uuid4())[:8],
+                            "wallet_address": wallet_address,
+                            "token_symbol": symbol,
+                            "token_mint": token_mint,
+                            "action": "auto_buy",
+                            "amount_sol": position_sol,
+                            "entry_price": current_price,
+                            "confidence": trade_confidence,
+                            "strategy": combined["strategy"],
+                            "reason": trade_reason,
+                            "success": True,
+                            "position_id": position_id,
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        await db.auto_trade_logs.insert_one(log_doc)
+                        
+                        executed_trades.append({
+                            "symbol": symbol,
+                            "action": "buy",
+                            "amount_sol": position_sol,
+                            "entry_price": current_price,
+                            "confidence": trade_confidence,
+                            "reason": trade_reason
+                        })
+                        
+                        # Only execute one trade per scan in conservative mode
+                        if mode == "conservative":
+                            break
+                    else:
+                        # Log skipped
+                        skip_reason = "Low confidence" if trade_confidence < min_confidence else "No buy signal"
+                        if require_multiple and len(buy_signals) < 2:
+                            skip_reason = f"Only {len(buy_signals)}/3 strategies agree"
+                        
+                        skipped.append({
+                            "symbol": symbol,
+                            "reason": skip_reason,
+                            "confidence": trade_confidence
+                        })
+                        
+                except Exception as e:
+                    logger.warning(f"Auto-trade scan error for {symbol}: {e}")
+                    continue
+        
+        return {
+            "success": True,
+            "trades_executed": len(executed_trades),
+            "trades": executed_trades,
+            "skipped": skipped,
+            "message": f"Auto-scan complete: {len(executed_trades)} trades executed"
+        }
+        
+    except Exception as e:
+        logger.error(f"Auto-trade scan error: {e}")
+        return {"success": False, "error": str(e), "trades": []}
+
+
+@router.post("/auto-trade/check-exits/{wallet_address}")
+async def auto_trade_check_exits(wallet_address: str):
+    """
+    Check open positions for stop-loss or take-profit triggers.
+    Should be called periodically to manage risk.
+    """
+    try:
+        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        
+        if not settings or not settings.get("auto_trade_enabled"):
+            return {"success": False, "message": "Auto-trading not enabled", "exits": []}
+        
+        # Get all open positions
+        positions = await db.ai_trader_positions.find({
+            "wallet_address": wallet_address,
+            "status": "open"
+        }).to_list(50)
+        
+        if not positions:
+            return {"success": True, "exits": [], "message": "No open positions"}
+        
+        exits = []
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for position in positions:
+                token_mint = position.get("token_mint")
+                symbol = position.get("token_symbol")
+                
+                if not token_mint:
+                    continue
+                
+                try:
+                    # Get current price
+                    response = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
+                    )
+                    
+                    if response.status_code != 200:
+                        continue
+                    
+                    pairs = response.json().get("pairs", [])
+                    if not pairs:
+                        continue
+                    
+                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                    current_price = float(best_pair.get("priceUsd", 0) or 0)
+                    
+                    if current_price <= 0:
+                        continue
+                    
+                    entry_price = position.get("entry_price", 0)
+                    stop_loss = position.get("stop_loss_price", entry_price * 0.9)
+                    take_profit = position.get("take_profit_price", entry_price * 1.2)
+                    
+                    # Check for exit conditions
+                    exit_action = None
+                    exit_reason = ""
+                    
+                    if current_price <= stop_loss:
+                        exit_action = "stop_loss"
+                        exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
+                    elif current_price >= take_profit:
+                        exit_action = "take_profit"
+                        exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f})"
+                    
+                    if exit_action:
+                        # Calculate P&L
+                        pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                        pnl_sol = position.get("amount_sol", 0) * (pnl_pct / 100)
+                        
+                        # Update position
+                        await db.ai_trader_positions.update_one(
+                            {"position_id": position.get("position_id")},
+                            {
+                                "$set": {
+                                    "status": f"closed_{exit_action}",
+                                    "exit_price": current_price,
+                                    "pnl_percent": pnl_pct,
+                                    "pnl_sol": pnl_sol,
+                                    "closed_at": datetime.now(timezone.utc).isoformat()
+                                }
+                            }
+                        )
+                        
+                        # Log the exit
+                        await db.auto_trade_logs.insert_one({
+                            "log_id": str(uuid.uuid4())[:8],
+                            "wallet_address": wallet_address,
+                            "token_symbol": symbol,
+                            "token_mint": token_mint,
+                            "action": f"auto_{exit_action}",
+                            "amount_sol": position.get("amount_sol"),
+                            "entry_price": entry_price,
+                            "exit_price": current_price,
+                            "pnl_percent": pnl_pct,
+                            "pnl_sol": pnl_sol,
+                            "confidence": 1.0,
+                            "strategy": "risk_management",
+                            "reason": exit_reason,
+                            "success": True,
+                            "position_id": position.get("position_id"),
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        })
+                        
+                        exits.append({
+                            "symbol": symbol,
+                            "action": exit_action,
+                            "entry_price": entry_price,
+                            "exit_price": current_price,
+                            "pnl_percent": pnl_pct,
+                            "pnl_sol": pnl_sol,
+                            "reason": exit_reason
+                        })
+                        
+                        # If loss and pause_on_loss is enabled, pause auto-trading
+                        if exit_action == "stop_loss" and settings.get("auto_pause_on_loss"):
+                            await db.auto_trade_logs.insert_one({
+                                "log_id": str(uuid.uuid4())[:8],
+                                "wallet_address": wallet_address,
+                                "token_symbol": "-",
+                                "token_mint": "-",
+                                "action": "auto_pause",
+                                "confidence": 0,
+                                "strategy": "risk_management",
+                                "reason": f"Auto-paused after stop-loss on {symbol}",
+                                "success": True,
+                                "created_at": datetime.now(timezone.utc).isoformat()
+                            })
+                        
+                except Exception as e:
+                    logger.warning(f"Exit check error for {symbol}: {e}")
+                    continue
+        
+        return {
+            "success": True,
+            "exits": exits,
+            "positions_checked": len(positions),
+            "exits_triggered": len(exits)
+        }
+        
+    except Exception as e:
+        logger.error(f"Check exits error: {e}")
+        return {"success": False, "error": str(e), "exits": []}

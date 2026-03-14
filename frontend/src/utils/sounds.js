@@ -1,6 +1,118 @@
 // Sound effects utility for Bullpug - using Web Audio API
 const audioContext = typeof window !== 'undefined' ? new (window.AudioContext || window.webkitAudioContext)() : null;
 
+// Background music management
+let bgMusicSource = null;
+let bgMusicGain = null;
+let bgMusicBuffer = null;
+let musicIsPlaying = false;
+let musicVolume = 0.3;
+
+// Generate procedural cosmic background music
+async function generateCosmicMusicBuffer() {
+  if (!audioContext || bgMusicBuffer) return bgMusicBuffer;
+  
+  const duration = 30; // 30 second loop
+  const sampleRate = audioContext.sampleRate;
+  const numSamples = duration * sampleRate;
+  const buffer = audioContext.createBuffer(2, numSamples, sampleRate);
+  
+  const leftChannel = buffer.getChannelData(0);
+  const rightChannel = buffer.getChannelData(1);
+  
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    
+    // Deep space ambient pad (very low frequency drone)
+    const pad1 = Math.sin(2 * Math.PI * 55 * t) * 0.08; // Deep bass
+    const pad2 = Math.sin(2 * Math.PI * 82.5 * t) * 0.05; // Fifth
+    const pad3 = Math.sin(2 * Math.PI * 110 * t + Math.sin(t * 0.5) * 0.5) * 0.04; // Modulated octave
+    
+    // Ethereal shimmer (high frequency sparkle)
+    const shimmer1 = Math.sin(2 * Math.PI * 880 * t) * Math.sin(t * 2) * 0.02;
+    const shimmer2 = Math.sin(2 * Math.PI * 1320 * t) * Math.sin(t * 1.5 + 1) * 0.015;
+    
+    // Cosmic wind (filtered noise)
+    const noise = (Math.random() * 2 - 1) * 0.02 * Math.sin(t * 0.3);
+    
+    // Pulsing rhythm (subtle)
+    const pulse = Math.sin(2 * Math.PI * 0.5 * t) * Math.sin(2 * Math.PI * 220 * t) * 0.03;
+    
+    // Celestial bells (occasional high notes)
+    const bell1 = Math.sin(2 * Math.PI * 1760 * t) * Math.exp(-((t % 4) * 3)) * 0.02;
+    const bell2 = Math.sin(2 * Math.PI * 2200 * t) * Math.exp(-(((t + 2) % 4) * 3)) * 0.015;
+    
+    // Mix with stereo spread
+    const left = pad1 + pad2 * 0.8 + pad3 + shimmer1 * 1.2 + shimmer2 + noise + pulse + bell1;
+    const right = pad1 + pad2 * 1.2 + pad3 + shimmer1 + shimmer2 * 1.2 + noise + pulse + bell2;
+    
+    // Soft limiting
+    leftChannel[i] = Math.tanh(left * 2) * 0.5;
+    rightChannel[i] = Math.tanh(right * 2) * 0.5;
+  }
+  
+  bgMusicBuffer = buffer;
+  return buffer;
+}
+
+// Start background music
+export async function startBackgroundMusic() {
+  if (!audioContext || musicIsPlaying) return;
+  
+  try {
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+    
+    const buffer = await generateCosmicMusicBuffer();
+    if (!buffer) return;
+    
+    bgMusicGain = audioContext.createGain();
+    bgMusicGain.gain.value = musicVolume;
+    bgMusicGain.connect(audioContext.destination);
+    
+    bgMusicSource = audioContext.createBufferSource();
+    bgMusicSource.buffer = buffer;
+    bgMusicSource.loop = true;
+    bgMusicSource.connect(bgMusicGain);
+    bgMusicSource.start();
+    
+    musicIsPlaying = true;
+  } catch (e) {
+    console.log('Background music error:', e);
+  }
+}
+
+// Stop background music
+export function stopBackgroundMusic() {
+  if (bgMusicSource) {
+    try {
+      bgMusicSource.stop();
+      bgMusicSource.disconnect();
+    } catch (e) {}
+    bgMusicSource = null;
+  }
+  musicIsPlaying = false;
+}
+
+// Set music volume (0-1)
+export function setMusicVolume(volume) {
+  musicVolume = Math.max(0, Math.min(1, volume));
+  if (bgMusicGain) {
+    bgMusicGain.gain.value = musicVolume;
+  }
+}
+
+// Get music volume
+export function getMusicVolume() {
+  return musicVolume;
+}
+
+// Check if music is playing
+export function isMusicPlaying() {
+  return musicIsPlaying;
+}
+
 // Sound presets
 const sounds = {
   win: { frequency: 880, duration: 0.3, type: 'sine', gain: 0.3 },
@@ -180,4 +292,9 @@ export default {
   clickFeedback,
   betPlacedFeedback,
   challengeCreatedFeedback,
+  startBackgroundMusic,
+  stopBackgroundMusic,
+  setMusicVolume,
+  getMusicVolume,
+  isMusicPlaying,
 };
