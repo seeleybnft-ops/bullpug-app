@@ -1730,6 +1730,29 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
     auto_total_daily_limit_sol: status?.settings?.total_daily_limit_sol || 1.0
   });
 
+  // Safe clipboard copy with fallback
+  const safeCopyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Address copied!");
+    } catch (e) {
+      // Fallback for browsers/contexts where clipboard API is blocked
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        toast.success("Address copied!");
+      } catch (err) {
+        toast.error("Failed to copy. Please copy manually.");
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   // Update form when status changes
   useEffect(() => {
     if (status?.settings) {
@@ -1866,10 +1889,7 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
               <div className="flex items-center gap-2">
                 <code className="text-xs text-white font-mono flex-1 truncate">{custodialWallet.wallet_address}</code>
                 <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(custodialWallet.wallet_address);
-                    toast.success("Address copied!");
-                  }}
+                  onClick={() => safeCopyToClipboard(custodialWallet.wallet_address)}
                   className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5 text-slate-300" />
@@ -1966,10 +1986,10 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
                         Cancel
                       </Button>
                       <Button
-                        onClick={() => {
+                        onClick={async () => {
                           // Copy address and close
-                          navigator.clipboard.writeText(custodialWallet.wallet_address);
-                          toast.success("Address copied! Send SOL and refresh balance.");
+                          await safeCopyToClipboard(custodialWallet.wallet_address);
+                          toast.success("Send SOL and refresh balance.");
                           setShowDepositModal(false);
                           setDepositAmount("");
                         }}
