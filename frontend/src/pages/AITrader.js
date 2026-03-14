@@ -1449,7 +1449,7 @@ export default function AITrader() {
                         alert={alert}
                         onDelete={deleteAlert}
                         walletAddress={walletAddress}
-                        onQuickBuy={handleQuickBuy}
+                        onQuickBuy={quickBuyToken}
                       />
                     ))}
                   </div>
@@ -2343,11 +2343,31 @@ function AlertCard({ alert, onDelete, walletAddress, onQuickBuy }) {
     if (buyAmount <= 0 || buying) return;
     setBuying(true);
     
+    // Fetch current price for the token
+    let currentPrice = 0;
+    try {
+      if (alert.token_mint) {
+        const response = await axios.get(
+          `https://api.dexscreener.com/latest/dex/tokens/${alert.token_mint}`
+        );
+        const pairs = response.data?.pairs || [];
+        if (pairs.length > 0) {
+          const bestPair = pairs.reduce((a, b) => 
+            (parseFloat(a.liquidity?.usd || 0) > parseFloat(b.liquidity?.usd || 0) ? a : b)
+          );
+          currentPrice = parseFloat(bestPair.priceUsd || 0);
+        }
+      }
+    } catch (err) {
+      console.error("Price fetch error:", err);
+    }
+    
     // Create a coin object for the buy function
     const coinData = {
       symbol: alert.symbol,
       contract_address: alert.token_mint,
-      token_mint: alert.token_mint
+      token_mint: alert.token_mint,
+      price: currentPrice
     };
     
     await onQuickBuy(coinData, buyAmount);
