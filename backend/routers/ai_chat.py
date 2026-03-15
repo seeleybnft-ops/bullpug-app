@@ -922,26 +922,59 @@ Customize your Bullpug character in Cosmic Runner:
 - **Gifting**: Send skins to other players via their wallet address
 - **Bonus**: Higher rarity skins give score bonuses in the game
 
-### 4. P2P ARENA (Betting)
-Peer-to-peer betting with real SOL:
-- **P2P Coin Flip**:
-  1. Connect your Solana wallet
-  2. Create a challenge: Enter your name, bet amount (0.05-1 SOL), pick HEADS or TAILS
-  3. Your SOL goes to escrow
-  4. Wait for an opponent to accept your challenge
-  5. Winner takes the pot minus 2.5% rake
-- **Winner Pot** (coming soon): Last-player-standing style betting
-- **Rules**: SOL only, minimum bet 0.05 SOL, 2.5% platform rake, provably fair randomization
-- **Sound effects**: Enable/disable coin flip sounds with the speaker icon
+### 4. P2P ARENA (COMING SOON)
+Peer-to-peer betting powered by Solana smart contracts - launching soon:
+- **Status**: Coming Soon - smart contract under development
+- **P2P Coin Flip**: Challenge any player to 50/50 coin flips
+- **Community Jackpot**: Enter the pot and compete for prizes
+- **Reputation System**: Build streaks and earn badges
+- **Why Coming Soon**: Building trustless, provably fair betting using on-chain smart contracts
+- Sign up for launch notifications on the P2P Arena page
 
-### 5. FORUM (Community)
+### 5. AI TRADING BOT (Bullpug Trading Bot)
+Semi-automated and fully automated trading with AI-powered signals:
+- **Signals Tab**: AI-generated buy/sell signals with confidence scores
+  - Multiple strategies: Momentum, Mean Reversion, Breakout
+  - Technical analysis: RSI, MACD, Moving Averages, Bollinger Bands
+  - Real-time token data from DexScreener
+- **Tokens Tab**: Curated picks in 3 categories:
+  - Safer Picks: Lower volatility tokens
+  - High Risk/High Reward: Volatile memecoins
+  - New Pairs: Recently launched tokens
+- **Auto-Trade Tab**: Fully automated trading (optional):
+  - Custodial wallet system (max 0.5 SOL deposit)
+  - Configure: Mode (Conservative/Moderate/Aggressive)
+  - Set: Min confidence, max position, daily limits
+  - Stop Loss & Take Profit: Configurable percentages
+  - Activity log showing all auto-executed trades
+- **Alerts Tab**: Price alerts with Telegram integration
+  - Set price thresholds for any token
+  - Get notified via Telegram when triggered
+  - Quick buy from alert notifications
+- **Positions Tab**: Track open positions with P&L
+- **Manual Trading**: Quick trade with Jupiter DEX integration
+- **Risk Calculator**: Plan position sizes with R:R ratios
+
+### 6. TELEGRAM BOT (@BullpugBot)
+Get trading updates directly in Telegram:
+- **/wallet** - Check auto-trade wallet balance
+- **/profit** - View current P&L on all positions
+- **/autotrade** - Auto-trade bot status and settings
+- **/positions** - View open positions
+- **/buy SYMBOL AMOUNT** - Execute buy trades
+- **/sell SYMBOL %** - Sell percentage of position
+- **/alerts** - View active price alerts
+- **/price SYMBOL** - Check token price
+- Link your wallet via the AI Trading Bot Alerts tab
+
+### 7. FORUM (Community)
 Community discussion board:
 - **Categories**: General, Trading, Betting, Memes, Support, Announcements
 - **Features**: Create posts, reply to threads, like posts
 - **Requires**: Connected wallet to participate
 - Filter posts by category, view recent discussions
 
-### 6. BULLPUG AI ASSISTANT (Me!)
+### 8. BULLPUG AI ASSISTANT (Me!)
 I'm your cosmic guardian for trading insights:
 - **Chat**: Ask me anything about crypto, trading, the Bullpug lore, or how to use the platform
 - **Top Picks**: I show 5 "Safer Picks" and 5 "High Risk/High Reward" Solana memecoins with:
@@ -952,14 +985,14 @@ I'm your cosmic guardian for trading insights:
 - **Insights**: Personalized suggestions based on your trading activity
 - I'm available on EVERY page via the floating button in the bottom-right corner
 
-### 7. TOKENOMICS ($BULLPUG)
+### 9. TOKENOMICS ($BULLPUG)
 - **Total Supply**: 1,000,000,000 $BULLPUG
 - **Burned**: 12.5M tokens
 - **Distribution**: 100% Fair Launch (no presale, no team allocation)
 - **Chain**: Solana
 - **Holders**: Growing community of Guardians
 
-### 8. BLOWFISH DEPLOYMENT (Technical)
+### 10. BLOWFISH DEPLOYMENT (Technical)
 $BULLPUG was deployed using Blowfish - a token launchpad on Solana:
 - Powered by Meteora's Dynamic Bonding Curve (DBC)
 - Tokens are deployed on-chain via Meteora
