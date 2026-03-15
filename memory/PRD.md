@@ -366,11 +366,19 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Updated /help with all trading commands
 
 ## Future Tasks (P2)
-- Deploy smart contract to Mainnet
+- Deploy P2P Arena smart contract (from local machine) and connect to app
 - Re-enable Plushie Sales shop
 - Re-enable NFT Gallery
 - ~~AI Trading Bot - Phase 3: Fully automated trading mode~~ ✅ Done (March 2026)
 - ~~Refactor TradingJournal.js into smaller components~~ ✅ Done
+
+## P2P Arena - Coming Soon Page (March 2026)
+- Replaced full betting functionality with "Coming Soon" landing page
+- Features preview cards: P2P Coin Flip, Community Jackpot, Reputation System
+- Explanation of smart contract-based trustless betting
+- Email notification signup for launch alerts
+- Links to other features (AI Trading Bot, Cosmic Runner, PugBurn)
+- **Next Step**: Deploy Solana smart contract locally, then update app with program ID
 
 ## Recently Completed (March 2026)
 
