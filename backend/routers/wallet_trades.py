@@ -235,7 +235,8 @@ def identify_swap_transactions(transactions: List[Dict], chain: str) -> List[Dic
         
         # Check if this looks like a swap (has both incoming and outgoing tokens)
         from_addr = transfers[0].get("from", "").lower()
-        to_addr = transfers[0].get("to", "").lower()
+        # to_addr not used currently, keeping from_addr for potential future use
+        _ = transfers[0].get("to", "").lower()
         
         # Look for DEX router involvement
         is_dex_swap = False

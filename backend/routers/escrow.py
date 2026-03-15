@@ -1,6 +1,6 @@
 """Escrow system routes for P2P betting."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import httpx

@@ -2024,8 +2024,8 @@ async def get_auto_trade_status(wallet_address: str):
         }).to_list(100)
         
         today_stats = {
-            "trades_executed": len([l for l in today_logs if l.get("success")]),
-            "total_sol_used": sum(l.get("amount_sol", 0) for l in today_logs if l.get("success") and l.get("action") == "auto_buy"),
+            "trades_executed": len([log for log in today_logs if log.get("success")]),
+            "total_sol_used": sum(log.get("amount_sol", 0) for log in today_logs if log.get("success") and log.get("action") == "auto_buy"),
             "wins": 0,
             "losses": 0,
             "pnl_sol": 0
@@ -2084,7 +2084,7 @@ async def get_auto_trade_status(wallet_address: str):
 async def toggle_auto_trade(wallet_address: str, enabled: bool = True):
     """Enable or disable auto-trading for a wallet."""
     try:
-        result = await db.trader_settings.update_one(
+        await db.trader_settings.update_one(
             {"wallet_address": wallet_address},
             {
                 "$set": {
@@ -2126,7 +2126,7 @@ async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSet
         update_data = {k: v for k, v in settings.dict().items() if v is not None}
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         
-        result = await db.trader_settings.update_one(
+        await db.trader_settings.update_one(
             {"wallet_address": wallet_address},
             {"$set": update_data},
             upsert=True
@@ -2276,11 +2276,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     # Create synthetic price history
                     price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
                     price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
-                    price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
+                    # price_1h_ago used for more granular history if needed
+                    _ = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
                     
                     # Generate approximate price history
                     for i in range(50):
-                        factor = i / 50
                         if i < 12:  # Last 6 hours
                             prices.append(price_6h_ago + (current_price - price_6h_ago) * (i / 12))
                         elif i < 24:  # 6-12 hours ago
@@ -2290,9 +2290,14 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     
                     prices.append(current_price)
                     
-                    # Calculate indicators
-                    indicators = TechnicalAnalysis.calculate_all_indicators(prices)
-                    indicators["current_price"] = current_price
+                    # Calculate indicators using TechnicalAnalyzer
+                    indicators = {
+                        "rsi": TechnicalAnalyzer.calculate_rsi(prices),
+                        "macd": TechnicalAnalyzer.calculate_macd(prices),
+                        "bollinger": TechnicalAnalyzer.calculate_bollinger_bands(prices),
+                        "ma": TechnicalAnalyzer.calculate_moving_averages(prices),
+                        "current_price": current_price
+                    }
                     
                     # Run strategies
                     momentum = StrategyEngine.momentum_strategy(indicators)

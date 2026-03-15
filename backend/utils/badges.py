@@ -189,8 +189,8 @@ async def check_and_award_achievements(wallet_address: str) -> List[str]:
     """Check if user qualifies for any achievement badges and award them."""
     awarded = []
     
-    # Get user stats
-    profile = await db.user_profiles.find_one({"wallet_address": wallet_address}, {"_id": 0})
+    # Get user stats (profile reserved for future use)
+    _ = await db.user_profiles.find_one({"wallet_address": wallet_address}, {"_id": 0})
     leaderboard = await db.game_leaderboard.find_one({"wallet_address": wallet_address}, {"_id": 0})
     
     games_played = leaderboard.get("games_played", 0) if leaderboard else 0

@@ -39,7 +39,7 @@ async def fetch_current_price(symbol: str, contract_address: str = None) -> Opti
         search_term = contract_address if contract_address else symbol
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
-                f"https://api.dexscreener.com/latest/dex/search",
+                "https://api.dexscreener.com/latest/dex/search",
                 params={"q": search_term}
             )
             if response.status_code == 200:

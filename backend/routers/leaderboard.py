@@ -42,7 +42,7 @@ async def get_leaderboard(limit: int = 10):
         next_payout_dt = datetime.fromisoformat(next_payout.replace('Z', '+00:00'))
         seconds_remaining = max(0, (next_payout_dt - datetime.now(timezone.utc)).total_seconds())
         days_until_reset = int(seconds_remaining // 86400)
-    except:
+    except (ValueError, TypeError):
         days_until_reset = CYCLE_DAYS
     
     # Get scores from the current cycle

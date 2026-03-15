@@ -110,7 +110,8 @@ async def create_profile(data: ProfileCreate):
 @router.put("/{wallet_address}")
 async def update_profile(wallet_address: str, data: ProfileUpdate):
     """Update user profile."""
-    profile = await get_or_create_profile(wallet_address)
+    # Ensure profile exists before updating
+    await get_or_create_profile(wallet_address)
     
     update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
     

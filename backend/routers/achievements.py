@@ -289,7 +289,7 @@ async def get_user_stats(wallet_address: str) -> Dict[str, Any]:
         is_win = pnl > 0
         if is_win:
             winning += 1
-            if last_was_win == True or last_was_win is None:
+            if last_was_win or last_was_win is None:
                 temp_streak += 1
             else:
                 temp_streak = 1
