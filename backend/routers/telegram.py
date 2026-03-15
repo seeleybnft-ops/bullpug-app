@@ -359,8 +359,11 @@ Get real-time price alerts and breakout notifications directly in Telegram.
 
 <b>Commands:</b>
 /status - Check connection
+/wallet - View auto-trade balance
+/profit - View current P&L
+/autotrade - Auto-trade status
 /alerts - View active alerts
-/help - Show this message
+/help - Show all commands
 """
         await send_telegram_message(chat_id, msg)
     
@@ -375,18 +378,24 @@ Get real-time price alerts and breakout notifications directly in Telegram.
 /enable - Resume alert notifications
 /unlink - Disconnect your wallet
 
+<b>Portfolio & Wallet:</b>
+/wallet - View your auto-trade wallet balance
+/profit - View current P&L on all positions
+/positions - View open positions
+/autotrade - Auto-trade bot status
+
 <b>Trading:</b>
 /trade - Open trading menu
 /buy [SYMBOL] [SOL] - Buy a token
 /sell [SYMBOL] [%] - Sell position
-/positions - View open positions
 /price [SYMBOL] - Check token price
 /trending - View trending tokens
 
 <b>Examples:</b>
 <code>/buy BONK 0.5</code> - Buy 0.5 SOL of BONK
 <code>/sell BONK 50</code> - Sell 50% of BONK
-<code>/price SOL</code> - Check SOL price
+<code>/wallet</code> - Check auto-trade balance
+<code>/profit</code> - See your current P&L
 
 <i>Need help? Visit bullpug.com</i>
 """
@@ -483,6 +492,15 @@ Linked: {account.get("linked_at", "Unknown")[:10]}
     
     elif cmd == "/positions":
         await handle_positions_command(chat_id)
+    
+    elif cmd == "/wallet" or cmd == "/balance":
+        await handle_wallet_command(chat_id)
+    
+    elif cmd == "/profit" or cmd == "/pnl":
+        await handle_profit_command(chat_id)
+    
+    elif cmd == "/autotrade" or cmd == "/auto":
+        await handle_autotrade_status_command(chat_id)
     
     elif cmd == "/price":
         await handle_price_command(chat_id, command)
@@ -751,6 +769,295 @@ async def handle_positions_command(chat_id: int):
         msg += f"  <code>/sell {symbol} 100</code> to close\n\n"
     
     msg += f"<i>Total: {len(positions)} positions</i>"
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_wallet_command(chat_id: int):
+    """Show user's auto-trade wallet balance and status."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    wallet_address = account.get("wallet_address")
+    
+    # Get custodial wallet info
+    custodial = await db.custodial_wallets.find_one(
+        {"user_wallet": wallet_address},
+        {"_id": 0}
+    )
+    
+    if not custodial:
+        msg = """
+💼 <b>Auto-Trade Wallet</b>
+
+❌ No auto-trade wallet found.
+
+To set up auto-trading:
+1. Go to the Bullpug Trading Bot
+2. Open the "Auto-Trade" tab
+3. Your trading wallet will be created automatically
+
+<i>Auto-trading allows the bot to execute trades automatically based on AI signals.</i>
+"""
+        await send_telegram_message(chat_id, msg)
+        return
+    
+    # Get on-chain balance
+    balance_lamports = custodial.get("balance_lamports", 0)
+    balance_sol = balance_lamports / 1_000_000_000
+    max_deposit = 0.5  # MAX_DEPOSIT_SOL
+    available_deposit = max(0, max_deposit - balance_sol)
+    
+    total_deposits = custodial.get("total_deposits_lamports", 0) / 1_000_000_000
+    total_withdrawals = custodial.get("total_withdrawals_lamports", 0) / 1_000_000_000
+    
+    # Get auto-trade settings
+    settings = await db.trader_settings.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0}
+    )
+    
+    auto_enabled = settings.get("auto_trade_enabled", False) if settings else False
+    auto_mode = settings.get("auto_trade_mode", "conservative") if settings else "conservative"
+    
+    status_emoji = "✅" if auto_enabled else "⏸️"
+    status_text = "Active" if auto_enabled else "Disabled"
+    
+    msg = f"""
+💼 <b>Auto-Trade Wallet</b>
+
+<b>Balance:</b> <code>{balance_sol:.4f} SOL</code>
+<b>Available to Deposit:</b> {available_deposit:.4f} SOL
+<b>Max Deposit:</b> {max_deposit} SOL
+
+<b>Auto-Trading:</b> {status_emoji} {status_text}
+<b>Mode:</b> {auto_mode.capitalize()}
+
+📊 <b>Totals:</b>
+• Deposited: {total_deposits:.4f} SOL
+• Withdrawn: {total_withdrawals:.4f} SOL
+
+<b>Deposit Address:</b>
+<code>{custodial.get('custodial_address', 'N/A')}</code>
+
+<i>Send SOL to this address to fund auto-trading.</i>
+"""
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_profit_command(chat_id: int):
+    """Show user's current P&L on all positions."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    wallet_address = account.get("wallet_address")
+    
+    # Get all positions
+    positions = await db.ai_trader_positions.find(
+        {"wallet_address": wallet_address, "status": {"$in": ["open", None]}},
+        {"_id": 0}
+    ).to_list(50)
+    
+    if not positions:
+        await send_telegram_message(chat_id, "📭 No open positions to calculate P&L.\n\nUse /buy SYMBOL AMOUNT to open a position.")
+        return
+    
+    await send_telegram_message(chat_id, "🔄 Calculating current P&L...")
+    
+    total_invested = 0
+    total_current_value = 0
+    position_details = []
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for pos in positions:
+            symbol = pos.get("token_symbol", pos.get("symbol", "???"))
+            amount_sol = pos.get("amount_sol", pos.get("amount", 0))
+            entry_price = pos.get("entry_price", 0)
+            
+            if not entry_price or not amount_sol:
+                continue
+            
+            total_invested += amount_sol
+            
+            # Try to get current price
+            current_price = entry_price  # Default to entry price
+            try:
+                response = await client.get(
+                    "https://api.dexscreener.com/latest/dex/search",
+                    params={"q": f"{symbol} solana"}
+                )
+                
+                if response.status_code == 200:
+                    pairs = response.json().get("pairs", [])
+                    solana_pairs = [p for p in pairs if p.get("chainId") == "solana" and p.get("baseToken", {}).get("symbol", "").upper() == symbol.upper()]
+                    
+                    if solana_pairs:
+                        best_pair = max(solana_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                        current_price = float(best_pair.get("priceUsd", entry_price))
+            except Exception:
+                pass
+            
+            # Calculate P&L
+            if entry_price > 0:
+                price_change = ((current_price - entry_price) / entry_price) * 100
+                # Estimate current value (simplified - using entry SOL * price change)
+                current_value = amount_sol * (1 + price_change / 100)
+                pnl_sol = current_value - amount_sol
+                total_current_value += current_value
+                
+                emoji = "🟢" if price_change >= 0 else "🔴"
+                position_details.append({
+                    "symbol": symbol,
+                    "amount_sol": amount_sol,
+                    "entry_price": entry_price,
+                    "current_price": current_price,
+                    "pnl_percent": price_change,
+                    "pnl_sol": pnl_sol,
+                    "emoji": emoji
+                })
+    
+    if not position_details:
+        await send_telegram_message(chat_id, "❌ Could not calculate P&L for any positions.")
+        return
+    
+    total_pnl = total_current_value - total_invested
+    total_pnl_percent = (total_pnl / total_invested * 100) if total_invested > 0 else 0
+    total_emoji = "🟢" if total_pnl >= 0 else "🔴"
+    
+    msg = f"""
+📊 <b>Your Current P&L</b>
+
+{total_emoji} <b>Total: {total_pnl:+.4f} SOL ({total_pnl_percent:+.2f}%)</b>
+
+<b>Positions:</b>
+"""
+    
+    for p in position_details:
+        msg += f"\n{p['emoji']} <b>{p['symbol']}</b>\n"
+        msg += f"   Entry: ${p['entry_price']:.8f}\n"
+        msg += f"   Now: ${p['current_price']:.8f}\n"
+        msg += f"   P&L: {p['pnl_sol']:+.4f} SOL ({p['pnl_percent']:+.1f}%)\n"
+    
+    msg += f"""
+<b>Summary:</b>
+• Invested: {total_invested:.4f} SOL
+• Current Value: ~{total_current_value:.4f} SOL
+• Net P&L: {total_pnl:+.4f} SOL
+
+<i>Prices from DexScreener. Actual values may vary.</i>
+"""
+    
+    await send_telegram_message(chat_id, msg)
+
+
+async def handle_autotrade_status_command(chat_id: int):
+    """Show auto-trade bot status and recent activity."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+    
+    wallet_address = account.get("wallet_address")
+    
+    # Get auto-trade settings
+    settings = await db.trader_settings.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0}
+    )
+    
+    if not settings:
+        msg = """
+🤖 <b>Auto-Trade Status</b>
+
+❌ Auto-trading not configured.
+
+To set up auto-trading:
+1. Go to the Bullpug Trading Bot
+2. Open the "Auto-Trade" tab
+3. Configure your settings
+4. Enable auto-trading
+
+<i>Auto-trading executes trades automatically based on AI signals.</i>
+"""
+        await send_telegram_message(chat_id, msg)
+        return
+    
+    auto_enabled = settings.get("auto_trade_enabled", False)
+    auto_mode = settings.get("auto_trade_mode", "conservative")
+    min_confidence = settings.get("auto_min_confidence", 0.65)
+    max_daily = settings.get("auto_max_daily_trades", 3)
+    max_position = settings.get("auto_max_position_sol", 0.2)
+    stop_loss = settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10))
+    take_profit = settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20))
+    
+    status_emoji = "✅" if auto_enabled else "⏸️"
+    status_text = "Active" if auto_enabled else "Disabled"
+    
+    # Get today's activity
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    today_logs = await db.auto_trade_logs.find({
+        "wallet_address": wallet_address,
+        "created_at": {"$gte": today_start}
+    }).to_list(20)
+    
+    trades_today = len([log for log in today_logs if log.get("action") in ["auto_buy", "auto_sell"]])
+    sol_used_today = sum(log.get("amount_sol", 0) for log in today_logs if log.get("action") == "auto_buy" and log.get("success"))
+    
+    # Get custodial balance
+    custodial = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+    wallet_balance = (custodial.get("balance_lamports", 0) / 1_000_000_000) if custodial else 0
+    
+    mode_emoji = "🐢" if auto_mode == "conservative" else "⚖️" if auto_mode == "moderate" else "🚀"
+    
+    msg = f"""
+🤖 <b>Auto-Trade Status</b>
+
+<b>Status:</b> {status_emoji} {status_text}
+<b>Mode:</b> {mode_emoji} {auto_mode.capitalize()}
+
+<b>Settings:</b>
+• Min Confidence: {min_confidence*100:.0f}%
+• Max Position: {max_position} SOL
+• Daily Limit: {max_daily} trades
+• Stop Loss: {stop_loss}%
+• Take Profit: {take_profit}%
+
+<b>Today's Activity:</b>
+• Trades: {trades_today}/{max_daily}
+• SOL Used: {sol_used_today:.4f}
+
+<b>Trading Wallet:</b>
+• Balance: {wallet_balance:.4f} SOL
+
+"""
+    
+    # Add recent activity
+    if today_logs:
+        msg += "<b>Recent Activity:</b>\n"
+        for log in today_logs[:5]:
+            action = log.get("action", "")
+            symbol = log.get("token_symbol", "???")
+            amount = log.get("amount_sol", 0)
+            
+            if action == "auto_buy":
+                msg += f"🟢 Bought {symbol} ({amount:.3f} SOL)\n"
+            elif action == "auto_sell":
+                msg += f"🔴 Sold {symbol}\n"
+            elif action == "auto_skip":
+                msg += f"⏭️ Skipped {symbol}\n"
+    else:
+        msg += "<i>No activity today</i>\n"
+    
+    msg += "\n<i>Use /wallet to see deposit address</i>"
     
     await send_telegram_message(chat_id, msg)
 
