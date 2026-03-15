@@ -56,7 +56,7 @@ export default function Navbar() {
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
     { name: "Journal", path: "/journal", color: "#F5D300" },
     { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
-    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3" },
+    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3", comingSoon: true },
     { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, color: "#D946EF", hasBorder: true },
     { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
   ];
@@ -97,6 +97,7 @@ export default function Navbar() {
               >
                 {link.icon && link.icon}
                 {link.name}
+                {link.comingSoon && <span className="text-[7px] px-1 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full ml-1">SOON</span>}
               </Link>
             ))}
 
@@ -177,6 +178,7 @@ export default function Navbar() {
               >
                 {link.icon && link.icon}
                 {link.name}
+                {link.comingSoon && <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>}
               </Link>
             ))}
           </div>

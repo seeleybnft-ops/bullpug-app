@@ -180,10 +180,10 @@ export default function HomePage() {
               { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
               { icon: <Bot size={18} />, title: "Bullpug Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.tradingBot, color: "#D946EF", isNew: true },
               { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
-              { icon: <Zap size={18} />, title: "P2P Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.arena, color: "#00FFA3" },
+              { icon: <Zap size={18} />, title: "P2P Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.arena, color: "#00FFA3", comingSoon: true },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
-                <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''}`}>
+                <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''} ${f.comingSoon ? 'ring-2 ring-[#F5D300]/30' : ''}`}>
                   <div className="h-44 overflow-hidden relative">
                     <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />
@@ -192,11 +192,17 @@ export default function HomePage() {
                         New
                       </div>
                     )}
+                    {f.comingSoon && (
+                      <div className="absolute top-3 right-3 px-2 py-1 bg-[#F5D300] text-black text-[10px] font-bold rounded-full uppercase">
+                        Coming Soon
+                      </div>
+                    )}
                   </div>
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                       <span style={{ color: f.color }}>{f.icon}</span>
                       <h3 className="font-bold text-xs uppercase tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>{f.title}</h3>
+                      {f.comingSoon && <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>}
                     </div>
                     <p className="text-slate-500 text-xs">{f.desc}</p>
                   </div>

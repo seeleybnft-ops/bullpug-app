@@ -25,13 +25,15 @@ export default function Footer() {
                 {t:"My Journal", p:"/journal"},
                 {t:"AI Trading Bot", p:"/ai-trader"},
                 {t:"PugBurn", p:"/pugburn"},
-                {t:"P2P Arena", p:"/betting"},
                 {t:"Cosmic Runner", p:"/game"},
                 {t:"Skin Store", p:"/skins"},
                 {t:"Forum", p:"/forum"}
               ].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}
+              <Link to="/betting" className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-2">
+                P2P Arena <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>
+              </Link>
             </div>
           </div>
 
