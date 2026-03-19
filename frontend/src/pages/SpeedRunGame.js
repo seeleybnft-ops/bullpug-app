@@ -1763,33 +1763,55 @@ export default function SpeedRunGame() {
       const gallop = Math.sin(runPhase * Math.PI * 2); // -1 to 1 galloping motion
       const gallopAbs = Math.abs(gallop); // 0 to 1 for bounce timing
       
-      // Dynamic shadow
+      // Dynamic shadow - enhanced with multiple layers
       const shadowScale = g.player.isJumping ? 0.2 + (1 - Math.min(Math.abs(pY - PLAYER_BASE_Y) / 100, 1)) * 0.25 : 0.5;
-      ctx.fillStyle = `rgba(0, 0, 0, ${0.2 + shadowScale * 0.12})`;
+      // Outer blur shadow
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.08 + shadowScale * 0.06})`;
       ctx.beginPath();
-      ctx.ellipse(pX, GROUND_Y - 3, pW * shadowScale * 0.45, 8 * shadowScale, 0, 0, Math.PI * 2);
+      ctx.ellipse(pX, GROUND_Y - 3, pW * shadowScale * 0.55, 12 * shadowScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Core shadow
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.2 + shadowScale * 0.15})`;
+      ctx.beginPath();
+      ctx.ellipse(pX, GROUND_Y - 3, pW * shadowScale * 0.42, 7 * shadowScale, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Warm golden glow around bullpug
-      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW * 0.7);
-      charGlow.addColorStop(0, 'rgba(212, 149, 106, 0.25)');
-      charGlow.addColorStop(0.6, 'rgba(212, 149, 106, 0.08)');
+      // Prominent rim light for better visibility - ENHANCED
+      const rimGlow = ctx.createRadialGradient(pX, pY + pH / 2, pW * 0.45, pX, pY + pH / 2, pW * 0.85);
+      rimGlow.addColorStop(0, 'transparent');
+      rimGlow.addColorStop(0.6, 'rgba(0, 255, 163, 0.12)');
+      rimGlow.addColorStop(0.85, 'rgba(0, 194, 255, 0.18)');
+      rimGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = rimGlow;
+      ctx.beginPath();
+      ctx.arc(pX, pY + pH / 2, pW * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Warm golden glow around bullpug - enhanced
+      const charGlow = ctx.createRadialGradient(pX, pY + pH / 2, 0, pX, pY + pH / 2, pW * 0.65);
+      charGlow.addColorStop(0, 'rgba(255, 200, 120, 0.28)');
+      charGlow.addColorStop(0.4, 'rgba(212, 149, 106, 0.15)');
+      charGlow.addColorStop(0.7, 'rgba(212, 149, 106, 0.05)');
       charGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = charGlow;
       ctx.beginPath();
-      ctx.arc(pX, pY + pH / 2, pW * 0.7, 0, Math.PI * 2);
+      ctx.arc(pX, pY + pH / 2, pW * 0.65, 0, Math.PI * 2);
       ctx.fill();
       
-      // Speed lines when running
+      // Speed lines when running - enhanced with gradient
       if (g.speed > 2 && !g.player.isJumping) {
-        for (let i = 0; i < 3; i++) {
-          const lineY = pY + pH * 0.15 + (i / 3) * pH * 0.5;
-          const lineAlpha = 0.12 + Math.sin(g.frame * 0.25 + i) * 0.06;
-          ctx.strokeStyle = `rgba(255, 220, 180, ${lineAlpha})`;
-          ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          const lineY = pY + pH * 0.12 + (i / 4) * pH * 0.55;
+          const lineAlpha = 0.15 + Math.sin(g.frame * 0.25 + i) * 0.08;
+          const lineGrad = ctx.createLinearGradient(pX - pW * 0.6 - g.speed * 12, lineY, pX - pW * 0.35, lineY);
+          lineGrad.addColorStop(0, 'transparent');
+          lineGrad.addColorStop(0.3, `rgba(255, 230, 180, ${lineAlpha * 0.5})`);
+          lineGrad.addColorStop(1, `rgba(255, 220, 180, ${lineAlpha})`);
+          ctx.strokeStyle = lineGrad;
+          ctx.lineWidth = 2.5 - i * 0.3;
           ctx.beginPath();
-          ctx.moveTo(pX - pW * 0.55 - g.speed * 10, lineY);
-          ctx.lineTo(pX - pW * 0.35, lineY);
+          ctx.moveTo(pX - pW * 0.6 - g.speed * 12, lineY);
+          ctx.lineTo(pX - pW * 0.32, lineY);
           ctx.stroke();
         }
       }

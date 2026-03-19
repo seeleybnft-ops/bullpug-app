@@ -523,6 +523,68 @@ async def get_supported_chains():
     }
 
 
+class MultiChainTradesResponse(BaseModel):
+    """Response model for multi-chain trades fetch."""
+    solana_address: Optional[str] = None
+    evm_address: Optional[str] = None
+    trades_by_chain: Dict[str, List[DetectedTrade]]
+    total_trades: int
+    chains_scanned: List[str]
+
+
+@router.get("/multi-chain")
+async def get_multi_chain_trades(
+    solana_address: Optional[str] = Query(None, description="Solana wallet address"),
+    evm_address: Optional[str] = Query(None, description="EVM wallet address"),
+    chains: str = Query("solana,ethereum,base,arbitrum", description="Comma-separated list of chains to scan"),
+    limit: int = Query(25, ge=1, le=100)
+) -> MultiChainTradesResponse:
+    """
+    Fetch trades from multiple chains in a single request.
+    
+    Supported chains: solana, ethereum, base, arbitrum
+    """
+    if not solana_address and not evm_address:
+        raise HTTPException(status_code=400, detail="At least one wallet address is required")
+    
+    chains_to_scan = [c.strip().lower() for c in chains.split(",")]
+    trades_by_chain: Dict[str, List[DetectedTrade]] = {}
+    total_trades = 0
+    chains_scanned = []
+    
+    # Fetch Solana trades if address provided and chain requested
+    if solana_address and "solana" in chains_to_scan:
+        try:
+            solana_response = await get_solana_wallet_trades(solana_address, limit)
+            trades_by_chain["solana"] = solana_response.trades
+            total_trades += len(solana_response.trades)
+            chains_scanned.append("solana")
+        except Exception as e:
+            logger.warning(f"Failed to fetch Solana trades: {e}")
+            trades_by_chain["solana"] = []
+    
+    # Fetch EVM trades if address provided
+    if evm_address:
+        for chain in ["ethereum", "base", "arbitrum"]:
+            if chain in chains_to_scan:
+                try:
+                    evm_response = await get_evm_wallet_trades(evm_address, chain, limit)
+                    trades_by_chain[chain] = evm_response.trades
+                    total_trades += len(evm_response.trades)
+                    chains_scanned.append(chain)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch {chain} trades: {e}")
+                    trades_by_chain[chain] = []
+    
+    return MultiChainTradesResponse(
+        solana_address=solana_address,
+        evm_address=evm_address,
+        trades_by_chain=trades_by_chain,
+        total_trades=total_trades,
+        chains_scanned=chains_scanned
+    )
+
+
 @router.post("/import-to-journal")
 async def import_trades_to_journal(
     trades: List[DetectedTrade],

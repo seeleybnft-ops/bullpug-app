@@ -24,6 +24,7 @@ import DetectedTrades from "@/components/DetectedTrades";
 import PortfolioSummary from "@/components/PortfolioSummary";
 import AchievementBadges from "@/components/AchievementBadges";
 import Watchlist from "@/components/Watchlist";
+import MultiChainWalletManager from "@/components/MultiChainWalletManager";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
@@ -383,7 +384,18 @@ export default function TradingJournal() {
           </TabsContent>
 
           <TabsContent value="import">
-            <DetectedTrades onImport={fetchData} />
+            <div className="space-y-6">
+              {/* Multi-Chain Wallet Manager */}
+              <MultiChainWalletManager 
+                onTradesFound={(trades) => {
+                  console.log('Multi-chain trades found:', trades.length);
+                }}
+                onImportComplete={fetchData}
+              />
+              
+              {/* Detected Trades Import */}
+              <DetectedTrades onImport={fetchData} />
+            </div>
           </TabsContent>
 
           <TabsContent value="trades">
