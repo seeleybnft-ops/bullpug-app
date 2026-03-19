@@ -82,6 +82,7 @@ export default function AITrader() {
   const [autoTradeStatus, setAutoTradeStatus] = useState(null);
   const [autoTradeLogs, setAutoTradeLogs] = useState([]);
   const [autoTradeLoading, setAutoTradeLoading] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   
   // Custodial Wallet state
   const [custodialWallet, setCustodialWallet] = useState(null);
@@ -2285,6 +2286,130 @@ function AutoTradeTab({ status, logs, loading, onToggle, onUpdateSettings, onRun
               />
               <span className="text-sm text-slate-300">Pause after a loss</span>
             </label>
+          </div>
+
+          {/* Advanced Settings Section */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <button
+              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-3"
+            >
+              <Settings className="w-4 h-4" />
+              Advanced Settings
+              {showAdvancedSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {showAdvancedSettings && (
+              <div className="space-y-4 p-3 bg-black/30 rounded-xl border border-white/5">
+                {/* Trailing Stop */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white">Trailing Stop-Loss</p>
+                    <p className="text-[10px] text-slate-500">Automatically raise stop as price increases</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.auto_trailing_stop_enabled || false}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, auto_trailing_stop_enabled: e.target.checked }))}
+                      className="w-4 h-4 rounded border-white/30"
+                    />
+                  </label>
+                </div>
+                
+                {settingsForm.auto_trailing_stop_enabled && (
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">
+                      Trail Distance: {settingsForm.auto_trailing_stop_percent || 5}%
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="0.5"
+                      value={settingsForm.auto_trailing_stop_percent || 5}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, auto_trailing_stop_percent: parseFloat(e.target.value) }))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500">
+                      <span>1%</span>
+                      <span>20%</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Scale-In (DCA on Dip) */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                  <div>
+                    <p className="text-sm text-white">DCA on Dip</p>
+                    <p className="text-[10px] text-slate-500">Add to position when price drops</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.auto_scale_in_enabled || false}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, auto_scale_in_enabled: e.target.checked }))}
+                      className="w-4 h-4 rounded border-white/30"
+                    />
+                  </label>
+                </div>
+                
+                {settingsForm.auto_scale_in_enabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">
+                        Dip Threshold: {settingsForm.auto_scale_in_threshold || 5}%
+                      </label>
+                      <input
+                        type="range"
+                        min="2"
+                        max="15"
+                        step="1"
+                        value={settingsForm.auto_scale_in_threshold || 5}
+                        onChange={(e) => setSettingsForm(f => ({ ...f, auto_scale_in_threshold: parseFloat(e.target.value) }))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">
+                        Max Adds: {settingsForm.auto_scale_in_max_adds || 2}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={settingsForm.auto_scale_in_max_adds || 2}
+                        onChange={(e) => setSettingsForm(f => ({ ...f, auto_scale_in_max_adds: parseInt(e.target.value) }))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Additional Toggles */}
+                <div className="pt-2 border-t border-white/5 space-y-2">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-slate-300">Avoid volatile hours</span>
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.auto_avoid_volatile_hours ?? true}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, auto_avoid_volatile_hours: e.target.checked }))}
+                      className="w-4 h-4 rounded border-white/30"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-slate-300">Profit target alerts</span>
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.auto_profit_target_alert ?? true}
+                      onChange={(e) => setSettingsForm(f => ({ ...f, auto_profit_target_alert: e.target.checked }))}
+                      className="w-4 h-4 rounded border-white/30"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">

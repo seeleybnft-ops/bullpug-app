@@ -13,6 +13,7 @@ import { getSkinById, SKINS } from "@/config/skins";
 import SkinStore from "@/components/SkinStore";
 import JackpotDisplay from "@/components/JackpotDisplay";
 import GameAchievements from "@/components/GameAchievements";
+import LeaderboardPanel from "@/components/LeaderboardPanel";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -2363,24 +2364,12 @@ export default function SpeedRunGame() {
               />
             </div>
             
-            <div className="glass-card rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <span className="text-[#FFD700]">🏆</span> LEADERBOARD
-              </h3>
-              <div className="space-y-2">
-                {leaderboard.slice(0, 8).map((entry, i) => (
-                  <div key={i} className={`flex items-center justify-between p-2 rounded-lg ${i < 3 ? 'bg-gradient-to-r from-[#FFD700]/10 to-transparent' : 'bg-white/5'}`}>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${i === 0 ? 'text-[#FFD700]' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-slate-500'}`}>
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-white truncate max-w-[80px]">{entry.player_name}</span>
-                    </div>
-                    <span className="text-xs font-bold text-[#00FFA3]">{entry.score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Enhanced Leaderboard Panel */}
+            <LeaderboardPanel 
+              leaderboard={leaderboard}
+              playerName={playerName}
+              onRefresh={fetchLeaderboard}
+            />
           </div>
         </div>
         

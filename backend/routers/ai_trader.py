@@ -89,6 +89,14 @@ class TraderSettings(BaseModel):
     auto_total_daily_limit_sol: float = Field(default=1.0, ge=0.1, le=5.0)  # Max total SOL per day
     auto_stop_loss_percent: float = Field(default=10.0, ge=2.0, le=50.0)  # Stop loss for auto-trades
     auto_take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)  # Take profit for auto-trades
+    # NEW: Advanced Auto-Trade Settings
+    auto_trailing_stop_enabled: bool = False  # Enable trailing stop-loss
+    auto_trailing_stop_percent: float = Field(default=5.0, ge=1.0, le=20.0)  # Trailing distance
+    auto_scale_in_enabled: bool = False  # Enable position scaling (DCA on dips)
+    auto_scale_in_threshold: float = Field(default=5.0, ge=2.0, le=15.0)  # % dip to trigger scale-in
+    auto_scale_in_max_adds: int = Field(default=2, ge=1, le=5)  # Max scale-in additions
+    auto_avoid_volatile_hours: bool = True  # Avoid trading during high volatility
+    auto_profit_target_alert: bool = True  # Send alerts when profit targets hit
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -1990,6 +1998,14 @@ class AutoTradeSettingsUpdate(BaseModel):
     auto_require_multiple_signals: Optional[bool] = None
     auto_pause_on_loss: Optional[bool] = None
     auto_total_daily_limit_sol: Optional[float] = None
+    # NEW: Advanced settings
+    auto_trailing_stop_enabled: Optional[bool] = None
+    auto_trailing_stop_percent: Optional[float] = None
+    auto_scale_in_enabled: Optional[bool] = None
+    auto_scale_in_threshold: Optional[float] = None
+    auto_scale_in_max_adds: Optional[int] = None
+    auto_avoid_volatile_hours: Optional[bool] = None
+    auto_profit_target_alert: Optional[bool] = None
 
 
 @router.get("/auto-trade/status/{wallet_address}")
@@ -2158,6 +2174,190 @@ async def get_auto_trade_logs(wallet_address: str, limit: int = 50):
     except Exception as e:
         logger.error(f"Get auto-trade logs error: {e}")
         return {"logs": [], "count": 0, "error": str(e)}
+
+
+@router.post("/auto-trade/update-trailing-stops/{wallet_address}")
+async def update_trailing_stops(wallet_address: str):
+    """
+    Update trailing stop-loss prices for all open positions.
+    Should be called periodically to trail stops as price moves up.
+    """
+    try:
+        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        
+        if not settings or not settings.get("auto_trailing_stop_enabled"):
+            return {"success": False, "message": "Trailing stops not enabled", "updated": 0}
+        
+        trailing_percent = settings.get("auto_trailing_stop_percent", 5.0)
+        
+        # Get all open positions
+        positions = await db.ai_trader_positions.find({
+            "wallet_address": wallet_address,
+            "status": "open"
+        }).to_list(100)
+        
+        updated_count = 0
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for position in positions:
+                token_mint = position.get("token_mint")
+                entry_price = position.get("entry_price", 0)
+                current_stop = position.get("stop_loss_price", 0)
+                highest_price = position.get("highest_price", entry_price)
+                
+                # Get current price
+                try:
+                    response = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
+                    )
+                    if response.status_code == 200:
+                        pairs = response.json().get("pairs", [])
+                        if pairs:
+                            current_price = float(pairs[0].get("priceUsd", 0) or 0)
+                            
+                            # Update highest price if current is higher
+                            if current_price > highest_price:
+                                highest_price = current_price
+                                await db.ai_trader_positions.update_one(
+                                    {"_id": position["_id"]},
+                                    {"$set": {"highest_price": highest_price}}
+                                )
+                            
+                            # Calculate new trailing stop
+                            new_stop = highest_price * (1 - trailing_percent / 100)
+                            
+                            # Only update if new stop is higher than current
+                            if new_stop > current_stop:
+                                await db.ai_trader_positions.update_one(
+                                    {"_id": position["_id"]},
+                                    {"$set": {
+                                        "stop_loss_price": new_stop,
+                                        "trailing_stop_updated_at": datetime.now(timezone.utc).isoformat()
+                                    }}
+                                )
+                                updated_count += 1
+                                
+                                logger.info(f"Updated trailing stop for {position.get('token_symbol')}: {current_stop:.6f} -> {new_stop:.6f}")
+                except Exception as e:
+                    logger.warning(f"Failed to update trailing stop for {position.get('token_symbol')}: {e}")
+        
+        return {
+            "success": True,
+            "updated": updated_count,
+            "positions_checked": len(positions)
+        }
+    except Exception as e:
+        logger.error(f"Update trailing stops error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auto-trade/check-scale-in/{wallet_address}")
+async def check_scale_in_opportunities(wallet_address: str):
+    """
+    Check if any positions should be scaled into (DCA on dip).
+    Adds to position when price drops by threshold from entry.
+    """
+    try:
+        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        
+        if not settings or not settings.get("auto_scale_in_enabled"):
+            return {"success": False, "message": "Scale-in not enabled", "scaled": 0}
+        
+        threshold = settings.get("auto_scale_in_threshold", 5.0)
+        max_adds = settings.get("auto_scale_in_max_adds", 2)
+        max_position = settings.get("auto_max_position_sol", 0.2)
+        
+        # Get open positions
+        positions = await db.ai_trader_positions.find({
+            "wallet_address": wallet_address,
+            "status": "open"
+        }).to_list(100)
+        
+        scaled_positions = []
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for position in positions:
+                token_mint = position.get("token_mint")
+                entry_price = position.get("entry_price", 0)
+                current_amount = position.get("amount_sol", 0)
+                scale_in_count = position.get("scale_in_count", 0)
+                
+                if scale_in_count >= max_adds:
+                    continue
+                
+                # Get current price
+                try:
+                    response = await client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
+                    )
+                    if response.status_code == 200:
+                        pairs = response.json().get("pairs", [])
+                        if pairs:
+                            current_price = float(pairs[0].get("priceUsd", 0) or 0)
+                            
+                            if current_price <= 0:
+                                continue
+                            
+                            # Check if price dropped enough
+                            price_drop = ((entry_price - current_price) / entry_price) * 100
+                            
+                            if price_drop >= threshold:
+                                # Calculate scale-in amount (decreasing with each add)
+                                scale_amount = max_position * (0.5 ** (scale_in_count + 1))
+                                new_total = current_amount + scale_amount
+                                
+                                # Calculate new average entry
+                                new_avg_entry = (
+                                    (entry_price * current_amount) + (current_price * scale_amount)
+                                ) / new_total
+                                
+                                # Update position
+                                await db.ai_trader_positions.update_one(
+                                    {"_id": position["_id"]},
+                                    {"$set": {
+                                        "amount_sol": new_total,
+                                        "entry_price": new_avg_entry,
+                                        "scale_in_count": scale_in_count + 1,
+                                        "last_scale_in_at": datetime.now(timezone.utc).isoformat(),
+                                        "last_scale_in_price": current_price
+                                    }}
+                                )
+                                
+                                # Log the scale-in
+                                await db.auto_trade_logs.insert_one({
+                                    "log_id": str(uuid.uuid4())[:8],
+                                    "wallet_address": wallet_address,
+                                    "token_symbol": position.get("token_symbol"),
+                                    "token_mint": token_mint,
+                                    "action": "scale_in",
+                                    "amount_sol": scale_amount,
+                                    "entry_price": current_price,
+                                    "confidence": 0.0,
+                                    "strategy": "dca_on_dip",
+                                    "reason": f"Scaled in at {price_drop:.1f}% dip (add #{scale_in_count + 1})",
+                                    "success": True,
+                                    "created_at": datetime.now(timezone.utc).isoformat()
+                                })
+                                
+                                scaled_positions.append({
+                                    "symbol": position.get("token_symbol"),
+                                    "scale_amount": scale_amount,
+                                    "price_drop": price_drop,
+                                    "new_avg_entry": new_avg_entry
+                                })
+                                
+                                logger.info(f"Scaled into {position.get('token_symbol')} at {price_drop:.1f}% dip")
+                except Exception as e:
+                    logger.warning(f"Failed to check scale-in for {position.get('token_symbol')}: {e}")
+        
+        return {
+            "success": True,
+            "scaled": len(scaled_positions),
+            "positions": scaled_positions
+        }
+    except Exception as e:
+        logger.error(f"Check scale-in error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/auto-trade/scan-and-execute/{wallet_address}")
