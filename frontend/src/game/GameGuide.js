@@ -17,7 +17,7 @@ export default function GameGuide() {
           <h4 className="text-xs uppercase text-slate-400 mb-2 font-bold">Collectibles</h4>
           <div className="flex items-center gap-2 mb-2">
             <img 
-              src="https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/f0lh6k0c_image%20-%202026-02-24T080914.534.jpg" 
+              src="/moon-cheese.png" 
               alt="Moon Cheese" 
               className="w-8 h-8 rounded-full object-cover"
             />

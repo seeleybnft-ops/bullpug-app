@@ -155,7 +155,7 @@ export default function SpeedRunGame() {
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/f0lh6k0c_image%20-%202026-02-24T080914.534.jpg";
+    img.src = "/moon-cheese.png";  // Local image to avoid CORS issues
     img.onload = () => { 
       moonCheeseImgRef.current = img;
       setMoonCheeseImg(img);
