@@ -66,6 +66,7 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
 
   const [expanded, setExpanded] = useState(!compact);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [scanningChain, setScanningChain] = useState(null);
   const [tradesByChain, setTradesByChain] = useState({});
   const [portfolioByChain, setPortfolioByChain] = useState({});
@@ -73,6 +74,7 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState(null);
   const [autoScanEnabled, setAutoScanEnabled] = useState(true);
+  const [importedCount, setImportedCount] = useState(0);
 
   // Get current EVM chain name
   const getCurrentEvmChain = () => {
@@ -201,6 +203,54 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
     }
     
     setLoading(false);
+  };
+
+  // Import all trades to journal
+  const importAllTrades = async () => {
+    // Collect all trades from all chains
+    const allTrades = Object.entries(tradesByChain).flatMap(([chain, trades]) => 
+      trades.map(trade => ({ ...trade, chain }))
+    );
+    
+    if (allTrades.length === 0) {
+      toast.error('No trades to import. Scan your wallets first.');
+      return;
+    }
+    
+    const walletAddress = solanaConnected 
+      ? solanaPublicKey?.toBase58() 
+      : evmAddress;
+    
+    if (!walletAddress) {
+      toast.error('No wallet connected');
+      return;
+    }
+    
+    setImporting(true);
+    
+    try {
+      const { data } = await axios.post(`${API}/wallet-trades/import-to-journal?wallet_address=${walletAddress}`, allTrades);
+      
+      if (data.success) {
+        setImportedCount(data.imported_count);
+        toast.success(`Imported ${data.imported_count} trades to your journal!`);
+        
+        if (data.duplicates_skipped > 0) {
+          toast.info(`${data.duplicates_skipped} duplicate trades were skipped`);
+        }
+        
+        // Clear trades after import
+        setTradesByChain({});
+        
+        // Callback to refresh journal data
+        onImportComplete?.();
+      }
+    } catch (e) {
+      console.error('Import error:', e);
+      toast.error(e.response?.data?.detail || 'Failed to import trades');
+    }
+    
+    setImporting(false);
   };
 
   // Auto-scan on wallet connect
@@ -430,7 +480,7 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
           <div className="flex items-center gap-2">
             <Button
               onClick={scanAllWallets}
-              disabled={loading || selectedChains.size === 0}
+              disabled={loading || importing || selectedChains.size === 0}
               className="flex-1 bg-gradient-to-r from-[#9945FF] to-[#627EEA] text-white font-bold rounded-xl py-3 text-xs uppercase"
               data-testid="scan-wallets-btn"
             >
@@ -447,6 +497,28 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
               )}
             </Button>
             
+            {/* Quick Import All Button */}
+            {totalTrades > 0 && (
+              <Button
+                onClick={importAllTrades}
+                disabled={loading || importing}
+                className="flex-1 bg-gradient-to-r from-[#00FFA3] to-[#00C2FF] text-black font-bold rounded-xl py-3 text-xs uppercase hover:opacity-90"
+                data-testid="import-all-trades-btn"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Import All ({totalTrades})
+                  </>
+                )}
+              </Button>
+            )}
+            
             <button
               onClick={() => setShowPortfolio(!showPortfolio)}
               className={`p-3 rounded-xl transition-colors ${showPortfolio ? 'bg-[#00C2FF]/20 text-[#00C2FF]' : 'bg-white/5 text-slate-400'}`}
@@ -455,6 +527,16 @@ export default function MultiChainWalletManager({ onTradesFound, onImportComplet
               {showPortfolio ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             </button>
           </div>
+          
+          {/* Import Success Message */}
+          {importedCount > 0 && (
+            <div className="p-3 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/20 flex items-center gap-2">
+              <Check className="w-4 h-4 text-[#00FFA3]" />
+              <span className="text-sm text-[#00FFA3]">
+                Successfully imported {importedCount} trades to your journal!
+              </span>
+            </div>
+          )}
 
           {/* Portfolio Summary */}
           {showPortfolio && Object.keys(portfolioByChain).length > 0 && (

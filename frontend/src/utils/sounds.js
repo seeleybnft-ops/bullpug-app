@@ -5,23 +5,81 @@ const audioContext = typeof window !== 'undefined' ? new (window.AudioContext ||
 let bgMusicAudio = null;
 let musicIsPlaying = false;
 let musicVolume = 0.4;
+let musicLoadAttempted = false;
+
+// Preload the music file
+function preloadMusic() {
+  if (bgMusicAudio || musicLoadAttempted) return;
+  musicLoadAttempted = true;
+  
+  try {
+    bgMusicAudio = new Audio('/cosmic-runner-music.mp3');
+    bgMusicAudio.loop = true;
+    bgMusicAudio.volume = musicVolume;
+    bgMusicAudio.preload = 'auto';
+    
+    // Add event listeners for debugging
+    bgMusicAudio.addEventListener('canplaythrough', () => {
+      console.log('Music loaded and ready to play');
+    });
+    
+    bgMusicAudio.addEventListener('error', (e) => {
+      console.error('Music load error:', e);
+      bgMusicAudio = null;
+      musicLoadAttempted = false;
+    });
+  } catch (e) {
+    console.error('Failed to create audio element:', e);
+  }
+}
+
+// Preload on module init if in browser
+if (typeof window !== 'undefined') {
+  // Delay preload slightly to not block initial render
+  setTimeout(preloadMusic, 1000);
+}
 
 // Start background music using the custom MP3 file
 export async function startBackgroundMusic() {
-  if (musicIsPlaying) return;
+  if (musicIsPlaying) return true;
   
   try {
+    // Ensure audio is loaded
     if (!bgMusicAudio) {
-      bgMusicAudio = new Audio('/cosmic-runner-music.mp3');
-      bgMusicAudio.loop = true;
-      bgMusicAudio.volume = musicVolume;
+      preloadMusic();
+      // Wait a bit for load
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    await bgMusicAudio.play();
-    musicIsPlaying = true;
+    if (!bgMusicAudio) {
+      console.warn('Music audio element not available');
+      return false;
+    }
+    
+    // Reset to start if needed
+    bgMusicAudio.currentTime = 0;
+    bgMusicAudio.volume = musicVolume;
+    
+    // Try to play
+    const playPromise = bgMusicAudio.play();
+    
+    if (playPromise !== undefined) {
+      await playPromise;
+      musicIsPlaying = true;
+      console.log('Background music started successfully');
+      return true;
+    }
   } catch (e) {
-    console.log('Background music error:', e);
+    // NotAllowedError is common due to autoplay policy
+    if (e.name === 'NotAllowedError') {
+      console.log('Music blocked by autoplay policy - will play on next user interaction');
+    } else {
+      console.error('Background music error:', e);
+    }
+    return false;
   }
+  
+  return musicIsPlaying;
 }
 
 // Stop background music

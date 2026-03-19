@@ -98,7 +98,7 @@ export default function SpeedRunGame() {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("bullpugPlayerName") || "Guardian");
   const [showNameInput, setShowNameInput] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
-  const [musicOn, setMusicOn] = useState(false);
+  const [musicOn, setMusicOn] = useState(() => localStorage.getItem("bullpugMusicEnabled") !== "false");
   const [showSkinStore, setShowSkinStore] = useState(false);
   const [currentSkinId, setCurrentSkinId] = useState(() => localStorage.getItem("bullpugSkin") || "default");
   const [currentStage, setCurrentStage] = useState(1);
@@ -123,6 +123,7 @@ export default function SpeedRunGame() {
   const toggleMusic = () => {
     const newValue = !musicOn;
     setMusicOn(newValue);
+    localStorage.setItem("bullpugMusicEnabled", newValue ? "true" : "false");
     if (newValue) {
       startBackgroundMusic();
     } else {
@@ -130,7 +131,7 @@ export default function SpeedRunGame() {
     }
   };
 
-  // Stop music when game ends
+  // Stop music when component unmounts
   useEffect(() => {
     return () => {
       stopBackgroundMusic();
@@ -459,6 +460,11 @@ export default function SpeedRunGame() {
     setMoonCheese(0);
     setCurrentStage(1);
     playSoundIfEnabled('click');
+    
+    // Start background music when game starts (user interaction satisfies autoplay policy)
+    if (musicOn) {
+      startBackgroundMusic();
+    }
 
     const loop = () => {
       const g = gameRef.current;
