@@ -466,5 +466,32 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Trades execute via Jupiter API using custodial wallet
   - Execution status tracked in position records and logs
 
+### Multi-Chain Wallet Integration for Journal (March 2026)
+- **NEW** MultiChainWalletManager component integrated into Journal Import tab
+- Supports 4 chains: Solana, Ethereum, Base, Arbitrum
+- Auto-scan feature scans all connected wallets on connect
+- Chain selection checkboxes to filter which chains to scan
+- Portfolio value display aggregated across chains
+- Trade summary grouped by chain with recent trade preview
+- **Backend Endpoints**:
+  - `GET /api/wallet-trades/supported-chains` - Returns all supported chain configurations
+  - `GET /api/wallet-trades/multi-chain` - Fetch trades from multiple chains in single request
+  - `GET /api/wallet-trades/solana/{address}` - Fetch Solana DEX swaps
+  - `GET /api/wallet-trades/evm/{address}?chain=ethereum|base|arbitrum` - Fetch EVM trades
+  - `POST /api/wallet-trades/import-to-journal` - Import detected trades to journal
+
+### Enhanced Cosmic Runner Game Graphics (March 2026)
+- **Player Character Enhancements**:
+  - Cyan/green rim light glow for better visibility
+  - Enhanced golden warm glow around Bullpug character
+  - Multi-layer shadow effect (outer blur + core shadow)
+  - Gradient speed lines with varying widths (4 lines instead of 3)
+- **All existing enhancements preserved**:
+  - Parallax star fields with nebulas
+  - Floating asteroids with rocky textures
+  - Space station silhouettes with blinking lights
+  - Track edge lights (green/magenta)
+  - Custom MP3 background music support
+
 ## License
 MIT License - Bullpug 2025
