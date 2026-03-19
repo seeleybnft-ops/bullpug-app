@@ -503,5 +503,39 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Track edge lights (green/magenta)
   - Custom MP3 background music support
 
+### Game Leaderboard Rewards Integration (March 2026)
+- **NEW** LeaderboardPanel component with wallet linking for prize eligibility
+- Features:
+  - Connect wallet to player name for automatic prize payouts
+  - Prize distribution preview showing potential winnings per rank
+  - User rank highlighting with personalized prize estimate
+  - Recent winners display from last payout
+  - Real-time prize pool total synced with JackpotDisplay
+- **Backend Endpoints**:
+  - `GET /api/leaderboard` - Returns leaderboard with wallet_address field
+  - `GET /api/leaderboard/wallet-link/{player_name}` - Check wallet link status
+  - `POST /api/leaderboard/link-wallet` - Link wallet to player name
+  - `POST /api/leaderboard/unlink-wallet` - Remove wallet link
+- Prize payouts execute every 3 days to top 10 linked wallets
+
+### Fully Automated Trading Mode Refinements (March 2026)
+- **Trailing Stop-Loss**: 
+  - Auto-raise stop-loss as price increases
+  - Configurable trail distance (1-20%)
+  - Endpoint: `POST /api/ai-trader/auto-trade/update-trailing-stops/{wallet}`
+- **DCA on Dip (Scale-In)**:
+  - Automatically add to position when price drops
+  - Configurable dip threshold (2-15%)
+  - Max scale-in additions (1-5)
+  - Endpoint: `POST /api/ai-trader/auto-trade/check-scale-in/{wallet}`
+- **Additional Settings**:
+  - `auto_avoid_volatile_hours` - Skip trades during high volatility (default: true)
+  - `auto_profit_target_alert` - Send alerts when profit targets hit (default: true)
+- **Advanced Settings UI**:
+  - Collapsible "Advanced Settings" section in Auto-Trade tab
+  - Toggle switches for all new features
+  - Sliders for percentage configurations
+  - Real-time settings persistence
+
 ## License
 MIT License - Bullpug 2025
