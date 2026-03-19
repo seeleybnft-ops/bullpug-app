@@ -537,5 +537,47 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Sliders for percentage configurations
   - Real-time settings persistence
 
+### Moon Cheese CORS Fix (March 2026)
+- Generated new moon cheese collectible image using AI image generation
+- Saved locally to `/frontend/public/moon-cheese.png` (885KB PNG)
+- Updated `SpeedRunGame.js` and `GameGuide.js` to use local `/moon-cheese.png` path
+- Eliminates CORS errors from external customer-assets URLs
+
+### AI Signal Confidence Tuning (March 2026)
+- **NEW** MarketConditionAnalyzer class in `ai_trader.py`
+- Dynamically adjusts signal confidence based on:
+  - **Volatility**: Extreme (-40%), High (-20%), Low (+5%)
+  - **Market Trend**: Strong Bull (+20%), Bull (+10%), Bear (-15%), Strong Bear (-30%)
+  - **Fear/Greed Index**: Extreme fear (+5% opportunity), Extreme greed (-10% caution)
+- Fetches real-time BTC/SOL prices from CoinGecko
+- Methods: `get_market_conditions()`, `adjust_confidence()`, `get_confidence_reason()`
+- Trading recommendations pause during extreme volatility or strong bear markets
+
+### Social Trading - Copy Trades (March 2026)
+- **NEW** Complete copy trading system for following top traders
+- **Trader Leaderboard**:
+  - Ranks traders by PnL with configurable time periods (24h, 7d, 30d, all)
+  - Shows win rate, total trades, best/worst trade, followers count
+- **Follow/Unfollow Traders**:
+  - Configurable copy percentage (10-100%)
+  - Max position per trade (0.01-1.0 SOL)
+  - Auto-copy toggle
+- **Trader Profile Management**:
+  - Enable/disable copy trading for your account
+  - Set max copiers limit
+  - Future: Performance fee on profits
+- **Backend Endpoints**:
+  - `GET /api/social-trading/leaderboard` - Top traders ranking
+  - `GET /api/social-trading/profile/{wallet}` - Trader profile & stats
+  - `POST /api/social-trading/profile/enable-copy-trading/{wallet}` - Toggle copy trading
+  - `POST /api/social-trading/follow` - Follow a trader
+  - `POST /api/social-trading/unfollow` - Unfollow a trader
+  - `GET /api/social-trading/following/{wallet}` - Traders you follow
+  - `GET /api/social-trading/followers/{wallet}` - Your followers
+  - `PUT /api/social-trading/follow/settings` - Update copy settings
+  - `GET /api/social-trading/copied-trades/{wallet}` - Copied trades history
+- **Frontend Component**: `SocialTrading.js` with three tabs (Top Traders, Following, Copied Trades)
+- **Integration**: New "Copy Trade" tab in Trading Bot page
+
 ## License
 MIT License - Bullpug 2025
