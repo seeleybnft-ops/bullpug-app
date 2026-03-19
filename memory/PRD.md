@@ -473,6 +473,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Chain selection checkboxes to filter which chains to scan
 - Portfolio value display aggregated across chains
 - Trade summary grouped by chain with recent trade preview
+- **Quick Import All Button**: One-click import of all detected trades across all chains
+  - Shows trade count in button label
+  - Handles duplicate detection (skips already imported trades)
+  - Success message shows imported count
+  - Clears trades list after successful import
 - **Backend Endpoints**:
   - `GET /api/wallet-trades/supported-chains` - Returns all supported chain configurations
   - `GET /api/wallet-trades/multi-chain` - Fetch trades from multiple chains in single request
@@ -486,6 +491,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Enhanced golden warm glow around Bullpug character
   - Multi-layer shadow effect (outer blur + core shadow)
   - Gradient speed lines with varying widths (4 lines instead of 3)
+- **Music System Fix**:
+  - Audio preloading on page load for instant playback
+  - Music preference persists in localStorage (bullpugMusicEnabled)
+  - Auto-starts when game begins (if enabled) - satisfies browser autoplay policy
+  - Improved error handling for autoplay restrictions
 - **All existing enhancements preserved**:
   - Parallax star fields with nebulas
   - Floating asteroids with rocky textures
