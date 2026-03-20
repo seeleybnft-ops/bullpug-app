@@ -147,23 +147,23 @@ export default function UnifiedAutoTrader({
     if (!walletAddress) return;
     
     await onUpdateSettings({
-      mode: settingsForm.auto_trade_mode,
-      min_confidence: settingsForm.auto_min_confidence,
-      max_position_sol: settingsForm.auto_max_position_sol,
-      daily_limit_sol: settingsForm.auto_total_daily_limit_sol,
-      max_daily_trades: settingsForm.auto_max_daily_trades,
-      cooldown_minutes: settingsForm.auto_cooldown_minutes,
-      stop_loss_percent: settingsForm.auto_stop_loss_percent,
-      take_profit_percent: settingsForm.auto_take_profit_percent,
-      require_multiple_signals: settingsForm.auto_require_multiple_signals,
-      pause_on_loss: settingsForm.auto_pause_on_loss,
-      trailing_stop_enabled: settingsForm.auto_trailing_stop_enabled,
-      trailing_stop_percent: settingsForm.auto_trailing_stop_percent,
-      scale_in_enabled: settingsForm.auto_scale_in_enabled,
-      scale_in_threshold: settingsForm.auto_scale_in_threshold,
-      scale_in_max_adds: settingsForm.auto_scale_in_max_adds,
-      avoid_volatile_hours: settingsForm.auto_avoid_volatile_hours,
-      profit_target_alert: settingsForm.auto_profit_target_alert
+      auto_trade_mode: settingsForm.auto_trade_mode,
+      auto_min_confidence: settingsForm.auto_min_confidence,
+      auto_max_position_sol: settingsForm.auto_max_position_sol,
+      auto_total_daily_limit_sol: settingsForm.auto_total_daily_limit_sol,
+      auto_max_daily_trades: settingsForm.auto_max_daily_trades,
+      auto_cooldown_minutes: settingsForm.auto_cooldown_minutes,
+      auto_stop_loss_percent: settingsForm.auto_stop_loss_percent,
+      auto_take_profit_percent: settingsForm.auto_take_profit_percent,
+      auto_require_multiple_signals: settingsForm.auto_require_multiple_signals,
+      auto_pause_on_loss: settingsForm.auto_pause_on_loss,
+      auto_trailing_stop_enabled: settingsForm.auto_trailing_stop_enabled,
+      auto_trailing_stop_percent: settingsForm.auto_trailing_stop_percent,
+      auto_scale_in_enabled: settingsForm.auto_scale_in_enabled,
+      auto_scale_in_threshold: settingsForm.auto_scale_in_threshold,
+      auto_scale_in_max_adds: settingsForm.auto_scale_in_max_adds,
+      auto_avoid_volatile_hours: settingsForm.auto_avoid_volatile_hours,
+      auto_profit_target_alert: settingsForm.auto_profit_target_alert
     });
     
     setShowSettingsPanel(false);

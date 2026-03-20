@@ -2584,7 +2584,7 @@ class AutoTradeSettingsUpdate(BaseModel):
 async def get_auto_trade_status(wallet_address: str):
     """Get auto-trade status and settings for a wallet."""
     try:
-        settings = await db.trader_settings.find_one(
+        settings = await db.ai_trader_settings.find_one(
             {"wallet_address": wallet_address},
             {"_id": 0}
         )
@@ -2672,7 +2672,7 @@ async def get_auto_trade_status(wallet_address: str):
 async def toggle_auto_trade(wallet_address: str, enabled: bool = True):
     """Enable or disable auto-trading for a wallet."""
     try:
-        await db.trader_settings.update_one(
+        await db.ai_trader_settings.update_one(
             {"wallet_address": wallet_address},
             {
                 "$set": {
@@ -2714,7 +2714,7 @@ async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSet
         update_data = {k: v for k, v in settings.dict().items() if v is not None}
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         
-        await db.trader_settings.update_one(
+        await db.ai_trader_settings.update_one(
             {"wallet_address": wallet_address},
             {"$set": update_data},
             upsert=True
@@ -2755,7 +2755,7 @@ async def update_trailing_stops(wallet_address: str):
     Should be called periodically to trail stops as price moves up.
     """
     try:
-        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
         
         if not settings or not settings.get("auto_trailing_stop_enabled"):
             return {"success": False, "message": "Trailing stops not enabled", "updated": 0}
@@ -2830,7 +2830,7 @@ async def check_scale_in_opportunities(wallet_address: str):
     Adds to position when price drops by threshold from entry.
     """
     try:
-        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
         
         if not settings or not settings.get("auto_scale_in_enabled"):
             return {"success": False, "message": "Scale-in not enabled", "scaled": 0}
@@ -3462,7 +3462,7 @@ async def auto_trade_check_exits(wallet_address: str):
     Should be called periodically to manage risk.
     """
     try:
-        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
         
         if not settings or not settings.get("auto_trade_enabled"):
             return {"success": False, "message": "Auto-trading not enabled", "exits": []}
