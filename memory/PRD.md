@@ -579,5 +579,41 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Frontend Component**: `SocialTrading.js` with three tabs (Top Traders, Following, Copied Trades)
 - **Integration**: New "Copy Trade" tab in Trading Bot page
 
+### Copy Trade Execution Integration (March 2026)
+- **Automatic Trade Copying**: When a trader adds a position via `add_position` endpoint, the trade is automatically copied to all active followers
+- **Integration Point**: `backend/routers/ai_trader.py` line ~1455 calls `copy_trade_to_followers()`
+- **Trade Copy Logic**:
+  - Calculates copied position size based on follower's `copy_percentage` and `max_position_sol`
+  - Skips positions below 0.01 SOL minimum
+  - Records copied trade in `copied_trades` collection
+  - Increments follower's `trades_copied` counter
+- **Non-blocking**: Copy trading errors are caught and logged but don't break the main trade execution
+
+### Advanced Copy Trading Notifications (March 2026)
+- **NEW** Comprehensive notification system for copy trading events
+- **Notification Types**:
+  - `trade_copied` - When your position is copied from a followed trader
+  - `new_follower` - When someone starts following you
+  - `profit_alert` - When a position reaches 10%/25%/50%+ profit
+  - `loss_alert` - For significant losses
+  - `stop_loss_triggered` - When stop loss executes
+- **Backend Endpoints**:
+  - `GET /api/social-trading/notifications/{wallet}` - Fetch notifications with unread count
+  - `GET /api/social-trading/notifications/settings/{wallet}` - Get notification preferences
+  - `PUT /api/social-trading/notifications/settings/{wallet}` - Update preferences
+  - `POST /api/social-trading/notifications/mark-read/{wallet}` - Mark as read (single or all)
+  - `DELETE /api/social-trading/notifications/{wallet}/{notification_id}` - Delete notification
+- **Notification Settings**:
+  - Toggle each notification type on/off
+  - `min_profit_alert_percent` (5-100%) - Minimum profit to trigger alert
+  - `min_loss_alert_percent` (2-50%) - Minimum loss to trigger alert
+- **Frontend Component**: `CopyTradeNotifications.js`
+  - Real-time polling every 30 seconds
+  - Unread badge count
+  - Mark as read on click
+  - Delete notifications
+  - Collapsible settings panel
+- **Integration**: New "Alerts" tab in SocialTrading component
+
 ## License
 MIT License - Bullpug 2025
