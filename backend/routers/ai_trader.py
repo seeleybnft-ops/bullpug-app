@@ -2750,14 +2750,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     
                     prices.append(current_price)
                     
-                    # Calculate indicators using TechnicalAnalyzer
-                    indicators = {
-                        "rsi": TechnicalAnalyzer.calculate_rsi(prices),
-                        "macd": TechnicalAnalyzer.calculate_macd(prices),
-                        "bollinger": TechnicalAnalyzer.calculate_bollinger_bands(prices),
-                        "ma": TechnicalAnalyzer.calculate_moving_averages(prices),
-                        "current_price": current_price
-                    }
+                    # Calculate indicators using TechnicalAnalyzer.analyze() to get all required fields
+                    indicators = TechnicalAnalyzer.analyze(prices, current_price)
                     
                     # Run strategies
                     momentum = StrategyEngine.momentum_strategy(indicators)
