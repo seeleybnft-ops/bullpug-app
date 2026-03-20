@@ -875,6 +875,38 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - "autotrade" tab now uses `UnifiedAutoTrader` component
   - Tab description shows "& Analytics" to indicate merged functionality
 
+### Runner Detection System (March 2026)
+- **Purpose**: Catch early momentum on new pairs before they "run"
+- **Features**:
+  - Fetches trending/boosted tokens from DexScreener
+  - Analyzes pairs for runner potential using multiple criteria
+  - Calculates a "Runner Score" (0-100) based on momentum, volume, buy pressure, and freshness
+  - Integrates with auto-trade scan to include runner tokens alongside known tokens
+- **Criteria**:
+  - Min liquidity: $10,000
+  - Min 24h volume: $50,000
+  - Min 1h price change: +5%
+  - Max 1h price change: +100% (avoid pump & dumps)
+  - Min 1h transactions: 50
+  - Max pair age: 72 hours
+- **API Endpoint**: `/api/ai-trader/runners` - Lists discovered runner tokens with scores
+- **Auto-Trade Integration**:
+  - Runners are only scanned when `risk_level` is "high_risk" or "both"
+  - Smaller position sizes for runners (max 0.1 SOL or 50% of normal max)
+  - More aggressive take profit (100%) and stop loss (20%) for runners
+  - Confidence boosted based on runner score and buy ratio
+
+### MACD Calculation Fix (March 2026)
+- Fixed MACD calculation to use proper EMA series instead of single values
+- MACD histogram now correctly shows momentum divergence
+- Added `_ema_series()` helper function for accurate signal line calculation
+
+### Combined Strategy as Primary (March 2026)
+- Auto-trade now uses combined strategy as the primary decision maker
+- Bypasses multi-strategy requirement while keeping best win rate logic (76.9% backtest)
+- Confidence boosted when multiple strategies agree
+- Mode-based confidence adjustments: Conservative (0.70-0.75), Moderate (0.55-0.60), Aggressive (0.50)
+
 ### Telegram Copy Trading Notifications (March 2026)
 - **Purpose**: Extend copy trading notifications to Telegram
 - **New Functions in telegram.py**:

@@ -59,6 +59,14 @@ TOKENS = {
 SAFER_TOKENS = ["SOL", "USDC", "USDT", "JUP", "PYTH", "RNDR"]
 HIGH_RISK_TOKENS = ["BONK", "WIF", "RAY", "ORCA"]
 
+# Runner Detection Settings
+RUNNER_MIN_LIQUIDITY = 10000  # Minimum $10k liquidity
+RUNNER_MIN_VOLUME_24H = 50000  # Minimum $50k 24h volume
+RUNNER_MIN_PRICE_CHANGE_1H = 5  # Minimum 5% gain in 1h
+RUNNER_MAX_PRICE_CHANGE_1H = 100  # Max 100% (avoid pump & dumps)
+RUNNER_MIN_TXNS_1H = 50  # Minimum transactions to avoid manipulation
+RUNNER_MAX_AGE_HOURS = 72  # Focus on pairs created within 72 hours
+
 # Position Limits (in SOL)
 MIN_POSITION_SOL = 0.05
 MAX_POSITION_SOL = 1.0
@@ -301,6 +309,221 @@ class MarketConditionAnalyzer:
             return "Normal market conditions"
         
         return f"Adjusted {diff:+.1%}: " + ", ".join(reasons)
+
+
+# ============== Runner Detection ==============
+
+class RunnerDetector:
+    """
+    Detects potential 'runner' tokens - new pairs showing early momentum
+    that could have significant upside before they run.
+    """
+    
+    @staticmethod
+    async def fetch_trending_pairs(limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Fetch trending Solana pairs from DexScreener.
+        Returns pairs sorted by momentum potential.
+        """
+        runners = []
+        
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Fetch boosted/trending tokens on Solana
+                response = await client.get(
+                    "https://api.dexscreener.com/token-boosts/top/v1",
+                    params={"chainId": "solana"}
+                )
+                
+                boosted_tokens = []
+                if response.status_code == 200:
+                    boosted_tokens = response.json()[:20]  # Top 20 boosted
+                
+                # Also fetch latest pairs on Solana
+                latest_response = await client.get(
+                    "https://api.dexscreener.com/token-profiles/latest/v1",
+                    params={"chainId": "solana"}
+                )
+                
+                latest_tokens = []
+                if latest_response.status_code == 200:
+                    latest_tokens = latest_response.json()[:20]
+                
+                # Combine unique tokens
+                all_tokens = []
+                seen_addresses = set()
+                
+                for token in boosted_tokens + latest_tokens:
+                    addr = token.get("tokenAddress")
+                    if addr and addr not in seen_addresses:
+                        seen_addresses.add(addr)
+                        all_tokens.append(addr)
+                
+                # Fetch detailed pair data for each token
+                for token_addr in all_tokens[:15]:  # Limit API calls
+                    try:
+                        pair_response = await client.get(
+                            f"https://api.dexscreener.com/latest/dex/tokens/{token_addr}"
+                        )
+                        
+                        if pair_response.status_code != 200:
+                            continue
+                        
+                        pairs = pair_response.json().get("pairs", [])
+                        if not pairs:
+                            continue
+                        
+                        # Get the most liquid Solana pair
+                        solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
+                        if not solana_pairs:
+                            continue
+                        
+                        best_pair = max(solana_pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                        
+                        # Check if it meets runner criteria
+                        runner_data = RunnerDetector._analyze_runner_potential(best_pair)
+                        if runner_data:
+                            runners.append(runner_data)
+                    
+                    except Exception as e:
+                        logger.debug(f"Failed to fetch pair data for {token_addr}: {e}")
+                        continue
+                
+                # Sort by runner score (momentum + volume + freshness)
+                runners.sort(key=lambda x: x.get("runner_score", 0), reverse=True)
+        
+        except Exception as e:
+            logger.warning(f"Failed to fetch trending pairs: {e}")
+        
+        return runners[:limit]
+    
+    @staticmethod
+    def _analyze_runner_potential(pair: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Analyze if a pair has runner potential based on key metrics.
+        Returns runner data if it passes criteria, None otherwise.
+        """
+        try:
+            # Extract metrics
+            liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+            volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
+            price_change_1h = float(pair.get("priceChange", {}).get("h1", 0) or 0)
+            price_change_6h = float(pair.get("priceChange", {}).get("h6", 0) or 0)
+            price_change_24h = float(pair.get("priceChange", {}).get("h24", 0) or 0)
+            txns_1h = pair.get("txns", {}).get("h1", {})
+            buys_1h = int(txns_1h.get("buys", 0) or 0)
+            sells_1h = int(txns_1h.get("sells", 0) or 0)
+            total_txns_1h = buys_1h + sells_1h
+            
+            base_token = pair.get("baseToken", {})
+            symbol = base_token.get("symbol", "???")
+            token_address = base_token.get("address", "")
+            
+            # Pair creation time
+            pair_created = pair.get("pairCreatedAt")
+            hours_since_creation = 9999
+            if pair_created:
+                try:
+                    created_ts = int(pair_created) / 1000  # ms to seconds
+                    hours_since_creation = (datetime.now(timezone.utc).timestamp() - created_ts) / 3600
+                except (ValueError, TypeError):
+                    pass
+            
+            # Apply filters
+            if liquidity < RUNNER_MIN_LIQUIDITY:
+                return None
+            if volume_24h < RUNNER_MIN_VOLUME_24H:
+                return None
+            if price_change_1h < RUNNER_MIN_PRICE_CHANGE_1H:
+                return None
+            if price_change_1h > RUNNER_MAX_PRICE_CHANGE_1H:
+                return None  # Avoid obvious pump & dumps
+            if total_txns_1h < RUNNER_MIN_TXNS_1H:
+                return None  # Not enough organic activity
+            
+            # Calculate buy/sell ratio (bullish if more buys)
+            buy_ratio = buys_1h / total_txns_1h if total_txns_1h > 0 else 0.5
+            
+            # Calculate runner score (0-100)
+            score = 0
+            
+            # Momentum score (0-40 points)
+            if price_change_1h >= 20:
+                score += 40
+            elif price_change_1h >= 15:
+                score += 35
+            elif price_change_1h >= 10:
+                score += 30
+            elif price_change_1h >= 5:
+                score += 20
+            
+            # Volume score (0-25 points)
+            if volume_24h >= 500000:
+                score += 25
+            elif volume_24h >= 200000:
+                score += 20
+            elif volume_24h >= 100000:
+                score += 15
+            elif volume_24h >= 50000:
+                score += 10
+            
+            # Buy pressure score (0-20 points)
+            if buy_ratio >= 0.7:
+                score += 20
+            elif buy_ratio >= 0.6:
+                score += 15
+            elif buy_ratio >= 0.55:
+                score += 10
+            
+            # Freshness score (0-15 points) - newer pairs get bonus
+            if hours_since_creation <= 6:
+                score += 15
+            elif hours_since_creation <= 24:
+                score += 12
+            elif hours_since_creation <= 48:
+                score += 8
+            elif hours_since_creation <= RUNNER_MAX_AGE_HOURS:
+                score += 5
+            
+            # Minimum score threshold
+            if score < 30:
+                return None
+            
+            return {
+                "symbol": symbol,
+                "token_address": token_address,
+                "price_usd": float(pair.get("priceUsd", 0) or 0),
+                "liquidity_usd": liquidity,
+                "volume_24h": volume_24h,
+                "price_change_1h": price_change_1h,
+                "price_change_6h": price_change_6h,
+                "price_change_24h": price_change_24h,
+                "buys_1h": buys_1h,
+                "sells_1h": sells_1h,
+                "buy_ratio": buy_ratio,
+                "hours_since_creation": hours_since_creation,
+                "runner_score": score,
+                "pair_address": pair.get("pairAddress", ""),
+                "dex": pair.get("dexId", "unknown")
+            }
+        
+        except Exception as e:
+            logger.debug(f"Failed to analyze runner potential: {e}")
+            return None
+    
+    @staticmethod
+    async def get_best_runners(max_runners: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get the best runner candidates for auto-trading.
+        Filters out known tokens and returns fresh opportunities.
+        """
+        runners = await RunnerDetector.fetch_trending_pairs(limit=20)
+        
+        # Filter out known/established tokens
+        known_symbols = set(TOKENS.keys())
+        fresh_runners = [r for r in runners if r["symbol"].upper() not in known_symbols]
+        
+        return fresh_runners[:max_runners]
 
 
 # ============== Technical Analysis ==============
@@ -986,6 +1209,34 @@ async def get_available_tokens():
             "max_sol": MAX_POSITION_SOL
         }
     }
+
+
+@router.get("/runners")
+async def get_runner_tokens():
+    """
+    Get potential runner tokens - new pairs with early momentum.
+    These are fresh opportunities that could run before they're discovered.
+    """
+    try:
+        runners = await RunnerDetector.fetch_trending_pairs(limit=15)
+        
+        return {
+            "success": True,
+            "runners": runners,
+            "count": len(runners),
+            "criteria": {
+                "min_liquidity": f"${RUNNER_MIN_LIQUIDITY:,}",
+                "min_volume_24h": f"${RUNNER_MIN_VOLUME_24H:,}",
+                "min_price_change_1h": f"{RUNNER_MIN_PRICE_CHANGE_1H}%",
+                "max_price_change_1h": f"{RUNNER_MAX_PRICE_CHANGE_1H}%",
+                "min_txns_1h": RUNNER_MIN_TXNS_1H,
+                "max_age_hours": RUNNER_MAX_AGE_HOURS
+            },
+            "disclaimer": "Runner tokens are HIGH RISK. Only trade with funds you can afford to lose completely."
+        }
+    except Exception as e:
+        logger.error(f"Error fetching runners: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/settings")
@@ -2688,8 +2939,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
     This should be called periodically (every 5 minutes) by the frontend or a scheduler.
     """
     try:
-        # Get user settings
-        settings = await db.trader_settings.find_one({"wallet_address": wallet_address})
+        # Get user settings from ai_trader_settings collection
+        settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
         
         if not settings:
             return {"success": False, "message": "Settings not found", "trades": []}
@@ -2757,16 +3008,27 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         # Get tokens to scan based on risk level
         tokens_to_scan = []
+        runner_tokens = []  # Will store runner data separately
+        
         if risk_level in ["safer", "both"]:
             tokens_to_scan.extend(["SOL", "JUP", "PYTH", "RNDR"])
         if risk_level in ["high_risk", "both"]:
             tokens_to_scan.extend(["BONK", "WIF", "RAY"])
+            
+            # Fetch runner tokens (new pairs with momentum) - only for high_risk or both
+            try:
+                runners = await RunnerDetector.get_best_runners(max_runners=5)
+                runner_tokens = runners
+                logger.info(f"Found {len(runners)} potential runner tokens: {[r['symbol'] for r in runners]}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch runners: {e}")
         
         executed_trades = []
         skipped = []
         
         async with httpx.AsyncClient(timeout=20.0) as client:
-            for symbol in tokens_to_scan[:5]:  # Limit to 5 tokens per scan
+            # First scan known tokens
+            for symbol in tokens_to_scan[:5]:  # Limit to 5 known tokens per scan
                 try:
                     token_mint = TOKENS.get(symbol)
                     if not token_mint:
@@ -3007,13 +3269,185 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                 except Exception as e:
                     logger.warning(f"Auto-trade scan error for {symbol}: {e}")
                     continue
+            
+            # Now scan runner tokens (new pairs with momentum)
+            if runner_tokens and len(executed_trades) < 3:  # Don't over-trade
+                logger.info(f"Scanning {len(runner_tokens)} runner tokens...")
+                
+                for runner in runner_tokens[:3]:  # Limit to top 3 runners
+                    try:
+                        symbol = runner["symbol"]
+                        token_mint = runner["token_address"]
+                        current_price = runner["price_usd"]
+                        
+                        if current_price <= 0:
+                            continue
+                        
+                        # Create synthetic price history from runner data
+                        price_change_24h = runner.get("price_change_24h", 0)
+                        price_change_6h = runner.get("price_change_6h", 0)
+                        price_change_1h = runner.get("price_change_1h", 0)
+                        
+                        price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
+                        price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
+                        price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
+                        
+                        import random
+                        random.seed(int(current_price * 1e8) % 10000)
+                        volatility = max(abs(price_change_24h), abs(price_change_6h), abs(price_change_1h)) / 100
+                        volatility = max(0.01, min(volatility, 0.08))  # Runners are more volatile
+                        
+                        prices = []
+                        for i in range(50):
+                            noise = random.uniform(-volatility, volatility) * current_price
+                            if i < 6:
+                                base = price_1h_ago + (current_price - price_1h_ago) * (i / 6)
+                            elif i < 12:
+                                base = price_6h_ago + (price_1h_ago - price_6h_ago) * ((i - 6) / 6)
+                            elif i < 24:
+                                base = price_24h_ago + (price_6h_ago - price_24h_ago) * ((i - 12) / 12)
+                            else:
+                                base = price_24h_ago * (1 - (i - 24) * 0.002)
+                            prices.append(base + noise)
+                        prices.append(current_price)
+                        
+                        # Calculate indicators
+                        indicators = TechnicalAnalyzer.analyze(prices, current_price)
+                        
+                        # Run strategies
+                        combined = StrategyEngine.combined_strategy(indicators)
+                        momentum = StrategyEngine.momentum_strategy(indicators)
+                        mean_rev = StrategyEngine.mean_reversion_strategy(indicators)
+                        breakout = StrategyEngine.breakout_strategy(indicators)
+                        
+                        buy_signals = [s for s in [momentum, mean_rev, breakout] if s["signal"] == "buy"]
+                        agreement_count = len(buy_signals)
+                        
+                        # For runners, we BOOST confidence based on runner score
+                        base_confidence = combined["confidence"]
+                        runner_score = runner.get("runner_score", 0)
+                        buy_ratio = runner.get("buy_ratio", 0.5)
+                        
+                        # Boost confidence for high-score runners with strong buy pressure
+                        confidence_boost = 0
+                        if runner_score >= 60:
+                            confidence_boost += 0.10
+                        elif runner_score >= 45:
+                            confidence_boost += 0.05
+                        
+                        if buy_ratio >= 0.65:
+                            confidence_boost += 0.05
+                        
+                        trade_confidence = min(0.95, base_confidence + confidence_boost)
+                        trade_reason = f"[RUNNER score={runner_score}] {combined['reasoning']}"
+                        
+                        should_trade = False
+                        if combined["signal"] == "buy" and trade_confidence >= min_confidence:
+                            should_trade = True
+                        
+                        if should_trade:
+                            # Check if we already have a position
+                            existing_position = await db.ai_trader_positions.find_one({
+                                "wallet_address": wallet_address,
+                                "token_mint": token_mint
+                            })
+                            
+                            if existing_position:
+                                skipped.append({
+                                    "symbol": f"{symbol} (RUNNER)",
+                                    "reason": "Already have position",
+                                    "runner_score": runner_score
+                                })
+                                continue
+                            
+                            # Use smaller position for runners (higher risk)
+                            position_sol = min(max_position * 0.5, 0.1)  # Max 0.1 SOL for runners
+                            
+                            position_id = str(uuid.uuid4())[:8]
+                            execution_id = f"runner_{str(uuid.uuid4())[:6]}"
+                            
+                            position_doc = {
+                                "position_id": position_id,
+                                "execution_id": execution_id,
+                                "wallet_address": wallet_address,
+                                "token_symbol": symbol,
+                                "token_mint": token_mint,
+                                "amount_sol": position_sol,
+                                "entry_price": current_price,
+                                "stop_loss_price": current_price * 0.80,  # 20% stop loss for runners
+                                "take_profit_price": current_price * 2.0,  # 100% take profit for runners
+                                "trade_type": "buy",
+                                "status": "open",
+                                "auto_trade": True,
+                                "is_runner": True,
+                                "runner_score": runner_score,
+                                "confidence": trade_confidence,
+                                "strategy": "runner_momentum",
+                                "created_at": datetime.now(timezone.utc).isoformat()
+                            }
+                            
+                            await db.ai_trader_positions.insert_one(position_doc)
+                            
+                            # Log the trade
+                            log_doc = {
+                                "log_id": str(uuid.uuid4()),
+                                "wallet_address": wallet_address,
+                                "token_symbol": symbol,
+                                "token_mint": token_mint,
+                                "action": "auto_buy_runner",
+                                "amount_sol": position_sol,
+                                "entry_price": current_price,
+                                "confidence": trade_confidence,
+                                "runner_score": runner_score,
+                                "buy_ratio": buy_ratio,
+                                "strategy": "runner_momentum",
+                                "reason": trade_reason,
+                                "success": True,
+                                "executed_on_chain": False,  # Will need custodial execution
+                                "position_id": position_id,
+                                "created_at": datetime.now(timezone.utc).isoformat()
+                            }
+                            
+                            await db.auto_trade_logs.insert_one(log_doc)
+                            
+                            executed_trades.append({
+                                "symbol": f"{symbol} (RUNNER)",
+                                "action": "buy",
+                                "amount_sol": position_sol,
+                                "entry_price": current_price,
+                                "confidence": trade_confidence,
+                                "runner_score": runner_score,
+                                "reason": trade_reason,
+                                "is_runner": True
+                            })
+                            
+                            logger.info(f"Runner trade executed: {symbol} @ {current_price} with score {runner_score}")
+                            
+                            # Limit runner trades
+                            if len([t for t in executed_trades if t.get("is_runner")]) >= 2:
+                                break
+                        else:
+                            skipped.append({
+                                "symbol": f"{symbol} (RUNNER)",
+                                "reason": f"Low confidence ({trade_confidence:.2f} < {min_confidence:.2f})" if trade_confidence < min_confidence else "No buy signal",
+                                "confidence": trade_confidence,
+                                "runner_score": runner_score
+                            })
+                    
+                    except Exception as e:
+                        logger.warning(f"Runner scan error for {runner.get('symbol', '?')}: {e}")
+                        continue
+        
+        runner_trades = len([t for t in executed_trades if t.get("is_runner")])
+        known_trades = len(executed_trades) - runner_trades
         
         return {
             "success": True,
             "trades_executed": len(executed_trades),
             "trades": executed_trades,
             "skipped": skipped,
-            "message": f"Auto-scan complete: {len(executed_trades)} trades executed"
+            "runners_found": len(runner_tokens),
+            "message": f"Auto-scan complete: {known_trades} known tokens, {runner_trades} runners executed"
         }
         
     except Exception as e:
