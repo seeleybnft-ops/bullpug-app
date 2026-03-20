@@ -642,5 +642,61 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Follow modal displays fee notice with percentage before confirming
   - Fee summary fetched and available in state (feeSummary)
 
+### Push Notifications for Copy Trading (March 2026)
+- **Purpose**: Real-time browser notifications for copy trading events
+- **Supported Events** (copy trading focused):
+  - `trade_copied` - When a trade is copied from followed trader
+  - `new_follower` - When someone starts copying your trades
+  - `fee_earned` - When you earn a performance fee
+  - `profit_alert` - Significant profit on copied trades
+  - `loss_alert` - Significant loss on copied trades
+  - `stop_loss_triggered` - When stop loss activates on copied trade
+- **Backend Endpoints**:
+  - `GET /api/push-notifications/vapid-public-key` - Get VAPID key for browser subscription
+  - `POST /api/push-notifications/subscribe` - Subscribe to push notifications
+  - `POST /api/push-notifications/unsubscribe` - Remove subscription
+  - `GET /api/push-notifications/subscriptions/{wallet}` - List active devices
+  - `GET /api/push-notifications/preferences/{wallet}` - Get notification preferences
+  - `PUT /api/push-notifications/preferences/{wallet}` - Update preferences
+  - `POST /api/push-notifications/send-test/{wallet}` - Send test notification
+  - `GET /api/push-notifications/history/{wallet}` - Notification history
+- **Frontend Component**: `PushNotificationManager.js`
+  - Subscribe/unsubscribe toggle
+  - Preference toggles for each event type
+  - Profit/loss threshold sliders (min_profit_percent, min_loss_percent)
+  - Test notification button
+  - Active devices display
+- **Service Worker**: `sw-push.js` in public folder
+  - Handles push events and displays browser notifications
+  - Handles notification clicks (opens relevant app page)
+- **Note**: Actual browser delivery requires VAPID keys in environment (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+
+### Signal Analytics & Strategy Improvements (March 2026)
+- **Purpose**: Analyze trading bot signal performance to improve confidence and success rates
+- **Analysis Findings** (359 signals analyzed):
+  - 74.5% of signals were low confidence (0.35-0.45) with only 3% approval rate
+  - Momentum strategy generated 252 signals all at exactly 0.40 confidence
+  - Combined strategy had highest avg confidence (0.62) but 0% approval
+  - Only 8 out of 359 signals were approved (2.2% overall)
+- **Improvements Implemented**:
+  - Raised minimum signal threshold from 0.35 to 0.45 (~75% noise reduction)
+  - Momentum strategy now requires MACD confirmation for all buy signals
+  - Mean Reversion: tightened RSI thresholds (oversold < 30 instead of < 35)
+  - Combined strategy: individual strategies must meet 0.45 confidence to count
+  - Better handling of conflicting signals (returns "no signal" more often)
+- **New Analytics Module** (`/api/signal-analytics/`):
+  - `GET /performance-summary` - Strategy performance by period
+  - `GET /confidence-analysis` - Confidence distribution with recommendations
+  - `GET /strategy-comparison` - Compare strategies with quality scores
+  - `GET /optimal-settings` - Recommended settings for auto-trading
+  - `POST /track-outcome` - Track signal outcome at 1h/4h/24h for performance measurement
+- **Database Collections**:
+  - `signal_outcomes` - Tracks price changes and win/loss at different time intervals
+- **Quality Score Formula** (0-100):
+  - 40% weight: average confidence
+  - 30% weight: approval rate
+  - 15% weight: buy/sell balance
+  - 15% weight: confidence consistency
+
 ## License
 MIT License - Bullpug 2025
