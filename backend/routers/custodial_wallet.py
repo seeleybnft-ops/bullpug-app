@@ -509,12 +509,33 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
             tx_bytes = base64.b64decode(swap_transaction)
             
             # Sign and send to Solana
-            # Note: Jupiter Lite API returns a versioned transaction that may already be partially signed
-            # We need to deserialize, sign with our keypair, and re-serialize
             async with AsyncClient(SOLANA_RPC_URL) as solana_client:
-                # For versioned transactions from Jupiter, we send raw
-                # The keypair is used for the wallet address, Jupiter handles the swap authority
-                result = await solana_client.send_raw_transaction(tx_bytes)
+                # Get recent blockhash for the transaction (used for tx validation)
+                blockhash_resp = await solana_client.get_latest_blockhash()
+                _ = blockhash_resp.value.blockhash  # Available if needed for debugging
+                
+                # Jupiter Lite API returns a versioned transaction
+                # We need to sign it with our custodial keypair
+                from solders.transaction import VersionedTransaction
+                from solders.signature import Signature
+                
+                # Deserialize the versioned transaction
+                tx = VersionedTransaction.from_bytes(tx_bytes)
+                
+                # The transaction needs to be signed by our keypair
+                # Create a new transaction with our signature
+                message_bytes = bytes(tx.message)
+                signature = keypair.sign_message(message_bytes)
+                
+                # Create signed transaction
+                signed_tx = VersionedTransaction.populate(tx.message, [signature])
+                
+                # Serialize and send
+                signed_tx_bytes = bytes(signed_tx)
+                result = await solana_client.send_raw_transaction(
+                    signed_tx_bytes,
+                    opts={"skip_preflight": False, "preflight_commitment": "confirmed"}
+                )
                 tx_signature = str(result.value)
                 
                 logger.info(f"Auto-trade executed: {tx_signature} (wallet: {str(keypair.pubkey())[:8]}...)")
