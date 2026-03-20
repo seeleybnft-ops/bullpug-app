@@ -2014,6 +2014,41 @@ async def delete_position(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/delete-ghost-positions/{wallet_address}")
+async def delete_ghost_positions(wallet_address: str):
+    """Delete all ghost positions (positions that weren't executed on-chain) for a wallet."""
+    try:
+        # Find and delete positions where executed_on_chain is False or missing
+        result = await db.ai_trader_positions.delete_many({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"executed_on_chain": False},
+                {"executed_on_chain": {"$exists": False}}
+            ]
+        })
+        
+        # Also clean up from executions collection
+        exec_result = await db.ai_trader_executions.delete_many({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"executed_on_chain": False},
+                {"executed_on_chain": {"$exists": False}}
+            ]
+        })
+        
+        total_deleted = result.deleted_count + exec_result.deleted_count
+        
+        return {
+            "success": True,
+            "message": f"Deleted {total_deleted} ghost position(s)",
+            "deleted_count": total_deleted
+        }
+        
+    except Exception as e:
+        logger.error(f"Delete ghost positions error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @router.get("/scan-all/{wallet_address}")

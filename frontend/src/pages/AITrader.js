@@ -759,13 +759,29 @@ export default function AITrader() {
   const deletePosition = async (position) => {
     const positionId = position.execution_id || position.position_id;
     
+    if (!positionId) {
+      console.error("No position ID found:", position);
+      toast.error("Cannot delete: Position ID not found");
+      return;
+    }
+    
+    if (!walletAddress) {
+      console.error("No wallet address");
+      toast.error("Please connect your wallet first");
+      return;
+    }
+    
     try {
-      await axios.delete(`${API}/ai-trader/delete-position`, {
+      console.log(`Deleting position: ${positionId} for wallet: ${walletAddress}`);
+      
+      const response = await axios.delete(`${API}/ai-trader/delete-position`, {
         params: {
           wallet_address: walletAddress,
           position_id: positionId
         }
       });
+      
+      console.log("Delete response:", response.data);
       
       // Remove from UI immediately
       setPositions(prev => prev.filter(p => 
@@ -775,7 +791,8 @@ export default function AITrader() {
       toast.success(`${position.token_symbol} position removed`);
     } catch (e) {
       console.error("Delete position error:", e);
-      toast.error("Failed to remove position");
+      console.error("Error response:", e.response?.data);
+      toast.error(e.response?.data?.detail || "Failed to remove position");
     }
   };
 
@@ -1150,14 +1167,45 @@ export default function AITrader() {
                     <p className="text-sm text-slate-500 mt-1">Buy tokens from the Tokens tab to create positions</p>
                   </div>
                 ) : (
-                  positions.map(pos => (
-                    <PositionCard 
-                      key={pos.execution_id || pos.position_id} 
-                      position={pos} 
-                      onQuickSell={quickSell}
-                      onDelete={deletePosition}
-                    />
-                  ))
+                  <>
+                    {/* Ghost Position Warning & Cleanup */}
+                    {positions.some(p => p.executed_on_chain === false) && (
+                      <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <AlertCircle className="w-5 h-5 text-amber-400" />
+                          <div>
+                            <p className="text-sm text-amber-200 font-medium">Ghost Positions Detected</p>
+                            <p className="text-xs text-amber-400/80">
+                              {positions.filter(p => p.executed_on_chain === false).length} position(s) failed to execute on-chain
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            if (!window.confirm("Remove all ghost positions? This will clear positions that failed to execute on-chain.")) return;
+                            const ghostPositions = positions.filter(p => p.executed_on_chain === false);
+                            for (const pos of ghostPositions) {
+                              await deletePosition(pos);
+                            }
+                          }}
+                          size="sm"
+                          className="bg-amber-500 text-black hover:bg-amber-400"
+                          data-testid="clear-ghost-positions"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Clear All Ghost
+                        </Button>
+                      </div>
+                    )}
+                    {positions.map(pos => (
+                      <PositionCard 
+                        key={pos.execution_id || pos.position_id} 
+                        position={pos} 
+                        onQuickSell={quickSell}
+                        onDelete={deletePosition}
+                      />
+                    ))}
+                  </>
                 )}
               </div>
             )}
@@ -2719,16 +2767,35 @@ function PositionCard({ position, onQuickSell, onDelete }) {
   };
   
   const handleDelete = async () => {
-    if (!window.confirm(`Remove ${position.token_symbol} position? This won't sell the token, just removes it from tracking.`)) {
+    // Skip confirmation for ghost positions (executed_on_chain === false)
+    const isGhostPosition = position.executed_on_chain === false;
+    
+    if (!isGhostPosition && !window.confirm(`Remove ${position.token_symbol} position? This won't sell the token, just removes it from tracking.`)) {
       return;
     }
-    setDeleting(true);
-    await onDelete(position);
-    setDeleting(false);
+    
+    try {
+      setDeleting(true);
+      await onDelete(position);
+    } catch (e) {
+      console.error("Delete error:", e);
+    } finally {
+      setDeleting(false);
+    }
   };
   
+  const isGhostPosition = position.executed_on_chain === false;
+  
   return (
-    <div className="bg-white/5 rounded-xl p-4 border border-white/10" data-testid={`position-${position.token_symbol}`}>
+    <div className={`bg-white/5 rounded-xl p-4 border ${isGhostPosition ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10'}`} data-testid={`position-${position.token_symbol}`}>
+      {/* Ghost Position Warning */}
+      {isGhostPosition && (
+        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-amber-500/20">
+          <AlertCircle className="w-4 h-4 text-amber-400" />
+          <span className="text-xs text-amber-400">Ghost Position - Not executed on-chain</span>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
