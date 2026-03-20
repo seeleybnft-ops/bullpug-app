@@ -178,13 +178,13 @@ export default function SignalAnalyticsDashboard() {
             />
             <MetricCard
               label="Avg Confidence"
-              value={`${((strategies.reduce((acc, s) => acc + s.avg_confidence, 0) / (strategies.length || 1)) * 100).toFixed(1)}%`}
+              value={`${((strategies.reduce((acc, s) => acc + (s.avg_confidence || 0), 0) / (strategies.length || 1)) * 100).toFixed(1)}%`}
               icon={<Target className="w-5 h-5" />}
               color="purple"
             />
             <MetricCard
               label="Approval Rate"
-              value={`${(strategies.reduce((acc, s) => acc + s.approval_rate, 0) / (strategies.length || 1)).toFixed(1)}%`}
+              value={`${(strategies.reduce((acc, s) => acc + (s.approval_rate || 0), 0) / (strategies.length || 1)).toFixed(1)}%`}
               icon={<TrendingUp className="w-5 h-5" />}
               color="green"
             />
@@ -406,21 +406,23 @@ function MetricCard({ label, value, icon, color }) {
 }
 
 function StrategyBar({ strategy, maxSignals }) {
-  const widthPercent = (strategy.total_signals / maxSignals) * 100;
-  const approvalColor = strategy.approval_rate > 10 ? 'bg-emerald-500' : 
-                        strategy.approval_rate > 5 ? 'bg-amber-500' : 'bg-red-500';
+  const widthPercent = maxSignals > 0 ? (strategy.total_signals / maxSignals) * 100 : 0;
+  const approvalRate = strategy.approval_rate || 0;
+  const avgConfidence = strategy.avg_confidence || 0;
+  const approvalColor = approvalRate > 10 ? 'bg-emerald-500' : 
+                        approvalRate > 5 ? 'bg-amber-500' : 'bg-red-500';
   
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-white font-medium capitalize">{strategy.strategy}</span>
+        <span className="text-white font-medium capitalize">{strategy.strategy || 'Unknown'}</span>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-slate-400">{strategy.total_signals} signals</span>
-          <span className={getConfidenceColor(strategy.avg_confidence)}>
-            {(strategy.avg_confidence * 100).toFixed(0)}% conf
+          <span className="text-slate-400">{strategy.total_signals || 0} signals</span>
+          <span className={getConfidenceColor(avgConfidence)}>
+            {(avgConfidence * 100).toFixed(0)}% conf
           </span>
           <Badge className={`${approvalColor} text-white text-[10px]`}>
-            {strategy.approval_rate.toFixed(1)}% approved
+            {(approvalRate).toFixed(1)}% approved
           </Badge>
         </div>
       </div>
