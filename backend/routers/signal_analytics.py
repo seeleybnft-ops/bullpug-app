@@ -2339,3 +2339,152 @@ def _get_expected_win_rate(confidence_breakdown: List[Dict], min_confidence: flo
     
     return 55.0  # Default expectation
 
+
+# ============== Reset Analytics Data ==============
+
+@router.post("/reset")
+async def reset_analytics_data(
+    reset_outcomes: bool = Query(True, description="Clear signal_outcomes collection"),
+    reset_tracking_runs: bool = Query(True, description="Clear tracking_runs history"),
+    reset_tracking_config: bool = Query(True, description="Reset tracking config counters"),
+    reset_ab_tests: bool = Query(False, description="Clear A/B tests"),
+    reset_adaptive_history: bool = Query(False, description="Clear adaptive settings history"),
+    confirm: str = Query(..., description="Must be 'CONFIRM' to proceed")
+):
+    """
+    Reset signal analytics data to start fresh.
+    
+    This is useful when:
+    - Strategy engine has been updated and you want clean data
+    - Testing different configurations
+    - Starting a new tracking period
+    
+    WARNING: This permanently deletes data!
+    """
+    
+    if confirm != "CONFIRM":
+        raise HTTPException(
+            status_code=400, 
+            detail="Must pass confirm='CONFIRM' to reset data"
+        )
+    
+    results = {
+        "reset_at": datetime.now(timezone.utc).isoformat(),
+        "collections_cleared": []
+    }
+    
+    try:
+        # Reset signal outcomes
+        if reset_outcomes:
+            count = await db.signal_outcomes.count_documents({})
+            await db.signal_outcomes.delete_many({})
+            results["collections_cleared"].append({
+                "collection": "signal_outcomes",
+                "documents_deleted": count
+            })
+        
+        # Reset tracking runs
+        if reset_tracking_runs:
+            count = await db.tracking_runs.count_documents({})
+            await db.tracking_runs.delete_many({})
+            results["collections_cleared"].append({
+                "collection": "tracking_runs",
+                "documents_deleted": count
+            })
+        
+        # Reset tracking config counters
+        if reset_tracking_config:
+            await db.auto_tracking_config.update_one(
+                {"config_type": "signal_tracking"},
+                {
+                    "$set": {
+                        "total_runs": 0,
+                        "total_outcomes_tracked": 0,
+                        "last_run": None,
+                        "reset_at": datetime.now(timezone.utc).isoformat()
+                    }
+                },
+                upsert=True
+            )
+            results["collections_cleared"].append({
+                "collection": "auto_tracking_config",
+                "action": "counters_reset"
+            })
+        
+        # Reset A/B tests
+        if reset_ab_tests:
+            count = await db.ab_tests.count_documents({})
+            await db.ab_tests.delete_many({})
+            results["collections_cleared"].append({
+                "collection": "ab_tests",
+                "documents_deleted": count
+            })
+        
+        # Reset adaptive settings history
+        if reset_adaptive_history:
+            count = await db.adaptive_settings.count_documents({})
+            await db.adaptive_settings.delete_many({})
+            results["collections_cleared"].append({
+                "collection": "adaptive_settings",
+                "documents_deleted": count
+            })
+        
+        # Also reset strategy_recommendations
+        if reset_adaptive_history:
+            count = await db.strategy_recommendations.count_documents({})
+            await db.strategy_recommendations.delete_many({})
+            results["collections_cleared"].append({
+                "collection": "strategy_recommendations",
+                "documents_deleted": count
+            })
+        
+        results["success"] = True
+        results["message"] = "Analytics data reset successfully. New data will be collected starting now."
+        
+        logger.info(f"Analytics data reset: {results}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error resetting analytics data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reset/preview")
+async def preview_reset():
+    """
+    Preview what data would be deleted by a reset.
+    Does not actually delete anything.
+    """
+    
+    preview = {
+        "signal_outcomes": await db.signal_outcomes.count_documents({}),
+        "tracking_runs": await db.tracking_runs.count_documents({}),
+        "ab_tests": await db.ab_tests.count_documents({}),
+        "adaptive_settings": await db.adaptive_settings.count_documents({}),
+        "strategy_recommendations": await db.strategy_recommendations.count_documents({})
+    }
+    
+    # Get tracking config
+    config = await db.auto_tracking_config.find_one(
+        {"config_type": "signal_tracking"},
+        {"_id": 0}
+    )
+    
+    preview["tracking_config"] = {
+        "total_runs": config.get("total_runs", 0) if config else 0,
+        "total_outcomes_tracked": config.get("total_outcomes_tracked", 0) if config else 0,
+        "last_run": config.get("last_run") if config else None
+    }
+    
+    preview["total_documents"] = sum([
+        preview["signal_outcomes"],
+        preview["tracking_runs"],
+        preview["ab_tests"],
+        preview["adaptive_settings"],
+        preview["strategy_recommendations"]
+    ])
+    
+    return preview
+
+
