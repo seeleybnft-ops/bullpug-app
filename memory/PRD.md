@@ -615,5 +615,32 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Collapsible settings panel
 - **Integration**: New "Alerts" tab in SocialTrading component
 
+### Performance Fee System for Copied Trades (March 2026)
+- **Fee Range**: 5-15% (default 10%) - configurable per trader
+- **How It Works**:
+  - Traders set their performance fee percentage (5-15%)
+  - When a follower's copied trade closes with profit, the fee is automatically calculated
+  - Fee = gross_profit × (fee_percent / 100)
+  - Follower receives net_profit = gross_profit - fee
+  - Trader accumulates fees in total_fees_earned_sol
+- **Database Collections**:
+  - `performance_fees` - Records every fee transaction with audit trail
+  - `trader_profiles.total_fees_earned_sol` - Cumulative fees earned
+  - `copy_trading_follows.total_fees_paid_sol` - Fees paid per follow relationship
+- **Backend Endpoints**:
+  - `PUT /api/social-trading/fees/set-percentage/{wallet}?fee_percent=X` - Set fee (5-15%)
+  - `GET /api/social-trading/fees/summary/{wallet}` - Combined earned/paid summary
+  - `GET /api/social-trading/fees/earned/{wallet}` - Fees earned as a trader
+  - `GET /api/social-trading/fees/paid/{wallet}` - Fees paid as a follower
+  - `GET /api/social-trading/fees/leaderboard?period=7d|30d|all` - Top fee earners
+- **Fee Calculation Function**: `calculate_and_collect_performance_fee()` in social_trading.py
+  - Only charges fee on profitable trades (loss = no fee)
+  - Sends "fee_earned" notification to trader
+  - Updates profile and follow relationship totals
+- **Frontend UI Updates**:
+  - Trader cards show "{X}% fee" badge in leaderboard
+  - Follow modal displays fee notice with percentage before confirming
+  - Fee summary fetched and available in state (feeSummary)
+
 ## License
 MIT License - Bullpug 2025
