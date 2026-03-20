@@ -1555,3 +1555,787 @@ async def apply_backtest_improvements():
         "note": "Review these changes and apply manually to ai_trader.py for safety"
     }
 
+
+# ============== Automated Signal Tracking ==============
+
+class AutoTrackingConfig(BaseModel):
+    """Configuration for automated signal tracking"""
+    enabled: bool = True
+    track_interval_minutes: int = 60  # How often to run tracking
+    track_1h: bool = True
+    track_4h: bool = True
+    track_24h: bool = True
+
+
+@router.get("/auto-tracking/status")
+async def get_auto_tracking_status():
+    """Get the current status of automated signal tracking."""
+    
+    config = await db.auto_tracking_config.find_one(
+        {"config_type": "signal_tracking"},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Initialize default config
+        config = {
+            "config_type": "signal_tracking",
+            "enabled": True,
+            "track_interval_minutes": 60,
+            "track_1h": True,
+            "track_4h": True,
+            "track_24h": True,
+            "last_run": None,
+            "total_runs": 0,
+            "total_outcomes_tracked": 0
+        }
+        await db.auto_tracking_config.insert_one(config)
+        del config["_id"]
+    
+    # Get recent tracking history
+    recent_runs = await db.tracking_runs.find(
+        {},
+        {"_id": 0}
+    ).sort("run_at", -1).limit(10).to_list(10)
+    
+    # Get outcome stats
+    total_outcomes = await db.signal_outcomes.count_documents({})
+    outcomes_with_24h = await db.signal_outcomes.count_documents({"outcome_24h": {"$exists": True}})
+    
+    return {
+        "config": config,
+        "recent_runs": recent_runs,
+        "outcome_stats": {
+            "total_outcomes": total_outcomes,
+            "with_1h_data": await db.signal_outcomes.count_documents({"outcome_1h": {"$exists": True}}),
+            "with_4h_data": await db.signal_outcomes.count_documents({"outcome_4h": {"$exists": True}}),
+            "with_24h_data": outcomes_with_24h
+        }
+    }
+
+
+@router.put("/auto-tracking/config")
+async def update_auto_tracking_config(
+    enabled: Optional[bool] = None,
+    track_interval_minutes: Optional[int] = Query(None, ge=15, le=240),
+    track_1h: Optional[bool] = None,
+    track_4h: Optional[bool] = None,
+    track_24h: Optional[bool] = None
+):
+    """Update automated tracking configuration."""
+    
+    update_data = {}
+    if enabled is not None:
+        update_data["enabled"] = enabled
+    if track_interval_minutes is not None:
+        update_data["track_interval_minutes"] = track_interval_minutes
+    if track_1h is not None:
+        update_data["track_1h"] = track_1h
+    if track_4h is not None:
+        update_data["track_4h"] = track_4h
+    if track_24h is not None:
+        update_data["track_24h"] = track_24h
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No parameters to update")
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.auto_tracking_config.update_one(
+        {"config_type": "signal_tracking"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return await get_auto_tracking_status()
+
+
+@router.post("/auto-tracking/run")
+async def run_automated_tracking():
+    """
+    Run automated signal tracking.
+    This should be called periodically (via cron or scheduler) to:
+    1. Track prices for signals at appropriate time intervals
+    2. Calculate and store outcomes
+    3. Update outcome statistics
+    """
+    now = datetime.now(timezone.utc)
+    run_id = now.strftime("%Y%m%d_%H%M%S")
+    
+    # Get config
+    config = await db.auto_tracking_config.find_one(
+        {"config_type": "signal_tracking"},
+        {"_id": 0}
+    )
+    
+    if not config or not config.get("enabled", True):
+        return {"success": False, "message": "Auto tracking is disabled"}
+    
+    results = {
+        "run_id": run_id,
+        "run_at": now.isoformat(),
+        "signals_processed": 0,
+        "outcomes_1h": 0,
+        "outcomes_4h": 0,
+        "outcomes_24h": 0,
+        "errors": []
+    }
+    
+    # Get all signals from the past 25 hours (to catch 24h outcomes)
+    cutoff = (now - timedelta(hours=25)).isoformat()
+    
+    signals = await db.ai_trader_signals.find({
+        "created_at": {"$gte": cutoff},
+        "entry_price": {"$exists": True, "$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    
+    results["signals_processed"] = len(signals)
+    
+    for signal in signals:
+        try:
+            signal_id = signal.get("signal_id")
+            token_mint = signal.get("token_mint")
+            entry_price = signal.get("entry_price", 0)
+            signal_type = signal.get("signal_type", "buy")
+            created_at = signal.get("created_at", "")
+            
+            if not signal_id or not entry_price:
+                continue
+            
+            try:
+                signal_time = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            
+            hours_elapsed = (now - signal_time).total_seconds() / 3600
+            
+            # Get current price
+            current_price = await _get_token_price(token_mint, entry_price)
+            if not current_price or current_price <= 0:
+                continue
+            
+            # Calculate PnL
+            if signal_type == "buy":
+                pnl_percent = ((current_price - entry_price) / entry_price) * 100
+            else:
+                pnl_percent = ((entry_price - current_price) / entry_price) * 100
+            
+            # Determine outcome
+            if pnl_percent >= 2:
+                outcome = "win"
+            elif pnl_percent <= -2:
+                outcome = "loss"
+            else:
+                outcome = "neutral"
+            
+            # Update appropriate time bucket
+            update_fields = {}
+            
+            if config.get("track_1h", True) and 1 <= hours_elapsed < 2:
+                update_fields = {
+                    "price_after_1h": current_price,
+                    "pnl_1h_percent": round(pnl_percent, 2),
+                    "outcome_1h": outcome
+                }
+                results["outcomes_1h"] += 1
+            elif config.get("track_4h", True) and 4 <= hours_elapsed < 5:
+                update_fields = {
+                    "price_after_4h": current_price,
+                    "pnl_4h_percent": round(pnl_percent, 2),
+                    "outcome_4h": outcome
+                }
+                results["outcomes_4h"] += 1
+            elif config.get("track_24h", True) and 24 <= hours_elapsed < 25:
+                update_fields = {
+                    "price_after_24h": current_price,
+                    "pnl_24h_percent": round(pnl_percent, 2),
+                    "outcome_24h": outcome
+                }
+                results["outcomes_24h"] += 1
+            
+            if update_fields:
+                update_fields["last_tracked_at"] = now.isoformat()
+                
+                indicators = signal.get("technical_indicators", {})
+                
+                await db.signal_outcomes.update_one(
+                    {"signal_id": signal_id},
+                    {
+                        "$set": update_fields,
+                        "$setOnInsert": {
+                            "signal_id": signal_id,
+                            "token_symbol": signal.get("token_symbol"),
+                            "token_mint": token_mint,
+                            "signal_type": signal_type,
+                            "strategy": signal.get("strategy"),
+                            "entry_price": entry_price,
+                            "confidence": signal.get("confidence", 0),
+                            "rsi": indicators.get("rsi"),
+                            "macd_histogram": indicators.get("macd", {}).get("histogram"),
+                            "bollinger_position": indicators.get("bollinger", {}).get("position"),
+                            "short_trend": indicators.get("short_trend"),
+                            "long_trend": indicators.get("long_trend"),
+                            "created_at": created_at
+                        }
+                    },
+                    upsert=True
+                )
+                
+        except Exception as e:
+            results["errors"].append(f"{signal.get('signal_id', 'unknown')}: {str(e)}")
+    
+    # Store run record (create a copy to avoid ObjectId issues)
+    run_record = results.copy()
+    await db.tracking_runs.insert_one(run_record)
+    
+    # Update config with last run info
+    await db.auto_tracking_config.update_one(
+        {"config_type": "signal_tracking"},
+        {
+            "$set": {"last_run": now.isoformat()},
+            "$inc": {
+                "total_runs": 1,
+                "total_outcomes_tracked": results["outcomes_1h"] + results["outcomes_4h"] + results["outcomes_24h"]
+            }
+        }
+    )
+    
+    return {"success": True, "results": results}
+
+
+# ============== A/B Testing Mode ==============
+
+class ABTestConfig(BaseModel):
+    """Configuration for A/B testing different confidence thresholds"""
+    test_id: str
+    name: str
+    variants: List[Dict[str, Any]]  # Each variant has confidence threshold and settings
+    traffic_split: List[float]  # Percentage for each variant (must sum to 100)
+    status: str = "active"  # active, paused, completed
+    start_date: str
+    end_date: Optional[str] = None
+
+
+@router.post("/ab-test/create")
+async def create_ab_test(
+    name: str,
+    variant_a_confidence: float = Query(0.55, ge=0.40, le=0.80),
+    variant_b_confidence: float = Query(0.60, ge=0.40, le=0.80),
+    variant_a_strategy: Optional[str] = Query(None, regex="^(momentum|mean_reversion|breakout|combined)$"),
+    variant_b_strategy: Optional[str] = Query(None, regex="^(momentum|mean_reversion|breakout|combined)$"),
+    traffic_split_a: int = Query(50, ge=10, le=90)
+):
+    """
+    Create a new A/B test comparing two confidence threshold configurations.
+    
+    Signals will be randomly assigned to variants based on traffic split.
+    Track outcomes to determine which variant performs better.
+    """
+    
+    test_id = f"ab_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    
+    variants = [
+        {
+            "variant_id": "A",
+            "name": f"Variant A ({variant_a_confidence*100:.0f}% conf)",
+            "min_confidence": variant_a_confidence,
+            "strategy_filter": variant_a_strategy,
+            "signals_count": 0,
+            "wins": 0,
+            "losses": 0,
+            "neutrals": 0,
+            "total_pnl": 0.0
+        },
+        {
+            "variant_id": "B",
+            "name": f"Variant B ({variant_b_confidence*100:.0f}% conf)",
+            "min_confidence": variant_b_confidence,
+            "strategy_filter": variant_b_strategy,
+            "signals_count": 0,
+            "wins": 0,
+            "losses": 0,
+            "neutrals": 0,
+            "total_pnl": 0.0
+        }
+    ]
+    
+    traffic_split = [traffic_split_a, 100 - traffic_split_a]
+    
+    ab_test = {
+        "test_id": test_id,
+        "name": name,
+        "variants": variants,
+        "traffic_split": traffic_split,
+        "status": "active",
+        "start_date": datetime.now(timezone.utc).isoformat(),
+        "end_date": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Create a copy for insertion to avoid ObjectId issues
+    ab_test_copy = ab_test.copy()
+    await db.ab_tests.insert_one(ab_test_copy)
+    
+    return {
+        "success": True,
+        "test_id": test_id,
+        "test": ab_test
+    }
+
+
+@router.get("/ab-test/list")
+async def list_ab_tests(status: Optional[str] = Query(None, regex="^(active|paused|completed)$")):
+    """List all A/B tests."""
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    tests = await db.ab_tests.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    return {"tests": tests}
+
+
+@router.get("/ab-test/{test_id}")
+async def get_ab_test(test_id: str):
+    """Get details and results of a specific A/B test."""
+    
+    test = await db.ab_tests.find_one({"test_id": test_id}, {"_id": 0})
+    
+    if not test:
+        raise HTTPException(status_code=404, detail="A/B test not found")
+    
+    # Calculate win rates for each variant
+    for variant in test["variants"]:
+        total = variant["wins"] + variant["losses"] + variant["neutrals"]
+        variant["win_rate"] = round(variant["wins"] / total * 100, 1) if total > 0 else 0
+        variant["avg_pnl"] = round(variant["total_pnl"] / total, 2) if total > 0 else 0
+    
+    # Determine winner (if enough data)
+    variants = test["variants"]
+    min_signals = 20
+    
+    if all(v["signals_count"] >= min_signals for v in variants):
+        winner = max(variants, key=lambda v: (v["win_rate"], v["avg_pnl"]))
+        test["current_winner"] = winner["variant_id"]
+        test["winner_confidence"] = _calculate_statistical_significance(variants)
+    else:
+        test["current_winner"] = None
+        test["winner_confidence"] = 0
+        test["note"] = f"Need at least {min_signals} signals per variant for statistical significance"
+    
+    return test
+
+
+@router.post("/ab-test/{test_id}/record-outcome")
+async def record_ab_test_outcome(
+    test_id: str,
+    variant_id: str = Query(..., regex="^[AB]$"),
+    outcome: str = Query(..., regex="^(win|loss|neutral)$"),
+    pnl_percent: float = Query(...)
+):
+    """Record an outcome for a signal in an A/B test."""
+    
+    test = await db.ab_tests.find_one({"test_id": test_id})
+    
+    if not test:
+        raise HTTPException(status_code=404, detail="A/B test not found")
+    
+    if test["status"] != "active":
+        raise HTTPException(status_code=400, detail="A/B test is not active")
+    
+    # Find variant and update
+    variant_index = 0 if variant_id == "A" else 1
+    
+    update_path = f"variants.{variant_index}"
+    
+    inc_updates = {
+        f"{update_path}.signals_count": 1,
+        f"{update_path}.total_pnl": pnl_percent
+    }
+    
+    if outcome == "win":
+        inc_updates[f"{update_path}.wins"] = 1
+    elif outcome == "loss":
+        inc_updates[f"{update_path}.losses"] = 1
+    else:
+        inc_updates[f"{update_path}.neutrals"] = 1
+    
+    await db.ab_tests.update_one(
+        {"test_id": test_id},
+        {"$inc": inc_updates}
+    )
+    
+    return {"success": True, "variant": variant_id, "outcome": outcome}
+
+
+@router.put("/ab-test/{test_id}/status")
+async def update_ab_test_status(
+    test_id: str,
+    status: str = Query(..., regex="^(active|paused|completed)$")
+):
+    """Update the status of an A/B test."""
+    
+    update_data = {"status": status}
+    
+    if status == "completed":
+        update_data["end_date"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.ab_tests.update_one(
+        {"test_id": test_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="A/B test not found")
+    
+    return await get_ab_test(test_id)
+
+
+def _calculate_statistical_significance(variants: List[Dict]) -> float:
+    """
+    Calculate statistical significance between two variants.
+    Returns confidence level (0-100) that the difference is not due to chance.
+    """
+    import math
+    
+    if len(variants) != 2:
+        return 0
+    
+    v1, v2 = variants
+    n1 = v1["signals_count"]
+    n2 = v2["signals_count"]
+    
+    if n1 < 10 or n2 < 10:
+        return 0
+    
+    p1 = v1["wins"] / n1 if n1 > 0 else 0
+    p2 = v2["wins"] / n2 if n2 > 0 else 0
+    
+    # Pooled proportion
+    p_pooled = (v1["wins"] + v2["wins"]) / (n1 + n2)
+    
+    # Standard error
+    se = math.sqrt(p_pooled * (1 - p_pooled) * (1/n1 + 1/n2))
+    
+    if se == 0:
+        return 0
+    
+    # Z-score
+    z = abs(p1 - p2) / se
+    
+    # Convert to confidence (approximate)
+    if z >= 2.576:
+        return 99
+    elif z >= 1.96:
+        return 95
+    elif z >= 1.645:
+        return 90
+    elif z >= 1.28:
+        return 80
+    else:
+        return min(int(z * 50), 75)
+
+
+# ============== Adaptive Learning System ==============
+
+@router.get("/adaptive/current-settings")
+async def get_adaptive_settings():
+    """
+    Get current adaptive settings based on real outcome data.
+    The system learns from actual outcomes to recommend optimal thresholds.
+    """
+    
+    # Get outcome data with 24h results
+    outcomes = await db.signal_outcomes.find(
+        {"outcome_24h": {"$exists": True}},
+        {"_id": 0}
+    ).to_list(5000)
+    
+    if len(outcomes) < 20:
+        return {
+            "sufficient_data": False,
+            "outcomes_count": len(outcomes),
+            "message": f"Need at least 20 outcomes with 24h data. Currently have {len(outcomes)}.",
+            "current_settings": {
+                "min_confidence": 0.55,
+                "priority_strategy": "combined",
+                "source": "default"
+            }
+        }
+    
+    # Analyze outcomes by confidence bucket
+    confidence_performance = {}
+    strategy_performance = {}
+    indicator_patterns = {
+        "rsi_oversold_wins": 0,
+        "rsi_oversold_total": 0,
+        "rsi_overbought_wins": 0,
+        "rsi_overbought_total": 0,
+        "trend_aligned_wins": 0,
+        "trend_aligned_total": 0
+    }
+    
+    for outcome in outcomes:
+        conf = outcome.get("confidence", 0)
+        strategy = outcome.get("strategy", "unknown")
+        is_win = outcome.get("outcome_24h") == "win"
+        pnl = outcome.get("pnl_24h_percent", 0)
+        
+        # Confidence buckets
+        bucket = _get_confidence_bucket_key(conf)
+        if bucket not in confidence_performance:
+            confidence_performance[bucket] = {"wins": 0, "total": 0, "pnl_sum": 0}
+        confidence_performance[bucket]["total"] += 1
+        confidence_performance[bucket]["pnl_sum"] += pnl
+        if is_win:
+            confidence_performance[bucket]["wins"] += 1
+        
+        # Strategy performance
+        if strategy not in strategy_performance:
+            strategy_performance[strategy] = {"wins": 0, "total": 0, "pnl_sum": 0}
+        strategy_performance[strategy]["total"] += 1
+        strategy_performance[strategy]["pnl_sum"] += pnl
+        if is_win:
+            strategy_performance[strategy]["wins"] += 1
+        
+        # Indicator patterns
+        rsi = outcome.get("rsi")
+        signal_type = outcome.get("signal_type", "buy")
+        short_trend = outcome.get("short_trend")
+        long_trend = outcome.get("long_trend")
+        
+        if rsi:
+            if signal_type == "buy" and rsi < 35:
+                indicator_patterns["rsi_oversold_total"] += 1
+                if is_win:
+                    indicator_patterns["rsi_oversold_wins"] += 1
+            elif signal_type == "sell" and rsi > 65:
+                indicator_patterns["rsi_overbought_total"] += 1
+                if is_win:
+                    indicator_patterns["rsi_overbought_wins"] += 1
+        
+        if short_trend and long_trend:
+            if signal_type == "buy" and short_trend == "bullish" and long_trend == "bullish":
+                indicator_patterns["trend_aligned_total"] += 1
+                if is_win:
+                    indicator_patterns["trend_aligned_wins"] += 1
+            elif signal_type == "sell" and short_trend == "bearish" and long_trend == "bearish":
+                indicator_patterns["trend_aligned_total"] += 1
+                if is_win:
+                    indicator_patterns["trend_aligned_wins"] += 1
+    
+    # Find optimal confidence threshold (bucket with best risk-adjusted return)
+    best_bucket = None
+    best_score = -float('inf')
+    
+    for bucket, data in confidence_performance.items():
+        if data["total"] >= 5:
+            win_rate = data["wins"] / data["total"]
+            avg_pnl = data["pnl_sum"] / data["total"]
+            # Score: 60% win rate + 40% avg PnL
+            score = (win_rate * 60) + (avg_pnl * 4)
+            if score > best_score:
+                best_score = score
+                best_bucket = bucket
+    
+    # Find best strategy
+    best_strategy = None
+    best_strategy_score = -float('inf')
+    
+    for strategy, data in strategy_performance.items():
+        if data["total"] >= 5:
+            win_rate = data["wins"] / data["total"]
+            avg_pnl = data["pnl_sum"] / data["total"]
+            score = (win_rate * 60) + (avg_pnl * 4)
+            if score > best_strategy_score:
+                best_strategy_score = score
+                best_strategy = strategy
+    
+    # Extract optimal confidence from bucket
+    optimal_confidence = 0.55  # Default
+    if best_bucket:
+        try:
+            if best_bucket.endswith("+"):
+                optimal_confidence = float(best_bucket.replace("+", ""))
+            else:
+                optimal_confidence = float(best_bucket.split("-")[0])
+        except ValueError:
+            pass
+    
+    # Calculate indicator insights
+    indicator_insights = []
+    
+    if indicator_patterns["rsi_oversold_total"] >= 5:
+        rate = indicator_patterns["rsi_oversold_wins"] / indicator_patterns["rsi_oversold_total"]
+        if rate >= 0.55:
+            indicator_insights.append(f"✅ RSI oversold buy signals: {rate*100:.0f}% win rate - EFFECTIVE")
+        else:
+            indicator_insights.append(f"⚠️ RSI oversold buy signals: {rate*100:.0f}% win rate - needs improvement")
+    
+    if indicator_patterns["trend_aligned_total"] >= 5:
+        rate = indicator_patterns["trend_aligned_wins"] / indicator_patterns["trend_aligned_total"]
+        if rate >= 0.55:
+            indicator_insights.append(f"✅ Trend-aligned signals: {rate*100:.0f}% win rate - EFFECTIVE")
+        else:
+            indicator_insights.append(f"⚠️ Trend-aligned signals: {rate*100:.0f}% win rate - needs improvement")
+    
+    # Build recommended settings
+    recommended_settings = {
+        "min_confidence": optimal_confidence,
+        "priority_strategy": best_strategy or "combined",
+        "require_trend_alignment": indicator_patterns["trend_aligned_total"] >= 5 and 
+                                   (indicator_patterns["trend_aligned_wins"] / indicator_patterns["trend_aligned_total"]) >= 0.55,
+        "source": "adaptive_learning"
+    }
+    
+    # Prepare confidence breakdown for display
+    conf_breakdown = []
+    for bucket, data in sorted(confidence_performance.items()):
+        win_rate = data["wins"] / data["total"] * 100 if data["total"] > 0 else 0
+        avg_pnl = data["pnl_sum"] / data["total"] if data["total"] > 0 else 0
+        conf_breakdown.append({
+            "bucket": bucket,
+            "total": data["total"],
+            "wins": data["wins"],
+            "win_rate": round(win_rate, 1),
+            "avg_pnl": round(avg_pnl, 2)
+        })
+    
+    # Prepare strategy breakdown
+    strat_breakdown = []
+    for strategy, data in strategy_performance.items():
+        win_rate = data["wins"] / data["total"] * 100 if data["total"] > 0 else 0
+        avg_pnl = data["pnl_sum"] / data["total"] if data["total"] > 0 else 0
+        strat_breakdown.append({
+            "strategy": strategy,
+            "total": data["total"],
+            "wins": data["wins"],
+            "win_rate": round(win_rate, 1),
+            "avg_pnl": round(avg_pnl, 2)
+        })
+    
+    strat_breakdown.sort(key=lambda x: x["win_rate"], reverse=True)
+    
+    return {
+        "sufficient_data": True,
+        "outcomes_analyzed": len(outcomes),
+        "recommended_settings": recommended_settings,
+        "confidence_breakdown": conf_breakdown,
+        "strategy_breakdown": strat_breakdown,
+        "indicator_insights": indicator_insights,
+        "improvement_over_default": _calculate_improvement(confidence_performance, strategy_performance)
+    }
+
+
+@router.post("/adaptive/apply")
+async def apply_adaptive_settings():
+    """
+    Apply the adaptive learning recommendations.
+    Stores the new settings and marks them as active.
+    """
+    
+    # Get current adaptive settings
+    adaptive = await get_adaptive_settings()
+    
+    if not adaptive.get("sufficient_data"):
+        return {
+            "success": False,
+            "message": adaptive.get("message", "Insufficient data for adaptive learning")
+        }
+    
+    recommended = adaptive["recommended_settings"]
+    
+    # Store as active settings
+    settings_doc = {
+        "settings_id": datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S"),
+        "settings_type": "adaptive",
+        "min_confidence": recommended["min_confidence"],
+        "priority_strategy": recommended["priority_strategy"],
+        "require_trend_alignment": recommended.get("require_trend_alignment", False),
+        "applied_at": datetime.now(timezone.utc).isoformat(),
+        "outcomes_analyzed": adaptive["outcomes_analyzed"],
+        "expected_win_rate": _get_expected_win_rate(adaptive["confidence_breakdown"], recommended["min_confidence"]),
+        "active": True
+    }
+    
+    # Deactivate previous settings
+    await db.adaptive_settings.update_many(
+        {"active": True},
+        {"$set": {"active": False}}
+    )
+    
+    # Insert new settings
+    await db.adaptive_settings.insert_one(settings_doc)
+    
+    return {
+        "success": True,
+        "applied_settings": {
+            "min_confidence": recommended["min_confidence"],
+            "priority_strategy": recommended["priority_strategy"],
+            "require_trend_alignment": recommended.get("require_trend_alignment", False)
+        },
+        "expected_improvement": adaptive.get("improvement_over_default", {}),
+        "note": "Settings stored. Apply to StrategyEngine in ai_trader.py for production use."
+    }
+
+
+@router.get("/adaptive/history")
+async def get_adaptive_settings_history():
+    """Get history of adaptive settings changes."""
+    
+    history = await db.adaptive_settings.find(
+        {},
+        {"_id": 0}
+    ).sort("applied_at", -1).limit(20).to_list(20)
+    
+    return {"history": history}
+
+
+def _calculate_improvement(confidence_performance: Dict, strategy_performance: Dict) -> Dict:
+    """Calculate improvement of adaptive settings over default."""
+    
+    # Default settings: 0.45 confidence, all strategies
+    default_bucket = "0.45-0.50"
+    default_data = confidence_performance.get(default_bucket, {"wins": 0, "total": 0, "pnl_sum": 0})
+    
+    # Find best bucket
+    best_bucket = None
+    best_win_rate = 0
+    
+    for bucket, data in confidence_performance.items():
+        if data["total"] >= 5:
+            win_rate = data["wins"] / data["total"]
+            if win_rate > best_win_rate:
+                best_win_rate = win_rate
+                best_bucket = bucket
+    
+    default_win_rate = default_data["wins"] / default_data["total"] * 100 if default_data["total"] > 0 else 45
+    best_win_rate_pct = best_win_rate * 100
+    
+    return {
+        "default_win_rate": round(default_win_rate, 1),
+        "optimized_win_rate": round(best_win_rate_pct, 1),
+        "improvement_pct": round(best_win_rate_pct - default_win_rate, 1),
+        "best_bucket": best_bucket
+    }
+
+
+def _get_expected_win_rate(confidence_breakdown: List[Dict], min_confidence: float) -> float:
+    """Get expected win rate at a given confidence threshold."""
+    
+    for item in confidence_breakdown:
+        bucket = item["bucket"]
+        try:
+            if bucket.endswith("+"):
+                bucket_min = float(bucket.replace("+", ""))
+            else:
+                bucket_min = float(bucket.split("-")[0])
+            
+            if abs(bucket_min - min_confidence) < 0.05:
+                return item["win_rate"]
+        except ValueError:
+            continue
+    
+    return 55.0  # Default expectation
+

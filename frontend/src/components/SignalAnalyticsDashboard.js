@@ -20,6 +20,7 @@ import {
   ArrowUpRight, ArrowDownRight, Minus, Info, FlaskConical
 } from 'lucide-react';
 import StrategyBacktester from './StrategyBacktester';
+import AdaptiveLearning from './AdaptiveLearning';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -146,6 +147,7 @@ export default function SignalAnalyticsDashboard() {
           { id: 'heatmap', label: 'Token Heatmap', icon: <Target className="w-4 h-4" /> },
           { id: 'confidence', label: 'Confidence Analysis', icon: <Zap className="w-4 h-4" /> },
           { id: 'backtester', label: 'Backtester', icon: <FlaskConical className="w-4 h-4" /> },
+          { id: 'adaptive', label: 'Adaptive', icon: <Zap className="w-4 h-4" /> },
           { id: 'recommendations', label: 'Recommendations', icon: <Info className="w-4 h-4" /> }
         ].map(tab => (
           <button
@@ -369,6 +371,11 @@ export default function SignalAnalyticsDashboard() {
       {/* Backtester Tab */}
       {activeTab === 'backtester' && (
         <StrategyBacktester />
+      )}
+
+      {/* Adaptive Learning Tab */}
+      {activeTab === 'adaptive' && (
+        <AdaptiveLearning />
       )}
     </div>
   );
