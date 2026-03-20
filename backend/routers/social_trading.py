@@ -639,6 +639,7 @@ async def notify_followers_of_trade(
 ):
     """
     Notify all followers that a trade was copied from a trader they follow.
+    Sends both in-app and push notifications.
     """
     # Get trader profile for display name
     trader_profile = await db.trader_profiles.find_one(
@@ -654,6 +655,7 @@ async def notify_followers_of_trade(
         follower_wallet = copied.get("follower_wallet")
         copied_amount = copied.get("copied_amount_sol", 0)
         
+        # Send in-app notification
         await send_copy_trade_notification(
             wallet_address=follower_wallet,
             notification_type="trade_copied",
@@ -668,6 +670,19 @@ async def notify_followers_of_trade(
                 "copy_trade_id": copied.get("copy_trade_id")
             }
         )
+        
+        # Send push notification
+        try:
+            from routers.push_notifications import notify_trade_copied
+            await notify_trade_copied(
+                wallet_address=follower_wallet,
+                trader_name=trader_name,
+                token_symbol=token_symbol,
+                trade_type=trade_type.lower(),
+                amount_sol=copied_amount
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send push notification: {e}")
 
 
 async def notify_trader_of_new_follower(
@@ -676,6 +691,7 @@ async def notify_trader_of_new_follower(
 ):
     """
     Notify a trader when someone starts following them.
+    Sends both in-app and push notifications.
     """
     # Get follower count
     follower_count = await db.copy_trading_follows.count_documents({
@@ -683,6 +699,7 @@ async def notify_trader_of_new_follower(
         "active": True
     })
     
+    # Send in-app notification
     await send_copy_trade_notification(
         wallet_address=trader_wallet,
         notification_type="new_follower",
@@ -693,6 +710,16 @@ async def notify_trader_of_new_follower(
             "total_followers": follower_count
         }
     )
+    
+    # Send push notification
+    try:
+        from routers.push_notifications import notify_new_follower
+        await notify_new_follower(
+            wallet_address=trader_wallet,
+            follower_count=follower_count
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send push notification for new follower: {e}")
 
 
 async def notify_profit_milestone(
@@ -989,6 +1016,15 @@ async def calculate_and_collect_performance_fee(
                 "gross_profit_sol": gross_profit_sol,
                 "token_symbol": token_symbol
             }
+        )
+        
+        # Also send push notification
+        from routers.push_notifications import notify_fee_earned
+        await notify_fee_earned(
+            wallet_address=trader_wallet,
+            fee_amount=fee_amount,
+            token_symbol=token_symbol,
+            gross_profit=gross_profit_sol
         )
     except Exception as e:
         logger.warning(f"Failed to send fee notification: {e}")

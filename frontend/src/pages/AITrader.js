@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 import SocialTrading from "../components/SocialTrading";
+import PushNotificationManager from "../components/PushNotificationManager";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TRADING_BOT_IMAGE = "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg";
@@ -1403,6 +1404,9 @@ export default function AITrader() {
             {/* Alerts Tab */}
             {activeTab === "alerts" && (
               <div className="space-y-4" data-testid="alerts-tab">
+                {/* Push Notifications for Copy Trading */}
+                <PushNotificationManager />
+                
                 {/* Telegram Connection Banner */}
                 <div className={`rounded-xl p-4 border ${telegramLinked ? 'bg-[#0088CC]/10 border-[#0088CC]/30' : 'bg-[#0088CC]/5 border-[#0088CC]/20'}`}>
                   <div className="flex items-center justify-between flex-wrap gap-3">

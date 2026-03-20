@@ -9,26 +9,26 @@ PRODUCT REQUIREMENTS:
 -   **AI Trading Bot (Bullpug Trading Bot):** A feature allowing the AI to execute trades on behalf of the user using the Jupiter API for swaps. It includes AI-driven signals, editable quick trades, a risk calculator, and position management.
 -   **PugBurn Page:** A new Solana account reclaim service, similar to Sol-Incinerator, to help users recover SOL from empty accounts.
 -   **Custodial Wallet for True Auto-Trading:** A server-side hot wallet system to hold a small amount of user funds (e.g., up to 0.5 SOL) to enable fully automated, hands-off trading without requiring the user to sign every transaction.
+-   **Social/Copy Trading:** A system for users to follow top traders, copy their trades automatically, and receive notifications. This includes a performance fee system to reward successful traders.
+-   **Trading Competitions:** A feature to host trading competitions with leaderboards and rewards.
+-   **Push Notifications:** A system for sending browser/mobile push notifications for key events.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a React frontend and FastAPI backend. Key features include:
--   A floating Bullpug AI assistant with full conversational memory and knowledge of all application features.
--   A Bullpug Trading Bot with a  tab for UI configuration.
--   A server-side hybrid custodial wallet system for fully automated trading. The system generates per-user wallets, encrypts private keys using Fernet, and manages deposits/withdrawals.
--   An enhanced Cosmic Runner 3D game with improved graphics, visual effects, and a music system.
--   A  component integrated into the game UI.
--   A real-time price alert system and a fully integrated Telegram bot that can report on positions and auto-trading status.
--   A PugBurn page for Solana account cleanup.
--   The P2P Betting Arena page has been converted to a Coming Soon landing page.
--   The entire application is mobile-responsive.
+A full-stack application with a React frontend and FastAPI backend. Recent additions have significantly expanded its capabilities:
+-   **Trading Journal:** Now features a multi-chain wallet manager that can scan for and import trades from Solana, Ethereum, Base, and Arbitrum. Includes a Quick Import All button.
+-   **AI Trading Bot:** The auto-trading logic has been refined with advanced settings, including trailing stop-losses, position scaling, and smart signal filtering based on market conditions.
+-   **Social Trading System:** A complete copy-trading feature has been implemented. Users can view a leaderboard, follow traders, and automatically copy their trades. An advanced notification system alerts users to new followers, copied trades, and profit/loss events.
+-   **Performance Fee System:** Integrated into the social trading feature, allowing traders to earn a 5-15% performance fee on profits made by their copiers.
+-   **Cosmic Runner Game:** Graphics have been enhanced, and a persistent music system has been fixed and implemented. A CORS issue with the moon cheese collectible image has been resolved by hosting the image locally.
+-   **Game Leaderboard:** The leaderboard system is now integrated with rewards, allowing for prize eligibility and payouts.
 
 **Last working item**:
--   **Last item agent was working:** Enhancing the Cosmic Runner game graphics to be higher quality and integrating a user-provided MP3 file for background music.
--   **Status:** IN PROGRESS
+-   **Last item agent was working:** The agent was scaffolding the backend for three new major features requested by the user: Push Notifications, Trading Competitions, and Multi-chain Copy Trading. It created the initial placeholder router files for each feature.
+-   **Status:** NOT STARTED
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** frontend testing agent. The agent should be instructed to play the game and verify that the new music is playing and that the graphical objects (player, obstacles, background) are clearer and higher quality than before.
+-   **Which testing method agent to use?** both
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
@@ -45,43 +45,57 @@ Issues Detail:
     -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Complete Cosmic Runner Graphics & Music Enhancement (P0)**
+-   **Task 1: Implement Push Notifications (P0)**
+-   **Task 2: Implement Trading Competitions (P1)**
+-   **Task 3: Implement Multi-Chain Copy Trading for EVM Chains (P1)**
 
 Task Detail:
--   **Task 1: Complete Cosmic Runner Graphics & Music Enhancement (P0)**
-    -   **Where to resume:**
-        1.  The user's music file has been downloaded to .
-        2.   has been updated to reference this new music file.
-        3.  The agent needs to modify the rendering functions within  to improve the clarity and quality of the visual objects as requested by the user. This involves enhancing the drawing logic for the player, obstacles, track, and background elements.
-    -   **What will be achieved with this?** A more polished and immersive game experience with higher-quality visuals and custom music.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Frontend
+-   **Task 1: Implement Push Notifications (P0)**
+    -   **Where to resume:** The placeholder file  has been created. The next steps are to:
+        1.  Register the new router in .
+        2.  Implement the logic for subscribing, unsubscribing, and sending push notifications (likely using a library like ).
+        3.  Create the frontend UI for managing push notification subscriptions.
+    -   **What will be achieved with this?** Users will be able to receive real-time browser/mobile notifications for important events like trade alerts and copy trading activity.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on something:** None
+-   **Task 2: Implement Trading Competitions (P1)**
+    -   **Where to resume:** The placeholder file  has been created. The next steps are to:
+        1.  Register the new router in .
+        2.  Define the DB schema and implement backend logic for creating competitions, tracking participants' performance, and distributing rewards.
+        3.  Build the frontend UI to display active competitions, leaderboards, and rules.
+    -   **What will be achieved with this?** A new gamified feature to increase user engagement through competitive trading events.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on something:** None
+-   **Task 3: Implement Multi-Chain Copy Trading for EVM Chains (P1)**
+    -   **Where to resume:** The placeholder file  has been created. The next steps are to:
+        1.  Register the new router in .
+        2.  Develop the backend logic to execute copied trades on EVM chains, similar to the existing Solana implementation. This will require integrating with EVM DEXs.
+        3.  Update the frontend to support copy trading across different chains.
+    -   **What will be achieved with this?** Expands the copy trading feature beyond Solana to EVM-compatible chains.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** Both
     -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
     -   **Re-enable Plushie Sales & NFT Gallery (P2):** Build the UI and backend functionality for these pages, which are currently present in the navigation but disabled.
+    -   **Add Telegram notifications for copy trading alerts (P2):** Integrate the newly created notification system with the existing Telegram bot.
 -   **Future Tasks:**
-    -   **P2P Betting Arena (BLOCKED):** Implement the on-chain smart contract once the disk space limitation is resolved. The UI has been converted to a Coming Soon page.
-    -   **Cosmic Runner Game Integration (P2):** Develop and integrate the game into the website.
-    -   **Multi-Chain Wallet Integration for Journal (P2):** Extend the wallet connection to support multiple chains and automatically import trade history into the My Journal section.
+    -   **P2P Betting Arena (BLOCKED):** Implement the on-chain smart contract once the disk space limitation is resolved.
 
 **Completed work in this session**
--   **Hybrid Custodial Wallet:** Implemented a full server-side hot wallet system for true auto-trading, including encrypted key storage, deposit/withdrawal APIs, and frontend UI integration.
--   **AI Trading Bot UI:** Created the Auto-Trade tab in  with full configuration UI.
--   **Game Enhancements:** Significantly improved the Cosmic Runner game with enhanced graphics (parallax layers, asteroids, track lights), a music system, and a dedicated  component.
--   **Telegram Bot Commands:** Added new commands (, , ) to give users updates on their trading portfolio and auto-trade status.
--   **AI Chat Knowledge Update:** Updated the AI assistant's system prompt to be fully aware of all new features, including the auto-trade bot, custodial wallet, Telegram commands, and the Coming Soon status of the P2P Arena.
--   **P2P Arena Coming Soon Page:** Replaced the non-functional arena page with a polished Coming Soon landing page and updated all navigation links (Navbar, Footer, Homepage) to reflect this.
--   **Comprehensive Code Cleanup:** Performed a full linting pass on the entire frontend and backend codebase, fixing over 200 issues, including undefined variables and other potential bugs.
--   **Security Audit:** Ran a full security test suite, verifying protection against common vulnerabilities like XSS, CSRF, and NoSQL injection.
--   **Bug Fix - :** Fixed a runtime error in  caused by a prop name mismatch.
--   **Bug Fix - Clipboard API:** Implemented a robust fallback for the copy-to-clipboard functionality to prevent browser permission errors.
--   **Bug Fix - Telegram Webhook:** Corrected the Telegram bot's webhook URL, which was pointing to an old environment.
--   **Feature Update - Auto-Trade Settings:** Added Stop Loss and Take Profit sliders and lowered the minimum Max Position to 0.01 SOL.
+-   **Multi-Chain Wallet Integration:** The Trading Journal now has a  to scan and import trades from Solana, Ethereum, Base, and Arbitrum.
+-   **Cosmic Runner Game Fixes:** Fixed a bug preventing the background music from playing and resolved a CORS error for the moon cheese collectible by hosting the image locally.
+-   **Game Leaderboard Rewards:** Implemented a full rewards system with wallet linking and prize eligibility tracking on the  component.
+-   **Advanced Auto-Trade Refinements:** Enhanced the AI Trading Bot with trailing stop-losses, position scaling, and dynamic signal confidence tuning based on market conditions.
+-   **Social Trading System:** Created a full-featured Copy Trade system, including a  component, backend logic to follow/unfollow traders, and endpoints to view leaderboards and copied trades.
+-   **Advanced Copy Trading Notifications:** Built a comprehensive notification system ( and backend logic) for events like new followers, copied trades, profit/loss alerts, and stop-loss triggers.
+-   **Performance Fee System:** Implemented a system for traders to earn a 5-15% performance fee on profits generated by their copiers, including backend calculation and UI integration.
 
 **Earlier issues found/mentioned but not fixed**
--   None. All issues raised during this session were addressed and fixed.
+-   None.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork:** Solana Smart Contract Deployment Blocked by Disk Space
@@ -92,55 +106,63 @@ Task Detail:
 
 
 **Key Technical Concepts**
--   **Hybrid Custodial Wallet:** A server-side system where per-user Solana keypairs are generated and stored. Private keys are encrypted using the Fernet symmetric encryption scheme. This allows the backend to execute trades automatically on the user's behalf up to a pre-deposited limit.
--   **Fernet Encryption:** Used to secure the private keys of the custodial wallets at rest in the database.
--   **Dynamic AI System Prompt:** The AI assistant's core knowledge is built dynamically by injecting up-to-date information about all application features directly into the system prompt, ensuring it can answer user questions accurately.
+-   **Social/Copy Trading:** A system where users can follow top traders. When a leader executes a trade, the system automatically replicates that trade for all their followers, proportional to their configured settings.
+-   **Performance Fees:** A monetization strategy where a percentage (5-15%) of a follower's profit from a copied trade is automatically transferred to the leading trader as a reward.
+-   **Dynamic AI Confidence Tuning:** The AI signal confidence score is now adjusted based on real-time market conditions (e.g., volatility, news sentiment) to improve decision-making.
 
 **key DB schema**
--   **custodial_wallets:**  (New collection)
--   **trader_settings:**  (New auto-trade fields added)
+-   **trader_profiles:** 
+-   **copy_trading_followers:** 
+-   **copied_trades:** 
+-   **social_notifications:** 
+-   **performance_fees:** 
 
 **All files of reference**
--    (For implementing the graphics enhancements)
--    (Reference for the new music integration)
--    (Core logic for the new hot wallet system)
--    (Shows integration of custodial wallet for trade execution)
--    (Reference for the auto-trade settings and custodial wallet UI)
--    (Contains the dynamically generated system prompt for the AI assistant)
+-    (Newly created placeholder)
+-    (Newly created placeholder)
+-    (Newly created placeholder)
+-    (Core logic for copy trading and fees)
+-    (Trade execution logic)
+-    (Frontend for trading bot and social features)
+-    (UI for copy trading)
+-    (Game logic)
 
 **Areas that need refactoring**:
--   : This component continues to grow in complexity, managing state for trading, signals, positions, alerts, and custodial wallet settings. It remains a strong candidate for being broken down into smaller, more focused child components.
+-   : This component is now extremely large and complex, managing state and UI for signals, manual trading, custodial wallets, auto-trading, and social trading. It should be broken down into smaller, more manageable sub-components.
 
 **key api endpoints**
--   : Fetches custodial wallet info, including balance and deposit address.
--   : Initiates a withdrawal from the custodial wallet to the user's primary wallet.
--   : Updates auto-trade settings, now including stop-loss and take-profit.
--   : The endpoint for receiving updates from the Telegram API.
--   : The endpoint for the AI assistant, which now has updated knowledge.
+-   : Allows a trader to set their performance fee percentage.
+-   : Retrieves a summary of fees paid and earned.
+-   : Allows a user to follow a trader.
+-   : Fetches social trading notifications for a user.
+-   : Updates advanced auto-trade settings.
+-   : Scans all connected chains for trades.
 
 **Critical Info for New Agent**
--   You are resuming the task of enhancing the Cosmic Runner game. The custom music file is downloaded and integrated; your main focus should be on improving the rendering quality of game objects in  to make them clearer and higher quality.
--   The P2P Betting Arena is intentionally disabled and shows a Coming Soon page. Do not attempt to work on its functionality.
--   A full custodial wallet system has been implemented for auto-trading. The backend now has the ability to execute trades without user signatures, using funds deposited into the per-user hot wallet.
--   The AI assistant's knowledge base in  has been significantly updated. Refer to the  string in that file for an accurate list of all current features.
+-   You are starting three new, large features: Push Notifications, Trading Competitions, and Multi-Chain Copy Trading. The agent has only created the initial empty router files for these features (, , ).
+-   Your first step for each of these tasks should be to register the new routers in  and then begin implementing the backend logic and database models.
+-   The user has already confirmed the plans, so you can proceed with implementation. Prioritize Push Notifications as it's a smaller task, followed by the other two.
 
 **documents and test reports created in this job**
 -    (Updated with all completed features)
--    (AI Trading Bot UI test)
--    (Custodial Wallet backend test)
--    (Full security audit and AI chat consistency test)
+-    (Multi-chain journal & game graphics test)
+-    (Game music fix & quick import button test)
+-    (Leaderboard rewards & auto-trade refinements test)
+-    (Moon cheese fix, AI tuning, social trading test)
+-    (Copy trade integration & notifications test)
+-    (Performance fee system test)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Request:** Enhance Cosmic Runner graphics and use provided MP3 for music. **Status:** IN PROGRESS.
-2.  **Request:** Clean up all code to ensure no invalid entries. **Status:** COMPLETED.
-3.  **Request:** Perform a full end-to-end security test and check AI chat memory/knowledge. **Status:** COMPLETED.
-4.  **Request:** Update P2P Arena text to Coming Soon in the homepage ecosystem section and footer menu. **Status:** COMPLETED.
-5.  **Request:** Put the P2P Arena page into a Coming Soon state for now. **Status:** COMPLETED.
-6.  **Query:** Can the website be deployed if the P2P betting arena is disabled? **Status:** ANSWERED (Yes).
-7.  **Request:** Enhance the Telegram bot to give updates on positions and auto-trading wallet. **Status:** COMPLETED.
-8.  **Bug Report:** Telegram bot not responding. **Status:** COMPLETED (Fixed webhook URL).
-9.  **Request:** Add stop-loss and take-profit options to the Auto-Trade Bot configuration. **Status:** COMPLETED.
-10. **Request:** Allow the Max Position in Auto-Trade config to be set to a minimum of 0.01. **Status:** COMPLETED.
+1.  **Request:** Implement Push notifications, Trading competitions, Multi-chain copy trading. **Status:** IN PROGRESS (agent created placeholder files).
+2.  **Request:** Explain the performance fee system. **Status:** COMPLETED.
+3.  **Request:** Implement the performance fee system with a 5-15% range. **Status:** COMPLETED.
+4.  **Request:** Integrate  and add advanced copy trading notifications. **Status:** COMPLETED.
+5.  **Request:** Fix moon cheese CORS error, implement AI signal confidence tuning, and create social trading features. **Status:** COMPLETED.
+6.  **Request:** Implement game leaderboard rewards and refine the auto-trading mode. **Status:** COMPLETED.
+7.  **Request:** Fix the music in Cosmic Runner and add a Quick Import All button to the journal. **Status:** COMPLETED.
+8.  **User approval:**  **Status:** COMPLETED.
+9.  **User approval:**  and  **Status:** COMPLETED.
+10. **User approval:**  **Status:** COMPLETED.
 
 **Project Health Check:**
 -   **Broken:** None.
@@ -149,15 +171,15 @@ Task Detail:
 
 **3rd Party Integrations**
 -   **OpenAI GPT-4o:** Powers AI chat and analysis (uses Emergent LLM Key).
--   **Jupiter:** For DEX aggregation and trade execution.
--   **Alchemy:** As a Solana RPC provider.
--   **CoinGecko / DexScreener / CoinPaprika:** For token prices and market data.
--   **Solana / Wagmi / @solana/wallet-adapter-react:** For frontend wallet connections.
+-   **Gemini (Imagen 4.0):** Used for AI image generation (moon cheese asset).
+-   **Jupiter:** For Solana DEX aggregation and trade execution.
+-   **Alchemy:** As a Solana RPC and EVM provider.
 -   **python-telegram-bot:** For Telegram bot integration.
 -   **Cryptography (Fernet):** For encrypting custodial wallet private keys.
+-   **Wagmi / @solana/wallet-adapter-react:** For frontend wallet connections.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. Used for security audit, UI features, and backend logic, consistently passing.
+-   **Testing agent used after significant changes:** YES. The agent consistently used the testing subagent after implementing each major feature, achieving 100% pass rates across dozens of tests.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
 -   **Known regressions:** None.
@@ -168,4 +190,4 @@ Task Detail:
 -   **Custodial Wallet Encryption Key:** Available in  under .
 
 **What agent forgot to execute**
--   The agent successfully executed all user requests and bug fixes from this session. The only remaining item is the in-progress task of enhancing the game's graphics.</analysis>
+-   The agent created the placeholder files for the three new features (, , ) but did not register their routers in . This is a necessary first step before implementing any logic within them.</analysis>
