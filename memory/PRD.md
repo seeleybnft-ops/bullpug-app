@@ -861,5 +861,34 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - `signal_outcomes` - Input data for learning
   - `adaptive_settings` - History of applied settings
 
+### Unified Auto-Trade & Analytics UI (March 2026)
+- **Purpose**: Merged Signal Analytics and Auto-Trade tabs into a single unified view
+- **Component**: `UnifiedAutoTrader.js`
+- **Features**:
+  - Analytics summary metrics displayed at top (Win Rate 24h, Avg Confidence, Recommended Min, Your Setting)
+  - Auto-applies recommended settings from backtester when confidence below optimal
+  - Internal tabs: Controls & Wallet, Trade Settings, Performance, Backtester, Adaptive AI
+  - Trading wallet management integrated (deposit/withdraw)
+  - Activity log showing all auto-trade actions
+- **AITrader.js Changes**:
+  - Removed separate "analytics" tab
+  - "autotrade" tab now uses `UnifiedAutoTrader` component
+  - Tab description shows "& Analytics" to indicate merged functionality
+
+### Telegram Copy Trading Notifications (March 2026)
+- **Purpose**: Extend copy trading notifications to Telegram
+- **New Functions in telegram.py**:
+  - `send_copy_trade_alert()` - When a followed trader executes a trade
+  - `send_new_follower_alert()` - When someone starts following you
+  - `send_copy_pnl_update()` - Periodic P&L updates for copy positions
+  - `send_trader_milestone_alert()` - Follower, profit, win streak milestones
+  - `send_followed_trader_update()` - Hot streaks, big wins, new positions
+  - `send_copy_trade_executed_alert()` - On-chain execution confirmation
+  - `send_copy_trade_failed_alert()` - Failed copy trade notification
+- **Integration in social_trading.py**:
+  - `notify_followers_of_trade()` now sends Telegram alerts
+  - `notify_trader_of_new_follower()` now sends Telegram alerts
+  - Telegram notifications are non-blocking (errors logged but don't break flow)
+
 ## License
 MIT License - Bullpug 2025
