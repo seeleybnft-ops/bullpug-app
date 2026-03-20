@@ -754,9 +754,44 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Overview: Key metrics and strategy performance bars
   - Token Heatmap: Visual grid of token performance
   - Confidence Analysis: Detailed confidence distribution
+  - Backtester: Interactive strategy backtesting
   - Recommendations: Optimal settings from analytics
 - **API Integration**: Uses `/api/signal-analytics/*` endpoints
 - **Period Selection**: 7 days, 30 days, 90 days
+
+### Real-Time Signal Tracking & Backtester (March 2026)
+- **Purpose**: Track signal outcomes and optimize strategy settings
+- **Signal Tracking** (`POST /api/signal-analytics/track-prices`):
+  - Fetches current prices for signals created in last 24 hours
+  - Calculates PnL at 1h, 4h, and 24h intervals
+  - Populates `signal_outcomes` collection for performance analysis
+  - Uses DexScreener API with fallback to simulated prices
+- **Strategy Backtester** (`POST /api/signal-analytics/backtest`):
+  - Configurable parameters:
+    - `min_confidence`: 0.35-0.80 (test different thresholds)
+    - `strategy_filter`: momentum, mean_reversion, breakout, combined
+    - `time_horizon`: 1h, 4h, 24h
+    - `period_days`: 7-90 days of historical data
+    - `win_threshold_percent`: 0.5-10% profit threshold
+  - Returns comprehensive metrics:
+    - Win rate, loss rate, avg PnL
+    - Max drawdown, Sharpe ratio
+    - Breakdown by strategy and confidence bucket
+    - Actionable recommendations
+- **Optimal Settings Finder** (`GET /api/signal-analytics/backtest/optimal`):
+  - Runs multiple backtests with different configurations
+  - Finds best combination of confidence threshold and strategy
+  - Returns ranked list of top configurations with scores
+- **Applied Optimizations** (based on backtest results):
+  - `MIN_SIGNAL_CONFIDENCE`: 0.45 → 0.55 (72.5% win rate vs 45.6%)
+  - `MIN_INDIVIDUAL_CONFIDENCE`: 0.50 (filters weak individual strategies)
+  - Priority given to momentum + breakout agreement (historically best combo)
+  - Combined strategy at 0.55 conf shows 76.9% win rate, +4.1% avg PnL
+- **Frontend Component**: `StrategyBacktester.js`
+  - Interactive config panel for backtest parameters
+  - Visual results display with metrics and charts
+  - "Find Optimal" button for automated optimization
+  - Top configurations table
 
 ## License
 MIT License - Bullpug 2025
