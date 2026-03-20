@@ -1450,6 +1450,27 @@ async def add_position(
         }
         await db.ai_trader_history.insert_one(history_record)
         
+        # Trigger copy trading to followers
+        try:
+            from routers.social_trading import copy_trade_to_followers, send_copy_trade_notification
+            copied_trades = await copy_trade_to_followers(
+                trader_wallet=wallet_address,
+                trade_info={
+                    "position_id": position_id,
+                    "token_symbol": token_symbol.upper(),
+                    "token_mint": token_mint,
+                    "trade_type": "buy",
+                    "amount_sol": input_sol,
+                    "entry_price": entry_price,
+                    "stop_loss_price": None,
+                    "take_profit_price": None
+                }
+            )
+            if copied_trades:
+                logger.info(f"Copied trade to {len(copied_trades)} followers")
+        except Exception as copy_error:
+            logger.warning(f"Copy trading error (non-critical): {copy_error}")
+        
         return {
             "success": True,
             "message": "Position added",

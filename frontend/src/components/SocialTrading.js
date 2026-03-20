@@ -12,15 +12,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
-  Users, TrendingUp, TrendingDown, Crown, Medal, Star,
+  Users, TrendingUp, TrendingDown, Crown, Medal,
   UserPlus, UserMinus, Copy, Settings, ChevronDown, ChevronUp,
-  Loader2, ExternalLink, BarChart2, Percent, DollarSign,
-  Eye, EyeOff, Zap, Shield, Activity, Clock, Check
+  Loader2, BarChart2, Bell,
+  Eye, Shield, Clock, Check
 } from 'lucide-react';
+import CopyTradeNotifications from './CopyTradeNotifications';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -248,7 +248,8 @@ export default function SocialTrading({ compact = false }) {
         {[
           { id: 'leaderboard', label: 'Top Traders', icon: <BarChart2 className="w-3 h-3" /> },
           { id: 'following', label: `Following (${following.length})`, icon: <Eye className="w-3 h-3" /> },
-          { id: 'copied', label: 'Copied Trades', icon: <Copy className="w-3 h-3" /> }
+          { id: 'copied', label: 'Copied Trades', icon: <Copy className="w-3 h-3" /> },
+          { id: 'notifications', label: 'Alerts', icon: <Bell className="w-3 h-3" /> }
         ].map(tab => (
           <button
             key={tab.id}
@@ -506,6 +507,13 @@ export default function SocialTrading({ compact = false }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Notifications Tab */}
+      {activeTab === 'notifications' && (
+        <div className="p-4">
+          <CopyTradeNotifications compact={false} />
         </div>
       )}
 
