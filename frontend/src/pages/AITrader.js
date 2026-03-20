@@ -24,6 +24,7 @@ import SocialTrading from "../components/SocialTrading";
 import PushNotificationManager from "../components/PushNotificationManager";
 import SignalAnalyticsDashboard from "../components/SignalAnalyticsDashboard";
 import MultiChainCopyTrading from "../components/MultiChainCopyTrading";
+import UnifiedAutoTrader from "../components/UnifiedAutoTrader";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TRADING_BOT_IMAGE = "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg";
@@ -1060,10 +1061,9 @@ export default function AITrader() {
           {[
             { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
             { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
-            { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
+            { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null, description: "& Analytics" },
             { id: "social", label: "Copy Trade", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
             { id: "multichain", label: "Multi-Chain", icon: <Globe className="w-3 h-3 sm:w-4 sm:h-4" /> },
-            { id: "analytics", label: "Analytics", icon: <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" /> },
             { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
             { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
             { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
@@ -1382,9 +1382,9 @@ export default function AITrader() {
               </div>
             )}
             
-            {/* Auto-Trade Tab */}
+            {/* Auto-Trade Tab - Now includes Analytics */}
             {activeTab === "autotrade" && (
-              <AutoTradeTab 
+              <UnifiedAutoTrader 
                 status={autoTradeStatus}
                 logs={autoTradeLogs}
                 loading={autoTradeLoading}
@@ -1408,11 +1408,6 @@ export default function AITrader() {
             {/* Multi-Chain Copy Trading Tab */}
             {activeTab === "multichain" && (
               <MultiChainCopyTrading />
-            )}
-            
-            {/* Analytics Tab */}
-            {activeTab === "analytics" && (
-              <SignalAnalyticsDashboard />
             )}
             
             {/* Alerts Tab */}

@@ -1280,3 +1280,356 @@ async def send_price_target_alert(wallet_address: str, symbol: str, current_pric
     except Exception as e:
         logger.error(f"Send price target alert error: {e}")
         return False
+
+
+# ============================================================================
+# COPY TRADING NOTIFICATION FUNCTIONS
+# ============================================================================
+
+async def send_copy_trade_alert(wallet_address: str, alert_data: dict):
+    """Send a copy trading alert to Telegram when a followed trader executes a trade."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        trader_name = alert_data.get("trader_name", "Trader")
+        trade_type = alert_data.get("trade_type", "buy")
+        symbol = alert_data.get("symbol", "???")
+        amount = alert_data.get("amount", 0)
+        chain = alert_data.get("chain", "solana")
+        price = alert_data.get("price", 0)
+        copied = alert_data.get("copied", False)
+        copy_amount = alert_data.get("copy_amount", 0)
+        
+        trade_emoji = "🟢" if trade_type == "buy" else "🔴"
+        chain_emoji = {"solana": "◎", "ethereum": "Ξ", "base": "🔵", "arbitrum": "🔷"}.get(chain, "•")
+        
+        if copied:
+            status = f"✅ <b>Copied:</b> {copy_amount:.4f} {chain.upper()}"
+        else:
+            status = "⚠️ <i>Auto-copy disabled for this chain</i>"
+        
+        msg = f"""
+{trade_emoji} <b>Copy Trade Alert</b>
+
+<b>{trader_name}</b> {trade_type.upper()}ed <b>{symbol}</b>
+
+{chain_emoji} Chain: {chain.capitalize()}
+💰 Amount: {amount:.4f}
+📊 Price: ${price:.8f}
+
+{status}
+
+<i>Manage copy settings in Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send copy trade alert error: {e}")
+        return False
+
+
+async def send_new_follower_alert(wallet_address: str, alert_data: dict):
+    """Notify a trader when someone starts following them."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        follower_name = alert_data.get("follower_name", "Someone")
+        follower_count = alert_data.get("follower_count", 0)
+        chains_enabled = alert_data.get("chains_enabled", ["solana"])
+        
+        chains_text = ", ".join([c.capitalize() for c in chains_enabled])
+        
+        msg = f"""
+👥 <b>New Follower!</b>
+
+<b>{follower_name}</b> is now copying your trades!
+
+📊 Chains: {chains_text}
+👥 Total Followers: {follower_count}
+
+<i>Your trades on these chains will be copied automatically.</i>
+
+💰 <b>Tip:</b> You earn fees when your followers profit from copying your trades!
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send new follower alert error: {e}")
+        return False
+
+
+async def send_copy_pnl_update(wallet_address: str, alert_data: dict):
+    """Send periodic P&L updates for copy trading positions."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        trader_name = alert_data.get("trader_name", "Trader")
+        total_pnl = alert_data.get("total_pnl", 0)
+        total_pnl_percent = alert_data.get("total_pnl_percent", 0)
+        trade_count = alert_data.get("trade_count", 0)
+        win_count = alert_data.get("win_count", 0)
+        period = alert_data.get("period", "24h")
+        
+        win_rate = (win_count / trade_count * 100) if trade_count > 0 else 0
+        pnl_emoji = "🟢" if total_pnl >= 0 else "🔴"
+        
+        msg = f"""
+📊 <b>Copy Trading Update ({period})</b>
+
+Copying <b>{trader_name}</b>
+
+{pnl_emoji} P&L: <code>{total_pnl:+.4f} SOL ({total_pnl_percent:+.1f}%)</code>
+
+📈 Trades: {trade_count}
+🎯 Win Rate: {win_rate:.0f}%
+
+<i>Keep tracking in the Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send copy PnL update error: {e}")
+        return False
+
+
+async def send_trader_milestone_alert(wallet_address: str, alert_data: dict):
+    """Notify traders when they hit milestones (followers, profit, etc.)."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        milestone_type = alert_data.get("milestone_type", "followers")
+        milestone_value = alert_data.get("milestone_value", 0)
+        
+        if milestone_type == "followers":
+            emoji = "🎉"
+            title = "Follower Milestone!"
+            description = f"You now have <b>{milestone_value} followers</b> copying your trades!"
+        elif milestone_type == "profit":
+            emoji = "💰"
+            title = "Profit Milestone!"
+            description = f"Your followers have earned a total of <b>{milestone_value:.2f} SOL</b> from your trades!"
+        elif milestone_type == "win_streak":
+            emoji = "🔥"
+            title = "Win Streak!"
+            description = f"You're on a <b>{milestone_value}-trade winning streak</b>!"
+        elif milestone_type == "trades":
+            emoji = "📈"
+            title = "Trade Milestone!"
+            description = f"You've executed <b>{milestone_value} successful trades</b>!"
+        else:
+            emoji = "🏆"
+            title = "Achievement Unlocked!"
+            description = f"Milestone reached: {milestone_value}"
+        
+        msg = f"""
+{emoji} <b>{title}</b>
+
+{description}
+
+Keep up the great trading! 🚀
+
+<i>Share your success on Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send trader milestone alert error: {e}")
+        return False
+
+
+async def send_followed_trader_update(wallet_address: str, alert_data: dict):
+    """Notify followers when a trader they follow has significant activity."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        trader_name = alert_data.get("trader_name", "Trader")
+        update_type = alert_data.get("update_type", "activity")
+        details = alert_data.get("details", "")
+        
+        if update_type == "hot_streak":
+            emoji = "🔥"
+            title = "Trader Hot Streak!"
+            message = f"<b>{trader_name}</b> is on fire with multiple winning trades!"
+        elif update_type == "big_win":
+            emoji = "💎"
+            title = "Big Win Alert!"
+            message = f"<b>{trader_name}</b> just scored a major win!"
+        elif update_type == "new_position":
+            emoji = "📢"
+            title = "New Position Alert!"
+            message = f"<b>{trader_name}</b> opened a new position!"
+        elif update_type == "settings_changed":
+            emoji = "⚙️"
+            title = "Trader Update"
+            message = f"<b>{trader_name}</b> updated their trading settings."
+        else:
+            emoji = "📊"
+            title = "Trader Activity"
+            message = f"Update from <b>{trader_name}</b>"
+        
+        msg = f"""
+{emoji} <b>{title}</b>
+
+{message}
+
+{details}
+
+<i>View details in Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send followed trader update error: {e}")
+        return False
+
+
+async def send_copy_trade_executed_alert(wallet_address: str, alert_data: dict):
+    """Send alert when a copy trade is actually executed on-chain."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        trader_name = alert_data.get("trader_name", "Trader")
+        trade_type = alert_data.get("trade_type", "buy")
+        symbol = alert_data.get("symbol", "???")
+        amount_native = alert_data.get("amount_native", 0)
+        chain = alert_data.get("chain", "solana")
+        tx_hash = alert_data.get("tx_hash", "")
+        entry_price = alert_data.get("entry_price", 0)
+        
+        trade_emoji = "🟢" if trade_type == "buy" else "🔴"
+        chain_symbols = {"solana": "SOL", "ethereum": "ETH", "base": "ETH", "arbitrum": "ETH"}
+        chain_symbol = chain_symbols.get(chain, "???")
+        
+        explorer_urls = {
+            "solana": f"https://solscan.io/tx/{tx_hash}",
+            "ethereum": f"https://etherscan.io/tx/{tx_hash}",
+            "base": f"https://basescan.org/tx/{tx_hash}",
+            "arbitrum": f"https://arbiscan.io/tx/{tx_hash}"
+        }
+        explorer_url = explorer_urls.get(chain, "#")
+        
+        msg = f"""
+{trade_emoji} <b>Copy Trade Executed!</b>
+
+Copied <b>{trader_name}</b>'s {trade_type}
+
+🪙 Token: <b>{symbol}</b>
+💰 Amount: {amount_native:.4f} {chain_symbol}
+📊 Entry: ${entry_price:.8f}
+🔗 Chain: {chain.capitalize()}
+
+<a href="{explorer_url}">🔍 View Transaction</a>
+
+<i>Position tracked in Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send copy trade executed alert error: {e}")
+        return False
+
+
+async def send_copy_trade_failed_alert(wallet_address: str, alert_data: dict):
+    """Send alert when a copy trade fails to execute."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+        
+        if not account:
+            return False
+        
+        chat_id = account.get("chat_id")
+        if not chat_id:
+            return False
+        
+        trader_name = alert_data.get("trader_name", "Trader")
+        symbol = alert_data.get("symbol", "???")
+        chain = alert_data.get("chain", "solana")
+        reason = alert_data.get("reason", "Unknown error")
+        
+        msg = f"""
+⚠️ <b>Copy Trade Failed</b>
+
+Failed to copy <b>{trader_name}</b>'s trade
+
+🪙 Token: <b>{symbol}</b>
+🔗 Chain: {chain.capitalize()}
+
+❌ Reason: {reason}
+
+<i>Check your wallet balance and settings in Bullpug Trading Bot</i>
+"""
+        
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send copy trade failed alert error: {e}")
+        return False

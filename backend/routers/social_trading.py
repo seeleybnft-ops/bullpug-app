@@ -639,7 +639,7 @@ async def notify_followers_of_trade(
 ):
     """
     Notify all followers that a trade was copied from a trader they follow.
-    Sends both in-app and push notifications.
+    Sends in-app, push, and Telegram notifications.
     """
     # Get trader profile for display name
     trader_profile = await db.trader_profiles.find_one(
@@ -683,6 +683,25 @@ async def notify_followers_of_trade(
             )
         except Exception as e:
             logger.warning(f"Failed to send push notification: {e}")
+        
+        # Send Telegram notification
+        try:
+            from routers.telegram import send_copy_trade_alert
+            await send_copy_trade_alert(
+                wallet_address=follower_wallet,
+                alert_data={
+                    "trader_name": trader_name,
+                    "trade_type": trade_type.lower(),
+                    "symbol": token_symbol,
+                    "amount": copied_amount,
+                    "chain": trade_info.get("chain", "solana"),
+                    "price": trade_info.get("price", 0),
+                    "copied": True,
+                    "copy_amount": copied_amount
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send Telegram notification: {e}")
 
 
 async def notify_trader_of_new_follower(
@@ -691,13 +710,20 @@ async def notify_trader_of_new_follower(
 ):
     """
     Notify a trader when someone starts following them.
-    Sends both in-app and push notifications.
+    Sends in-app, push, and Telegram notifications.
     """
     # Get follower count
     follower_count = await db.copy_trading_follows.count_documents({
         "trader_wallet": trader_wallet,
         "active": True
     })
+    
+    # Get follower's display name if available
+    follower_profile = await db.trader_profiles.find_one(
+        {"wallet_address": follower_wallet},
+        {"_id": 0, "display_name": 1}
+    )
+    follower_name = follower_profile.get("display_name", f"Trader_{follower_wallet[:6]}") if follower_profile else f"Trader_{follower_wallet[:6]}"
     
     # Send in-app notification
     await send_copy_trade_notification(
@@ -720,6 +746,31 @@ async def notify_trader_of_new_follower(
         )
     except Exception as e:
         logger.warning(f"Failed to send push notification for new follower: {e}")
+    
+    # Send Telegram notification
+    try:
+        from routers.telegram import send_new_follower_alert
+        
+        # Get which chains the follower enabled
+        follow_doc = await db.copy_trading_follows.find_one({
+            "follower_wallet": follower_wallet,
+            "trader_wallet": trader_wallet,
+            "active": True
+        })
+        chains_enabled = ["solana"]  # Default
+        if follow_doc and follow_doc.get("chain_settings"):
+            chains_enabled = [s["chain"] for s in follow_doc["chain_settings"] if s.get("enabled")]
+        
+        await send_new_follower_alert(
+            wallet_address=trader_wallet,
+            alert_data={
+                "follower_name": follower_name,
+                "follower_count": follower_count,
+                "chains_enabled": chains_enabled
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send Telegram notification for new follower: {e}")
 
 
 async def notify_profit_milestone(
