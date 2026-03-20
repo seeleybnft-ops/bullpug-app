@@ -793,5 +793,73 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - "Find Optimal" button for automated optimization
   - Top configurations table
 
+### Automated Signal Tracking System (March 2026)
+- **Purpose**: Build real outcome data over time by tracking signal price changes
+- **Configuration Endpoints**:
+  - `GET /api/signal-analytics/auto-tracking/status` - Get tracking config and stats
+  - `PUT /api/signal-analytics/auto-tracking/config` - Update tracking settings
+  - `POST /api/signal-analytics/auto-tracking/run` - Execute tracking cycle
+- **Configuration Options**:
+  - `enabled` - Toggle automated tracking on/off
+  - `track_interval_minutes` - How often to run (15-240 minutes)
+  - `track_1h`, `track_4h`, `track_24h` - Enable/disable time intervals
+- **How It Works**:
+  - Fetches signals from last 25 hours
+  - Gets current prices (DexScreener API with simulation fallback)
+  - Calculates PnL based on signal type (buy/sell)
+  - Stores outcomes at appropriate time intervals (1h, 4h, 24h)
+  - Populates `signal_outcomes` collection for adaptive learning
+- **Database Collections**:
+  - `auto_tracking_config` - Tracking configuration
+  - `tracking_runs` - History of tracking runs
+  - `signal_outcomes` - Tracked outcomes with PnL data
+
+### A/B Testing Mode (March 2026)
+- **Purpose**: Run different confidence thresholds in parallel to validate backtest predictions
+- **Endpoints**:
+  - `POST /api/signal-analytics/ab-test/create` - Create new A/B test
+  - `GET /api/signal-analytics/ab-test/list` - List all tests (filter by status)
+  - `GET /api/signal-analytics/ab-test/{test_id}` - Get test details with win rates
+  - `POST /api/signal-analytics/ab-test/{test_id}/record-outcome` - Record signal outcome
+  - `PUT /api/signal-analytics/ab-test/{test_id}/status` - Update test status
+- **Configuration**:
+  - Two variants (A and B) with different confidence thresholds
+  - Optional strategy filters per variant
+  - Traffic split percentage (10-90%)
+  - Status: active, paused, completed
+- **Metrics Tracked Per Variant**:
+  - Total signals, wins, losses, neutrals
+  - Win rate (calculated)
+  - Total PnL and average PnL
+  - Statistical significance of winner (0-99% confidence)
+- **Database Collection**: `ab_tests`
+
+### Adaptive Learning System (March 2026)
+- **Purpose**: Continuously improve win rate using real outcome data
+- **Endpoints**:
+  - `GET /api/signal-analytics/adaptive/current-settings` - Get recommended settings
+  - `POST /api/signal-analytics/adaptive/apply` - Apply learned settings
+  - `GET /api/signal-analytics/adaptive/history` - View settings history
+- **What It Analyzes**:
+  - Win rate by confidence bucket (0.40-0.45, 0.45-0.50, etc.)
+  - Win rate by strategy (momentum, combined, mean_reversion)
+  - Indicator patterns (RSI oversold/overbought, trend alignment)
+- **Recommendations Generated**:
+  - Optimal minimum confidence threshold
+  - Best performing strategy
+  - Whether to require trend alignment
+  - Expected improvement over default settings
+- **Current Learned Insights** (from 50 outcomes):
+  - Combined strategy: **75% win rate**, +8.14% avg PnL (BEST)
+  - High confidence (0.65+): **100% win rate** (small sample)
+  - 0.60-0.65 confidence: **66.7% win rate**, +8.75% avg PnL
+- **Frontend Component**: `AdaptiveLearning.js`
+  - Learning tab with confidence/strategy breakdowns
+  - Tracking tab showing outcome stats
+  - A/B Testing tab for creating and monitoring tests
+- **Database Collections**:
+  - `signal_outcomes` - Input data for learning
+  - `adaptive_settings` - History of applied settings
+
 ## License
 MIT License - Bullpug 2025
