@@ -45,7 +45,9 @@ export default function SocialTrading({ compact = false }) {
   const [myProfile, setMyProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [followingWallet, setFollowingWallet] = useState(null);
+  const [followingTraderFee, setFollowingTraderFee] = useState(10);
   const [showFollowModal, setShowFollowModal] = useState(false);
+  const [feeSummary, setFeeSummary] = useState(null);
   const [followSettings, setFollowSettings] = useState({
     copy_percentage: 50,
     max_position_sol: 0.1,
@@ -106,6 +108,17 @@ export default function SocialTrading({ compact = false }) {
     }
   }, [walletAddress]);
 
+  // Fetch fee summary
+  const fetchFeeSummary = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const { data } = await axios.get(`${API}/social-trading/fees/summary/${walletAddress}`);
+      setFeeSummary(data);
+    } catch (e) {
+      console.error('Failed to fetch fee summary:', e);
+    }
+  }, [walletAddress]);
+
   // Initial fetch
   useEffect(() => {
     const fetchAll = async () => {
@@ -115,12 +128,13 @@ export default function SocialTrading({ compact = false }) {
         fetchFollowing(),
         fetchFollowers(),
         fetchMyProfile(),
-        fetchCopiedTrades()
+        fetchCopiedTrades(),
+        fetchFeeSummary()
       ]);
       setLoading(false);
     };
     fetchAll();
-  }, [fetchLeaderboard, fetchFollowing, fetchFollowers, fetchMyProfile, fetchCopiedTrades]);
+  }, [fetchLeaderboard, fetchFollowing, fetchFollowers, fetchMyProfile, fetchCopiedTrades, fetchFeeSummary]);
 
   // Refetch leaderboard when period changes
   useEffect(() => {
@@ -337,6 +351,11 @@ export default function SocialTrading({ compact = false }) {
                         {trader.followers_count} followers
                       </span>
                       <span>Best: {formatPercent(trader.best_trade_percent)}</span>
+                      {trader.performance_fee_percent > 0 && (
+                        <span className="text-[#D946EF]">
+                          {trader.performance_fee_percent}% fee
+                        </span>
+                      )}
                     </div>
                     
                     {connected && trader.wallet_address !== walletAddress && (
@@ -356,6 +375,7 @@ export default function SocialTrading({ compact = false }) {
                             size="sm"
                             onClick={() => {
                               setFollowingWallet(trader.wallet_address);
+                              setFollowingTraderFee(trader.performance_fee_percent || 10);
                               setShowFollowModal(true);
                             }}
                             className="h-7 text-[10px] bg-[#D946EF] hover:bg-[#D946EF]/80"
@@ -522,6 +542,17 @@ export default function SocialTrading({ compact = false }) {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="glass-card rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-bold text-white mb-4">Follow Trader</h3>
+            
+            {/* Performance Fee Notice */}
+            <div className="mb-4 p-3 rounded-lg bg-[#D946EF]/10 border border-[#D946EF]/30">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300">Performance Fee</span>
+                <span className="text-sm font-bold text-[#D946EF]">{followingTraderFee}%</span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">
+                You'll pay {followingTraderFee}% of profits on winning copied trades
+              </p>
+            </div>
             
             <div className="space-y-4">
               <div>

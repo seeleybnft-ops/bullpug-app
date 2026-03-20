@@ -34,7 +34,22 @@ class TraderProfile(BaseModel):
     copy_trading_enabled: bool = False  # Allow others to copy
     min_copy_amount_sol: float = Field(default=0.05, ge=0.01, le=1.0)
     max_copiers: int = Field(default=100, ge=1, le=1000)
-    performance_fee_percent: float = Field(default=0, ge=0, le=30)  # Future: fee on profits
+    performance_fee_percent: float = Field(default=10.0, ge=5.0, le=15.0)  # 5-15% fee on follower profits
+    total_fees_earned_sol: float = 0.0  # Track total fees earned
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class PerformanceFeeRecord(BaseModel):
+    """Record of a performance fee payment"""
+    fee_id: str
+    trader_wallet: str
+    follower_wallet: str
+    copy_trade_id: str
+    token_symbol: str
+    gross_profit_sol: float
+    fee_percent: float
+    fee_amount_sol: float
+    net_profit_sol: float  # Follower's profit after fee
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -209,7 +224,7 @@ async def get_trader_leaderboard(
         # Get profile info
         profile = await db.trader_profiles.find_one(
             {"wallet_address": trader["_id"]},
-            {"_id": 0, "display_name": 1, "copy_trading_enabled": 1, "profile_visible": 1}
+            {"_id": 0, "display_name": 1, "copy_trading_enabled": 1, "profile_visible": 1, "performance_fee_percent": 1, "total_fees_earned_sol": 1}
         )
         
         # Skip if profile is not visible
@@ -227,6 +242,8 @@ async def get_trader_leaderboard(
             "wallet_address": trader["_id"],
             "display_name": profile.get("display_name", f"Trader_{trader['_id'][:6]}") if profile else f"Trader_{trader['_id'][:6]}",
             "copy_trading_enabled": profile.get("copy_trading_enabled", False) if profile else False,
+            "performance_fee_percent": profile.get("performance_fee_percent", 10.0) if profile else 10.0,
+            "total_fees_earned_sol": round(profile.get("total_fees_earned_sol", 0), 4) if profile else 0,
             "total_trades": trader["total_trades"],
             "winning_trades": trader["winning_trades"],
             "win_rate": round(trader["win_rate"], 1),
@@ -887,3 +904,292 @@ async def update_notification_settings(
     
     # Return updated settings
     return await get_notification_settings(wallet_address)
+
+
+# ============== Performance Fee System ==============
+
+async def calculate_and_collect_performance_fee(
+    copy_trade_id: str,
+    follower_wallet: str,
+    trader_wallet: str,
+    token_symbol: str,
+    gross_profit_sol: float
+) -> Optional[Dict[str, Any]]:
+    """
+    Calculate and record performance fee when a copied trade closes with profit.
+    Returns fee record if fee was collected, None if no fee (loss or disabled).
+    """
+    # Only charge fee on profitable trades
+    if gross_profit_sol <= 0:
+        return None
+    
+    # Get trader's fee percentage
+    trader_profile = await db.trader_profiles.find_one(
+        {"wallet_address": trader_wallet},
+        {"_id": 0, "performance_fee_percent": 1}
+    )
+    
+    fee_percent = trader_profile.get("performance_fee_percent", 10.0) if trader_profile else 10.0
+    
+    # Ensure fee is within valid range (5-15%)
+    fee_percent = max(5.0, min(15.0, fee_percent))
+    
+    # Calculate fee
+    fee_amount = gross_profit_sol * (fee_percent / 100)
+    net_profit = gross_profit_sol - fee_amount
+    
+    # Create fee record
+    fee_id = str(uuid.uuid4())[:8]
+    fee_record = {
+        "fee_id": fee_id,
+        "trader_wallet": trader_wallet,
+        "follower_wallet": follower_wallet,
+        "copy_trade_id": copy_trade_id,
+        "token_symbol": token_symbol,
+        "gross_profit_sol": round(gross_profit_sol, 6),
+        "fee_percent": fee_percent,
+        "fee_amount_sol": round(fee_amount, 6),
+        "net_profit_sol": round(net_profit, 6),
+        "status": "collected",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Store fee record
+    await db.performance_fees.insert_one(fee_record)
+    
+    # Update trader's total fees earned
+    await db.trader_profiles.update_one(
+        {"wallet_address": trader_wallet},
+        {
+            "$inc": {"total_fees_earned_sol": fee_amount},
+            "$set": {"last_fee_earned_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    # Update copy trading follow relationship with fee paid
+    await db.copy_trading_follows.update_one(
+        {
+            "follower_wallet": follower_wallet,
+            "trader_wallet": trader_wallet,
+            "active": True
+        },
+        {"$inc": {"total_fees_paid_sol": fee_amount}}
+    )
+    
+    # Send notification to trader about fee earned
+    try:
+        await send_copy_trade_notification(
+            wallet_address=trader_wallet,
+            notification_type="fee_earned",
+            title="Performance Fee Earned! 💰",
+            message=f"You earned {fee_amount:.4f} SOL ({fee_percent}% of {gross_profit_sol:.4f} SOL profit) from a follower's {token_symbol} trade.",
+            data={
+                "fee_id": fee_id,
+                "fee_amount_sol": fee_amount,
+                "gross_profit_sol": gross_profit_sol,
+                "token_symbol": token_symbol
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send fee notification: {e}")
+    
+    logger.info(f"Performance fee collected: {fee_amount:.6f} SOL ({fee_percent}%) from {follower_wallet[:8]}... to {trader_wallet[:8]}...")
+    
+    return fee_record
+
+
+@router.get("/fees/earned/{wallet_address}")
+async def get_fees_earned(
+    wallet_address: str,
+    limit: int = Query(50, ge=1, le=200)
+):
+    """Get performance fees earned by a trader from their followers' profits."""
+    fees = await db.performance_fees.find(
+        {"trader_wallet": wallet_address},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Calculate totals
+    total_earned = sum(f.get("fee_amount_sol", 0) for f in fees)
+    
+    # Get all-time total from profile
+    profile = await db.trader_profiles.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0, "total_fees_earned_sol": 1}
+    )
+    all_time_total = profile.get("total_fees_earned_sol", 0) if profile else 0
+    
+    return {
+        "fees": fees,
+        "count": len(fees),
+        "total_in_period": round(total_earned, 6),
+        "all_time_total": round(all_time_total, 6)
+    }
+
+
+@router.get("/fees/paid/{wallet_address}")
+async def get_fees_paid(
+    wallet_address: str,
+    limit: int = Query(50, ge=1, le=200)
+):
+    """Get performance fees paid by a follower to traders they copy."""
+    fees = await db.performance_fees.find(
+        {"follower_wallet": wallet_address},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Calculate totals
+    total_paid = sum(f.get("fee_amount_sol", 0) for f in fees)
+    
+    # Group by trader
+    fees_by_trader = {}
+    for fee in fees:
+        trader = fee.get("trader_wallet", "unknown")
+        if trader not in fees_by_trader:
+            fees_by_trader[trader] = 0
+        fees_by_trader[trader] += fee.get("fee_amount_sol", 0)
+    
+    return {
+        "fees": fees,
+        "count": len(fees),
+        "total_paid": round(total_paid, 6),
+        "fees_by_trader": {k: round(v, 6) for k, v in fees_by_trader.items()}
+    }
+
+
+@router.get("/fees/summary/{wallet_address}")
+async def get_fee_summary(wallet_address: str):
+    """Get combined fee summary for a wallet (both earned and paid)."""
+    # Fees earned as a trader
+    earned_pipeline = [
+        {"$match": {"trader_wallet": wallet_address}},
+        {"$group": {
+            "_id": None,
+            "total_earned": {"$sum": "$fee_amount_sol"},
+            "total_trades": {"$sum": 1}
+        }}
+    ]
+    earned_result = await db.performance_fees.aggregate(earned_pipeline).to_list(1)
+    
+    # Fees paid as a follower
+    paid_pipeline = [
+        {"$match": {"follower_wallet": wallet_address}},
+        {"$group": {
+            "_id": None,
+            "total_paid": {"$sum": "$fee_amount_sol"},
+            "total_trades": {"$sum": 1}
+        }}
+    ]
+    paid_result = await db.performance_fees.aggregate(paid_pipeline).to_list(1)
+    
+    # Get profile fee percentage
+    profile = await db.trader_profiles.find_one(
+        {"wallet_address": wallet_address},
+        {"_id": 0, "performance_fee_percent": 1, "copy_trading_enabled": 1}
+    )
+    
+    earned_data = earned_result[0] if earned_result else {"total_earned": 0, "total_trades": 0}
+    paid_data = paid_result[0] if paid_result else {"total_paid": 0, "total_trades": 0}
+    
+    return {
+        "wallet_address": wallet_address,
+        "as_trader": {
+            "total_fees_earned_sol": round(earned_data.get("total_earned", 0), 6),
+            "trades_with_fees": earned_data.get("total_trades", 0),
+            "current_fee_percent": profile.get("performance_fee_percent", 10.0) if profile else 10.0,
+            "copy_trading_enabled": profile.get("copy_trading_enabled", False) if profile else False
+        },
+        "as_follower": {
+            "total_fees_paid_sol": round(paid_data.get("total_paid", 0), 6),
+            "trades_with_fees": paid_data.get("total_trades", 0)
+        },
+        "net_position_sol": round(earned_data.get("total_earned", 0) - paid_data.get("total_paid", 0), 6)
+    }
+
+
+@router.put("/fees/set-percentage/{wallet_address}")
+async def set_performance_fee_percentage(
+    wallet_address: str,
+    fee_percent: float = Query(..., ge=5.0, le=15.0, description="Performance fee percentage (5-15%)")
+):
+    """Set the performance fee percentage for a trader (5-15% range)."""
+    await db.trader_profiles.update_one(
+        {"wallet_address": wallet_address},
+        {
+            "$set": {
+                "performance_fee_percent": fee_percent,
+                "fee_updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            "$setOnInsert": {
+                "wallet_address": wallet_address,
+                "display_name": f"Trader_{wallet_address[:6]}",
+                "profile_visible": True,
+                "copy_trading_enabled": False,
+                "total_fees_earned_sol": 0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    return {
+        "success": True,
+        "wallet_address": wallet_address,
+        "performance_fee_percent": fee_percent,
+        "message": f"Performance fee set to {fee_percent}%"
+    }
+
+
+@router.get("/fees/leaderboard")
+async def get_top_fee_earners(
+    period: str = Query("30d", regex="^(7d|30d|all)$"),
+    limit: int = Query(10, ge=1, le=50)
+):
+    """Get top traders by fees earned."""
+    # Calculate period start
+    now = datetime.now(timezone.utc)
+    if period == "7d":
+        period_start = now - timedelta(days=7)
+    elif period == "30d":
+        period_start = now - timedelta(days=30)
+    else:
+        period_start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    
+    period_start_str = period_start.isoformat()
+    
+    pipeline = [
+        {"$match": {"created_at": {"$gte": period_start_str}}},
+        {"$group": {
+            "_id": "$trader_wallet",
+            "total_earned": {"$sum": "$fee_amount_sol"},
+            "total_trades": {"$sum": 1},
+            "avg_fee_per_trade": {"$avg": "$fee_amount_sol"}
+        }},
+        {"$sort": {"total_earned": -1}},
+        {"$limit": limit}
+    ]
+    
+    results = await db.performance_fees.aggregate(pipeline).to_list(limit)
+    
+    leaderboard = []
+    for i, trader in enumerate(results):
+        # Get profile info
+        profile = await db.trader_profiles.find_one(
+            {"wallet_address": trader["_id"]},
+            {"_id": 0, "display_name": 1, "performance_fee_percent": 1}
+        )
+        
+        leaderboard.append({
+            "rank": i + 1,
+            "wallet_address": trader["_id"],
+            "display_name": profile.get("display_name", f"Trader_{trader['_id'][:6]}") if profile else f"Trader_{trader['_id'][:6]}",
+            "fee_percent": profile.get("performance_fee_percent", 10.0) if profile else 10.0,
+            "total_earned_sol": round(trader["total_earned"], 4),
+            "total_trades": trader["total_trades"],
+            "avg_fee_per_trade": round(trader["avg_fee_per_trade"], 6)
+        })
+    
+    return {
+        "period": period,
+        "leaderboard": leaderboard
+    }
