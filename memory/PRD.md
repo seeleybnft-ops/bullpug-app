@@ -698,5 +698,65 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - 15% weight: buy/sell balance
   - 15% weight: confidence consistency
 
+### Multi-Chain Copy Trading (March 2026)
+- **Purpose**: Extend copy trading to EVM chains (Ethereum, Base, Arbitrum)
+- **Supported Chains**:
+  - Solana (SOL) - Primary chain
+  - Ethereum (ETH) - Chain ID 1
+  - Base (ETH) - Chain ID 8453
+  - Arbitrum (ETH) - Chain ID 42161
+- **Wallet Linking**:
+  - Link Solana and EVM wallets to single user identity
+  - User ID format: `user_{address[:8]}`
+  - Prevents duplicate wallet linking
+- **Chain-Specific Copy Settings**:
+  - `enabled` - Toggle copying for each chain
+  - `copy_percentage` - 10-100% of trader's position
+  - `max_position_native` - 0.01-10 in chain's native token
+  - `auto_copy` - Automatic vs manual copy
+- **Backend Endpoints** (`/api/multichain-copy/`):
+  - `GET /supported-chains` - List all supported chains
+  - `POST /wallets/link` - Link Solana + EVM wallets
+  - `GET /wallets/{address}` - Get linked wallets by any address
+  - `POST /follow` - Follow trader with multi-chain settings
+  - `GET /following/{user_id}` - Get traders being followed
+  - `PUT /chain-settings` - Update per-chain copy settings
+  - `GET /leaderboard` - Unified leaderboard (filter by chain/period)
+  - `GET /copied-trades/{user_id}` - Copied trades grouped by chain
+  - `GET /stats/{user_id}` - Multi-chain stats and PnL
+- **Frontend Component**: `MultiChainCopyTrading.js`
+  - Wallet linking UI
+  - Per-chain toggle switches
+  - Unified leaderboard view
+  - Copied trades table by chain
+- **Database Collections**:
+  - `multichain_wallets` - Linked wallets across chains
+  - `multichain_follows` - Multi-chain follow relationships
+  - `multichain_copied_trades` - Trades copied across chains
+
+### Signal Analytics Dashboard (March 2026)
+- **Purpose**: Visualize trading bot signal performance
+- **Frontend Component**: `SignalAnalyticsDashboard.js`
+- **Visualizations**:
+  1. **Token Performance Heatmap**
+     - Grid of tokens colored by average confidence
+     - Shows signal count and buy/sell ratio per token
+     - Color scale: red (<45%) → amber (50%) → green (>65%)
+  2. **Confidence vs Approval Rate**
+     - Bar chart showing approval rates by confidence bucket
+     - Buckets: 0.35-0.40, 0.40-0.45, 0.45-0.50, 0.50-0.55, etc.
+     - Helps identify optimal confidence thresholds
+  3. **Strategy Quality Scores**
+     - Ranked list of strategies by quality score (0-100)
+     - Shows total signals, approval rate, buy/sell ratio
+     - Recommendation for best strategy to prioritize
+- **Tabs**:
+  - Overview: Key metrics and strategy performance bars
+  - Token Heatmap: Visual grid of token performance
+  - Confidence Analysis: Detailed confidence distribution
+  - Recommendations: Optimal settings from analytics
+- **API Integration**: Uses `/api/signal-analytics/*` endpoints
+- **Period Selection**: 7 days, 30 days, 90 days
+
 ## License
 MIT License - Bullpug 2025
