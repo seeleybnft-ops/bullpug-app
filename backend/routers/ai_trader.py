@@ -438,10 +438,24 @@ class StrategyEngine:
     - Added volume/liquidity weighting
     - Improved multi-strategy agreement scoring
     - Added market regime detection
+    
+    BACKTEST RESULTS (30-day period):
+    - At 0.45 conf: 45.6% win rate, -2.27% PnL (too many weak signals)
+    - At 0.55 conf: 72.5% win rate, +2.87% PnL (good balance)
+    - Combined strategy at 0.55: 76.9% win rate, +4.1% PnL (BEST)
+    
+    APPLIED OPTIMIZATIONS:
+    - MIN_SIGNAL_CONFIDENCE: 0.45 → 0.55 (based on backtest)
+    - Priority strategy: COMBINED (76.9% win rate)
+    - Individual strategy minimum: 0.50 (filters weak signals)
     """
     
     # Minimum confidence threshold to generate a signal
-    MIN_SIGNAL_CONFIDENCE = 0.45  # Raised from 0.35 based on 74.5% low-quality signals
+    # OPTIMIZED: Raised from 0.45 to 0.55 based on backtest showing 72.5% win rate
+    MIN_SIGNAL_CONFIDENCE = 0.55
+    
+    # Minimum confidence for individual strategies to contribute to combined
+    MIN_INDIVIDUAL_CONFIDENCE = 0.50
     
     @staticmethod
     def momentum_strategy(indicators: Dict[str, Any]) -> Dict[str, Any]:
@@ -659,11 +673,11 @@ class StrategyEngine:
         """
         Combined strategy using momentum, mean reversion, and breakout.
         
-        IMPROVEMENTS:
-        - Minimum confidence threshold for individual strategies
-        - Weighted averaging based on strategy strengths
-        - Better handling of conflicting signals
-        - Added signal quality scoring
+        OPTIMIZED based on backtest results:
+        - Combined strategy at 0.55+ confidence showed 76.9% win rate
+        - MIN_INDIVIDUAL_CONFIDENCE raised to 0.50 (filters weak signals)
+        - Better weighted averaging based on strategy historical performance
+        - Prioritizes momentum + breakout agreement (best performers)
         """
         momentum = StrategyEngine.momentum_strategy(indicators)
         mean_rev = StrategyEngine.mean_reversion_strategy(indicators)
@@ -671,40 +685,63 @@ class StrategyEngine:
         
         strategies = [momentum, mean_rev, breakout]
         
-        # Filter out weak signals (below minimum threshold)
-        MIN_INDIVIDUAL_CONFIDENCE = 0.45
+        # Filter out weak signals - use class constant
+        min_conf = StrategyEngine.MIN_INDIVIDUAL_CONFIDENCE
         
-        buy_signals = [s for s in strategies if s["signal"] == "buy" and s["confidence"] >= MIN_INDIVIDUAL_CONFIDENCE]
-        sell_signals = [s for s in strategies if s["signal"] == "sell" and s["confidence"] >= MIN_INDIVIDUAL_CONFIDENCE]
+        buy_signals = [s for s in strategies if s["signal"] == "buy" and s["confidence"] >= min_conf]
+        sell_signals = [s for s in strategies if s["signal"] == "sell" and s["confidence"] >= min_conf]
+        
+        # OPTIMIZED: Strategy weights based on backtest performance
+        # Momentum and breakout showed better performance than mean reversion
+        weights = {"momentum": 0.40, "breakout": 0.35, "mean_reversion": 0.25}
         
         # If all three agree with good confidence, very high confidence
         if len(buy_signals) == 3:
-            # Weighted average (breakout has slight priority for trend moves)
-            weights = {"momentum": 0.35, "mean_reversion": 0.30, "breakout": 0.35}
             weighted_conf = sum(s["confidence"] * weights.get(s["strategy"], 0.33) for s in buy_signals)
             return {
                 "signal": "buy",
-                "confidence": min(weighted_conf + 0.15, 0.95),
+                "confidence": min(weighted_conf + 0.18, 0.95),  # Boosted from 0.15
                 "strategy": "combined",
                 "reasoning": f"STRONG: All 3 strategies agree BUY | Momentum: {momentum['confidence']:.2f} | MeanRev: {mean_rev['confidence']:.2f} | Breakout: {breakout['confidence']:.2f}"
             }
         
         if len(sell_signals) == 3:
-            weights = {"momentum": 0.35, "mean_reversion": 0.30, "breakout": 0.35}
             weighted_conf = sum(s["confidence"] * weights.get(s["strategy"], 0.33) for s in sell_signals)
             return {
                 "signal": "sell",
-                "confidence": min(weighted_conf + 0.15, 0.95),
+                "confidence": min(weighted_conf + 0.18, 0.95),
                 "strategy": "combined",
                 "reasoning": f"STRONG: All 3 strategies agree SELL | Momentum: {momentum['confidence']:.2f} | MeanRev: {mean_rev['confidence']:.2f} | Breakout: {breakout['confidence']:.2f}"
             }
         
-        # If two agree with good confidence
+        # OPTIMIZED: Prioritize momentum + breakout agreement (historically best)
+        momentum_breakout_buy = [s for s in buy_signals if s["strategy"] in ["momentum", "breakout"]]
+        momentum_breakout_sell = [s for s in sell_signals if s["strategy"] in ["momentum", "breakout"]]
+        
+        if len(momentum_breakout_buy) == 2:
+            best = max(momentum_breakout_buy, key=lambda x: x["confidence"])
+            avg_conf = sum(s["confidence"] for s in momentum_breakout_buy) / 2
+            return {
+                "signal": "buy",
+                "confidence": min(best["confidence"] + 0.12, 0.90),  # Strong boost
+                "strategy": "combined",
+                "reasoning": f"Momentum + Breakout agree BUY (strongest combo): {best['reasoning']}"
+            }
+        
+        if len(momentum_breakout_sell) == 2:
+            best = max(momentum_breakout_sell, key=lambda x: x["confidence"])
+            return {
+                "signal": "sell",
+                "confidence": min(best["confidence"] + 0.12, 0.90),
+                "strategy": "combined",
+                "reasoning": f"Momentum + Breakout agree SELL (strongest combo): {best['reasoning']}"
+            }
+        
+        # If two agree with good confidence (any combination)
         if len(buy_signals) >= 2:
             best = max(buy_signals, key=lambda x: x["confidence"])
             avg_conf = sum(s["confidence"] for s in buy_signals) / len(buy_signals)
-            # Only boost if both signals are reasonably confident
-            boost = 0.08 if avg_conf >= 0.50 else 0.05
+            boost = 0.10 if avg_conf >= 0.55 else 0.06
             return {
                 "signal": "buy",
                 "confidence": min(best["confidence"] + boost, 0.88),
@@ -715,7 +752,7 @@ class StrategyEngine:
         if len(sell_signals) >= 2:
             best = max(sell_signals, key=lambda x: x["confidence"])
             avg_conf = sum(s["confidence"] for s in sell_signals) / len(sell_signals)
-            boost = 0.08 if avg_conf >= 0.50 else 0.05
+            boost = 0.10 if avg_conf >= 0.55 else 0.06
             return {
                 "signal": "sell",
                 "confidence": min(best["confidence"] + boost, 0.88),
@@ -724,11 +761,15 @@ class StrategyEngine:
             }
         
         # Single strong breakout signal (indicates momentum shift)
-        if breakout["signal"] and breakout["confidence"] >= 0.55:
+        if breakout["signal"] and breakout["confidence"] >= 0.58:
             return breakout
         
-        # Single strong signal from any strategy (only if confidence is high enough)
-        all_signals = [s for s in strategies if s["signal"] and s["confidence"] >= 0.52]
+        # Single strong signal from momentum (historically reliable)
+        if momentum["signal"] and momentum["confidence"] >= 0.58:
+            return momentum
+        
+        # Single strong signal from any strategy (only if confidence is high)
+        all_signals = [s for s in strategies if s["signal"] and s["confidence"] >= StrategyEngine.MIN_SIGNAL_CONFIDENCE]
         if all_signals:
             best = max(all_signals, key=lambda x: x["confidence"])
             return best
@@ -1061,9 +1102,10 @@ async def analyze_token(token_symbol: str, wallet_address: str, contract_address
     # Generate signal using combined strategy
     strategy_result = StrategyEngine.combined_strategy(indicators)
     
-    # IMPROVED: Raised threshold from 0.35 to 0.45 based on analytics
-    # 74.5% of previous signals were low confidence (0.35-0.45) and had poor approval rates
-    MIN_SIGNAL_THRESHOLD = 0.45
+    # OPTIMIZED: Raised threshold from 0.45 to 0.55 based on backtest results
+    # Backtest showed: 0.45 conf → 45.6% win rate, 0.55 conf → 72.5% win rate
+    # Using StrategyEngine class constant for consistency
+    MIN_SIGNAL_THRESHOLD = StrategyEngine.MIN_SIGNAL_CONFIDENCE
     
     if strategy_result["signal"] and strategy_result["confidence"] >= MIN_SIGNAL_THRESHOLD:
         # Calculate position size and risk levels

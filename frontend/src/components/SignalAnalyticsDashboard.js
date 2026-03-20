@@ -5,6 +5,7 @@
  * - Token-level performance heatmap
  * - Win rate trends over time
  * - Confidence vs approval rate visualization
+ * - Strategy backtester
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,8 +17,9 @@ import axios from 'axios';
 import {
   BarChart3, TrendingUp, TrendingDown, Target, Activity, Zap,
   RefreshCw, ChevronDown, ChevronUp, Loader2, AlertCircle,
-  ArrowUpRight, ArrowDownRight, Minus, Info
+  ArrowUpRight, ArrowDownRight, Minus, Info, FlaskConical
 } from 'lucide-react';
+import StrategyBacktester from './StrategyBacktester';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -138,11 +140,12 @@ export default function SignalAnalyticsDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-white/10 pb-2">
+      <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
         {[
           { id: 'overview', label: 'Overview', icon: <Activity className="w-4 h-4" /> },
           { id: 'heatmap', label: 'Token Heatmap', icon: <Target className="w-4 h-4" /> },
           { id: 'confidence', label: 'Confidence Analysis', icon: <Zap className="w-4 h-4" /> },
+          { id: 'backtester', label: 'Backtester', icon: <FlaskConical className="w-4 h-4" /> },
           { id: 'recommendations', label: 'Recommendations', icon: <Info className="w-4 h-4" /> }
         ].map(tab => (
           <button
@@ -361,6 +364,11 @@ export default function SignalAnalyticsDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Backtester Tab */}
+      {activeTab === 'backtester' && (
+        <StrategyBacktester />
       )}
     </div>
   );
