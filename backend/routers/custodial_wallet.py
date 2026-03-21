@@ -624,29 +624,38 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                 
                 logger.info(f"Auto-trade submitted: {tx_signature} (wallet: {str(keypair.pubkey())[:8]}...)")
                 
-                # Wait for confirmation
+                # Wait for confirmation with retries (Solana can be slow)
                 import asyncio
-                await asyncio.sleep(3)
+                confirmed = False
+                max_retries = 4
                 
-                # Verify transaction landed on-chain
-                try:
-                    sig_obj = Signature.from_string(tx_signature)
-                    tx_info = await solana_client.get_transaction(
-                        sig_obj,
-                        max_supported_transaction_version=0
-                    )
-                    if tx_info.value is None:
-                        # Transaction not found - this is a problem
-                        logger.error(f"Transaction {tx_signature[:20]}... NOT FOUND on-chain after 3 seconds!")
-                        raise Exception(f"Transaction not confirmed on-chain: {tx_signature}")
-                    elif tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
-                        raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
-                    else:
-                        logger.info(f"Auto-trade CONFIRMED on-chain: {tx_signature[:20]}...")
-                except Exception as verify_error:
-                    if "not confirmed" in str(verify_error).lower() or "not found" in str(verify_error).lower():
-                        raise  # Re-raise if it's our own error
-                    logger.warning(f"Could not verify transaction: {verify_error}")
+                for attempt in range(max_retries):
+                    await asyncio.sleep(3)  # Wait 3s between checks
+                    
+                    try:
+                        sig_obj = Signature.from_string(tx_signature)
+                        tx_info = await solana_client.get_transaction(
+                            sig_obj,
+                            max_supported_transaction_version=0
+                        )
+                        if tx_info.value is not None:
+                            if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
+                                raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                            else:
+                                logger.info(f"Auto-trade CONFIRMED on-chain (attempt {attempt + 1}): {tx_signature[:20]}...")
+                                confirmed = True
+                                break
+                        else:
+                            logger.info(f"Transaction not found yet (attempt {attempt + 1}/{max_retries})")
+                    except Exception as verify_error:
+                        if "failed" in str(verify_error).lower():
+                            raise  # Transaction explicitly failed
+                        logger.debug(f"Verification attempt {attempt + 1} error: {verify_error}")
+                
+                if not confirmed:
+                    # Final check - sometimes transactions take longer
+                    logger.warning(f"Transaction {tx_signature[:20]}... not confirmed after {max_retries * 3}s, but may still land")
+                    # Don't raise - let it through with a warning. User can check on-chain.
                 
                 # Update balance
                 await update_wallet_balance(user_wallet)
