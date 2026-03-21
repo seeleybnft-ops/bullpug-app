@@ -3243,48 +3243,60 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             execution_error = f"Execution failed: {str(exec_error)}"
                             logger.error(f"Auto-trade execution error: {exec_error}")
                         
-                        # Save position regardless of execution success
-                        position_doc["executed_on_chain"] = execution_success
-                        position_doc["execution_error"] = execution_error
-                        
-                        await db.ai_trader_positions.insert_one(position_doc)
-                        
-                        # Log the auto-trade
-                        log_doc = {
-                            "log_id": str(uuid.uuid4())[:8],
-                            "wallet_address": wallet_address,
-                            "token_symbol": symbol,
-                            "token_mint": token_mint,
-                            "action": "auto_buy",
-                            "amount_sol": position_sol,
-                            "entry_price": current_price,
-                            "confidence": trade_confidence,
-                            "strategy": combined["strategy"],
-                            "reason": trade_reason,
-                            "success": True,
-                            "executed_on_chain": execution_success,
-                            "tx_signature": tx_signature,
-                            "execution_error": execution_error,
-                            "position_id": position_id,
-                            "created_at": datetime.now(timezone.utc).isoformat()
-                        }
-                        
-                        await db.auto_trade_logs.insert_one(log_doc)
-                        
-                        executed_trades.append({
-                            "symbol": symbol,
-                            "action": "buy",
-                            "amount_sol": position_sol,
-                            "entry_price": current_price,
-                            "confidence": trade_confidence,
-                            "reason": trade_reason,
-                            "executed_on_chain": execution_success,
-                            "tx_signature": tx_signature
-                        })
-                        
-                        # Only execute one trade per scan in conservative mode
-                        if mode == "conservative":
-                            break
+                        # ONLY save position and log if execution was successful
+                        if execution_success:
+                            position_doc["executed_on_chain"] = True
+                            position_doc["execution_error"] = None
+                            
+                            await db.ai_trader_positions.insert_one(position_doc)
+                            
+                            # Log the successful auto-trade
+                            log_doc = {
+                                "log_id": str(uuid.uuid4())[:8],
+                                "wallet_address": wallet_address,
+                                "token_symbol": symbol,
+                                "token_mint": token_mint,
+                                "action": "auto_buy",
+                                "amount_sol": position_sol,
+                                "entry_price": current_price,
+                                "confidence": trade_confidence,
+                                "strategy": combined["strategy"],
+                                "reason": trade_reason,
+                                "success": True,
+                                "executed_on_chain": True,
+                                "tx_signature": tx_signature,
+                                "execution_error": None,
+                                "position_id": position_id,
+                                "created_at": datetime.now(timezone.utc).isoformat()
+                            }
+                            
+                            await db.auto_trade_logs.insert_one(log_doc)
+                            
+                            executed_trades.append({
+                                "symbol": symbol,
+                                "action": "buy",
+                                "amount_sol": position_sol,
+                                "entry_price": current_price,
+                                "confidence": trade_confidence,
+                                "reason": trade_reason,
+                                "executed_on_chain": True,
+                                "tx_signature": tx_signature
+                            })
+                            
+                            logger.info(f"Position saved: {symbol} @ {current_price} - TX: {tx_signature}")
+                            
+                            # Only execute one trade per scan in conservative mode
+                            if mode == "conservative":
+                                break
+                        else:
+                            # Log as skipped, not as a trade
+                            skipped.append({
+                                "symbol": symbol,
+                                "reason": execution_error or "On-chain execution failed",
+                                "confidence": trade_confidence,
+                                "would_have_traded": True
+                            })
+                            logger.warning(f"Trade skipped (execution failed): {symbol} - {execution_error}")
                     else:
                         # Log skipped - now based on combined strategy
                         if combined["signal"] != "buy":
@@ -3401,66 +3413,118 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             position_id = str(uuid.uuid4())[:8]
                             execution_id = f"runner_{str(uuid.uuid4())[:6]}"
                             
-                            position_doc = {
-                                "position_id": position_id,
-                                "execution_id": execution_id,
-                                "wallet_address": wallet_address,
-                                "token_symbol": symbol,
-                                "token_mint": token_mint,
-                                "amount_sol": position_sol,
-                                "entry_price": current_price,
-                                "stop_loss_price": current_price * 0.80,  # 20% stop loss for runners
-                                "take_profit_price": current_price * 2.0,  # 100% take profit for runners
-                                "trade_type": "buy",
-                                "status": "open",
-                                "auto_trade": True,
-                                "is_runner": True,
-                                "runner_score": runner_score,
-                                "confidence": trade_confidence,
-                                "strategy": "runner_momentum",
-                                "created_at": datetime.now(timezone.utc).isoformat()
-                            }
+                            # Try to execute via custodial wallet
+                            tx_signature = None
+                            execution_success = False
+                            execution_error = None
                             
-                            await db.ai_trader_positions.insert_one(position_doc)
+                            try:
+                                from routers.custodial_wallet import get_wallet_balance, execute_auto_trade
+                                
+                                custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+                                
+                                if custodial_wallet:
+                                    custodial_balance = await get_wallet_balance(custodial_wallet["custodial_address"])
+                                    required_lamports = int(position_sol * LAMPORTS_PER_SOL)
+                                    
+                                    if custodial_balance >= required_lamports + 50000:
+                                        logger.info(f"Executing runner trade via custodial wallet: {position_sol} SOL for {symbol}")
+                                        
+                                        trade_result = await execute_auto_trade(
+                                            user_wallet=wallet_address,
+                                            input_mint=SOL_MINT,
+                                            output_mint=token_mint,
+                                            amount_lamports=required_lamports
+                                        )
+                                        
+                                        if trade_result.get("success"):
+                                            tx_signature = trade_result.get("tx_signature")
+                                            execution_success = True
+                                            logger.info(f"Runner trade executed successfully: {tx_signature}")
+                                    else:
+                                        execution_error = f"Insufficient custodial balance: {custodial_balance/LAMPORTS_PER_SOL:.4f} SOL"
+                                else:
+                                    execution_error = "No custodial wallet"
+                                    
+                            except Exception as exec_error:
+                                execution_error = f"Runner execution failed: {str(exec_error)}"
+                                logger.error(f"Runner trade execution error: {exec_error}")
                             
-                            # Log the trade
-                            log_doc = {
-                                "log_id": str(uuid.uuid4()),
-                                "wallet_address": wallet_address,
-                                "token_symbol": symbol,
-                                "token_mint": token_mint,
-                                "action": "auto_buy_runner",
-                                "amount_sol": position_sol,
-                                "entry_price": current_price,
-                                "confidence": trade_confidence,
-                                "runner_score": runner_score,
-                                "buy_ratio": buy_ratio,
-                                "strategy": "runner_momentum",
-                                "reason": trade_reason,
-                                "success": True,
-                                "executed_on_chain": False,  # Will need custodial execution
-                                "position_id": position_id,
-                                "created_at": datetime.now(timezone.utc).isoformat()
-                            }
-                            
-                            await db.auto_trade_logs.insert_one(log_doc)
-                            
-                            executed_trades.append({
-                                "symbol": f"{symbol} (RUNNER)",
-                                "action": "buy",
-                                "amount_sol": position_sol,
-                                "entry_price": current_price,
-                                "confidence": trade_confidence,
-                                "runner_score": runner_score,
-                                "reason": trade_reason,
-                                "is_runner": True
-                            })
-                            
-                            logger.info(f"Runner trade executed: {symbol} @ {current_price} with score {runner_score}")
-                            
-                            # Limit runner trades
-                            if len([t for t in executed_trades if t.get("is_runner")]) >= 2:
-                                break
+                            # ONLY save position if execution was successful
+                            if execution_success:
+                                position_doc = {
+                                    "position_id": position_id,
+                                    "execution_id": execution_id,
+                                    "wallet_address": wallet_address,
+                                    "token_symbol": symbol,
+                                    "token_mint": token_mint,
+                                    "amount_sol": position_sol,
+                                    "entry_price": current_price,
+                                    "stop_loss_price": current_price * 0.80,
+                                    "take_profit_price": current_price * 2.0,
+                                    "trade_type": "buy",
+                                    "status": "open",
+                                    "auto_trade": True,
+                                    "is_runner": True,
+                                    "runner_score": runner_score,
+                                    "confidence": trade_confidence,
+                                    "strategy": "runner_momentum",
+                                    "executed_on_chain": True,
+                                    "tx_signature": tx_signature,
+                                    "created_at": datetime.now(timezone.utc).isoformat()
+                                }
+                                
+                                await db.ai_trader_positions.insert_one(position_doc)
+                                
+                                # Log the successful trade
+                                log_doc = {
+                                    "log_id": str(uuid.uuid4()),
+                                    "wallet_address": wallet_address,
+                                    "token_symbol": symbol,
+                                    "token_mint": token_mint,
+                                    "action": "auto_buy_runner",
+                                    "amount_sol": position_sol,
+                                    "entry_price": current_price,
+                                    "confidence": trade_confidence,
+                                    "runner_score": runner_score,
+                                    "buy_ratio": buy_ratio,
+                                    "strategy": "runner_momentum",
+                                    "reason": trade_reason,
+                                    "success": True,
+                                    "executed_on_chain": True,
+                                    "tx_signature": tx_signature,
+                                    "position_id": position_id,
+                                    "created_at": datetime.now(timezone.utc).isoformat()
+                                }
+                                
+                                await db.auto_trade_logs.insert_one(log_doc)
+                                
+                                executed_trades.append({
+                                    "symbol": f"{symbol} (RUNNER)",
+                                    "action": "buy",
+                                    "amount_sol": position_sol,
+                                    "entry_price": current_price,
+                                    "confidence": trade_confidence,
+                                    "runner_score": runner_score,
+                                    "reason": trade_reason,
+                                    "is_runner": True,
+                                    "executed_on_chain": True,
+                                    "tx_signature": tx_signature
+                                })
+                                
+                                logger.info(f"Runner position saved: {symbol} @ {current_price} - TX: {tx_signature}")
+                                
+                                # Limit runner trades
+                                if len([t for t in executed_trades if t.get("is_runner")]) >= 2:
+                                    break
+                            else:
+                                skipped.append({
+                                    "symbol": f"{symbol} (RUNNER)",
+                                    "reason": execution_error or "On-chain execution failed",
+                                    "confidence": trade_confidence,
+                                    "runner_score": runner_score,
+                                    "would_have_traded": True
+                                })
                         else:
                             skipped.append({
                                 "symbol": f"{symbol} (RUNNER)",
