@@ -952,5 +952,22 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **New Custodial Wallet**: `B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC`
 - **Status**: Decryption working correctly, trades skip due to 0 SOL balance (expected)
 
+### P0 Jupiter Swap SignatureFailure Fix (March 2026)
+- **Issue**: Jupiter swap transactions failing preflight simulation with `SignatureFailure` error
+- **Root Cause**: Incorrect signing method - using `sign_message() + populate()` instead of proper VersionedTransaction signing
+- **Solution**: Changed to `VersionedTransaction(unsigned_tx.message, [keypair])` constructor which correctly signs the transaction
+- **Location**: `/app/backend/routers/custodial_wallet.py` lines 762-770
+- **Verification**: 
+  - Simulation test passed with new signing method
+  - Trades now executing on-chain (wallet balance decreased from 0.05 to 0.0136 SOL)
+  - 3 positions (RNDR, PYTH, JUP) confirmed with `executed_on_chain: true`
+
+### P1 Positions Tab Visibility Fix (March 2026)
+- **Issue**: User reported Positions tab "disappeared" - was hidden far right requiring horizontal scroll
+- **Solution**: Reordered tabs to place Positions as 2nd tab (after Signals)
+- **New Tab Order**: Signals → Positions → Runners → Tokens → Auto-Trade → Copy → Multi-Chain → Alerts → History
+- **Added**: Visual scroll indicator (gradient fade) for mobile users
+- **Location**: `/app/frontend/src/pages/AITrader.js` lines 1077-1120
+
 ## License
 MIT License - Bullpug 2025
