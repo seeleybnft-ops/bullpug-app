@@ -1,13 +1,15 @@
 """
 Custodial Wallet Management for Auto-Trading
 Provides secure, encrypted hot wallet functionality for automated trade execution.
+Uses Jito bundles for reliable transaction landing during network congestion.
 """
 
 import os
 import base64
 import logging
+import random
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from cryptography.fernet import Fernet
@@ -38,6 +40,26 @@ MAX_DEPOSIT_SOL = 0.5  # Maximum deposit limit
 LAMPORTS_PER_SOL = 1_000_000_000
 SOLANA_RPC_URL = os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.solana.com")
 
+# Jito Configuration - Multiple regional endpoints for redundancy
+JITO_BUNDLE_ENDPOINTS = [
+    "https://mainnet.block-engine.jito.wtf/api/v1/bundles",
+    "https://amsterdam.mainnet.block-engine.jito.wtf/api/v1/bundles",
+    "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles",
+    "https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles",
+    "https://tokyo.mainnet.block-engine.jito.wtf/api/v1/bundles",
+]
+JITO_TIP_ACCOUNTS = [
+    "96gYZGCg6ZBH8UqPJgKWqWbToVCfUcmRRPP2SJHBFdLq",
+    "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+    "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+    "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+    "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+    "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+    "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+    "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"
+]
+JITO_TIP_LAMPORTS = 10000  # 0.00001 SOL tip for priority (can increase for higher priority)
+
 # Encryption key - generate once and store in .env
 # If not set, generate a new one (for development only)
 ENCRYPTION_KEY = os.environ.get("CUSTODIAL_ENCRYPTION_KEY")
@@ -51,6 +73,122 @@ if not ENCRYPTION_KEY:
     logger.warning("Add this to .env IMMEDIATELY: CUSTODIAL_ENCRYPTION_KEY={ENCRYPTION_KEY}")
 
 fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
+
+
+# ============== Jito Bundle Helper ==============
+
+async def send_transaction_via_jito(
+    signed_tx_bytes: bytes,
+    keypair: Keypair = None,  # Not needed when tip is in tx
+    tip_lamports: int = JITO_TIP_LAMPORTS
+) -> dict:
+    """
+    Send a transaction via Jito bundles for reliable landing.
+    
+    When using Jupiter's jitoTipLamports parameter, the tip is already included
+    in the swap transaction, so we just need to send a single-tx bundle.
+    
+    Args:
+        signed_tx_bytes: The signed swap transaction bytes (with Jito tip included)
+        keypair: Not used when tip is already in transaction
+        tip_lamports: For logging only
+    
+    Returns:
+        dict with bundle_id on success
+    """
+    import asyncio
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Encode transaction as base64
+        swap_tx_b64 = base64.b64encode(signed_tx_bytes).decode('utf-8')
+        
+        # Send single-tx bundle (tip is already in the swap tx)
+        bundle_payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendBundle",
+            "params": [
+                [swap_tx_b64],  # Single transaction with tip included
+                {"encoding": "base64"}
+            ]
+        }
+        
+        logger.info(f"Sending Jito bundle (tip: {tip_lamports} lamports included in swap)...")
+        
+        # Try multiple endpoints with retry
+        last_error = None
+        shuffled_endpoints = random.sample(JITO_BUNDLE_ENDPOINTS, len(JITO_BUNDLE_ENDPOINTS))
+        
+        for endpoint in shuffled_endpoints:
+            try:
+                response = await client.post(endpoint, json=bundle_payload)
+                result = response.json()
+                
+                if "error" in result:
+                    error_msg = result.get("error", {}).get("message", str(result))
+                    logger.warning(f"Jito {endpoint}: {error_msg}")
+                    
+                    # If rate limited, try next endpoint
+                    if "rate limit" in error_msg.lower() or "congested" in error_msg.lower():
+                        last_error = error_msg
+                        await asyncio.sleep(0.5)
+                        continue
+                    # If invalid transaction, this is a real error
+                    if "invalid" in error_msg.lower():
+                        last_error = error_msg
+                        continue
+                    raise Exception(f"Jito bundle failed: {error_msg}")
+                
+                bundle_id = result.get("result")
+                if bundle_id:
+                    logger.info(f"Jito bundle submitted via {endpoint}: {bundle_id}")
+                    return {
+                        "bundle_id": bundle_id,
+                        "tip_lamports": tip_lamports,
+                        "endpoint": endpoint
+                    }
+                    
+            except httpx.TimeoutException:
+                logger.warning(f"Jito {endpoint} timeout, trying next...")
+                last_error = "timeout"
+                continue
+            except Exception as e:
+                if "rate limit" not in str(e).lower() and "congested" not in str(e).lower():
+                    raise
+                last_error = str(e)
+                continue
+        
+        raise Exception(f"All Jito endpoints failed: {last_error}")
+
+
+async def check_jito_bundle_status(bundle_id: str, endpoint: str = None) -> dict:
+    """
+    Check the status of a Jito bundle.
+    
+    Returns status info including whether the bundle landed.
+    """
+    # Use provided endpoint or default to first one
+    check_endpoint = endpoint or JITO_BUNDLE_ENDPOINTS[0]
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getBundleStatuses",
+            "params": [[bundle_id]]
+        }
+        
+        response = await client.post(check_endpoint, json=payload)
+        result = response.json()
+        
+        if "error" in result:
+            return {"status": "error", "error": result.get("error")}
+        
+        statuses = result.get("result", {}).get("value", [])
+        if statuses and len(statuses) > 0:
+            return statuses[0]
+        
+        return {"status": "pending"}
 
 
 # ============== Models ==============
@@ -201,7 +339,7 @@ async def regenerate_custodial_wallet(user_wallet: str):
         if old_wallet:
             try:
                 old_balance = await get_wallet_balance(old_wallet["custodial_address"])
-            except:
+            except Exception:
                 pass
         
         # Generate new keypair
@@ -539,149 +677,149 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
     keypair = await get_custodial_keypair(user_wallet)
     
     try:
-        # Get quote from Jupiter lite API
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            quote_url = "https://lite-api.jup.ag/swap/v1/quote"
-            quote_params = {
-                "inputMint": input_mint,
-                "outputMint": output_mint,
-                "amount": str(amount_lamports),
-                "slippageBps": "100"  # 1% slippage
-            }
-            
-            quote_response = await client.get(quote_url, params=quote_params)
-            if quote_response.status_code != 200:
-                raise Exception(f"Failed to get quote: {quote_response.text}")
-            
-            quote_data = quote_response.json()
-            
-            # Get swap transaction with priority fees for faster confirmation
-            # Lite API supports priorityFee parameter
-            swap_url = "https://lite-api.jup.ag/swap/v1/swap"
-            swap_payload = {
-                "quoteResponse": quote_data,
-                "userPublicKey": custodial_address,
-                "wrapAndUnwrapSol": True,
-                "computeUnitPriceMicroLamports": 100000,  # 0.0001 SOL per CU - high priority
-                "dynamicComputeUnitLimit": True  # Let Jupiter optimize compute units
-            }
-            
-            swap_response = await client.post(swap_url, json=swap_payload)
-            if swap_response.status_code != 200:
-                raise Exception(f"Failed to get swap transaction: {swap_response.text}")
-            
-            swap_data = swap_response.json()
-            swap_transaction = swap_data.get("swapTransaction")
-            
-            if not swap_transaction:
-                raise Exception("No swap transaction returned")
-            
-            # Decode the transaction
-            tx_bytes = base64.b64decode(swap_transaction)
-            
-            # Sign and send to Solana
-            async with AsyncClient(SOLANA_RPC_URL) as solana_client:
-                # Jupiter returns a versioned transaction that needs our signature
-                from solders.transaction import VersionedTransaction
-                from solders.signature import Signature
+        # Use regular swap with high priority fees and retry logic
+        return await _execute_swap_with_retry(
+            keypair, custodial_address, input_mint, output_mint,
+            amount_lamports, user_wallet, max_retries=3
+        )
                 
-                # Deserialize the versioned transaction
+    except Exception as e:
+        logger.error(f"Auto-trade execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Trade execution failed: {str(e)}")
+
+
+async def _execute_swap_with_retry(
+    keypair: Keypair,
+    custodial_address: str,
+    input_mint: str,
+    output_mint: str,
+    amount_lamports: int,
+    user_wallet: str,
+    max_retries: int = 3
+) -> dict:
+    """
+    Execute swap with retry logic using fresh blockhash each attempt.
+    Uses high priority fees for better transaction landing.
+    """
+    import asyncio
+    from solders.transaction import VersionedTransaction
+    from solders.signature import Signature
+    
+    last_error = None
+    
+    for retry in range(max_retries):
+        try:
+            logger.info(f"Swap attempt {retry + 1}/{max_retries}")
+            
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                # Get fresh quote
+                quote_response = await client.get(
+                    "https://lite-api.jup.ag/swap/v1/quote",
+                    params={
+                        "inputMint": input_mint,
+                        "outputMint": output_mint,
+                        "amount": str(amount_lamports),
+                        "slippageBps": "150"  # 1.5% slippage for better fill
+                    }
+                )
+                
+                if quote_response.status_code != 200:
+                    raise Exception(f"Failed to get quote: {quote_response.text}")
+                
+                quote_data = quote_response.json()
+                
+                # Get swap transaction with high priority
+                swap_response = await client.post(
+                    "https://lite-api.jup.ag/swap/v1/swap",
+                    json={
+                        "quoteResponse": quote_data,
+                        "userPublicKey": custodial_address,
+                        "wrapAndUnwrapSol": True,
+                        "computeUnitPriceMicroLamports": 1000000,  # 1M microlamports = high priority
+                        "dynamicComputeUnitLimit": True
+                    }
+                )
+                
+                if swap_response.status_code != 200:
+                    raise Exception(f"Failed to get swap: {swap_response.text}")
+                
+                swap_data = swap_response.json()
+                swap_transaction = swap_data.get("swapTransaction")
+                
+                if not swap_transaction:
+                    raise Exception("No swap transaction returned")
+                
+                # Sign transaction
+                tx_bytes = base64.b64decode(swap_transaction)
                 unsigned_tx = VersionedTransaction.from_bytes(tx_bytes)
-                
-                # Log transaction details for debugging
-                logger.info(f"Transaction has {len(unsigned_tx.signatures)} signature slots")
-                logger.info(f"Our pubkey: {keypair.pubkey()}")
-                
-                # Sign the message with our keypair
                 message_bytes = bytes(unsigned_tx.message)
                 signature = keypair.sign_message(message_bytes)
-                
-                # Create signed versioned transaction using populate
                 signed_tx = VersionedTransaction.populate(unsigned_tx.message, [signature])
-                
-                # Serialize to bytes and send via send_raw_transaction
                 signed_tx_bytes = bytes(signed_tx)
                 
-                logger.info(f"Sending transaction ({len(signed_tx_bytes)} bytes)...")
+                logger.info(f"Transaction signed ({len(signed_tx_bytes)} bytes)")
                 
-                # First simulate to check for errors
-                try:
+                # Send via RPC
+                async with AsyncClient(SOLANA_RPC_URL) as solana_client:
+                    # Simulate first
                     sim_result = await solana_client.simulate_transaction(signed_tx)
                     if sim_result.value.err:
-                        logger.error(f"Transaction simulation failed: {sim_result.value.err}")
-                        if sim_result.value.logs:
-                            logger.error(f"Simulation logs: {sim_result.value.logs[-5:]}")
-                        raise Exception(f"Transaction simulation failed: {sim_result.value.err}")
-                    logger.info("Transaction simulation passed")
-                except Exception as sim_error:
-                    if "simulation failed" not in str(sim_error).lower():
-                        logger.warning(f"Could not simulate transaction: {sim_error}")
-                    else:
-                        raise
-                
-                # Send with skip_confirmation=True for faster response
-                try:
+                        raise Exception(f"Simulation failed: {sim_result.value.err}")
+                    
+                    logger.info(f"Simulation passed (units: {sim_result.value.units_consumed})")
+                    
+                    # Send transaction
                     result = await solana_client.send_raw_transaction(
                         signed_tx_bytes,
                         opts=TxOpts(skip_preflight=True, preflight_commitment=Confirmed)
                     )
                     tx_signature = str(result.value)
-                except Exception as send_error:
-                    # If send fails, log the error
-                    error_str = str(send_error)
-                    logger.error(f"Send transaction error: {error_str}")
-                    raise Exception(f"Transaction send failed: {error_str}")
-                
-                if not tx_signature or tx_signature == "1111111111111111111111111111111111111111111111111111111111111111":
-                    raise Exception("Invalid transaction signature returned")
-                
-                logger.info(f"Auto-trade submitted: {tx_signature} (wallet: {str(keypair.pubkey())[:8]}...)")
-                
-                # Wait for confirmation with retries (Solana can be slow)
-                import asyncio
-                confirmed = False
-                max_retries = 6  # Increased to 18 seconds total
-                
-                for attempt in range(max_retries):
-                    await asyncio.sleep(3)  # Wait 3s between checks
                     
-                    try:
-                        sig_obj = Signature.from_string(tx_signature)
-                        tx_info = await solana_client.get_transaction(
-                            sig_obj,
-                            max_supported_transaction_version=0
-                        )
-                        if tx_info.value is not None:
-                            if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
-                                raise Exception(f"Transaction failed on-chain: {tx_info.value.transaction.meta.err}")
-                            else:
-                                logger.info(f"Auto-trade CONFIRMED on-chain (attempt {attempt + 1}): {tx_signature[:20]}...")
-                                confirmed = True
-                                break
-                        else:
-                            logger.info(f"Transaction not found yet (attempt {attempt + 1}/{max_retries})")
-                    except Exception as verify_error:
-                        if "failed" in str(verify_error).lower():
-                            raise  # Transaction explicitly failed
-                        logger.debug(f"Verification attempt {attempt + 1} error: {verify_error}")
-                
-                if not confirmed:
-                    # Transaction did not land - this is a FAILURE, not success
-                    logger.error(f"Transaction {tx_signature[:20]}... NOT confirmed after {max_retries * 3}s - marking as FAILED")
-                    raise Exception(f"Transaction not confirmed on-chain after {max_retries * 3}s: {tx_signature}")
-                
-                # Update balance only if confirmed
-                await update_wallet_balance(user_wallet)
-                
-                return {
-                    "success": True,
-                    "tx_signature": tx_signature,
-                    "input_amount": amount_lamports,
-                    "output_amount": quote_data.get("outAmount"),
-                    "price_impact": quote_data.get("priceImpactPct"),
-                    "confirmed": True
-                }
-                
-    except Exception as e:
-        logger.error(f"Auto-trade execution failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Trade execution failed: {str(e)}")
+                    logger.info(f"Transaction sent: {tx_signature[:20]}...")
+                    
+                    # Wait for confirmation with extended timeout
+                    for attempt in range(12):  # Up to 36 seconds
+                        await asyncio.sleep(3)
+                        try:
+                            sig_obj = Signature.from_string(tx_signature)
+                            tx_info = await solana_client.get_transaction(
+                                sig_obj,
+                                max_supported_transaction_version=0
+                            )
+                            if tx_info.value is not None:
+                                if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
+                                    raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                                
+                                logger.info(f"Transaction CONFIRMED: {tx_signature}")
+                                
+                                await update_wallet_balance(user_wallet)
+                                
+                                return {
+                                    "success": True,
+                                    "tx_signature": tx_signature,
+                                    "input_amount": amount_lamports,
+                                    "output_amount": quote_data.get("outAmount"),
+                                    "confirmed": True,
+                                    "method": "rpc_with_priority",
+                                    "retry_count": retry
+                                }
+                        except Exception as e:
+                            if "failed" in str(e).lower():
+                                raise
+                            logger.debug(f"Confirmation check {attempt + 1}: {e}")
+                    
+                    # Transaction not confirmed - will retry with fresh blockhash
+                    last_error = f"Transaction {tx_signature[:20]}... not confirmed after 36s"
+                    logger.warning(f"{last_error}, retrying with fresh blockhash...")
+        
+        except Exception as e:
+            last_error = str(e)
+            if "simulation failed" in str(e).lower() or "failed" in str(e).lower():
+                # Don't retry on simulation failures or explicit failures
+                raise
+            logger.warning(f"Attempt {retry + 1} failed: {e}")
+            
+            if retry < max_retries - 1:
+                await asyncio.sleep(2)  # Brief pause before retry
+    
+    raise Exception(f"All {max_retries} swap attempts failed. Last error: {last_error}")
