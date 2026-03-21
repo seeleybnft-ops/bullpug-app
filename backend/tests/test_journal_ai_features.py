@@ -19,7 +19,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bullpug-trader.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pug-journal.preview.emergentagent.com').rstrip('/')
 
 # Test wallet addresses
 TEST_SOLANA_ADDRESS = "DgXwGhnb3aR6P7qrAqJgx6qyRmcwc6YA1xTr3B4E6dQr"
