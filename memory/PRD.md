@@ -922,5 +922,35 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - `notify_trader_of_new_follower()` now sends Telegram alerts
   - Telegram notifications are non-blocking (errors logged but don't break flow)
 
+### Services Refactoring (March 2026)
+- **Purpose**: Extract large classes from ai_trader.py for better maintainability
+- **Extracted Services** (to `/app/backend/services/`):
+  - `MarketConditionAnalyzer` → `services/market_analyzer.py` (145 lines)
+  - `RunnerDetector` → `services/runner_detector.py` (239 lines)
+  - `TechnicalAnalyzer` → `services/technical_analyzer.py` (152 lines)
+  - `StrategyEngine` → `services/strategy_engine.py` (347 lines)
+- **Result**: `ai_trader.py` reduced from 3704 to 2866 lines (~23% reduction)
+- **Import**: Services exported from `services/__init__.py`
+
+### Runner Tokens UI Tab (March 2026)
+- **Purpose**: Display discovered runner tokens in the Trading Bot page
+- **Component**: `RunnerTokens.js` in `/app/frontend/src/components/`
+- **Features**:
+  - Displays trending/new tokens from DexScreener API
+  - Score-based ranking (Legendary 90+, Excellent 80+, Good 70+, Moderate 60+, Risky <60)
+  - Expandable card view with detailed metrics
+  - Buy pressure indicator bar
+  - Quick actions: Copy CA, DexScreener link, Solscan link
+  - High Risk warning banner
+  - Auto-refreshes every 2 minutes
+- **Tab**: Added "Runners" tab with HOT badge in AITrader.js
+
+### Custodial Wallet Encryption Fix (March 2026)
+- **Issue**: Custodial wallet decryption failing with "Incorrect padding" error
+- **Root Cause**: CUSTODIAL_ENCRYPTION_KEY in .env didn't match the key used to encrypt the wallet
+- **Solution**: Regenerated custodial wallet with current encryption key
+- **New Custodial Wallet**: `B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC`
+- **Status**: Decryption working correctly, trades skip due to 0 SOL balance (expected)
+
 ## License
 MIT License - Bullpug 2025
