@@ -539,7 +539,7 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
     keypair = await get_custodial_keypair(user_wallet)
     
     try:
-        # Get quote from Jupiter
+        # Get quote from Jupiter lite API
         async with httpx.AsyncClient(timeout=30.0) as client:
             quote_url = "https://lite-api.jup.ag/swap/v1/quote"
             quote_params = {
@@ -555,12 +555,15 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
             
             quote_data = quote_response.json()
             
-            # Get swap transaction
+            # Get swap transaction with priority fees for faster confirmation
+            # Lite API supports priorityFee parameter
             swap_url = "https://lite-api.jup.ag/swap/v1/swap"
             swap_payload = {
                 "quoteResponse": quote_data,
                 "userPublicKey": custodial_address,
-                "wrapAndUnwrapSol": True
+                "wrapAndUnwrapSol": True,
+                "computeUnitPriceMicroLamports": 100000,  # 0.0001 SOL per CU - high priority
+                "dynamicComputeUnitLimit": True  # Let Jupiter optimize compute units
             }
             
             swap_response = await client.post(swap_url, json=swap_payload)
@@ -601,23 +604,33 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                 
                 logger.info(f"Sending transaction ({len(signed_tx_bytes)} bytes)...")
                 
-                # Try sending with preflight to get error details
+                # First simulate to check for errors
+                try:
+                    sim_result = await solana_client.simulate_transaction(signed_tx)
+                    if sim_result.value.err:
+                        logger.error(f"Transaction simulation failed: {sim_result.value.err}")
+                        if sim_result.value.logs:
+                            logger.error(f"Simulation logs: {sim_result.value.logs[-5:]}")
+                        raise Exception(f"Transaction simulation failed: {sim_result.value.err}")
+                    logger.info("Transaction simulation passed")
+                except Exception as sim_error:
+                    if "simulation failed" not in str(sim_error).lower():
+                        logger.warning(f"Could not simulate transaction: {sim_error}")
+                    else:
+                        raise
+                
+                # Send with skip_confirmation=True for faster response
                 try:
                     result = await solana_client.send_raw_transaction(
                         signed_tx_bytes,
-                        opts=TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
+                        opts=TxOpts(skip_preflight=True, preflight_commitment=Confirmed)
                     )
                     tx_signature = str(result.value)
                 except Exception as send_error:
-                    # If preflight fails, log the error
+                    # If send fails, log the error
                     error_str = str(send_error)
                     logger.error(f"Send transaction error: {error_str}")
-                    
-                    # Check if it's a simulation error
-                    if "simulation" in error_str.lower() or "preflight" in error_str.lower():
-                        # Try to extract the actual error
-                        raise Exception(f"Transaction simulation failed: {error_str}")
-                    raise
+                    raise Exception(f"Transaction send failed: {error_str}")
                 
                 if not tx_signature or tx_signature == "1111111111111111111111111111111111111111111111111111111111111111":
                     raise Exception("Invalid transaction signature returned")
@@ -627,7 +640,7 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                 # Wait for confirmation with retries (Solana can be slow)
                 import asyncio
                 confirmed = False
-                max_retries = 4
+                max_retries = 6  # Increased to 18 seconds total
                 
                 for attempt in range(max_retries):
                     await asyncio.sleep(3)  # Wait 3s between checks
@@ -640,7 +653,7 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                         )
                         if tx_info.value is not None:
                             if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
-                                raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                                raise Exception(f"Transaction failed on-chain: {tx_info.value.transaction.meta.err}")
                             else:
                                 logger.info(f"Auto-trade CONFIRMED on-chain (attempt {attempt + 1}): {tx_signature[:20]}...")
                                 confirmed = True
@@ -653,11 +666,11 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                         logger.debug(f"Verification attempt {attempt + 1} error: {verify_error}")
                 
                 if not confirmed:
-                    # Final check - sometimes transactions take longer
-                    logger.warning(f"Transaction {tx_signature[:20]}... not confirmed after {max_retries * 3}s, but may still land")
-                    # Don't raise - let it through with a warning. User can check on-chain.
+                    # Transaction did not land - this is a FAILURE, not success
+                    logger.error(f"Transaction {tx_signature[:20]}... NOT confirmed after {max_retries * 3}s - marking as FAILED")
+                    raise Exception(f"Transaction not confirmed on-chain after {max_retries * 3}s: {tx_signature}")
                 
-                # Update balance
+                # Update balance only if confirmed
                 await update_wallet_balance(user_wallet)
                 
                 return {
@@ -665,7 +678,8 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                     "tx_signature": tx_signature,
                     "input_amount": amount_lamports,
                     "output_amount": quote_data.get("outAmount"),
-                    "price_impact": quote_data.get("priceImpactPct")
+                    "price_impact": quote_data.get("priceImpactPct"),
+                    "confirmed": True
                 }
                 
     except Exception as e:
