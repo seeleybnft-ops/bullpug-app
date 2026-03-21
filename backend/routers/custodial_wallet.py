@@ -38,7 +38,13 @@ db = mongo_client[DB_NAME]
 # Configuration
 MAX_DEPOSIT_SOL = 0.5  # Maximum deposit limit
 LAMPORTS_PER_SOL = 1_000_000_000
-SOLANA_RPC_URL = os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.solana.com")
+
+# RPC Configuration - Helius for tx submission (staked connections), Alchemy for reads
+HELIUS_RPC_URL = os.environ.get("HELIUS_RPC_URL")
+ALCHEMY_RPC_URL = os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.solana.com")
+
+# Use Helius for transaction submission if available (better landing rates)
+SOLANA_RPC_URL = HELIUS_RPC_URL or ALCHEMY_RPC_URL
 
 # Jito Configuration - Multiple regional endpoints for redundancy
 JITO_BUNDLE_ENDPOINTS = [
@@ -699,11 +705,15 @@ async def _execute_swap_with_retry(
 ) -> dict:
     """
     Execute swap with retry logic using fresh blockhash each attempt.
-    Uses high priority fees for better transaction landing.
+    Uses Helius RPC with staked connections for better transaction landing.
     """
     import asyncio
     from solders.transaction import VersionedTransaction
     from solders.signature import Signature
+    
+    # Log which RPC we're using
+    rpc_name = "Helius" if HELIUS_RPC_URL and HELIUS_RPC_URL in SOLANA_RPC_URL else "Alchemy"
+    logger.info(f"Using {rpc_name} RPC for transaction submission")
     
     last_error = None
     
@@ -749,12 +759,14 @@ async def _execute_swap_with_retry(
                 if not swap_transaction:
                     raise Exception("No swap transaction returned")
                 
-                # Sign transaction
+                # Sign transaction using the correct method
+                # IMPORTANT: VersionedTransaction(message, [keypair]) is the correct way
+                # sign_message() + populate() causes SignatureFailure on Jupiter swaps
                 tx_bytes = base64.b64decode(swap_transaction)
                 unsigned_tx = VersionedTransaction.from_bytes(tx_bytes)
-                message_bytes = bytes(unsigned_tx.message)
-                signature = keypair.sign_message(message_bytes)
-                signed_tx = VersionedTransaction.populate(unsigned_tx.message, [signature])
+                
+                # Use constructor with keypair - this properly signs the transaction
+                signed_tx = VersionedTransaction(unsigned_tx.message, [keypair])
                 signed_tx_bytes = bytes(signed_tx)
                 
                 logger.info(f"Transaction signed ({len(signed_tx_bytes)} bytes)")

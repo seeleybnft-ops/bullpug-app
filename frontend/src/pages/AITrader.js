@@ -1074,19 +1074,20 @@ export default function AITrader() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 sm:gap-2 mb-4 sm:mb-6 border-b border-white/10 pb-2 overflow-x-auto tabs-container">
-          {[
-            { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
-            { id: "runners", label: "Runners", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
-            { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
-            { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null, description: "& Analytics" },
-            { id: "social", label: "Copy Trade", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
-            { id: "multichain", label: "Multi-Chain", icon: <Globe className="w-3 h-3 sm:w-4 sm:h-4" /> },
-            { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
-            { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
-            { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
-          ].map(tab => (
+        {/* Tabs - with scroll indicator */}
+        <div className="relative mb-4 sm:mb-6">
+          <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto tabs-container scrollbar-thin scrollbar-thumb-[#D946EF]/30 scrollbar-track-transparent">
+            {[
+              { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
+              { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
+              { id: "runners", label: "Runners", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
+              { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
+              { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
+              { id: "social", label: "Copy", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
+              { id: "multichain", label: "Multi-Chain", icon: <Globe className="w-3 h-3 sm:w-4 sm:h-4" /> },
+              { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
+              { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
+            ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -1111,6 +1112,9 @@ export default function AITrader() {
               )}
             </button>
           ))}
+          </div>
+          {/* Scroll hint for mobile */}
+          <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-[#0A0A0F] to-transparent pointer-events-none sm:hidden" />
         </div>
 
         {/* Content */}
