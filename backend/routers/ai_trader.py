@@ -3041,12 +3041,12 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         # Log effective settings
         logger.info(f"Auto-trade scan for {wallet_address}: mode={mode}, min_conf={min_confidence:.2f}, risk={risk_level}")
         
-        # Get tokens to scan based on risk level
+        # Get tokens to scan based on risk level (exclude SOL - can't swap SOL to SOL)
         tokens_to_scan = []
         runner_tokens = []  # Will store runner data separately
         
         if risk_level in ["safer", "both"]:
-            tokens_to_scan.extend(["SOL", "JUP", "PYTH", "RNDR"])
+            tokens_to_scan.extend(["JUP", "PYTH", "RNDR"])  # Removed SOL
         if risk_level in ["high_risk", "both"]:
             tokens_to_scan.extend(["BONK", "WIF", "RAY"])
             
@@ -3067,6 +3067,10 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                 try:
                     token_mint = TOKENS.get(symbol)
                     if not token_mint:
+                        continue
+                    
+                    # Skip SOL - can't swap SOL to SOL
+                    if token_mint == SOL_MINT:
                         continue
                     
                     # Get price data

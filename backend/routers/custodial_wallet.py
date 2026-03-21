@@ -19,6 +19,7 @@ from solders.message import Message
 from solders.hash import Hash
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
+from solana.rpc.types import TxOpts
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -534,7 +535,7 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
                 signed_tx_bytes = bytes(signed_tx)
                 result = await solana_client.send_raw_transaction(
                     signed_tx_bytes,
-                    opts={"skip_preflight": False, "preflight_commitment": "confirmed"}
+                    opts=TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
                 )
                 tx_signature = str(result.value)
                 
