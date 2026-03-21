@@ -42,9 +42,13 @@ SOLANA_RPC_URL = os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.sol
 # If not set, generate a new one (for development only)
 ENCRYPTION_KEY = os.environ.get("CUSTODIAL_ENCRYPTION_KEY")
 if not ENCRYPTION_KEY:
-    # Generate a key for development - in production, this should be set in .env
+    # CRITICAL: Must be set in .env for production!
+    # A generated key means wallet private keys will be lost on restart
+    logger.error("CRITICAL: CUSTODIAL_ENCRYPTION_KEY not set in .env!")
+    logger.error("Any custodial wallets created without this key will be UNRECOVERABLE")
     ENCRYPTION_KEY = Fernet.generate_key().decode()
-    logger.warning("CUSTODIAL_ENCRYPTION_KEY not set - using generated key (NOT FOR PRODUCTION)")
+    logger.warning(f"Generated temporary key: {ENCRYPTION_KEY}")
+    logger.warning("Add this to .env IMMEDIATELY: CUSTODIAL_ENCRYPTION_KEY={ENCRYPTION_KEY}")
 
 fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
 
@@ -180,6 +184,69 @@ async def update_wallet_balance(user_wallet: str):
 
 
 # ============== API Endpoints ==============
+
+@router.post("/regenerate/{user_wallet}")
+async def regenerate_custodial_wallet(user_wallet: str):
+    """
+    Regenerate a custodial wallet with new keys.
+    Use this when the encryption key was lost and the wallet is unrecoverable.
+    WARNING: Any SOL in the old wallet will be LOST!
+    """
+    try:
+        # Check if old wallet exists
+        old_wallet = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
+        old_address = old_wallet.get("custodial_address") if old_wallet else None
+        old_balance = 0
+        
+        if old_wallet:
+            try:
+                old_balance = await get_wallet_balance(old_wallet["custodial_address"])
+            except:
+                pass
+        
+        # Generate new keypair
+        new_keypair = Keypair()
+        new_address = str(new_keypair.pubkey())
+        private_key_bytes = bytes(new_keypair)
+        encrypted_private_key = encrypt_private_key(private_key_bytes)
+        
+        # Delete old wallet if exists
+        if old_wallet:
+            await db.custodial_wallets.delete_one({"user_wallet": user_wallet})
+        
+        # Create new wallet document
+        wallet_doc = {
+            "user_wallet": user_wallet,
+            "custodial_address": new_address,
+            "encrypted_private_key": encrypted_private_key,
+            "balance_lamports": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_activity": None,
+            "total_deposits_lamports": 0,
+            "total_withdrawals_lamports": 0,
+            "transaction_history": [],
+            "regenerated_from": old_address,
+            "lost_balance_lamports": old_balance
+        }
+        
+        await db.custodial_wallets.insert_one(wallet_doc)
+        
+        logger.info(f"Regenerated custodial wallet for {user_wallet[:12]}... New address: {new_address}")
+        if old_balance > 0:
+            logger.warning(f"LOST {old_balance / LAMPORTS_PER_SOL:.6f} SOL in old wallet {old_address}")
+        
+        return {
+            "success": True,
+            "new_address": new_address,
+            "old_address": old_address,
+            "lost_balance_sol": old_balance / LAMPORTS_PER_SOL if old_balance else 0,
+            "message": f"New custodial wallet created. Old wallet had {old_balance / LAMPORTS_PER_SOL:.6f} SOL that is now inaccessible."
+        }
+        
+    except Exception as e:
+        logger.error(f"Regenerate wallet error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/info/{user_wallet}")
 async def get_wallet_info(user_wallet: str) -> CustodialWalletResponse:
@@ -511,35 +578,75 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
             
             # Sign and send to Solana
             async with AsyncClient(SOLANA_RPC_URL) as solana_client:
-                # Get recent blockhash for the transaction (used for tx validation)
-                blockhash_resp = await solana_client.get_latest_blockhash()
-                _ = blockhash_resp.value.blockhash  # Available if needed for debugging
-                
-                # Jupiter Lite API returns a versioned transaction
-                # We need to sign it with our custodial keypair
+                # Jupiter returns a versioned transaction that needs our signature
                 from solders.transaction import VersionedTransaction
                 from solders.signature import Signature
                 
                 # Deserialize the versioned transaction
-                tx = VersionedTransaction.from_bytes(tx_bytes)
+                unsigned_tx = VersionedTransaction.from_bytes(tx_bytes)
                 
-                # The transaction needs to be signed by our keypair
-                # Create a new transaction with our signature
-                message_bytes = bytes(tx.message)
+                # Log transaction details for debugging
+                logger.info(f"Transaction has {len(unsigned_tx.signatures)} signature slots")
+                logger.info(f"Our pubkey: {keypair.pubkey()}")
+                
+                # Sign the message with our keypair
+                message_bytes = bytes(unsigned_tx.message)
                 signature = keypair.sign_message(message_bytes)
                 
-                # Create signed transaction
-                signed_tx = VersionedTransaction.populate(tx.message, [signature])
+                # Create signed versioned transaction using populate
+                signed_tx = VersionedTransaction.populate(unsigned_tx.message, [signature])
                 
-                # Serialize and send
+                # Serialize to bytes and send via send_raw_transaction
                 signed_tx_bytes = bytes(signed_tx)
-                result = await solana_client.send_raw_transaction(
-                    signed_tx_bytes,
-                    opts=TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
-                )
-                tx_signature = str(result.value)
                 
-                logger.info(f"Auto-trade executed: {tx_signature} (wallet: {str(keypair.pubkey())[:8]}...)")
+                logger.info(f"Sending transaction ({len(signed_tx_bytes)} bytes)...")
+                
+                # Try sending with preflight to get error details
+                try:
+                    result = await solana_client.send_raw_transaction(
+                        signed_tx_bytes,
+                        opts=TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
+                    )
+                    tx_signature = str(result.value)
+                except Exception as send_error:
+                    # If preflight fails, log the error
+                    error_str = str(send_error)
+                    logger.error(f"Send transaction error: {error_str}")
+                    
+                    # Check if it's a simulation error
+                    if "simulation" in error_str.lower() or "preflight" in error_str.lower():
+                        # Try to extract the actual error
+                        raise Exception(f"Transaction simulation failed: {error_str}")
+                    raise
+                
+                if not tx_signature or tx_signature == "1111111111111111111111111111111111111111111111111111111111111111":
+                    raise Exception("Invalid transaction signature returned")
+                
+                logger.info(f"Auto-trade submitted: {tx_signature} (wallet: {str(keypair.pubkey())[:8]}...)")
+                
+                # Wait for confirmation
+                import asyncio
+                await asyncio.sleep(3)
+                
+                # Verify transaction landed on-chain
+                try:
+                    sig_obj = Signature.from_string(tx_signature)
+                    tx_info = await solana_client.get_transaction(
+                        sig_obj,
+                        max_supported_transaction_version=0
+                    )
+                    if tx_info.value is None:
+                        # Transaction not found - this is a problem
+                        logger.error(f"Transaction {tx_signature[:20]}... NOT FOUND on-chain after 3 seconds!")
+                        raise Exception(f"Transaction not confirmed on-chain: {tx_signature}")
+                    elif tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
+                        raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                    else:
+                        logger.info(f"Auto-trade CONFIRMED on-chain: {tx_signature[:20]}...")
+                except Exception as verify_error:
+                    if "not confirmed" in str(verify_error).lower() or "not found" in str(verify_error).lower():
+                        raise  # Re-raise if it's our own error
+                    logger.warning(f"Could not verify transaction: {verify_error}")
                 
                 # Update balance
                 await update_wallet_balance(user_wallet)
