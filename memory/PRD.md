@@ -1155,6 +1155,11 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Stop Loss slider (5-50%) with `data-testid="quick-sl-slider"`
   - Changes apply to all positions and trigger auto-sell check
   - Location: `/app/frontend/src/pages/AITrader.js` lines 1343-1394
+- **SOL Price Fix**: Fixed sync to use correct SOL price
+  - Uses Jupiter Price API (`https://price.jup.ag/v6/price?ids=SOL`) as primary
+  - Fallback to CoinGecko, then $140 hardcoded fallback
+  - Sanity check: SOL price must be $50-$500
+  - Fixed bug where positions showed 29 SOL invested instead of 0.003 SOL
 
 ## License
 MIT License - Bullpug 2025
