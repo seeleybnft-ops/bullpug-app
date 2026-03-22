@@ -323,6 +323,20 @@ export default function AITrader() {
       const response = await axios.put(`${API}/ai-trader/auto-trade/settings/${walletAddress}`, settingsUpdate);
       if (response.data.success) {
         toast.success("Auto-trade settings updated");
+        
+        // Check if any exits were triggered by the settings change
+        if (response.data.exits_count > 0) {
+          const exits = response.data.exits_triggered;
+          exits.forEach(exit => {
+            if (exit.executed_on_chain) {
+              toast.success(`${exit.action === 'take_profit' ? '💰' : '🛑'} ${exit.symbol} sold: ${exit.action.replace('_', ' ')} at ${exit.pnl_percent?.toFixed(1)}%`);
+            } else {
+              toast.warning(`${exit.symbol} triggered ${exit.action.replace('_', ' ')} but sell failed: ${exit.error || 'unknown error'}`);
+            }
+          });
+          fetchData(); // Refresh positions
+        }
+        
         fetchAutoTradeStatus();
       }
     } catch (err) {
@@ -1264,6 +1278,28 @@ export default function AITrader() {
             {/* Positions Tab */}
             {activeTab === "positions" && (
               <div className="space-y-4" data-testid="positions-content">
+                {/* Header with Refresh */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Target className="w-5 h-5 text-[#D946EF]" />
+                      Open Positions
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {positions.length} active position{positions.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={fetchData}
+                    size="sm"
+                    variant="outline"
+                    className="border-white/10 hover:bg-white/5 text-slate-300"
+                    data-testid="refresh-positions-btn"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+                
                 {/* Risk Calculator */}
                 <RiskCalculator settings={settings} />
                 

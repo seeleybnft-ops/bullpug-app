@@ -2068,15 +2068,32 @@ async def get_auto_trade_status(wallet_address: str):
         today_logs = await db.auto_trade_logs.find({
             "wallet_address": wallet_address,
             "created_at": {"$gte": today_start},
-            "action": {"$in": ["auto_buy", "auto_sell"]}
+            "action": {"$in": ["auto_buy", "auto_sell", "auto_take_profit", "auto_stop_loss"]}
         }).to_list(100)
         
+        # Also count from ALL open positions (represents active capital at risk)
+        open_positions = await db.ai_trader_positions.find({
+            "wallet_address": wallet_address,
+            "status": "open"
+        }).to_list(100)
+        
+        # Calculate stats from both logs and positions
+        successful_logs = [log for log in today_logs if log.get("success")]
+        buy_logs = [log for log in successful_logs if log.get("action") in ["auto_buy"]]
+        
+        trades_from_logs = len(successful_logs)
+        sol_from_logs = sum(log.get("amount_sol", 0) for log in buy_logs)
+        
+        # All open positions represent SOL currently in trades
+        position_sol = sum(p.get("amount_sol", 0) for p in open_positions)
+        
         today_stats = {
-            "trades_executed": len([log for log in today_logs if log.get("success")]),
-            "total_sol_used": sum(log.get("amount_sol", 0) for log in today_logs if log.get("success") and log.get("action") == "auto_buy"),
-            "wins": 0,
-            "losses": 0,
-            "pnl_sol": 0
+            "trades_executed": max(trades_from_logs, len(open_positions)),  # At least count open positions
+            "total_sol_used": sol_from_logs + position_sol,  # Total capital at risk
+            "wins": len([log for log in successful_logs if log.get("pnl_sol", 0) > 0]),
+            "losses": len([log for log in successful_logs if log.get("pnl_sol", 0) < 0]),
+            "pnl_sol": sum(log.get("pnl_sol", 0) for log in successful_logs),
+            "open_positions": len(open_positions)
         }
         
         # Check if auto-trading should be paused
@@ -2169,7 +2186,7 @@ async def toggle_auto_trade(wallet_address: str, enabled: bool = True):
 
 @router.put("/auto-trade/settings/{wallet_address}")
 async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSettingsUpdate):
-    """Update auto-trade settings."""
+    """Update auto-trade settings and check for exit triggers if TP/SL changed."""
     try:
         update_data = {k: v for k, v in settings.dict().items() if v is not None}
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -2180,10 +2197,24 @@ async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSet
             upsert=True
         )
         
+        # If TP or SL settings changed, check for exit triggers
+        exits_triggered = []
+        if "auto_take_profit_percent" in update_data or "auto_stop_loss_percent" in update_data:
+            try:
+                logger.info(f"TP/SL settings changed for {wallet_address}, checking for exit triggers...")
+                exit_result = await auto_trade_check_exits(wallet_address)
+                if exit_result.get("success") and exit_result.get("exits"):
+                    exits_triggered = exit_result.get("exits", [])
+                    logger.info(f"Settings change triggered {len(exits_triggered)} exit(s)")
+            except Exception as e:
+                logger.warning(f"Failed to check exits after settings update: {e}")
+        
         return {
             "success": True,
             "updated_fields": list(update_data.keys()),
-            "message": "Auto-trade settings updated"
+            "message": "Auto-trade settings updated",
+            "exits_triggered": exits_triggered,
+            "exits_count": len(exits_triggered)
         }
     except Exception as e:
         logger.error(f"Update auto-trade settings error: {e}")
