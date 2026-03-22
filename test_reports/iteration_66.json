@@ -1,0 +1,96 @@
+{
+  "summary": "Iteration 66: Verified 5 fixes - Trading Bot default tab, Journal pending badge, Custodial wallet balance, Auto-trade TP/SL settings save, and check-exits using settings-based TP/SL. All backend tests pass (7/7). Frontend code verified correct but requires wallet connection to test UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/custodial-wallet/info/{wallet} returns balance (0.063798 SOL - not 0.0)",
+    "GET /api/ai-trader/auto-trade/status/{wallet} returns settings with TP/SL",
+    "PUT /api/ai-trader/auto-trade/settings/{wallet} saves auto_stop_loss_percent and auto_take_profit_percent",
+    "Settings persist correctly after update (verified with GET after PUT)",
+    "POST /api/ai-trader/auto-trade/check-exits/{wallet} works (checked 3 positions)",
+    "GET /api/journal/pending/{wallet} returns count for navbar badge",
+    "GET /api/ai-trader/settings/{wallet} returns all settings including auto_stop_loss_percent and auto_take_profit_percent"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "trading_bot_default_tab": {
+      "status": "VERIFIED (code review)",
+      "location": "/app/frontend/src/pages/AITrader.js line 65",
+      "details": "useState('autotrade') sets default tab to Auto Trade"
+    },
+    "journal_pending_badge": {
+      "status": "VERIFIED (code review + API test)",
+      "location": "/app/frontend/src/components/Navbar.js lines 24, 43-51, 71, 115-117",
+      "details": [
+        "pendingEntryCount state tracks pending entries",
+        "fetchPendingEntries calls GET /api/journal/pending/{wallet}",
+        "Badge shows when pendingEntryCount > 0 with animate-pulse styling"
+      ]
+    },
+    "custodial_wallet_balance": {
+      "status": "VERIFIED",
+      "location": "/app/backend/routers/custodial_wallet.py lines 306-327",
+      "details": [
+        "get_wallet_balance uses primary RPC with fallback",
+        "Tested wallet shows 0.063798 SOL (not 0.0)",
+        "Fallback RPC uses ALCHEMY_SOLANA_RPC or mainnet-beta"
+      ]
+    },
+    "auto_trade_settings_save": {
+      "status": "VERIFIED",
+      "location": "/app/backend/routers/ai_trader.py lines 2019-2040, 2170-2190",
+      "details": [
+        "AutoTradeSettingsUpdate model includes auto_stop_loss_percent and auto_take_profit_percent",
+        "PUT endpoint saves all non-null fields to database",
+        "Settings persist correctly (verified 15.0% SL, 40.0% TP)"
+      ]
+    },
+    "check_exits_settings_based": {
+      "status": "VERIFIED",
+      "location": "/app/backend/routers/ai_trader.py lines 3022-3095",
+      "details": [
+        "auto_trade_check_exits reads auto_stop_loss_percent and auto_take_profit_percent from settings",
+        "Calculates SL/TP from entry_price using settings percentages",
+        "Logs show: 'Checking exits with SL: X%, TP: Y%'"
+      ]
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration66_fixes.py",
+    "/app/test_reports/pytest/pytest_iteration66_fixes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: All 5 fixes implemented correctly",
+    "POSITIVE: Custodial wallet balance fallback RPC prevents silent failures",
+    "POSITIVE: Auto-trade settings properly include TP/SL fields in both model and save logic",
+    "POSITIVE: check_exits calculates TP/SL from settings, not position-stored values",
+    "NOTE: Frontend tests require wallet connection - code verified via review"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration66_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "Code verified correct (requires wallet for UI test)"
+  },
+  "test_credentials": {
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "custodial_wallet": "B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC"
+  },
+  "seed_data_creation": "None - used existing wallet data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 66 verified 5 fixes: (1) AITrader.js line 65 defaults to 'autotrade' tab, (2) Navbar.js shows pending badge when count > 0, (3) custodial_wallet.py has fallback RPC for balance, (4) ai_trader.py AutoTradeSettingsUpdate includes TP/SL fields, (5) auto_trade_check_exits uses settings-based TP/SL. All backend APIs working. Current test settings: SL=15%, TP=40%.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

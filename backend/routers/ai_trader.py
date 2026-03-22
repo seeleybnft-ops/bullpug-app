@@ -1407,7 +1407,7 @@ async def manual_close_position(request: ManualCloseRequest):
             "wallet_address": request.wallet_address,
             "token_symbol": position.get("token_symbol"),
             "token_mint": position.get("token_mint"),
-            "action": f"manual_close",
+            "action": "manual_close",
             "amount_sol": amount_sol,
             "entry_price": entry_price,
             "exit_price": exit_price,
@@ -2027,6 +2027,9 @@ class AutoTradeSettingsUpdate(BaseModel):
     auto_require_multiple_signals: Optional[bool] = None
     auto_pause_on_loss: Optional[bool] = None
     auto_total_daily_limit_sol: Optional[float] = None
+    # Stop-loss and take-profit settings
+    auto_stop_loss_percent: Optional[float] = None
+    auto_take_profit_percent: Optional[float] = None
     # NEW: Advanced settings
     auto_trailing_stop_enabled: Optional[bool] = None
     auto_trailing_stop_percent: Optional[float] = None
@@ -3030,6 +3033,12 @@ async def auto_trade_check_exits(wallet_address: str):
         if not settings or not settings.get("auto_trade_enabled"):
             return {"success": False, "message": "Auto-trading not enabled", "exits": []}
         
+        # Get TP/SL percentages from settings
+        stop_loss_pct = settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10)) / 100
+        take_profit_pct = settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20)) / 100
+        
+        logger.info(f"Checking exits with SL: {stop_loss_pct*100}%, TP: {take_profit_pct*100}%")
+        
         # Get all open positions
         positions = await db.ai_trader_positions.find({
             "wallet_address": wallet_address,
@@ -3069,14 +3078,19 @@ async def auto_trade_check_exits(wallet_address: str):
                         continue
                     
                     entry_price = position.get("entry_price", 0)
-                    stop_loss = position.get("stop_loss_price", entry_price * 0.9)
-                    take_profit = position.get("take_profit_price", entry_price * 1.2)
+                    
+                    # ALWAYS calculate SL/TP from settings to ensure consistent behavior
+                    # Position-specific values may have been set with different percentages
+                    stop_loss = entry_price * (1 - stop_loss_pct)
+                    take_profit = entry_price * (1 + take_profit_pct)
                     
                     # Calculate current P&L percentage
                     if entry_price > 0:
                         current_pnl_pct = ((current_price - entry_price) / entry_price) * 100
                     else:
                         current_pnl_pct = 0
+                    
+                    logger.info(f"Position {symbol}: entry={entry_price:.8f}, current={current_price:.8f}, SL={stop_loss:.8f}, TP={take_profit:.8f}, P/L={current_pnl_pct:.2f}%")
                     
                     # Check for exit conditions
                     exit_action = None
@@ -3167,8 +3181,8 @@ async def auto_trade_check_exits(wallet_address: str):
                                 sell_error = sell_result.get("error", "Unknown error")
                                 
                         except Exception as e:
-                            sell_error = str(e)
-                            logger.warning(f"Auto-sell failed for {symbol}: {e}")
+                            sell_error = f"{type(e).__name__}: {str(e)}"
+                            logger.warning(f"Auto-sell failed for {symbol}: {sell_error}")
                         
                         # Calculate final P&L
                         pnl_pct = current_pnl_pct

@@ -21,6 +21,7 @@ const ADMIN_WALLETS = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [pendingEntryCount, setPendingEntryCount] = useState(0);
   const location = useLocation();
   const { publicKey, connected } = useWallet();
   const { t } = useTranslation();
@@ -31,10 +32,23 @@ export default function Navbar() {
   useEffect(() => {
     if (connected && publicKey) {
       fetchProfile();
+      fetchPendingEntries();
     } else {
       setProfileImage(null);
+      setPendingEntryCount(0);
     }
   }, [connected, publicKey]);
+  
+  // Fetch pending journal entries count
+  const fetchPendingEntries = async () => {
+    if (!publicKey) return;
+    try {
+      const { data } = await axios.get(`${API}/journal/pending/${publicKey.toBase58()}`);
+      setPendingEntryCount(data.count || 0);
+    } catch (e) {
+      console.error("Failed to fetch pending entries:", e);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -54,7 +68,7 @@ export default function Navbar() {
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
-    { name: "Journal", path: "/journal", color: "#F5D300" },
+    { name: "Journal", path: "/journal", color: "#F5D300", badge: pendingEntryCount > 0 ? pendingEntryCount : null },
     { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
     { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3", comingSoon: true },
     { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, color: "#D946EF", hasBorder: true },
@@ -97,6 +111,11 @@ export default function Navbar() {
               >
                 {link.icon && link.icon}
                 {link.name}
+                {link.badge && (
+                  <span className="px-1.5 py-0.5 text-[9px] bg-[#D946EF] text-white rounded-full font-bold animate-pulse ml-1" title={`${link.badge} pending entries`}>
+                    {link.badge}
+                  </span>
+                )}
                 {link.comingSoon && <span className="text-[7px] px-1 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full ml-1">SOON</span>}
               </Link>
             ))}

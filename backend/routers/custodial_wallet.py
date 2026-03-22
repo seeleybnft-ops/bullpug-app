@@ -308,9 +308,19 @@ async def get_wallet_balance(address: str) -> int:
     try:
         async with AsyncClient(SOLANA_RPC_URL) as client:
             response = await client.get_balance(Pubkey.from_string(address))
+            logger.info(f"Balance for {address}: {response.value} lamports")
             return response.value
     except Exception as e:
-        logger.error(f"Failed to get balance for {address}: {e}")
+        logger.error(f"Failed to get balance for {address}: {type(e).__name__}: {e}")
+        # Try fallback RPC
+        try:
+            fallback_rpc = os.environ.get("ALCHEMY_SOLANA_RPC", "https://api.mainnet-beta.solana.com")
+            async with AsyncClient(fallback_rpc) as fallback_client:
+                response = await fallback_client.get_balance(Pubkey.from_string(address))
+                logger.info(f"Fallback balance for {address}: {response.value} lamports")
+                return response.value
+        except Exception as fallback_e:
+            logger.error(f"Fallback balance also failed for {address}: {type(fallback_e).__name__}: {fallback_e}")
         return 0
 
 

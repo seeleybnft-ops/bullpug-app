@@ -62,7 +62,7 @@ export default function AITrader() {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [activeTab, setActiveTab] = useState("signals");
+  const [activeTab, setActiveTab] = useState("autotrade");
   const [showSettings, setShowSettings] = useState(false);
   const [lastScan, setLastScan] = useState(null);
   const [autoScanEnabled, setAutoScanEnabled] = useState(true);
