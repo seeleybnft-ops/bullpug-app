@@ -3005,8 +3005,8 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose, onCustod
   const currentValueSol = position.current_value_sol || position.amount_sol || position.input_sol || 0;
   const currentValueUsd = position.current_value_usd || 0;
   
-  // Determine if this is a custodial position (auto-trade) or user wallet position
-  const isCustodialPosition = position.auto_trade || position.custodial || position.source === 'custodial';
+  // Determine if this is a custodial position (auto-trade, synced from chain) or user wallet position
+  const isCustodialPosition = position.auto_trade || position.custodial || position.source === 'custodial' || position.synced_from_chain;
   
   // Fetch token balance when sell input is shown
   useEffect(() => {

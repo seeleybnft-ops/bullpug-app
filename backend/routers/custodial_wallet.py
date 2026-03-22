@@ -650,31 +650,50 @@ async def get_token_balance(wallet_address: str, token_mint: str):
         ui_amount = 0.0
         decimals = 9
         
-        async with AsyncClient(SOLANA_RPC_URL) as client:
-            # Try SPL Token program first
-            opts = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_PROGRAM_ID)
-            accounts = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
-            
-            if accounts.value:
-                for account in accounts.value:
-                    info = account.account.data.parsed.get("info", {})
-                    token_amount = info.get("tokenAmount", {})
-                    token_balance = int(token_amount.get("amount", 0))
-                    ui_amount = float(token_amount.get("uiAmount", 0) or 0)
-                    decimals = int(token_amount.get("decimals", 9))
-            
-            # If no balance found, try Token-2022 program
-            if token_balance <= 0:
-                opts_2022 = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
-                accounts_2022 = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
-                
-                if accounts_2022.value:
-                    for account in accounts_2022.value:
-                        info = account.account.data.parsed.get("info", {})
-                        token_amount = info.get("tokenAmount", {})
-                        token_balance = int(token_amount.get("amount", 0))
-                        ui_amount = float(token_amount.get("uiAmount", 0) or 0)
-                        decimals = int(token_amount.get("decimals", 9))
+        # Try multiple RPC endpoints for reliability
+        rpc_endpoints = [
+            os.environ.get("HELIUS_RPC_URL"),
+            os.environ.get("ALCHEMY_SOLANA_RPC"),
+            SOLANA_RPC_URL,
+            "https://api.mainnet-beta.solana.com"
+        ]
+        rpc_endpoints = [r for r in rpc_endpoints if r]
+        
+        for rpc_url in rpc_endpoints:
+            try:
+                async with AsyncClient(rpc_url) as client:
+                    # Try SPL Token program first
+                    opts = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_PROGRAM_ID)
+                    accounts = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
+                    
+                    if accounts.value:
+                        for account in accounts.value:
+                            info = account.account.data.parsed.get("info", {})
+                            token_amount = info.get("tokenAmount", {})
+                            token_balance = int(token_amount.get("amount", 0))
+                            ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                            decimals = int(token_amount.get("decimals", 9))
+                    
+                    # If no balance found, try Token-2022 program
+                    if token_balance <= 0:
+                        opts_2022 = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
+                        accounts_2022 = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
+                        
+                        if accounts_2022.value:
+                            for account in accounts_2022.value:
+                                info = account.account.data.parsed.get("info", {})
+                                token_amount = info.get("tokenAmount", {})
+                                token_balance = int(token_amount.get("amount", 0))
+                                ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                                decimals = int(token_amount.get("decimals", 9))
+                    
+                    # If we got a result, return it
+                    if token_balance > 0 or accounts.value or accounts_2022.value:
+                        break
+                        
+            except Exception as e:
+                logger.warning(f"RPC {rpc_url[:30]}... failed for token balance: {e}")
+                continue
         
         return {
             "wallet_address": wallet_address,
@@ -903,6 +922,9 @@ async def sync_positions_from_chain(user_wallet: str):
                 "trade_type": "buy",
                 "executed_on_chain": True,
                 "synced_from_chain": True,
+                "custodial": True,  # Mark as custodial wallet position
+                "auto_trade": True,  # Enable auto-trade features
+                "source": "custodial",  # Explicit source marking
                 "decimals": holding["decimals"],
                 "dex": holding.get("dex", "unknown"),
                 "created_at": datetime.now(timezone.utc).isoformat(),
