@@ -1084,7 +1084,10 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Stores as comma-separated values: "calm,confident"
   - Shows "Selected: Calm, Confident" below buttons
 - **Question Updated**: "Why did you take this trade?" → "What did you think about this trade?"
-- **Delete Button Fixed**: Added loading state to delete button, now works correctly
+- **Delete Button Fixed**: Uses direct state update (`setTrades(prevTrades.filter(...))`) for immediate UI feedback
+  - Backend DELETE endpoint confirmed working
+  - Loading spinner shows during deletion
+  - React key warnings fixed with fallback index
 - **P/L Display in SOL**: All P/L values now show in SOL instead of FIAT:
   - Dashboard: Total P/L, Avg P/L, Best Trade, Worst Trade
   - Trades List: Each trade shows "+0.0140 SOL" instead of "+$0.014"
@@ -1095,6 +1098,17 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Emotion breakdown with percentage bars
   - Based on aggregated emotions from all logged trades
 - **Recent Mindset Section**: Shows last 5 trades with their logged emotions
+
+### 24-Hour Auto-Complete Scheduler (March 2026)
+- **Feature**: Pending journal entries are automatically marked as complete after 24 hours
+- **Implementation**: Background scheduler job runs every hour
+- **Behavior**:
+  - Entries older than 24 hours are marked as `pending: false`, `auto_completed: true`
+  - Adds "incomplete" tag to auto-completed entries for filtering
+  - Logs count of auto-completed entries
+- **Scheduler location**: `/app/backend/utils/scheduler.py`
+- **Job ID**: `journal_auto_complete`
+- **Manual trigger endpoint**: `POST /api/journal/auto-complete-expired`
 
 ## License
 MIT License - Bullpug 2025

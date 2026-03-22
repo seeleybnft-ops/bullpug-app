@@ -62,8 +62,8 @@ export default function TradesList({ trades, onEdit, onDelete, formatCurrency })
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(trade => (
-            <div key={trade.trade_id} className="glass-card rounded-xl p-4 hover:bg-white/[0.02] transition-colors" data-testid={`trade-${trade.trade_id}`}>
+          {filtered.map((trade, index) => (
+            <div key={trade.trade_id || `trade-${index}`} className="glass-card rounded-xl p-4 hover:bg-white/[0.02] transition-colors" data-testid={`trade-${trade.trade_id || index}`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm ${
