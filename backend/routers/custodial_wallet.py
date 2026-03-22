@@ -620,6 +620,150 @@ async def get_transaction_history(user_wallet: str, limit: int = 20):
     }
 
 
+@router.get("/token-balance/{wallet_address}/{token_mint}")
+async def get_token_balance(wallet_address: str, token_mint: str):
+    """
+    Get token balance for a specific wallet and token mint.
+    Works with both SPL Token and Token-2022 programs.
+    """
+    from solana.rpc.types import TokenAccountOpts
+    
+    try:
+        TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+        
+        wallet_pubkey = Pubkey.from_string(wallet_address)
+        mint_pubkey = Pubkey.from_string(token_mint)
+        
+        token_balance = 0
+        ui_amount = 0.0
+        decimals = 9
+        
+        async with AsyncClient(SOLANA_RPC_URL) as client:
+            # Try SPL Token program first
+            opts = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_PROGRAM_ID)
+            accounts = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
+            
+            if accounts.value:
+                for account in accounts.value:
+                    info = account.account.data.parsed.get("info", {})
+                    token_amount = info.get("tokenAmount", {})
+                    token_balance = int(token_amount.get("amount", 0))
+                    ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                    decimals = int(token_amount.get("decimals", 9))
+            
+            # If no balance found, try Token-2022 program
+            if token_balance <= 0:
+                opts_2022 = TokenAccountOpts(mint=mint_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
+                accounts_2022 = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
+                
+                if accounts_2022.value:
+                    for account in accounts_2022.value:
+                        info = account.account.data.parsed.get("info", {})
+                        token_amount = info.get("tokenAmount", {})
+                        token_balance = int(token_amount.get("amount", 0))
+                        ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                        decimals = int(token_amount.get("decimals", 9))
+        
+        return {
+            "wallet_address": wallet_address,
+            "token_mint": token_mint,
+            "raw_amount": token_balance,
+            "amount": ui_amount,
+            "decimals": decimals,
+            "has_tokens": token_balance > 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting token balance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ExecuteSellRequest(BaseModel):
+    """Request to sell tokens from custodial wallet"""
+    user_wallet: str
+    token_mint: str
+    token_amount: int  # Raw token amount (smallest units)
+    position_id: Optional[str] = None
+
+
+@router.post("/execute-sell")
+async def execute_sell(request: ExecuteSellRequest):
+    """
+    Execute a token sell from the custodial wallet.
+    Swaps the specified token amount back to SOL.
+    """
+    SOL_MINT = "So11111111111111111111111111111111111111112"
+    
+    try:
+        wallet_doc = await db.custodial_wallets.find_one({"user_wallet": request.user_wallet})
+        if not wallet_doc:
+            raise HTTPException(status_code=404, detail="Custodial wallet not found")
+        
+        custodial_address = wallet_doc["custodial_address"]
+        
+        # Check SOL balance for fees
+        balance = await get_wallet_balance(custodial_address)
+        min_fee_buffer = 3000000  # 0.003 SOL for fees
+        if balance < min_fee_buffer:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient SOL for fees. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: ~0.003 SOL"
+            )
+        
+        # Get keypair
+        keypair = await get_custodial_keypair(request.user_wallet)
+        
+        # Execute the swap: Token -> SOL
+        result = await _execute_swap_with_retry(
+            keypair=keypair,
+            custodial_address=custodial_address,
+            input_mint=request.token_mint,
+            output_mint=SOL_MINT,
+            amount_lamports=request.token_amount,
+            user_wallet=request.user_wallet,
+            max_retries=3
+        )
+        
+        if result.get("success"):
+            # Update position if provided
+            if request.position_id:
+                await db.ai_trader_positions.update_one(
+                    {
+                        "wallet_address": request.user_wallet,
+                        "$or": [
+                            {"position_id": request.position_id},
+                            {"execution_id": request.position_id}
+                        ]
+                    },
+                    {
+                        "$set": {
+                            "status": "closed_manual_sell",
+                            "sell_tx_signature": result.get("tx_signature"),
+                            "sell_executed_on_chain": True,
+                            "closed_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+            
+            return {
+                "success": True,
+                "tx_signature": result.get("tx_signature"),
+                "received_sol": result.get("output_amount", 0) / LAMPORTS_PER_SOL if result.get("output_amount") else 0
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("error", "Swap failed")
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Execute sell failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/close/{user_wallet}")
 async def close_custodial_wallet(user_wallet: str):
     """Close custodial wallet and withdraw all remaining funds"""

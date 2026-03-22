@@ -1039,5 +1039,21 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - Source labels: "Manual", "Auto-Trade", "Position"
 - Combines data from: ai_trader_executions, ai_trader_positions, auto_trade_logs
 
+### Manual Sell Enhancement (March 2026)
+- **Issue**: Sell amount showed "SOL Value" instead of actual token holdings
+- **Solution**: 
+  1. Added token balance fetching when sell modal opens
+  2. Shows actual token holdings with symbol (e.g., "438.25 LOL")
+  3. Shows location: "Auto-Trade Wallet" vs "Your Wallet"
+  4. Percentage-based selling (25%, 50%, 75%, 100% buttons + slider)
+  5. Custodial positions auto-execute sell via backend
+  6. User wallet positions prompt for wallet approval
+- **New Backend Endpoints**:
+  - `GET /api/custodial-wallet/token-balance/{wallet}/{mint}` - Get token balance
+  - `POST /api/custodial-wallet/execute-sell` - Execute sell from custodial wallet
+- **Features**:
+  - Supports both SPL Token and Token-2022 programs
+  - Shows clear distinction between custodial and user wallet positions
+
 ## License
 MIT License - Bullpug 2025

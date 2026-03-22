@@ -834,6 +834,72 @@ export default function AITrader() {
     }
   };
 
+  // Custodial Sell - Execute sell from custodial wallet (auto-execute, no wallet approval needed)
+  const custodialSell = async (position, tokenAmount, percentage) => {
+    const positionId = position.execution_id || position.position_id;
+    
+    try {
+      const loadingToast = toast.loading(
+        <div>
+          <p className="font-bold">Executing Sell...</p>
+          <p className="text-sm">SELL {percentage}% of {position.token_symbol}</p>
+          <p className="text-xs text-slate-400">Processing via Auto-Trade Wallet</p>
+        </div>
+      );
+      
+      const response = await axios.post(`${API}/custodial-wallet/execute-sell`, {
+        user_wallet: walletAddress,
+        token_mint: position.token_mint,
+        token_amount: tokenAmount,
+        position_id: positionId
+      });
+      
+      toast.dismiss(loadingToast);
+      
+      if (response.data.success) {
+        // Update positions if we sold 100%
+        if (percentage >= 100) {
+          setPositions(prev => prev.filter(p => 
+            (p.execution_id || p.position_id) !== positionId
+          ));
+        }
+        
+        const receivedSol = response.data.received_sol || 0;
+        
+        toast.success(
+          <div>
+            <p className="font-bold text-[#00FFA3]">Sell Executed!</p>
+            <p className="text-sm">SOLD {percentage}% of {position.token_symbol}</p>
+            {receivedSol > 0 && <p className="text-sm">Received: {receivedSol.toFixed(4)} SOL</p>}
+            {response.data.tx_signature && (
+              <p className="text-xs">
+                <a 
+                  href={`https://solscan.io/tx/${response.data.tx_signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00C2FF] hover:underline"
+                >
+                  View on Solscan →
+                </a>
+              </p>
+            )}
+          </div>,
+          { duration: 8000 }
+        );
+        
+        // Refresh data
+        fetchData();
+        fetchCustodialWallet();
+      } else {
+        toast.error(response.data.error || "Sell failed");
+      }
+    } catch (e) {
+      toast.dismiss();
+      console.error("Custodial sell error:", e);
+      toast.error(e.response?.data?.detail || "Sell execution failed");
+    }
+  };
+
 
   // Quick Buy from Tokens tab - Buy token directly
   const quickBuyToken = async (coin, buyAmountSol) => {
@@ -1245,6 +1311,8 @@ export default function AITrader() {
                         onQuickSell={quickSell}
                         onDelete={deletePosition}
                         onManualClose={manualClosePosition}
+                        onCustodialSell={custodialSell}
+                        custodialWallet={custodialWallet}
                       />
                     ))}
                   </>
@@ -2793,9 +2861,11 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   );
 }
 
-function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
+function PositionCard({ position, onQuickSell, onDelete, onManualClose, onCustodialSell, custodialWallet }) {
   const [showSellInput, setShowSellInput] = useState(false);
-  const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
+  const [sellPercentage, setSellPercentage] = useState(100); // Default to sell 100%
+  const [tokenBalance, setTokenBalance] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
   const [selling, setSelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -2805,6 +2875,37 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
   const pnlUsd = position.unrealized_pnl_usd || 0;
   const currentValueSol = position.current_value_sol || position.amount_sol || position.input_sol || 0;
   const currentValueUsd = position.current_value_usd || 0;
+  
+  // Determine if this is a custodial position (auto-trade) or user wallet position
+  const isCustodialPosition = position.auto_trade || position.custodial || position.source === 'custodial';
+  
+  // Fetch token balance when sell input is shown
+  useEffect(() => {
+    const fetchTokenBalance = async () => {
+      if (!showSellInput || !position.token_mint) return;
+      
+      setLoadingBalance(true);
+      try {
+        const API = process.env.REACT_APP_BACKEND_URL + '/api';
+        const walletToCheck = isCustodialPosition ? custodialWallet?.wallet_address : position.wallet_address;
+        
+        if (walletToCheck) {
+          const response = await fetch(
+            `${API}/custodial-wallet/token-balance/${walletToCheck}/${position.token_mint}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setTokenBalance(data);
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching token balance:", e);
+      }
+      setLoadingBalance(false);
+    };
+    
+    fetchTokenBalance();
+  }, [showSellInput, position.token_mint, isCustodialPosition, custodialWallet, position.wallet_address]);
   
   // Calculate and update hold time
   useEffect(() => {
@@ -2835,9 +2936,25 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
   }, [position.created_at]);
   
   const handleQuickSell = async () => {
-    if (sellAmount <= 0) return;
+    if (!tokenBalance || tokenBalance.amount <= 0) {
+      toast.error("No tokens to sell");
+      return;
+    }
+    
+    const sellTokenAmount = (tokenBalance.raw_amount * sellPercentage) / 100;
+    
     setSelling(true);
-    await onQuickSell(position, sellAmount);
+    try {
+      if (isCustodialPosition) {
+        // Custodial wallet - execute automatically via backend
+        await onCustodialSell(position, sellTokenAmount, sellPercentage);
+      } else {
+        // User wallet - prompt for approval
+        await onQuickSell(position, sellTokenAmount);
+      }
+    } catch (e) {
+      console.error("Sell error:", e);
+    }
     setSelling(false);
     setShowSellInput(false);
   };
@@ -3037,32 +3154,90 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
       
       {/* Quick Sell Input */}
       {showSellInput && (
-        <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-3">
-          <div className="flex-1">
-            <label className="text-xs text-slate-500 mb-1 block">Sell Amount (SOL value)</label>
+        <div className="mt-3 pt-3 border-t border-white/10 space-y-3">
+          {/* Token Balance Display */}
+          <div className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+            <div>
+              <p className="text-xs text-slate-500">Your {position.token_symbol} Holdings</p>
+              {loadingBalance ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  <span className="text-sm text-slate-400">Loading...</span>
+                </div>
+              ) : tokenBalance ? (
+                <p className="font-mono text-lg text-white">
+                  {tokenBalance.amount?.toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-sm text-slate-400">{position.token_symbol}</span>
+                </p>
+              ) : (
+                <p className="text-sm text-[#FF6B6B]">No tokens found</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Location</p>
+              <p className={`text-sm font-medium ${isCustodialPosition ? 'text-[#D946EF]' : 'text-[#00C2FF]'}`}>
+                {isCustodialPosition ? 'Auto-Trade Wallet' : 'Your Wallet'}
+              </p>
+            </div>
+          </div>
+          
+          {/* Sell Amount Controls */}
+          <div>
+            <label className="text-xs text-slate-500 mb-2 block">
+              Sell Amount ({sellPercentage}% = {tokenBalance ? ((tokenBalance.amount * sellPercentage) / 100).toFixed(4) : '0'} {position.token_symbol})
+            </label>
+            
+            {/* Percentage Buttons */}
+            <div className="flex gap-2 mb-3">
+              {[25, 50, 75, 100].map(pct => (
+                <button
+                  key={pct}
+                  onClick={() => setSellPercentage(pct)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    sellPercentage === pct 
+                      ? 'bg-[#FF6B6B] text-white' 
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+            
+            {/* Custom Slider */}
             <input
-              type="number"
-              value={sellAmount}
-              onChange={(e) => setSellAmount(Math.max(0.01, parseFloat(e.target.value) || 0))}
-              step="0.01"
-              min="0.01"
-              max={position.amount_sol || 10}
-              className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm font-mono text-white focus:border-[#FF6B6B] focus:outline-none"
-              placeholder="Amount in SOL"
+              type="range"
+              value={sellPercentage}
+              onChange={(e) => setSellPercentage(parseInt(e.target.value))}
+              min="1"
+              max="100"
+              className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#FF6B6B]"
             />
           </div>
+          
+          {/* Sell Button */}
           <Button
             onClick={handleQuickSell}
-            disabled={selling || sellAmount <= 0}
-            className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] text-white hover:opacity-90 mt-5"
+            disabled={selling || !tokenBalance || tokenBalance.amount <= 0}
+            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8C00] text-white hover:opacity-90"
           >
             {selling ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              <Zap className="w-4 h-4 mr-1" />
+              <Zap className="w-4 h-4 mr-2" />
             )}
-            {selling ? "Selling..." : "Quick Sell"}
+            {selling 
+              ? "Processing..." 
+              : isCustodialPosition 
+                ? `Sell ${sellPercentage}% (Auto-Execute)` 
+                : `Sell ${sellPercentage}% (Wallet Approval)`
+            }
           </Button>
+          
+          {!isCustodialPosition && (
+            <p className="text-[10px] text-slate-500 text-center">
+              You will be prompted to approve this transaction in your wallet
+            </p>
+          )}
         </div>
       )}
     </div>
