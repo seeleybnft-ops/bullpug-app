@@ -175,31 +175,53 @@ export default function PendingJournalEntries({ entries, onComplete, onRefresh }
               {/* Expanded Form */}
               {isExpanded && (
                 <div className="px-4 pb-4 border-t border-[#D946EF]/20 pt-4 space-y-4">
-                  {/* Emotion Selection */}
+                  {/* Emotion Selection - Multiple Choice */}
                   <div>
                     <label className="flex items-center gap-2 text-sm text-slate-400 mb-2">
                       <Brain className="w-4 h-4" />
-                      How were you feeling?
+                      How were you feeling? (Select all that apply)
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {EMOTION_OPTIONS.map(emotion => (
-                        <button
-                          key={emotion.value}
-                          onClick={() => setFormData(prev => ({ ...prev, emotion_entry: emotion.value }))}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                            formData.emotion_entry === emotion.value
-                              ? "ring-2 ring-white"
-                              : "opacity-70 hover:opacity-100"
-                          }`}
-                          style={{ 
-                            backgroundColor: `${emotion.color}20`, 
-                            color: emotion.color 
-                          }}
-                        >
-                          {emotion.label}
-                        </button>
-                      ))}
+                      {EMOTION_OPTIONS.map(emotion => {
+                        const emotions = formData.emotion_entry ? formData.emotion_entry.split(',') : [];
+                        const isSelected = emotions.includes(emotion.value);
+                        return (
+                          <button
+                            key={emotion.value}
+                            onClick={() => {
+                              let newEmotions;
+                              if (isSelected) {
+                                newEmotions = emotions.filter(e => e !== emotion.value);
+                              } else {
+                                newEmotions = [...emotions, emotion.value];
+                              }
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                emotion_entry: newEmotions.join(',') 
+                              }));
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                              isSelected
+                                ? "ring-2 ring-white"
+                                : "opacity-70 hover:opacity-100"
+                            }`}
+                            style={{ 
+                              backgroundColor: `${emotion.color}20`, 
+                              color: emotion.color 
+                            }}
+                          >
+                            {emotion.label}
+                          </button>
+                        );
+                      })}
                     </div>
+                    {formData.emotion_entry && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        Selected: {formData.emotion_entry.split(',').map(e => 
+                          EMOTION_OPTIONS.find(o => o.value === e)?.label
+                        ).filter(Boolean).join(', ')}
+                      </p>
+                    )}
                   </div>
 
                   {/* Entry Reason */}

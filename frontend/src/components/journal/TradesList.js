@@ -9,7 +9,18 @@ import { Edit2, Trash2, Calendar } from "lucide-react";
 
 export default function TradesList({ trades, onEdit, onDelete, formatCurrency }) {
   const [filter, setFilter] = useState("all");
+  const [deleting, setDeleting] = useState(null);
   const filtered = trades.filter(t => filter === "all" || t.status === filter);
+
+  const handleDelete = async (tradeId) => {
+    setDeleting(tradeId);
+    try {
+      await onDelete(tradeId);
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+    setDeleting(null);
+  };
 
   return (
     <div className="space-y-4" data-testid="trades-list">
@@ -73,20 +84,29 @@ export default function TradesList({ trades, onEdit, onDelete, formatCurrency })
                 <div className="text-right">
                   {trade.status === "closed" && (
                     <p className={`text-xl font-black ${trade.pnl >= 0 ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
-                      {formatCurrency(trade.pnl)}
+                      {trade.pnl >= 0 ? "+" : ""}{(trade.pnl || 0).toFixed(4)} SOL
                     </p>
                   )}
                   {trade.pnl_percent !== undefined && trade.status === "closed" && (
                     <p className={`text-xs ${trade.pnl_percent >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
-                      {trade.pnl_percent >= 0 ? "+" : ""}{trade.pnl_percent}%
+                      {trade.pnl_percent >= 0 ? "+" : ""}{trade.pnl_percent?.toFixed(1)}%
                     </p>
                   )}
                   <div className="flex items-center gap-2 mt-2">
                     <button onClick={() => onEdit(trade)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" data-testid={`edit-${trade.trade_id}`}>
                       <Edit2 size={14} />
                     </button>
-                    <button onClick={() => onDelete(trade.trade_id)} className="p-1.5 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-400" data-testid={`delete-${trade.trade_id}`}>
-                      <Trash2 size={14} />
+                    <button 
+                      onClick={() => handleDelete(trade.trade_id)} 
+                      disabled={deleting === trade.trade_id}
+                      className="p-1.5 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-400 disabled:opacity-50" 
+                      data-testid={`delete-${trade.trade_id}`}
+                    >
+                      {deleting === trade.trade_id ? (
+                        <span className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin inline-block" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
                     </button>
                   </div>
                 </div>

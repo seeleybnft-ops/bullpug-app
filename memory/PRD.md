@@ -1079,5 +1079,22 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - `POST /api/journal/auto-complete-expired` - Auto-complete old entries
 - **Test entries created**: LOL buy (ATD02C6577) and LOL sell (AT31F1D03B)
 
+### Journal UI Improvements (March 2026)
+- **Multi-select Emotions**: Users can select multiple emotions (e.g., "calm" AND "confident")
+  - Stores as comma-separated values: "calm,confident"
+  - Shows "Selected: Calm, Confident" below buttons
+- **Question Updated**: "Why did you take this trade?" → "What did you think about this trade?"
+- **Delete Button Fixed**: Added loading state to delete button, now works correctly
+- **P/L Display in SOL**: All P/L values now show in SOL instead of FIAT:
+  - Dashboard: Total P/L, Avg P/L, Best Trade, Worst Trade
+  - Trades List: Each trade shows "+0.0140 SOL" instead of "+$0.014"
+- **Trading Sentiment Widget Added to Dashboard**:
+  - Overall sentiment score (0-100%)
+  - Dominant mindset indicator (Positive/Neutral/Negative)
+  - Top emotion display
+  - Emotion breakdown with percentage bars
+  - Based on aggregated emotions from all logged trades
+- **Recent Mindset Section**: Shows last 5 trades with their logged emotions
+
 ## License
 MIT License - Bullpug 2025

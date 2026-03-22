@@ -471,24 +471,87 @@ async def get_journal_dashboard():
     else:
         sharpe = 0
     
+    # Sentiment Analysis - aggregate emotions from trades
+    emotion_counts = {}
+    for t in trades:
+        emotions_str = t.get("emotion_entry", "")
+        if emotions_str:
+            # Handle comma-separated emotions (multi-select)
+            for emotion in emotions_str.split(","):
+                emotion = emotion.strip().lower()
+                if emotion:
+                    emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+    
+    total_emotions = sum(emotion_counts.values())
+    
+    # Calculate sentiment breakdown with percentages
+    sentiment_breakdown = {}
+    for emotion, count in emotion_counts.items():
+        sentiment_breakdown[emotion] = {
+            "count": count,
+            "percentage": round((count / total_emotions) * 100, 1) if total_emotions > 0 else 0
+        }
+    
+    # Determine dominant sentiment
+    positive_emotions = ["confident", "calm", "excited", "neutral"]
+    negative_emotions = ["anxious", "fearful", "fomo", "frustrated"]
+    
+    positive_count = sum(emotion_counts.get(e, 0) for e in positive_emotions)
+    negative_count = sum(emotion_counts.get(e, 0) for e in negative_emotions)
+    
+    if positive_count > negative_count:
+        dominant_sentiment = "positive"
+        sentiment_score = round((positive_count / (positive_count + negative_count)) * 100) if (positive_count + negative_count) > 0 else 50
+    elif negative_count > positive_count:
+        dominant_sentiment = "negative"
+        sentiment_score = round((negative_count / (positive_count + negative_count)) * 100) if (positive_count + negative_count) > 0 else 50
+    else:
+        dominant_sentiment = "neutral"
+        sentiment_score = 50
+    
+    # Top emotion
+    top_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else None
+    
+    # Recent emotions (last 5 trades with emotions)
+    recent_emotions = []
+    for t in sorted(trades, key=lambda x: x.get("date_entry", ""), reverse=True):
+        if t.get("emotion_entry"):
+            recent_emotions.append({
+                "asset": t.get("asset"),
+                "entry": t.get("emotion_entry"),
+                "exit": t.get("emotion_exit"),
+                "date": t.get("date_entry")
+            })
+        if len(recent_emotions) >= 5:
+            break
+    
     return {
         "total_trades": len(trades),
         "open_trades": len(open_trades),
         "closed_trades": len(closed_trades),
-        "total_pnl": round(total_pnl, 2),
+        "total_pnl": round(total_pnl, 4),
         "win_rate": round(win_rate, 1),
-        "avg_pnl": round(avg_pnl, 2),
+        "avg_pnl": round(avg_pnl, 4),
         "biggest_win": {"trade_id": biggest_win.get("trade_id"), "asset": biggest_win.get("asset"), "pnl": biggest_win.get("pnl")} if biggest_win else None,
         "biggest_loss": {"trade_id": biggest_loss.get("trade_id"), "asset": biggest_loss.get("asset"), "pnl": biggest_loss.get("pnl")} if biggest_loss else None,
         "most_traded_asset": {"asset": most_traded[0], "count": most_traded[1]} if most_traded[0] else None,
         "avg_confidence": round(avg_confidence, 1),
-        "pnl_by_asset": {k: round(v, 2) for k, v in pnl_by_asset.items()},
+        "pnl_by_asset": {k: round(v, 4) for k, v in pnl_by_asset.items()},
         "win_streak": win_streak,
         "loss_streak": loss_streak,
         "avg_rr": round(avg_rr, 2),
         "sharpe_ratio": round(sharpe, 3),
         "total_wins": len(wins),
-        "total_losses": len(losses)
+        "total_losses": len(losses),
+        # New sentiment data
+        "sentiment": {
+            "dominant": dominant_sentiment,
+            "score": sentiment_score,
+            "top_emotion": top_emotion,
+            "breakdown": sentiment_breakdown,
+            "total_logged": total_emotions
+        },
+        "recent_emotions": recent_emotions
     }
 
 

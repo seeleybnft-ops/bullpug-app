@@ -56,12 +56,12 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
     <div className="space-y-6" data-testid="dashboard">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <SummaryCard icon={<DollarSign />} label="Total P&L" value={formatCurrency(dashboard.total_pnl)} color={dashboard.total_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
+        <SummaryCard icon={<DollarSign />} label="Total P&L" value={`${dashboard.total_pnl >= 0 ? '+' : ''}${dashboard.total_pnl?.toFixed(4)} SOL`} color={dashboard.total_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
         <SummaryCard icon={<Target />} label="Win Rate" value={`${dashboard.win_rate}%`} color="#00C2FF" />
         <SummaryCard icon={<BarChart3 />} label="Total Trades" value={dashboard.total_trades} color="#D946EF" />
         <SummaryCard icon={<TrendingUp />} label="Wins" value={dashboard.total_wins} color="#00FFA3" />
         <SummaryCard icon={<TrendingDown />} label="Losses" value={dashboard.total_losses} color="#FF3B30" />
-        <SummaryCard icon={<Activity />} label="Avg P&L" value={formatCurrency(dashboard.avg_pnl)} color={dashboard.avg_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
+        <SummaryCard icon={<Activity />} label="Avg P&L" value={`${dashboard.avg_pnl >= 0 ? '+' : ''}${dashboard.avg_pnl?.toFixed(4)} SOL`} color={dashboard.avg_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
       </div>
 
       {/* Key Metrics */}
@@ -73,7 +73,7 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
           {dashboard.biggest_win ? (
             <div>
               <p className="text-2xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron' }}>
-                +${dashboard.biggest_win.pnl?.toLocaleString()}
+                +{dashboard.biggest_win.pnl?.toFixed(4)} SOL
               </p>
               <p className="text-xs text-slate-400">{dashboard.biggest_win.asset} - {dashboard.biggest_win.trade_id}</p>
             </div>
@@ -86,7 +86,7 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
           {dashboard.biggest_loss ? (
             <div>
               <p className="text-2xl font-black text-red-400" style={{ fontFamily: 'Orbitron' }}>
-                -${Math.abs(dashboard.biggest_loss.pnl)?.toLocaleString()}
+                -{Math.abs(dashboard.biggest_loss.pnl)?.toFixed(4)} SOL
               </p>
               <p className="text-xs text-slate-400">{dashboard.biggest_loss.asset} - {dashboard.biggest_loss.trade_id}</p>
             </div>
@@ -158,6 +158,79 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
           </div>
         )}
       </div>
+
+      {/* Sentiment Analysis Widget */}
+      {dashboard.sentiment && dashboard.sentiment.total_logged > 0 && (
+        <div className="glass-card rounded-2xl p-5" data-testid="sentiment-widget">
+          <h4 className="text-sm font-bold uppercase mb-4 flex items-center gap-2" style={{ fontFamily: 'Orbitron' }}>
+            <Brain className="w-5 h-5 text-[#D946EF]" />
+            Trading Sentiment
+          </h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Overall Sentiment Score */}
+            <div className="text-center p-4 bg-white/5 rounded-xl">
+              <div className={`text-4xl font-black mb-2 ${
+                dashboard.sentiment.dominant === 'positive' ? 'text-[#00FFA3]' : 
+                dashboard.sentiment.dominant === 'negative' ? 'text-[#FF6B6B]' : 'text-slate-400'
+              }`} style={{ fontFamily: 'Orbitron' }}>
+                {dashboard.sentiment.score}%
+              </div>
+              <p className="text-xs uppercase text-slate-500">
+                {dashboard.sentiment.dominant === 'positive' ? 'Positive Mindset' : 
+                 dashboard.sentiment.dominant === 'negative' ? 'Cautious Mindset' : 'Neutral Mindset'}
+              </p>
+              {dashboard.sentiment.top_emotion && (
+                <p className="text-xs text-[#D946EF] mt-1 capitalize">
+                  Top emotion: {dashboard.sentiment.top_emotion}
+                </p>
+              )}
+            </div>
+            
+            {/* Emotion Breakdown */}
+            <div className="col-span-2">
+              <p className="text-xs text-slate-500 mb-3">Emotion Breakdown ({dashboard.sentiment.total_logged} logged)</p>
+              <div className="space-y-2">
+                {Object.entries(dashboard.sentiment.breakdown || {})
+                  .sort((a, b) => b[1].count - a[1].count)
+                  .slice(0, 5)
+                  .map(([emotion, data]) => {
+                    const colors = {
+                      confident: "#00FFA3",
+                      calm: "#00C2FF",
+                      excited: "#D946EF",
+                      anxious: "#FFB800",
+                      fearful: "#FF6B6B",
+                      fomo: "#FF8C00",
+                      neutral: "#94A3B8",
+                      frustrated: "#EF4444"
+                    };
+                    const color = colors[emotion] || "#94A3B8";
+                    return (
+                      <div key={emotion} className="flex items-center gap-3">
+                        <div className="w-20 text-xs capitalize" style={{ color }}>
+                          {emotion}
+                        </div>
+                        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${data.percentage}%`,
+                              backgroundColor: color
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-slate-400 w-12 text-right">
+                          {data.percentage}%
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Emotions */}
       {dashboard.recent_emotions?.length > 0 && (
