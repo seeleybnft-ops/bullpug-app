@@ -983,5 +983,35 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Flow**: scan-and-execute → check-exits (sell TPs/SLs) → check for new buys
 - **Verification**: LOL position correctly detected at +227% for take-profit (sell failed only because tokens already sold manually)
 
+### Manual Close Position Feature (March 2026)
+- **Added**: "Manual Close" button in Positions tab for each position
+- **Use Case**: Mark positions as closed when tokens were sold outside the bot (e.g., via DEX directly)
+- **Features**:
+  - Records current price as exit price
+  - Calculates and logs P/L
+  - Moves position to history
+  - Works for pending_take_profit/pending_stop_loss positions
+- **Location**: 
+  - Frontend: `/app/frontend/src/pages/AITrader.js` (PositionCard component)
+  - Backend: `/app/backend/routers/ai_trader.py` (POST /manual-close-position)
+
+### Token-2022 Support for Auto-Exit (March 2026)
+- **Issue**: LOL tokens (and other Token-2022 tokens) were not being found during auto-sell
+- **Root Cause**: Code only checked SPL Token program, not Token-2022 program
+- **Solution**: Added check for both TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID when querying token balances
+- **Verification**: LOL tokens (438.25) now correctly detected in custodial wallet
+
+### Custodial Wallet Funds Investigation (March 2026)
+**Summary of where funds went:**
+- Initial funding: 0.05 SOL
+- Transaction fees: ~0.008 SOL (4 swaps × ~0.002 SOL each)
+- Current balance: 0.0045 SOL
+- **Tokens held in wallet:**
+  - LOL: 438.25 tokens (Token-2022)
+  - RNDR: 0.53 tokens
+  - PYTH: 20.86 tokens
+  - JUP: 5.65 tokens
+- **NO tokens were sold** - all purchases are still held
+
 ## License
 MIT License - Bullpug 2025

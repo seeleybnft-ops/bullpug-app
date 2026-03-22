@@ -1177,6 +1177,107 @@ async def delete_position(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class ManualCloseRequest(BaseModel):
+    wallet_address: str
+    position_id: str
+    exit_price: float = None
+    exit_reason: str = "manual_close"
+
+
+@router.post("/manual-close-position")
+async def manual_close_position(request: ManualCloseRequest):
+    """
+    Manually close a position without selling on-chain.
+    Use this when tokens were sold outside the bot (e.g., via DEX directly).
+    Records exit price and P/L for accurate history tracking.
+    """
+    try:
+        # Find the position
+        position = await db.ai_trader_positions.find_one({
+            "wallet_address": request.wallet_address,
+            "$or": [
+                {"position_id": request.position_id},
+                {"execution_id": request.position_id}
+            ]
+        })
+        
+        if not position:
+            raise HTTPException(status_code=404, detail="Position not found")
+        
+        # Get current price if not provided
+        exit_price = request.exit_price
+        if not exit_price:
+            token_mint = position.get("token_mint")
+            if token_mint:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}")
+                    if response.status_code == 200:
+                        pairs = response.json().get("pairs", [])
+                        if pairs:
+                            best = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            exit_price = float(best.get("priceUsd", 0) or 0)
+        
+        # Calculate P/L
+        entry_price = position.get("entry_price", 0)
+        if entry_price > 0 and exit_price:
+            pnl_percent = ((exit_price - entry_price) / entry_price) * 100
+        else:
+            pnl_percent = 0
+        
+        amount_sol = position.get("amount_sol", 0)
+        pnl_sol = amount_sol * (pnl_percent / 100)
+        
+        # Update position to closed
+        await db.ai_trader_positions.update_one(
+            {"_id": position["_id"]},
+            {
+                "$set": {
+                    "status": f"closed_{request.exit_reason}",
+                    "exit_price": exit_price,
+                    "pnl_percent": pnl_percent,
+                    "pnl_sol": pnl_sol,
+                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                    "manual_close": True,
+                    "exit_reason": request.exit_reason
+                }
+            }
+        )
+        
+        # Log the manual close
+        await db.auto_trade_logs.insert_one({
+            "log_id": str(uuid.uuid4())[:8],
+            "wallet_address": request.wallet_address,
+            "token_symbol": position.get("token_symbol"),
+            "token_mint": position.get("token_mint"),
+            "action": f"manual_close",
+            "amount_sol": amount_sol,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "pnl_percent": pnl_percent,
+            "pnl_sol": pnl_sol,
+            "reason": f"Manual close by user: {request.exit_reason}",
+            "success": True,
+            "position_id": request.position_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message": f"Position closed at ${exit_price:.8f}" if exit_price else "Position closed",
+            "position_id": request.position_id,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "pnl_percent": pnl_percent,
+            "pnl_sol": pnl_sol
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Manual close position error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/delete-ghost-positions/{wallet_address}")
 async def delete_ghost_positions(wallet_address: str):
     """Delete all ghost positions (positions that weren't executed on-chain) for a wallet."""
@@ -2848,19 +2949,32 @@ async def auto_trade_check_exits(wallet_address: str):
                                 token_pubkey = Pubkey.from_string(token_mint)
                                 wallet_pubkey = Pubkey.from_string(custodial_address)
                                 
-                                # Get token accounts for this specific mint
-                                opts = TokenAccountOpts(mint=token_pubkey)
-                                token_accounts = await rpc_client.get_token_accounts_by_owner_json_parsed(
-                                    wallet_pubkey,
-                                    opts
-                                )
+                                # Try standard SPL Token program first
+                                TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                                TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
                                 
                                 token_balance = 0
+                                
+                                # Check SPL Token accounts
+                                opts = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_PROGRAM_ID)
+                                token_accounts = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
+                                
                                 if token_accounts.value:
                                     for account in token_accounts.value:
                                         info = account.account.data.parsed.get("info", {})
                                         token_amount_info = info.get("tokenAmount", {})
                                         token_balance = int(token_amount_info.get("amount", 0))
+                                
+                                # If no balance found, check Token-2022 accounts
+                                if token_balance <= 0:
+                                    opts_2022 = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
+                                    token_accounts_2022 = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
+                                    
+                                    if token_accounts_2022.value:
+                                        for account in token_accounts_2022.value:
+                                            info = account.account.data.parsed.get("info", {})
+                                            token_amount_info = info.get("tokenAmount", {})
+                                            token_balance = int(token_amount_info.get("amount", 0))
                                 
                                 if token_balance <= 0:
                                     raise Exception(f"No {symbol} tokens in custodial wallet")

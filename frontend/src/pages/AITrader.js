@@ -797,6 +797,43 @@ export default function AITrader() {
     }
   };
 
+  // Manual close - marks position as closed without executing a sell
+  const manualClosePosition = async (position) => {
+    const positionId = position.execution_id || position.position_id;
+    
+    if (!positionId || !walletAddress) {
+      toast.error("Missing position ID or wallet");
+      return;
+    }
+    
+    try {
+      const response = await axios.post(`${API}/ai-trader/manual-close-position`, {
+        wallet_address: walletAddress,
+        position_id: positionId,
+        exit_price: position.current_price || position.entry_price,
+        exit_reason: "manual_close"
+      });
+      
+      if (response.data.success) {
+        // Remove from positions, will appear in history
+        setPositions(prev => prev.filter(p => 
+          (p.execution_id || p.position_id) !== positionId
+        ));
+        
+        const pnl = response.data.pnl_percent || 0;
+        toast.success(`${position.token_symbol} closed at ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`);
+        
+        // Refresh history
+        fetchHistory();
+      } else {
+        toast.error(response.data.message || "Failed to close position");
+      }
+    } catch (e) {
+      console.error("Manual close error:", e);
+      toast.error(e.response?.data?.detail || "Failed to close position");
+    }
+  };
+
 
   // Quick Buy from Tokens tab - Buy token directly
   const quickBuyToken = async (coin, buyAmountSol) => {
@@ -1209,6 +1246,7 @@ export default function AITrader() {
                         position={pos} 
                         onQuickSell={quickSell}
                         onDelete={deletePosition}
+                        onManualClose={manualClosePosition}
                       />
                     ))}
                   </>
@@ -2736,11 +2774,12 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   );
 }
 
-function PositionCard({ position, onQuickSell, onDelete }) {
+function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
   const [showSellInput, setShowSellInput] = useState(false);
   const [sellAmount, setSellAmount] = useState(position.amount_sol || 0.1);
   const [selling, setSelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [holdTime, setHoldTime] = useState("");
   const pnlColor = position.unrealized_pnl_pct >= 0 ? "#00FFA3" : "#FF6B6B";
   const pnlSol = position.unrealized_pnl_sol || 0;
@@ -2802,15 +2841,53 @@ function PositionCard({ position, onQuickSell, onDelete }) {
     }
   };
   
+  const handleManualClose = async () => {
+    const confirmMsg = `Mark ${position.token_symbol} as closed?\n\nThis will:\n- Record the current price as exit price\n- Calculate and log your P/L\n- Move the position to history\n\nUse this if you sold the tokens outside the bot.`;
+    
+    if (!window.confirm(confirmMsg)) return;
+    
+    try {
+      setClosing(true);
+      await onManualClose(position);
+    } catch (e) {
+      console.error("Manual close error:", e);
+    } finally {
+      setClosing(false);
+    }
+  };
+  
   const isGhostPosition = position.executed_on_chain === false;
+  const isPendingExit = position.status?.startsWith('pending_');
   
   return (
-    <div className={`bg-white/5 rounded-xl p-4 border ${isGhostPosition ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10'}`} data-testid={`position-${position.token_symbol}`}>
+    <div className={`bg-white/5 rounded-xl p-4 border ${isGhostPosition ? 'border-amber-500/30 bg-amber-500/5' : isPendingExit ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/10'}`} data-testid={`position-${position.token_symbol}`}>
       {/* Ghost Position Warning */}
       {isGhostPosition && (
         <div className="flex items-center gap-2 mb-3 pb-3 border-b border-amber-500/20">
           <AlertCircle className="w-4 h-4 text-amber-400" />
           <span className="text-xs text-amber-400">Ghost Position - Not executed on-chain</span>
+        </div>
+      )}
+      
+      {/* Pending Exit Warning */}
+      {isPendingExit && !isGhostPosition && (
+        <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-purple-500/20">
+          <div className="flex items-center gap-2">
+            <Timer className="w-4 h-4 text-purple-400" />
+            <span className="text-xs text-purple-400">
+              {position.status === 'pending_take_profit' ? 'Take-Profit Triggered' : 'Stop-Loss Triggered'} - Sell pending
+            </span>
+          </div>
+          <Button
+            onClick={handleManualClose}
+            disabled={closing}
+            size="sm"
+            className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-xs"
+            data-testid={`manual-close-${position.token_symbol}`}
+          >
+            {closing ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+            Mark as Sold
+          </Button>
         </div>
       )}
       
@@ -2864,6 +2941,20 @@ function PositionCard({ position, onQuickSell, onDelete }) {
               <TrendingDown className="w-4 h-4 mr-1" />
               Sell
             </Button>
+            {/* Manual Close - for tokens sold outside the bot */}
+            {!isPendingExit && (
+              <Button
+                onClick={handleManualClose}
+                disabled={closing}
+                size="sm"
+                variant="outline"
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                title="Mark as closed (for tokens sold outside the bot)"
+                data-testid={`close-btn-${position.token_symbol}`}
+              >
+                {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              </Button>
+            )}
             <button
               onClick={handleDelete}
               disabled={deleting}
