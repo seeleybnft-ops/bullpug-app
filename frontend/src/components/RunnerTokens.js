@@ -71,7 +71,7 @@ const safeCopyToClipboard = async (text) => {
   }
 };
 
-export default function RunnerTokens({ onTradeRunner, custodialBalance = 0 }) {
+export default function RunnerTokens({ onTradeRunner, custodialBalance = 0, compact = false }) {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toBase58();
 
@@ -118,6 +118,49 @@ export default function RunnerTokens({ onTradeRunner, custodialBalance = 0 }) {
       <div className="flex flex-col items-center justify-center py-16">
         <Loader2 className="w-10 h-10 text-[#D946EF] animate-spin mb-4" />
         <p className="text-slate-400">Scanning for runner tokens...</p>
+      </div>
+    );
+  }
+
+  // Compact mode - skip header and warnings, show fewer runners
+  if (compact) {
+    return (
+      <div className="space-y-2" data-testid="runner-tokens-compact">
+        {runners.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-4">No runners found</p>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-2">
+            {runners.slice(0, 6).map((runner, idx) => {
+              const tier = getScoreTier(runner.runner_score);
+              return (
+                <div
+                  key={runner.token_address || idx}
+                  className="bg-[#12121A] border border-white/10 rounded-lg p-3 hover:border-white/20 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg ${tier.bg} flex items-center justify-center`}>
+                        <span className="text-sm font-bold" style={{ color: tier.color }}>
+                          {runner.symbol?.charAt(0) || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{runner.symbol}</p>
+                        <p className="text-xs text-slate-500">{formatNumber(runner.liquidity_usd || 0)} liq</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-mono ${runner.price_change_5m >= 0 ? 'text-[#00FFA3]' : 'text-[#FF6B6B]'}`}>
+                        {runner.price_change_5m >= 0 ? '+' : ''}{runner.price_change_5m?.toFixed(1)}%
+                      </p>
+                      <p className="text-[10px] text-slate-500">Score: {runner.runner_score}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }

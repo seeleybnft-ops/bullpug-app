@@ -990,18 +990,6 @@ function PerformanceAnalytics({ performanceSummary, periodDays, setPeriodDays, o
               </div>
             </div>
           )}
-
-          {/* Recommendations */}
-          {recommendations.length > 0 && (
-            <div className="glass-card rounded-xl p-4 border border-white/10">
-              <h4 className="text-sm font-bold text-slate-400 uppercase mb-4">Insights</h4>
-              <div className="space-y-2">
-                {recommendations.map((rec, i) => (
-                  <p key={i} className="text-sm text-slate-300 p-2 bg-white/5 rounded-lg">{rec}</p>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>

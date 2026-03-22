@@ -1115,15 +1115,13 @@ export default function AITrader() {
         <div className="relative mb-4 sm:mb-6">
           <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto tabs-container scrollbar-thin scrollbar-thumb-[#D946EF]/30 scrollbar-track-transparent">
             {[
-              { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
-              { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
-              { id: "runners", label: "Runners", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
-              { id: "tokens", label: "Tokens", icon: <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" /> },
               { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
-              { id: "social", label: "Copy", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
-              { id: "multichain", label: "Multi-Chain", icon: <Globe className="w-3 h-3 sm:w-4 sm:h-4" /> },
-              { id: "alerts", label: "Alerts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
-              { id: "history", label: "History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
+              { id: "tokens", label: "Top Picks", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
+              { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
+              { id: "alerts", label: "Breakouts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
+              { id: "social", label: "Copy Trading", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
+              { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
+              { id: "history", label: "Trade History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
             ].map(tab => (
             <button
               key={tab.id}
@@ -1416,6 +1414,26 @@ export default function AITrader() {
                   </div>
                 )}
 
+                {/* Runner Tokens Section - Between High Risk and New Pairs */}
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-[#D946EF] mb-3">
+                    <Rocket className="w-4 h-4" />
+                    RUNNER TOKENS
+                    <span className="text-[10px] px-2 py-0.5 bg-[#D946EF]/20 text-[#D946EF] rounded-full animate-pulse">HOT</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Trending tokens with high momentum - auto-trade candidates
+                  </p>
+                  <RunnerTokens 
+                    onTradeRunner={(runner) => {
+                      toast.info(`Analyzing ${runner.symbol}...`);
+                      runAutoTradeScan();
+                    }}
+                    custodialBalance={custodialWallet?.balance_sol || 0}
+                    compact={true}
+                  />
+                </div>
+
                 {/* New Pairs Section */}
                 {topPicks.newPairs && topPicks.newPairs.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-white/10">
@@ -1474,18 +1492,6 @@ export default function AITrader() {
               </div>
             )}
             
-            {/* Runners Tab - Trending New Tokens */}
-            {activeTab === "runners" && (
-              <RunnerTokens 
-                onTradeRunner={(runner) => {
-                  // Quick trade runner - triggers a scan focusing on this token
-                  toast.info(`Analyzing ${runner.symbol}...`);
-                  runAutoTradeScan();
-                }}
-                custodialBalance={custodialWallet?.balance_sol || 0}
-              />
-            )}
-            
             {/* Auto-Trade Tab - Now includes Analytics */}
             {activeTab === "autotrade" && (
               <UnifiedAutoTrader 
@@ -1504,14 +1510,27 @@ export default function AITrader() {
               />
             )}
             
-            {/* Social Trading Tab */}
+            {/* Combined Copy Trading Tab - Social + Multi-Chain */}
             {activeTab === "social" && (
-              <SocialTrading />
-            )}
-            
-            {/* Multi-Chain Copy Trading Tab */}
-            {activeTab === "multichain" && (
-              <MultiChainCopyTrading />
+              <div className="space-y-6">
+                {/* Solana Copy Trading */}
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#00FFA3]" />
+                    Solana Copy Trading
+                  </h3>
+                  <SocialTrading />
+                </div>
+                
+                {/* Divider */}
+                <div className="border-t border-white/10 pt-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-[#00C2FF]" />
+                    Multi-Chain Copy Trading
+                  </h3>
+                  <MultiChainCopyTrading />
+                </div>
+              </div>
             )}
             
             {/* Alerts Tab */}
@@ -3051,15 +3070,47 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose }) {
 }
 
 function TradeHistoryCard({ trade }) {
-  const isProfitable = (trade.pnl_sol || 0) > 0;
-  const isSell = trade.trade_type === "sell";
+  const isProfitable = (trade.pnl_sol || trade.pnl_percent || 0) > 0;
+  const isSell = trade.trade_type === "sell" || trade.action?.includes("sell") || trade.action?.includes("close") || trade.action?.includes("take_profit") || trade.action?.includes("stop_loss");
   const pnlSol = trade.pnl_sol || trade.realized_pnl_sol || 0;
-  const pnlPct = trade.pnl_pct || trade.realized_pnl_pct || 0;
+  const pnlPct = trade.pnl_pct || trade.pnl_percent || trade.realized_pnl_pct || 0;
   const inputSol = trade.input_sol || trade.amount_sol || 0;
   const receivedSol = trade.received_sol || trade.output_amount || 0;
+  const entryPrice = trade.entry_price || 0;
+  const exitPrice = trade.exit_price || trade.current_price || 0;
+  
+  // Calculate time held
+  const getTimeHeld = () => {
+    if (!trade.created_at) return null;
+    const closeTime = trade.closed_at || trade.executed_at;
+    if (!closeTime && !isSell) return null;
+    
+    const start = new Date(trade.created_at);
+    const end = closeTime ? new Date(closeTime) : new Date();
+    const diffMs = end - start;
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+  
+  const timeHeld = getTimeHeld();
+  const tradeSource = trade.source || (trade.action?.includes("auto") ? "Auto-Trade" : "Manual");
+  
+  // Determine border color based on profit/loss
+  const borderColor = isSell 
+    ? (isProfitable ? "border-[#00FFA3]/30" : "border-[#FF6B6B]/30")
+    : "border-white/10";
+  const bgTint = isSell
+    ? (isProfitable ? "bg-[#00FFA3]/5" : "bg-[#FF6B6B]/5")
+    : "bg-white/5";
   
   return (
-    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+    <div className={`${bgTint} rounded-xl p-4 border ${borderColor}`} data-testid={`trade-history-${trade.execution_id || trade.log_id}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -3077,9 +3128,14 @@ function TradeHistoryCard({ trade }) {
             <div className="flex items-center gap-2">
               <p className="font-bold">{trade.token_symbol}</p>
               <span className={`px-2 py-0.5 text-[10px] rounded-full font-semibold ${
-                isSell ? "bg-[#FF6B6B]/20 text-[#FF6B6B]" : "bg-[#00C2FF]/20 text-[#00C2FF]"
+                isSell 
+                  ? (isProfitable ? "bg-[#00FFA3]/20 text-[#00FFA3]" : "bg-[#FF6B6B]/20 text-[#FF6B6B]") 
+                  : "bg-[#00C2FF]/20 text-[#00C2FF]"
               }`}>
-                {isSell ? "SOLD" : "BUY"}
+                {isSell ? (trade.action?.includes("take_profit") ? "TAKE PROFIT" : trade.action?.includes("stop_loss") ? "STOP LOSS" : "SOLD") : "BUY"}
+              </span>
+              <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-400">
+                {tradeSource}
               </span>
             </div>
             <p className="text-xs text-slate-500">
@@ -3101,32 +3157,37 @@ function TradeHistoryCard({ trade }) {
       </div>
       
       {/* Trade details */}
-      <div className="grid grid-cols-3 gap-4 text-xs pt-3 border-t border-white/5">
+      <div className="grid grid-cols-4 gap-3 text-xs pt-3 border-t border-white/5">
         <div>
           <p className="text-slate-500">{isSell ? "Sold" : "Invested"}</p>
           <p className="font-mono text-white">{inputSol.toFixed(4)} SOL</p>
         </div>
-        {isSell && (
+        {entryPrice > 0 && (
           <div>
-            <p className="text-slate-500">Received</p>
-            <p className="font-mono text-white">{receivedSol.toFixed(4)} SOL</p>
+            <p className="text-slate-500">Entry Price</p>
+            <p className="font-mono text-white">${entryPrice < 0.01 ? entryPrice.toFixed(8) : entryPrice.toFixed(6)}</p>
           </div>
         )}
-        <div>
-          <p className="text-slate-500">Status</p>
-          <p className={`font-semibold ${
-            trade.status === "open" ? "text-[#00C2FF]" : 
-            trade.status === "closed" ? "text-[#00FFA3]" : "text-slate-400"
-          }`}>
-            {trade.status === "open" ? "Open" : trade.status === "closed" ? "Closed" : trade.status}
-          </p>
-        </div>
+        {isSell && exitPrice > 0 && (
+          <div>
+            <p className="text-slate-500">Exit Price</p>
+            <p className={`font-mono ${isProfitable ? "text-[#00FFA3]" : "text-[#FF6B6B]"}`}>
+              ${exitPrice < 0.01 ? exitPrice.toFixed(8) : exitPrice.toFixed(6)}
+            </p>
+          </div>
+        )}
+        {timeHeld && (
+          <div>
+            <p className="text-slate-500">Time Held</p>
+            <p className="font-mono text-[#D946EF]">{timeHeld}</p>
+          </div>
+        )}
       </div>
       
       {/* Transaction link */}
-      {trade.tx_signature && (
+      {(trade.tx_signature || trade.sell_tx_signature) && (
         <a 
-          href={`https://solscan.io/tx/${trade.tx_signature}`}
+          href={`https://solscan.io/tx/${trade.sell_tx_signature || trade.tx_signature}`}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 pt-3 border-t border-white/5 flex items-center gap-1 text-xs text-[#00C2FF] hover:underline"

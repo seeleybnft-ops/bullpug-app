@@ -1013,5 +1013,31 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### Auto-Sell Full Position Execution Fix (March 2026)
+- **Issue**: LOL position at +200% wasn't being auto-sold
+- **Root Causes Fixed**:
+  1. TokenAccountOpts needed program_id parameter
+  2. Token-2022 tokens (like LOL) weren't being queried
+  3. Insufficient SOL for fees threshold was too high
+- **Solution**: 
+  - Added Token-2022 program support to token balance query
+  - Lowered fee threshold from 0.01 to 0.003 SOL
+- **Verification**: LOL successfully auto-sold at +177.4% profit
+  - TX: `H26TFJv5dxTpvCYXEb1TdBLeXPKXHtmw5Cb4ri9gorYc4mzfe7xhJBFev7KU9n5wPGoRK8bVYY4jNiBCH22iroU`
+  - Wallet balance: 0.054 → 0.068 SOL (+0.014 SOL profit)
+
+### UI Tab Reorganization (March 2026)
+- **New Tab Order**: Auto-Trade, Top Picks (with Runners), Signals, Breakouts, Copy Trading, Positions, Trade History
+- **Removed**: Separate "Runners" tab (now integrated into Top Picks)
+- **Removed**: Separate "Multi-Chain" tab (now integrated into Copy Trading)
+- **Removed**: "Insights" section from Performance tab
+
+### Trade History Enhancement (March 2026)
+- Shows ALL trades: manual, auto-trade buys/sells, closed positions
+- Entry price, exit price, time held, P/L percentage
+- Green border for profitable trades, red for losses
+- Source labels: "Manual", "Auto-Trade", "Position"
+- Combines data from: ai_trader_executions, ai_trader_positions, auto_trade_logs
+
 ## License
 MIT License - Bullpug 2025
