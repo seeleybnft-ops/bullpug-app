@@ -663,21 +663,37 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
     """
     Execute a swap using the custodial wallet (called by auto-trade system).
     This function handles the actual trade execution for automated trading.
+    
+    For BUYS (SOL -> Token): amount_lamports is SOL amount to spend
+    For SELLS (Token -> SOL): amount_lamports is the token amount in smallest units
     """
     
     wallet_doc = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
     if not wallet_doc:
         raise HTTPException(status_code=404, detail="Custodial wallet not found")
     
-    # Check balance
     custodial_address = wallet_doc["custodial_address"]
     balance = await get_wallet_balance(custodial_address)
     
-    if balance < amount_lamports + 50000:  # Need some extra for fees
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient custodial balance. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: {amount_lamports/LAMPORTS_PER_SOL:.4f} SOL"
-        )
+    # For buys (SOL -> Token): check SOL balance
+    # For sells (Token -> SOL): just need enough SOL for fees
+    is_sell = output_mint == "So11111111111111111111111111111111111111112"
+    
+    if is_sell:
+        # For sells, only need SOL for transaction fees (~0.003 SOL should be enough)
+        min_fee_buffer = 3000000  # 0.003 SOL for fees
+        if balance < min_fee_buffer:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient SOL for fees. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: ~0.003 SOL for fees"
+            )
+    else:
+        # For buys, check SOL balance covers the swap amount + fees
+        if balance < amount_lamports + 50000:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient custodial balance. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: {amount_lamports/LAMPORTS_PER_SOL:.4f} SOL"
+            )
     
     # Get keypair
     keypair = await get_custodial_keypair(user_wallet)

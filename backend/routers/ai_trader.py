@@ -2135,6 +2135,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
     """
     Main auto-trading function: Scan market and execute trades automatically.
     This should be called periodically (every 5 minutes) by the frontend or a scheduler.
+    
+    Flow:
+    1. Check and execute exits for positions hitting take-profit/stop-loss
+    2. Check daily limits and cooldowns
+    3. Scan for new buy opportunities
     """
     try:
         # Get user settings from ai_trader_settings collection
@@ -2145,6 +2150,12 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         if not settings.get("auto_trade_enabled"):
             return {"success": False, "message": "Auto-trading is disabled", "trades": []}
+        
+        # FIRST: Check and execute exits for positions hitting TP/SL
+        exits_result = await auto_trade_check_exits(wallet_address)
+        exits_executed = exits_result.get("exits", [])
+        if exits_executed:
+            logger.info(f"Auto-exits executed: {len(exits_executed)} positions closed for {wallet_address}")
         
         # Check daily limits
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
@@ -2707,13 +2718,25 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         runner_trades = len([t for t in executed_trades if t.get("is_runner")])
         known_trades = len(executed_trades) - runner_trades
         
+        # Include exits in the response
+        exits_count = len(exits_executed)
+        message_parts = []
+        if exits_count:
+            message_parts.append(f"{exits_count} exits")
+        if known_trades:
+            message_parts.append(f"{known_trades} known buys")
+        if runner_trades:
+            message_parts.append(f"{runner_trades} runner buys")
+        
         return {
             "success": True,
             "trades_executed": len(executed_trades),
             "trades": executed_trades,
+            "exits_executed": exits_count,
+            "exits": exits_executed,
             "skipped": skipped,
             "runners_found": len(runner_tokens),
-            "message": f"Auto-scan complete: {known_trades} known tokens, {runner_trades} runners executed"
+            "message": f"Auto-scan complete: {', '.join(message_parts) if message_parts else 'no trades'}"
         }
         
     except Exception as e:
@@ -2725,8 +2748,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
 async def auto_trade_check_exits(wallet_address: str):
     """
     Check open positions for stop-loss or take-profit triggers.
+    Executes sells on-chain via custodial wallet when triggers hit.
     Should be called periodically to manage risk.
     """
+    from routers.custodial_wallet import execute_auto_trade, get_wallet_balance
+    
     try:
         settings = await db.ai_trader_settings.find_one({"wallet_address": wallet_address})
         
@@ -2775,6 +2801,12 @@ async def auto_trade_check_exits(wallet_address: str):
                     stop_loss = position.get("stop_loss_price", entry_price * 0.9)
                     take_profit = position.get("take_profit_price", entry_price * 1.2)
                     
+                    # Calculate current P&L percentage
+                    if entry_price > 0:
+                        current_pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                    else:
+                        current_pnl_pct = 0
+                    
                     # Check for exit conditions
                     exit_action = None
                     exit_reason = ""
@@ -2784,23 +2816,93 @@ async def auto_trade_check_exits(wallet_address: str):
                         exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
                     elif current_price >= take_profit:
                         exit_action = "take_profit"
-                        exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f})"
+                        exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f}, +{current_pnl_pct:.1f}%)"
                     
                     if exit_action:
-                        # Calculate P&L
-                        pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                        logger.info(f"Exit triggered for {symbol}: {exit_action} at {current_pnl_pct:.1f}%")
+                        
+                        # Try to execute sell on-chain
+                        sell_success = False
+                        tx_signature = None
+                        sell_error = None
+                        
+                        try:
+                            # Get the custodial wallet's token balance for this token
+                            from solana.rpc.async_api import AsyncClient
+                            from solders.pubkey import Pubkey
+                            import os
+                            
+                            HELIUS_RPC = os.environ.get("HELIUS_RPC_URL") or os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.solana.com")
+                            
+                            # Get custodial wallet address
+                            custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+                            if not custodial_wallet:
+                                raise Exception("Custodial wallet not found")
+                            
+                            custodial_address = custodial_wallet["custodial_address"]
+                            
+                            # Get token accounts for this wallet
+                            async with AsyncClient(HELIUS_RPC) as rpc_client:
+                                from solana.rpc.types import TokenAccountOpts
+                                
+                                token_pubkey = Pubkey.from_string(token_mint)
+                                wallet_pubkey = Pubkey.from_string(custodial_address)
+                                
+                                # Get token accounts for this specific mint
+                                opts = TokenAccountOpts(mint=token_pubkey)
+                                token_accounts = await rpc_client.get_token_accounts_by_owner_json_parsed(
+                                    wallet_pubkey,
+                                    opts
+                                )
+                                
+                                token_balance = 0
+                                if token_accounts.value:
+                                    for account in token_accounts.value:
+                                        info = account.account.data.parsed.get("info", {})
+                                        token_amount_info = info.get("tokenAmount", {})
+                                        token_balance = int(token_amount_info.get("amount", 0))
+                                
+                                if token_balance <= 0:
+                                    raise Exception(f"No {symbol} tokens in custodial wallet")
+                                
+                                logger.info(f"Found {token_balance} raw units of {symbol} to sell")
+                            
+                            # Execute swap: TOKEN -> SOL
+                            sell_result = await execute_auto_trade(
+                                user_wallet=wallet_address,
+                                input_mint=token_mint,
+                                output_mint=SOL_MINT,
+                                amount_lamports=token_balance  # This is token units, not lamports
+                            )
+                            
+                            if sell_result.get("success"):
+                                sell_success = True
+                                tx_signature = sell_result.get("tx_signature")
+                                logger.info(f"Auto-sell executed for {symbol}: {tx_signature}")
+                            else:
+                                sell_error = sell_result.get("error", "Unknown error")
+                                
+                        except Exception as e:
+                            sell_error = str(e)
+                            logger.warning(f"Auto-sell failed for {symbol}: {e}")
+                        
+                        # Calculate final P&L
+                        pnl_pct = current_pnl_pct
                         pnl_sol = position.get("amount_sol", 0) * (pnl_pct / 100)
                         
-                        # Update position
+                        # Update position in database
                         await db.ai_trader_positions.update_one(
                             {"position_id": position.get("position_id")},
                             {
                                 "$set": {
-                                    "status": f"closed_{exit_action}",
+                                    "status": f"closed_{exit_action}" if sell_success else f"pending_{exit_action}",
                                     "exit_price": current_price,
                                     "pnl_percent": pnl_pct,
                                     "pnl_sol": pnl_sol,
-                                    "closed_at": datetime.now(timezone.utc).isoformat()
+                                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                                    "sell_tx_signature": tx_signature,
+                                    "sell_executed_on_chain": sell_success,
+                                    "sell_error": sell_error
                                 }
                             }
                         )
@@ -2820,7 +2922,10 @@ async def auto_trade_check_exits(wallet_address: str):
                             "confidence": 1.0,
                             "strategy": "risk_management",
                             "reason": exit_reason,
-                            "success": True,
+                            "success": sell_success,
+                            "tx_signature": tx_signature,
+                            "executed_on_chain": sell_success,
+                            "error": sell_error,
                             "position_id": position.get("position_id"),
                             "created_at": datetime.now(timezone.utc).isoformat()
                         })
@@ -2832,7 +2937,10 @@ async def auto_trade_check_exits(wallet_address: str):
                             "exit_price": current_price,
                             "pnl_percent": pnl_pct,
                             "pnl_sol": pnl_sol,
-                            "reason": exit_reason
+                            "reason": exit_reason,
+                            "executed_on_chain": sell_success,
+                            "tx_signature": tx_signature,
+                            "error": sell_error
                         })
                         
                         # If loss and pause_on_loss is enabled, pause auto-trading

@@ -969,5 +969,19 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Added**: Visual scroll indicator (gradient fade) for mobile users
 - **Location**: `/app/frontend/src/pages/AITrader.js` lines 1077-1120
 
+### Auto-Sell Take-Profit/Stop-Loss Feature (March 2026)
+- **Issue**: Positions hitting take-profit (200%+) were not being auto-sold
+- **Root Cause**: 
+  1. `check-exits` endpoint only updated database, didn't execute on-chain sells
+  2. Exit check was never called during auto-trade scans
+  3. Sell logic used wrong amount (SOL lamports instead of token units)
+- **Solution**:
+  1. Added on-chain sell execution to `check_exits()` in `/app/backend/routers/ai_trader.py`
+  2. Integrated exit check into `scan-and-execute` - now runs at start of each scan
+  3. Added token balance query to get actual token amount for selling
+  4. Fixed fee threshold for sells (only needs 0.003 SOL for fees)
+- **Flow**: scan-and-execute → check-exits (sell TPs/SLs) → check for new buys
+- **Verification**: LOL position correctly detected at +227% for take-profit (sell failed only because tokens already sold manually)
+
 ## License
 MIT License - Bullpug 2025
