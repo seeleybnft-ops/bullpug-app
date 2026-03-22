@@ -67,10 +67,15 @@ class PendingJournalEntry(BaseModel):
     position_size_tokens: Optional[float] = None
     tx_signature: Optional[str] = None
     source: str = "auto_trade"
+    # P/L for sells
+    pnl: Optional[float] = None
+    pnl_percent: Optional[float] = None
+    # Auto-filled strategy from trade trigger
+    strategy: Optional[str] = None
+    trigger_reason: Optional[str] = None
     # Optional user input fields
     emotion_entry: Optional[str] = None
     entry_reason: Optional[str] = None
-    strategy: Optional[str] = None
     confidence_level: Optional[int] = None
     mindset_notes: Optional[str] = None
 
@@ -184,6 +189,19 @@ async def create_pending_entry(entry: PendingJournalEntry):
     """
     trade_id = f"AT{str(uuid.uuid4())[:8].upper()}"
     
+    # Determine strategy from trigger reason if not provided
+    auto_strategy = entry.strategy
+    if not auto_strategy and entry.trigger_reason:
+        trigger = entry.trigger_reason.lower()
+        if "take_profit" in trigger or "take-profit" in trigger:
+            auto_strategy = "Take-Profit Triggered"
+        elif "stop_loss" in trigger or "stop-loss" in trigger:
+            auto_strategy = "Stop-Loss Triggered"
+        else:
+            auto_strategy = entry.trigger_reason
+    elif not auto_strategy:
+        auto_strategy = "AI Signal - Auto Buy" if entry.trade_type == "buy" else "Auto-Sell"
+    
     pending_trade = {
         "trade_id": trade_id,
         "wallet_address": entry.wallet_address,
@@ -195,20 +213,21 @@ async def create_pending_entry(entry: PendingJournalEntry):
         "date_entry": datetime.now(timezone.utc).isoformat(),
         "tx_signature": entry.tx_signature,
         "source": entry.source,
+        # Auto-filled strategy
+        "strategy": auto_strategy,
         # User input fields (optional)
         "emotion_entry": entry.emotion_entry,
         "entry_reason": entry.entry_reason,
-        "strategy": entry.strategy,
         "confidence_level": entry.confidence_level,
         "mindset_notes": entry.mindset_notes,
+        # P/L for sells
+        "pnl": entry.pnl or 0,
+        "pnl_percent": entry.pnl_percent or 0,
         # Pending status
         "pending": True,
         "auto_logged_at": datetime.now(timezone.utc).isoformat(),
-        "expires_at": datetime.now(timezone.utc).isoformat(),  # Will be updated by scheduler
+        "expires_at": datetime.now(timezone.utc).isoformat(),
         "status": "open" if entry.trade_type == "buy" else "closed",
-        # Defaults
-        "pnl": 0,
-        "pnl_percent": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }

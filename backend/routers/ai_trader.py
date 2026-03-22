@@ -51,7 +51,9 @@ async def create_pending_journal_entry(
     position_size_tokens: float = None,
     tx_signature: str = None,
     pnl_percent: float = None,
-    pnl_sol: float = None
+    pnl_sol: float = None,
+    strategy: str = None,  # Auto-filled from trade trigger/reason
+    trigger_reason: str = None  # The reason that triggered the trade
 ):
     """
     Create a pending journal entry for an auto-trade.
@@ -59,6 +61,23 @@ async def create_pending_journal_entry(
     """
     try:
         trade_id = f"AT{str(uuid.uuid4())[:8].upper()}"
+        
+        # Determine strategy from trade type and trigger
+        auto_strategy = strategy
+        if not auto_strategy:
+            if trade_type == "buy":
+                auto_strategy = trigger_reason or "AI Signal - Auto Buy"
+            else:
+                # For sells, determine if it was TP, SL, or manual
+                if trigger_reason:
+                    if "take_profit" in trigger_reason.lower() or "take-profit" in trigger_reason.lower():
+                        auto_strategy = "Take-Profit Triggered"
+                    elif "stop_loss" in trigger_reason.lower() or "stop-loss" in trigger_reason.lower():
+                        auto_strategy = "Stop-Loss Triggered"
+                    else:
+                        auto_strategy = trigger_reason
+                else:
+                    auto_strategy = "Auto-Sell"
         
         pending_trade = {
             "trade_id": trade_id,
@@ -71,6 +90,7 @@ async def create_pending_journal_entry(
             "date_entry": datetime.now(timezone.utc).isoformat(),
             "tx_signature": tx_signature,
             "source": "auto_trade",
+            "strategy": auto_strategy,  # Auto-filled strategy
             # For sells, include P/L
             "pnl": pnl_sol or 0,
             "pnl_percent": pnl_percent or 0,
@@ -84,7 +104,7 @@ async def create_pending_journal_entry(
         }
         
         await db.trading_journal.insert_one(pending_trade)
-        logger.info(f"Created pending journal entry {trade_id} for {asset} {trade_type}")
+        logger.info(f"Created pending journal entry {trade_id} for {asset} {trade_type} with strategy: {auto_strategy}")
         return trade_id
     except Exception as e:
         logger.error(f"Failed to create pending journal entry: {e}")
@@ -2696,7 +2716,9 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 trade_type="buy",
                                 entry_price=current_price,
                                 position_size_sol=position_sol,
-                                tx_signature=tx_signature
+                                tx_signature=tx_signature,
+                                strategy=combined.get("strategy"),
+                                trigger_reason=trade_reason
                             )
                             
                             executed_trades.append({
@@ -3202,7 +3224,8 @@ async def auto_trade_check_exits(wallet_address: str):
                                 position_size_sol=position.get("amount_sol", 0),
                                 tx_signature=tx_signature,
                                 pnl_percent=pnl_pct,
-                                pnl_sol=pnl_sol
+                                pnl_sol=pnl_sol,
+                                trigger_reason=exit_action  # "take_profit" or "stop_loss"
                             )
                         
                         exits.append({

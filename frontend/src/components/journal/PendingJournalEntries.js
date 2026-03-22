@@ -206,12 +206,12 @@ export default function PendingJournalEntries({ entries, onComplete, onRefresh }
                   <div>
                     <label className="flex items-center gap-2 text-sm text-slate-400 mb-2">
                       <Target className="w-4 h-4" />
-                      Why did you take this trade?
+                      What did you think about this trade?
                     </label>
                     <textarea
                       value={formData.entry_reason || ""}
                       onChange={(e) => setFormData(prev => ({ ...prev, entry_reason: e.target.value }))}
-                      placeholder="What was your thesis? What signals did you see?"
+                      placeholder="Your thoughts on this trade, market conditions, or anything notable..."
                       className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-slate-500 focus:border-[#D946EF] focus:outline-none resize-none"
                       rows={2}
                     />
@@ -233,16 +233,17 @@ export default function PendingJournalEntries({ entries, onComplete, onRefresh }
                     />
                   </div>
 
-                  {/* Strategy */}
+                  {/* Strategy - Auto-filled from trade trigger */}
                   <div>
                     <label className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-                      Strategy Used
+                      Trade Trigger / Strategy
+                      {entry.strategy && <Badge className="bg-[#00FFA3]/20 text-[#00FFA3] text-[10px]">Auto-filled</Badge>}
                     </label>
                     <input
                       type="text"
                       value={formData.strategy || ""}
                       onChange={(e) => setFormData(prev => ({ ...prev, strategy: e.target.value }))}
-                      placeholder="e.g., Momentum breakout, Mean reversion, AI signal"
+                      placeholder="e.g., Momentum breakout, Take-profit triggered, AI signal"
                       className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-slate-500 focus:border-[#D946EF] focus:outline-none"
                     />
                   </div>
