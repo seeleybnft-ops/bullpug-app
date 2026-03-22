@@ -1140,5 +1140,21 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Frontend shows toast notifications for triggered exits
   - Location: `/app/backend/routers/ai_trader.py` lines 2186-2222
 
+### Positions Sync & Quick Settings Enhancement (March 2026)
+- **Sync Positions from Blockchain**: New feature to sync positions with on-chain token holdings
+  - `GET /api/custodial-wallet/all-tokens/{user_wallet}` - Fetches all SPL and Token-2022 tokens with prices
+  - `POST /api/custodial-wallet/sync-positions/{user_wallet}` - Creates/updates/closes positions based on on-chain data
+  - Uses multiple RPC endpoints (Helius, Alchemy, mainnet-beta) for reliability
+  - Location: `/app/backend/routers/custodial_wallet.py` lines 701-957
+- **Sync Button on Positions Tab**: Green "Sync" button to manually sync positions from blockchain
+  - `data-testid="sync-positions-btn"`
+  - Shows toast notifications for sync results
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 1319-1330
+- **Quick Settings Panel**: TP/SL sliders directly on Positions tab for rapid adjustment
+  - Take Profit slider (5-100%) with `data-testid="quick-tp-slider"`
+  - Stop Loss slider (5-50%) with `data-testid="quick-sl-slider"`
+  - Changes apply to all positions and trigger auto-sell check
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 1343-1394
+
 ## License
 MIT License - Bullpug 2025
