@@ -209,6 +209,54 @@ async def _get_simulated_price(entry_price: float) -> float:
     return max(simulated_price, entry_price * 0.5)  # Floor at 50% of entry
 
 
+async def auto_complete_pending_journal_entries():
+    """
+    Auto-complete pending journal entries older than 24 hours.
+    Runs every hour to check for expired pending entries.
+    """
+    from utils.database import db
+    from datetime import timedelta
+    
+    try:
+        now = datetime.now(timezone.utc)
+        cutoff_time = (now - timedelta(hours=24)).isoformat()
+        
+        # Find expired pending entries
+        expired = await db.trading_journal.find(
+            {
+                "pending": True,
+                "auto_logged_at": {"$lt": cutoff_time}
+            }
+        ).to_list(100)
+        
+        updated_count = 0
+        for entry in expired:
+            try:
+                await db.trading_journal.update_one(
+                    {"trade_id": entry["trade_id"]},
+                    {
+                        "$set": {
+                            "pending": False,
+                            "completed_at": now.isoformat(),
+                            "auto_completed": True,
+                            "tags": (entry.get("tags") or []) + ["incomplete"],
+                            "updated_at": now.isoformat()
+                        }
+                    }
+                )
+                updated_count += 1
+            except Exception as e:
+                logger.error(f"Error auto-completing entry {entry.get('trade_id')}: {e}")
+        
+        if updated_count > 0:
+            logger.info(f"Journal auto-complete: marked {updated_count} pending entries as incomplete")
+        else:
+            logger.debug("Journal auto-complete: no expired pending entries found")
+            
+    except Exception as e:
+        logger.error(f"Error in journal auto-complete scheduler: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -229,8 +277,17 @@ def start_scheduler():
         max_instances=1
     )
     
+    # Journal pending entries auto-complete - run every hour
+    scheduler.add_job(
+        auto_complete_pending_journal_entries,
+        trigger=IntervalTrigger(hours=1),
+        id="journal_auto_complete",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
-    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour)")
+    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour)")
 
 
 def stop_scheduler():

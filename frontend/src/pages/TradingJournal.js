@@ -307,13 +307,18 @@ export default function TradingJournal() {
   };
 
   const deleteTrade = async (tradeId) => {
-    if (!window.confirm("Delete this trade?")) return;
+    if (!window.confirm("Delete this trade?")) return false;
     try {
       await axios.delete(`${API}/journal/trade/${tradeId}`);
       toast.success("Trade deleted");
-      fetchData();
+      // Update state directly for immediate UI feedback
+      setTrades(prevTrades => prevTrades.filter(t => t.trade_id !== tradeId));
+      setPendingEntries(prevEntries => prevEntries.filter(e => e.trade_id !== tradeId));
+      return true;
     } catch (e) {
+      console.error("Delete error:", e);
       toast.error("Failed to delete");
+      return false;
     }
   };
 

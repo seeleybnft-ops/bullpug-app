@@ -13,13 +13,30 @@ export default function TradesList({ trades, onEdit, onDelete, formatCurrency })
   const filtered = trades.filter(t => filter === "all" || t.status === filter);
 
   const handleDelete = async (tradeId) => {
+    console.log("Delete requested for trade:", tradeId);
     setDeleting(tradeId);
     try {
-      await onDelete(tradeId);
+      const result = await onDelete(tradeId);
+      console.log("Delete result:", result);
     } catch (e) {
       console.error("Delete failed:", e);
     }
     setDeleting(null);
+  };
+  
+  // Helper to format P/L - detects legacy USD values vs actual SOL values
+  const formatPnL = (pnl, positionSize) => {
+    if (pnl === null || pnl === undefined) return null;
+    
+    // If pnl is much larger than position size, it's likely a legacy USD value
+    // Convert roughly: assume SOL ~$130, so divide by 130
+    const isLegacyUSD = Math.abs(pnl) > 10 && positionSize && Math.abs(pnl) > positionSize * 50;
+    
+    if (isLegacyUSD) {
+      const solValue = pnl / 130; // Approximate conversion
+      return { value: solValue, isConverted: true };
+    }
+    return { value: pnl, isConverted: false };
   };
 
   return (
@@ -82,16 +99,23 @@ export default function TradesList({ trades, onEdit, onDelete, formatCurrency })
                   </div>
                 </div>
                 <div className="text-right">
-                  {trade.status === "closed" && (
-                    <p className={`text-xl font-black ${trade.pnl >= 0 ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
-                      {trade.pnl >= 0 ? "+" : ""}{(trade.pnl || 0).toFixed(4)} SOL
-                    </p>
-                  )}
-                  {trade.pnl_percent !== undefined && trade.status === "closed" && (
-                    <p className={`text-xs ${trade.pnl_percent >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
-                      {trade.pnl_percent >= 0 ? "+" : ""}{trade.pnl_percent?.toFixed(1)}%
-                    </p>
-                  )}
+                  {trade.status === "closed" && (() => {
+                    const pnlData = formatPnL(trade.pnl, trade.position_size);
+                    if (!pnlData) return null;
+                    return (
+                      <>
+                        <p className={`text-xl font-black ${pnlData.value >= 0 ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
+                          {pnlData.value >= 0 ? "+" : ""}{pnlData.value.toFixed(4)} SOL
+                          {pnlData.isConverted && <span className="text-[10px] text-slate-500 ml-1">~</span>}
+                        </p>
+                        {trade.pnl_percent !== undefined && (
+                          <p className={`text-xs ${trade.pnl_percent >= 0 ? "text-[#00FFA3]" : "text-red-400"}`}>
+                            {trade.pnl_percent >= 0 ? "+" : ""}{trade.pnl_percent?.toFixed(1)}%
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex items-center gap-2 mt-2">
                     <button onClick={() => onEdit(trade)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white" data-testid={`edit-${trade.trade_id}`}>
                       <Edit2 size={14} />

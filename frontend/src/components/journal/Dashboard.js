@@ -28,6 +28,19 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
       </div>
     );
   }
+  
+  // Helper to convert legacy USD values to SOL
+  // If value is large (> 10), it's likely USD from old test data - convert to SOL
+  const toSol = (value) => {
+    if (value === null || value === undefined) return 0;
+    const isLegacyUSD = Math.abs(value) > 10;
+    return isLegacyUSD ? value / 130 : value; // Approximate conversion at $130/SOL
+  };
+  
+  const totalPnlSol = toSol(dashboard?.total_pnl);
+  const avgPnlSol = toSol(dashboard?.avg_pnl);
+  const biggestWinSol = dashboard?.biggest_win ? toSol(dashboard.biggest_win.pnl) : 0;
+  const biggestLossSol = dashboard?.biggest_loss ? toSol(dashboard.biggest_loss.pnl) : 0;
 
   if (!dashboard || dashboard.total_trades === 0) {
     return (
@@ -56,12 +69,12 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
     <div className="space-y-6" data-testid="dashboard">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <SummaryCard icon={<DollarSign />} label="Total P&L" value={`${dashboard.total_pnl >= 0 ? '+' : ''}${dashboard.total_pnl?.toFixed(4)} SOL`} color={dashboard.total_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
+        <SummaryCard icon={<DollarSign />} label="Total P&L" value={`${totalPnlSol >= 0 ? '+' : ''}${totalPnlSol.toFixed(4)} SOL`} color={totalPnlSol >= 0 ? "#00FFA3" : "#FF3B30"} />
         <SummaryCard icon={<Target />} label="Win Rate" value={`${dashboard.win_rate}%`} color="#00C2FF" />
         <SummaryCard icon={<BarChart3 />} label="Total Trades" value={dashboard.total_trades} color="#D946EF" />
         <SummaryCard icon={<TrendingUp />} label="Wins" value={dashboard.total_wins} color="#00FFA3" />
         <SummaryCard icon={<TrendingDown />} label="Losses" value={dashboard.total_losses} color="#FF3B30" />
-        <SummaryCard icon={<Activity />} label="Avg P&L" value={`${dashboard.avg_pnl >= 0 ? '+' : ''}${dashboard.avg_pnl?.toFixed(4)} SOL`} color={dashboard.avg_pnl >= 0 ? "#00FFA3" : "#FF3B30"} />
+        <SummaryCard icon={<Activity />} label="Avg P&L" value={`${avgPnlSol >= 0 ? '+' : ''}${avgPnlSol.toFixed(4)} SOL`} color={avgPnlSol >= 0 ? "#00FFA3" : "#FF3B30"} />
       </div>
 
       {/* Key Metrics */}
@@ -73,7 +86,7 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
           {dashboard.biggest_win ? (
             <div>
               <p className="text-2xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron' }}>
-                +{dashboard.biggest_win.pnl?.toFixed(4)} SOL
+                +{biggestWinSol.toFixed(4)} SOL
               </p>
               <p className="text-xs text-slate-400">{dashboard.biggest_win.asset} - {dashboard.biggest_win.trade_id}</p>
             </div>
@@ -86,7 +99,7 @@ export default function Dashboard({ dashboard, trades, loading, formatCurrency, 
           {dashboard.biggest_loss ? (
             <div>
               <p className="text-2xl font-black text-red-400" style={{ fontFamily: 'Orbitron' }}>
-                -{Math.abs(dashboard.biggest_loss.pnl)?.toFixed(4)} SOL
+                {biggestLossSol.toFixed(4)} SOL
               </p>
               <p className="text-xs text-slate-400">{dashboard.biggest_loss.asset} - {dashboard.biggest_loss.trade_id}</p>
             </div>

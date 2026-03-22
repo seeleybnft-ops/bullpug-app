@@ -52,7 +52,7 @@
     "Webhook correctly handles all Telegram commands (/start, /help, /status, etc.)",
     "telegram_router is properly registered in server.py at line 59 and included at line 133",
     "Frontend AITrader.js has Telegram state management (lines 72-77) and UI (lines 1255-1498 in Alerts tab)",
-    "Webhook URL verified: https://pug-journal.preview.emergentagent.com/api/telegram/webhook"
+    "Webhook URL verified: https://ai-trading-bot-65.preview.emergentagent.com/api/telegram/webhook"
   ],
   "updated_files": [
     "/app/backend/tests/test_telegram_bot_integration.py"
@@ -89,7 +89,7 @@
     "POST /api/telegram/verify-code": "Verifies link code validity (not exposed publicly, used internally)"
   },
   "telegram_webhook_info": {
-    "url": "https://pug-journal.preview.emergentagent.com/api/telegram/webhook",
+    "url": "https://ai-trading-bot-65.preview.emergentagent.com/api/telegram/webhook",
     "pending_update_count": 0,
     "max_connections": 40,
     "status": "active"
