@@ -1110,5 +1110,21 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **Job ID**: `journal_auto_complete`
 - **Manual trigger endpoint**: `POST /api/journal/auto-complete-expired`
 
+### Trading Bot & Auto-Sell Fixes (March 2026)
+- **Default Tab Fixed**: Trading Bot page now defaults to "Auto Trade" tab instead of "Signals"
+  - Location: `/app/frontend/src/pages/AITrader.js` line 65
+- **Pending Entries Badge**: Journal nav link shows notification badge when user has pending entries
+  - Badge shows count with pulsing animation
+  - Location: `/app/frontend/src/components/Navbar.js`
+- **Custodial Balance Fix**: Balance fetching now uses fallback RPC when primary fails
+  - Prevents silent 0.0 SOL balance display
+  - Location: `/app/backend/routers/custodial_wallet.py` get_wallet_balance()
+- **Auto-Trade Settings Save**: TP% and SL% settings now save correctly
+  - Added `auto_stop_loss_percent` and `auto_take_profit_percent` to AutoTradeSettingsUpdate model
+  - Location: `/app/backend/routers/ai_trader.py` lines 2019-2040
+- **Auto-Sell Uses Settings**: Check-exits now calculates TP/SL from settings, not position-stored values
+  - Ensures user's configured percentages are always used
+  - Location: `/app/backend/routers/ai_trader.py` auto_trade_check_exits()
+
 ## License
 MIT License - Bullpug 2025
