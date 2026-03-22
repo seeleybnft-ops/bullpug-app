@@ -419,6 +419,33 @@ export default function AITrader() {
     }
   };
 
+  // Sync positions from on-chain data
+  const syncPositionsFromChain = async () => {
+    if (!walletAddress) return;
+    const loadingToast = toast.loading("Syncing positions from blockchain...");
+    try {
+      const response = await axios.post(`${API}/custodial-wallet/sync-positions/${walletAddress}`);
+      toast.dismiss(loadingToast);
+      
+      if (response.data.success) {
+        const { positions_created, positions_synced, positions_closed } = response.data;
+        if (positions_created > 0) {
+          toast.success(`Found ${positions_created} new position(s) on-chain!`);
+        }
+        if (positions_closed > 0) {
+          toast.info(`Closed ${positions_closed} position(s) no longer on-chain`);
+        }
+        if (positions_created === 0 && positions_closed === 0) {
+          toast.success(`Positions synced (${positions_synced} updated)`);
+        }
+        fetchData(); // Refresh positions
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(err.response?.data?.detail || "Failed to sync positions");
+    }
+  };
+
   useEffect(() => {
     fetchData();
     fetchTopPicks();
@@ -1278,7 +1305,7 @@ export default function AITrader() {
             {/* Positions Tab */}
             {activeTab === "positions" && (
               <div className="space-y-4" data-testid="positions-content">
-                {/* Header with Refresh */}
+                {/* Header with Refresh & Sync */}
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1289,15 +1316,81 @@ export default function AITrader() {
                       {positions.length} active position{positions.length !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <Button
-                    onClick={fetchData}
-                    size="sm"
-                    variant="outline"
-                    className="border-white/10 hover:bg-white/5 text-slate-300"
-                    data-testid="refresh-positions-btn"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={syncPositionsFromChain}
+                      size="sm"
+                      variant="outline"
+                      className="border-[#00FFA3]/30 hover:bg-[#00FFA3]/10 text-[#00FFA3]"
+                      data-testid="sync-positions-btn"
+                      title="Sync positions from blockchain"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Sync
+                    </Button>
+                    <Button
+                      onClick={fetchData}
+                      size="sm"
+                      variant="outline"
+                      className="border-white/10 hover:bg-white/5 text-slate-300"
+                      data-testid="refresh-positions-btn"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Quick Settings Panel */}
+                <div className="bg-gradient-to-r from-[#D946EF]/5 to-[#00FFA3]/5 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-[#D946EF]" />
+                      Quick Settings
+                    </h4>
+                    <span className="text-xs text-slate-500">Changes apply to all positions</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Take Profit %</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="5"
+                          max="100"
+                          value={autoTradeStatus?.settings?.take_profit_percent || 25}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            updateAutoTradeSettings({ auto_take_profit_percent: value });
+                          }}
+                          className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#00FFA3]"
+                          data-testid="quick-tp-slider"
+                        />
+                        <span className="text-sm font-bold text-[#00FFA3] w-12 text-right">
+                          {autoTradeStatus?.settings?.take_profit_percent || 25}%
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Stop Loss %</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="5"
+                          max="50"
+                          value={autoTradeStatus?.settings?.stop_loss_percent || 15}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            updateAutoTradeSettings({ auto_stop_loss_percent: value });
+                          }}
+                          className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#FF6B6B]"
+                          data-testid="quick-sl-slider"
+                        />
+                        <span className="text-sm font-bold text-[#FF6B6B] w-12 text-right">
+                          {autoTradeStatus?.settings?.stop_loss_percent || 15}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Risk Calculator */}

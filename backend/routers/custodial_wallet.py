@@ -8,6 +8,7 @@ import os
 import base64
 import logging
 import random
+import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
@@ -695,6 +696,266 @@ class ExecuteSellRequest(BaseModel):
     token_mint: str
     token_amount: int  # Raw token amount (smallest units)
     position_id: Optional[str] = None
+
+
+@router.get("/all-tokens/{user_wallet}")
+async def get_all_token_holdings(user_wallet: str):
+    """
+    Get ALL token holdings in the custodial wallet.
+    Fetches on-chain data and returns token balances with current prices.
+    """
+    from solana.rpc.types import TokenAccountOpts
+    
+    wallet_doc = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
+    if not wallet_doc:
+        raise HTTPException(status_code=404, detail="Custodial wallet not found")
+    
+    custodial_address = wallet_doc["custodial_address"]
+    
+    try:
+        TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+        wallet_pubkey = Pubkey.from_string(custodial_address)
+        
+        holdings = []
+        
+        # Try multiple RPC endpoints for reliability
+        rpc_endpoints = [
+            os.environ.get("HELIUS_RPC_URL"),
+            os.environ.get("ALCHEMY_RPC_URL"),
+            os.environ.get("ALCHEMY_SOLANA_RPC"),
+            "https://api.mainnet-beta.solana.com"
+        ]
+        rpc_endpoints = [r for r in rpc_endpoints if r]  # Filter None values
+        
+        last_error = None
+        accounts_fetched = False
+        
+        for rpc_url in rpc_endpoints:
+            try:
+                async with AsyncClient(rpc_url) as client:
+                    # Get all SPL token accounts
+                    opts = TokenAccountOpts(program_id=TOKEN_PROGRAM_ID)
+                    accounts = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
+                    
+                    if accounts.value:
+                        for account in accounts.value:
+                            info = account.account.data.parsed.get("info", {})
+                            mint = info.get("mint", "")
+                            token_amount = info.get("tokenAmount", {})
+                            raw_amount = int(token_amount.get("amount", 0))
+                            ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                            decimals = int(token_amount.get("decimals", 9))
+                            
+                            if raw_amount > 0:
+                                holdings.append({
+                                    "mint": mint,
+                                    "raw_amount": raw_amount,
+                                    "amount": ui_amount,
+                                    "decimals": decimals,
+                                    "program": "spl-token"
+                                })
+                    
+                    # Get Token-2022 accounts
+                    opts_2022 = TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID)
+                    accounts_2022 = await client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
+                    
+                    if accounts_2022.value:
+                        for account in accounts_2022.value:
+                            info = account.account.data.parsed.get("info", {})
+                            mint = info.get("mint", "")
+                            token_amount = info.get("tokenAmount", {})
+                            raw_amount = int(token_amount.get("amount", 0))
+                            ui_amount = float(token_amount.get("uiAmount", 0) or 0)
+                            decimals = int(token_amount.get("decimals", 9))
+                            
+                            if raw_amount > 0:
+                                holdings.append({
+                                    "mint": mint,
+                                    "raw_amount": raw_amount,
+                                    "amount": ui_amount,
+                                    "decimals": decimals,
+                                    "program": "token-2022"
+                                })
+                    
+                    accounts_fetched = True
+                    break  # Success, exit loop
+                    
+            except Exception as e:
+                last_error = e
+                logger.warning(f"RPC {rpc_url[:30]}... failed: {e}")
+                continue
+        
+        if not accounts_fetched:
+            raise Exception(f"All RPC endpoints failed. Last error: {last_error}")
+        
+        # Fetch token info and prices from DexScreener
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            for holding in holdings:
+                try:
+                    response = await http_client.get(
+                        f"https://api.dexscreener.com/latest/dex/tokens/{holding['mint']}"
+                    )
+                    if response.status_code == 200:
+                        pairs = response.json().get("pairs", [])
+                        if pairs:
+                            # Get best liquidity pair
+                            best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                            holding["symbol"] = best_pair.get("baseToken", {}).get("symbol", "UNKNOWN")
+                            holding["name"] = best_pair.get("baseToken", {}).get("name", "Unknown Token")
+                            holding["price_usd"] = float(best_pair.get("priceUsd", 0) or 0)
+                            holding["liquidity_usd"] = float(best_pair.get("liquidity", {}).get("usd", 0) or 0)
+                            holding["value_usd"] = holding["amount"] * holding["price_usd"]
+                            holding["dex"] = best_pair.get("dexId", "unknown")
+                except Exception as e:
+                    logger.warning(f"Failed to get price for {holding['mint']}: {e}")
+                    holding["symbol"] = "UNKNOWN"
+                    holding["price_usd"] = 0
+                    holding["value_usd"] = 0
+        
+        return {
+            "custodial_address": custodial_address,
+            "holdings": holdings,
+            "count": len(holdings),
+            "total_value_usd": sum(h.get("value_usd", 0) for h in holdings)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching all token holdings: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sync-positions/{user_wallet}")
+async def sync_positions_from_chain(user_wallet: str):
+    """
+    Sync positions with actual on-chain token holdings.
+    Creates new positions for tokens found on-chain that don't have positions.
+    Marks positions as closed if tokens are no longer held.
+    """
+    from routers.ai_trader import db as ai_db
+    
+    try:
+        # Get all on-chain holdings
+        holdings_response = await get_all_token_holdings(user_wallet)
+        holdings = holdings_response["holdings"]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Sync positions failed to get holdings: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch on-chain holdings: {str(e)}")
+    
+    # Get existing positions
+    existing_positions = await ai_db.ai_trader_positions.find({
+        "wallet_address": user_wallet,
+        "status": "open"
+    }).to_list(100)
+    
+    existing_mints = {p.get("token_mint") for p in existing_positions}
+    on_chain_mints = {h["mint"] for h in holdings}
+    
+    synced = []
+    created = []
+    closed = []
+    
+    # Create positions for tokens found on-chain but not in database
+    for holding in holdings:
+        mint = holding["mint"]
+        if mint not in existing_mints and holding.get("price_usd", 0) > 0:
+            # Get SOL price to estimate position size in SOL
+            sol_price = 150  # Approximate, will be updated
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get("https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112")
+                    if response.status_code == 200:
+                        pairs = response.json().get("pairs", [])
+                        if pairs:
+                            sol_price = float(pairs[0].get("priceUsd", 150) or 150)
+            except Exception:
+                pass
+            
+            position_value_usd = holding.get("value_usd", 0)
+            amount_sol = position_value_usd / sol_price if sol_price > 0 else 0
+            
+            new_position = {
+                "position_id": f"SYNC{uuid.uuid4().hex[:8].upper()}",
+                "wallet_address": user_wallet,
+                "token_symbol": holding.get("symbol", "UNKNOWN"),
+                "token_name": holding.get("name", "Unknown Token"),
+                "token_mint": mint,
+                "amount_sol": round(amount_sol, 6),
+                "amount_tokens": holding["amount"],
+                "raw_amount_tokens": holding["raw_amount"],
+                "entry_price": holding.get("price_usd", 0),  # Current price as entry (we don't have historical)
+                "current_price": holding.get("price_usd", 0),
+                "status": "open",
+                "trade_type": "buy",
+                "executed_on_chain": True,
+                "synced_from_chain": True,
+                "decimals": holding["decimals"],
+                "dex": holding.get("dex", "unknown"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "opened_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await ai_db.ai_trader_positions.insert_one(new_position)
+            created.append({
+                "symbol": holding.get("symbol"),
+                "mint": mint,
+                "amount": holding["amount"],
+                "value_usd": position_value_usd
+            })
+    
+    # Mark positions as closed if tokens no longer on-chain
+    for position in existing_positions:
+        mint = position.get("token_mint")
+        if mint and mint not in on_chain_mints:
+            await ai_db.ai_trader_positions.update_one(
+                {"position_id": position.get("position_id")},
+                {
+                    "$set": {
+                        "status": "closed_synced",
+                        "closed_at": datetime.now(timezone.utc).isoformat(),
+                        "close_reason": "Token no longer in wallet"
+                    }
+                }
+            )
+            closed.append({
+                "symbol": position.get("token_symbol"),
+                "position_id": position.get("position_id")
+            })
+    
+    # Update existing positions with current on-chain amounts
+    for position in existing_positions:
+        mint = position.get("token_mint")
+        if mint in on_chain_mints:
+            holding = next((h for h in holdings if h["mint"] == mint), None)
+            if holding:
+                await ai_db.ai_trader_positions.update_one(
+                    {"position_id": position.get("position_id")},
+                    {
+                        "$set": {
+                            "amount_tokens": holding["amount"],
+                            "raw_amount_tokens": holding["raw_amount"],
+                            "current_price": holding.get("price_usd", 0),
+                            "last_synced": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                synced.append({
+                    "symbol": position.get("token_symbol"),
+                    "position_id": position.get("position_id")
+                })
+    
+    return {
+        "success": True,
+        "holdings_on_chain": len(holdings),
+        "positions_created": len(created),
+        "positions_synced": len(synced),
+        "positions_closed": len(closed),
+        "created": created,
+        "synced": synced,
+        "closed": closed
+    }
 
 
 @router.post("/execute-sell")
