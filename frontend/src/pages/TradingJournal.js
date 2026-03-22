@@ -19,6 +19,7 @@ import jsPDF from "jspdf";
 
 // Extracted components
 import { Dashboard, TradesList, TradeForm, ExitSimulator, CloudBackup } from "@/components/journal";
+import PendingJournalEntries from "@/components/journal/PendingJournalEntries";
 import JournalAIAssistant from "@/components/JournalAIAssistant";
 import DetectedTrades from "@/components/DetectedTrades";
 import PortfolioSummary from "@/components/PortfolioSummary";
@@ -42,8 +43,10 @@ export default function TradingJournal() {
   const [tab, setTab] = useState("dashboard");
   const [dashboard, setDashboard] = useState(null);
   const [trades, setTrades] = useState([]);
+  const [pendingEntries, setPendingEntries] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingTrade, setEditingTrade] = useState(null);
+  const [completingEntry, setCompletingEntry] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Exit Simulator State
@@ -68,12 +71,23 @@ export default function TradingJournal() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [dashRes, tradesRes] = await Promise.all([
+      const requests = [
         axios.get(`${API}/journal/dashboard`),
         axios.get(`${API}/journal/trades?limit=100`)
-      ]);
-      setDashboard(dashRes.data);
-      setTrades(tradesRes.data.trades);
+      ];
+      
+      // Fetch pending entries if wallet connected
+      if (walletAddress) {
+        requests.push(axios.get(`${API}/journal/pending/${walletAddress}`));
+      }
+      
+      const responses = await Promise.all(requests);
+      setDashboard(responses[0].data);
+      setTrades(responses[1].data.trades);
+      
+      if (responses[2]) {
+        setPendingEntries(responses[2].data.pending_entries || []);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -399,6 +413,14 @@ export default function TradingJournal() {
           </TabsContent>
 
           <TabsContent value="trades">
+            {/* Pending Journal Entries from Auto-Trade */}
+            <PendingJournalEntries 
+              entries={pendingEntries}
+              onComplete={() => setPendingEntries(prev => prev.filter(e => e.trade_id !== prev[0]?.trade_id))}
+              onRefresh={fetchData}
+            />
+            
+            {/* Regular Trades List */}
             <TradesList
               trades={trades}
               onEdit={(t) => { setEditingTrade(t); setShowForm(true); }}

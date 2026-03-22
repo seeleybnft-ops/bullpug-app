@@ -39,6 +39,57 @@ DB_NAME = os.environ.get("DB_NAME", "test_database")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
+
+# ============== Journal Integration Helper ==============
+
+async def create_pending_journal_entry(
+    wallet_address: str,
+    asset: str,
+    trade_type: str,  # "buy" or "sell"
+    entry_price: float,
+    position_size_sol: float,
+    position_size_tokens: float = None,
+    tx_signature: str = None,
+    pnl_percent: float = None,
+    pnl_sol: float = None
+):
+    """
+    Create a pending journal entry for an auto-trade.
+    This integrates auto-trades with the trading journal.
+    """
+    try:
+        trade_id = f"AT{str(uuid.uuid4())[:8].upper()}"
+        
+        pending_trade = {
+            "trade_id": trade_id,
+            "wallet_address": wallet_address,
+            "asset": asset.upper(),
+            "trade_type": trade_type,
+            "entry_price": entry_price,
+            "position_size": position_size_sol,
+            "position_size_tokens": position_size_tokens,
+            "date_entry": datetime.now(timezone.utc).isoformat(),
+            "tx_signature": tx_signature,
+            "source": "auto_trade",
+            # For sells, include P/L
+            "pnl": pnl_sol or 0,
+            "pnl_percent": pnl_percent or 0,
+            "exit_price": entry_price if trade_type == "sell" else None,
+            # Pending status
+            "pending": True,
+            "auto_logged_at": datetime.now(timezone.utc).isoformat(),
+            "status": "open" if trade_type == "buy" else "closed",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.trading_journal.insert_one(pending_trade)
+        logger.info(f"Created pending journal entry {trade_id} for {asset} {trade_type}")
+        return trade_id
+    except Exception as e:
+        logger.error(f"Failed to create pending journal entry: {e}")
+        return None
+
 # Token constants
 SOL_MINT = "So11111111111111111111111111111111111111112"
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -2638,6 +2689,16 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             
                             await db.auto_trade_logs.insert_one(log_doc)
                             
+                            # Create pending journal entry for user to review
+                            await create_pending_journal_entry(
+                                wallet_address=wallet_address,
+                                asset=symbol,
+                                trade_type="buy",
+                                entry_price=current_price,
+                                position_size_sol=position_sol,
+                                tx_signature=tx_signature
+                            )
+                            
                             executed_trades.append({
                                 "symbol": symbol,
                                 "action": "buy",
@@ -3130,6 +3191,19 @@ async def auto_trade_check_exits(wallet_address: str):
                             "position_id": position.get("position_id"),
                             "created_at": datetime.now(timezone.utc).isoformat()
                         })
+                        
+                        # Create pending journal entry for sell if successful
+                        if sell_success:
+                            await create_pending_journal_entry(
+                                wallet_address=wallet_address,
+                                asset=symbol,
+                                trade_type="sell",
+                                entry_price=current_price,  # Exit price for sells
+                                position_size_sol=position.get("amount_sol", 0),
+                                tx_signature=tx_signature,
+                                pnl_percent=pnl_pct,
+                                pnl_sol=pnl_sol
+                            )
                         
                         exits.append({
                             "symbol": symbol,

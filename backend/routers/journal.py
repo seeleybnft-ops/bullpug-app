@@ -49,6 +49,30 @@ class TradeEntry(BaseModel):
     external_influences: Optional[str] = None
     health_notes: Optional[str] = None
     status: str = "open"
+    # New fields for pending entries
+    pending: bool = False
+    source: Optional[str] = None  # "auto_trade", "manual"
+    tx_signature: Optional[str] = None
+    auto_logged_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class PendingJournalEntry(BaseModel):
+    """Model for auto-trade pending journal entries"""
+    wallet_address: str
+    asset: str
+    trade_type: str  # "buy" or "sell"
+    entry_price: float
+    position_size: float  # in SOL
+    position_size_tokens: Optional[float] = None
+    tx_signature: Optional[str] = None
+    source: str = "auto_trade"
+    # Optional user input fields
+    emotion_entry: Optional[str] = None
+    entry_reason: Optional[str] = None
+    strategy: Optional[str] = None
+    confidence_level: Optional[int] = None
+    mindset_notes: Optional[str] = None
 
 
 class JournalBackupRequest(BaseModel):
@@ -147,6 +171,158 @@ async def delete_trade(trade_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Trade not found")
     return {"message": "Trade deleted!", "trade_id": trade_id}
+
+
+# ============== Pending Journal Entries (Auto-Trade Integration) ==============
+
+@router.post("/pending-entry")
+async def create_pending_entry(entry: PendingJournalEntry):
+    """
+    Create a pending journal entry from an auto-trade.
+    This entry will be highlighted in the journal for user to complete.
+    Auto-logs after 24 hours if not completed.
+    """
+    trade_id = f"AT{str(uuid.uuid4())[:8].upper()}"
+    
+    pending_trade = {
+        "trade_id": trade_id,
+        "wallet_address": entry.wallet_address,
+        "asset": entry.asset.upper(),
+        "trade_type": entry.trade_type,
+        "entry_price": entry.entry_price,
+        "position_size": entry.position_size,
+        "position_size_tokens": entry.position_size_tokens,
+        "date_entry": datetime.now(timezone.utc).isoformat(),
+        "tx_signature": entry.tx_signature,
+        "source": entry.source,
+        # User input fields (optional)
+        "emotion_entry": entry.emotion_entry,
+        "entry_reason": entry.entry_reason,
+        "strategy": entry.strategy,
+        "confidence_level": entry.confidence_level,
+        "mindset_notes": entry.mindset_notes,
+        # Pending status
+        "pending": True,
+        "auto_logged_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": datetime.now(timezone.utc).isoformat(),  # Will be updated by scheduler
+        "status": "open" if entry.trade_type == "buy" else "closed",
+        # Defaults
+        "pnl": 0,
+        "pnl_percent": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.trading_journal.insert_one(pending_trade)
+    
+    return {
+        "success": True,
+        "trade_id": trade_id,
+        "message": f"Pending journal entry created for {entry.asset} {entry.trade_type}"
+    }
+
+
+@router.get("/pending/{wallet_address}")
+async def get_pending_entries(wallet_address: str):
+    """Get all pending journal entries for a wallet."""
+    pending = await db.trading_journal.find(
+        {
+            "wallet_address": wallet_address,
+            "pending": True
+        },
+        {"_id": 0}
+    ).sort("auto_logged_at", -1).to_list(50)
+    
+    return {
+        "pending_entries": pending,
+        "count": len(pending)
+    }
+
+
+class CompletePendingRequest(BaseModel):
+    """Request to complete a pending journal entry"""
+    emotion_entry: Optional[str] = None
+    emotion_exit: Optional[str] = None
+    entry_reason: Optional[str] = None
+    strategy: Optional[str] = None
+    market_conditions: Optional[str] = None
+    confidence_level: Optional[int] = None
+    mindset_notes: Optional[str] = None
+    what_went_well: Optional[str] = None
+    what_went_wrong: Optional[str] = None
+    lessons: Optional[str] = None
+    trade_grade: Optional[str] = None
+    tags: Optional[List[str]] = []
+
+
+@router.put("/pending/{trade_id}/complete")
+async def complete_pending_entry(trade_id: str, data: CompletePendingRequest):
+    """
+    Complete a pending journal entry with user's psychological notes.
+    Marks the entry as no longer pending.
+    """
+    existing = await db.trading_journal.find_one({"trade_id": trade_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Pending entry not found")
+    
+    update_data = {
+        **data.model_dump(exclude_none=True),
+        "pending": False,
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.trading_journal.update_one(
+        {"trade_id": trade_id},
+        {"$set": update_data}
+    )
+    
+    return {
+        "success": True,
+        "trade_id": trade_id,
+        "message": "Journal entry completed!"
+    }
+
+
+@router.post("/auto-complete-expired")
+async def auto_complete_expired_entries():
+    """
+    Auto-complete pending entries older than 24 hours.
+    Called by scheduler or manually.
+    """
+    from datetime import timedelta
+    
+    cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    
+    # Find expired pending entries
+    expired = await db.trading_journal.find(
+        {
+            "pending": True,
+            "auto_logged_at": {"$lt": cutoff_time}
+        }
+    ).to_list(100)
+    
+    updated_count = 0
+    for entry in expired:
+        await db.trading_journal.update_one(
+            {"trade_id": entry["trade_id"]},
+            {
+                "$set": {
+                    "pending": False,
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "auto_completed": True,
+                    "tags": (entry.get("tags") or []) + ["incomplete"],
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        updated_count += 1
+    
+    return {
+        "success": True,
+        "auto_completed": updated_count,
+        "message": f"Auto-completed {updated_count} expired pending entries"
+    }
 
 
 @router.get("/trades/{wallet_address}/stats")

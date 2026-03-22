@@ -1055,5 +1055,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Supports both SPL Token and Token-2022 programs
   - Shows clear distinction between custodial and user wallet positions
 
+### Journal Integration for Auto-Trades (March 2026)
+- **Feature**: Auto-trades now create pending journal entries for user review
+- **Auto-populated fields**: Asset name, trade type (buy/sell), entry price, position size, date/time, tx signature
+- **User input fields (all optional)**: 
+  - Emotional state (confident, calm, anxious, fearful, FOMO, etc.)
+  - Entry reason/thesis
+  - Strategy used
+  - Confidence level (1-10)
+  - Mindset notes
+  - What went well/wrong (for sells)
+  - Lessons learned (for sells)
+  - Trade grade (A+ to F)
+- **Pending entries behavior**:
+  - Highlighted cards in Journal → Trades tab (purple border with "Auto-Trade" badge)
+  - Shows time remaining until auto-log (24 hour countdown)
+  - Expandable form for user to fill in psychological notes
+  - Auto-completes after 24 hours with "incomplete" tag
+- **Backend endpoints**:
+  - `POST /api/journal/pending-entry` - Create pending entry from auto-trade
+  - `GET /api/journal/pending/{wallet}` - Get pending entries
+  - `PUT /api/journal/pending/{trade_id}/complete` - Complete entry with user notes
+  - `POST /api/journal/auto-complete-expired` - Auto-complete old entries
+- **Test entries created**: LOL buy (ATD02C6577) and LOL sell (AT31F1D03B)
+
 ## License
 MIT License - Bullpug 2025
