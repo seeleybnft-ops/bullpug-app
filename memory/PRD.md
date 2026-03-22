@@ -1126,5 +1126,19 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Ensures user's configured percentages are always used
   - Location: `/app/backend/routers/ai_trader.py` auto_trade_check_exits()
 
+### Trades Tally & Settings-Triggered Auto-Sell (March 2026)
+- **Trades Today/SOL Used Fix**: Now correctly counts from open positions
+  - `trades_executed` = max of logs or open positions count
+  - `total_sol_used` = sum of logs + all open position SOL amounts
+  - Location: `/app/backend/routers/ai_trader.py` lines 2081-2097
+- **Refresh Button on Positions Tab**: Added refresh button next to "Open Positions" header
+  - `data-testid="refresh-positions-btn"`
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 1285-1300
+- **Settings Change Triggers Auto-Sell**: When TP% or SL% is changed, auto-sell check runs automatically
+  - If positions cross new threshold, they execute immediately
+  - Response includes `exits_triggered` array and `exits_count`
+  - Frontend shows toast notifications for triggered exits
+  - Location: `/app/backend/routers/ai_trader.py` lines 2186-2222
+
 ## License
 MIT License - Bullpug 2025
