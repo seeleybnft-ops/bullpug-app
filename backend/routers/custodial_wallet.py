@@ -861,17 +861,29 @@ async def sync_positions_from_chain(user_wallet: str):
     for holding in holdings:
         mint = holding["mint"]
         if mint not in existing_mints and holding.get("price_usd", 0) > 0:
-            # Get SOL price to estimate position size in SOL
-            sol_price = 150  # Approximate, will be updated
+            # Get SOL price using Jupiter API (more reliable)
+            sol_price = 140  # Fallback
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    response = await client.get("https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112")
+                    # Try Jupiter price API first
+                    response = await client.get(
+                        "https://price.jup.ag/v6/price?ids=SOL"
+                    )
                     if response.status_code == 200:
-                        pairs = response.json().get("pairs", [])
-                        if pairs:
-                            sol_price = float(pairs[0].get("priceUsd", 150) or 150)
-            except Exception:
-                pass
+                        data = response.json()
+                        sol_price = float(data.get("data", {}).get("SOL", {}).get("price", 140) or 140)
+                    
+                    if sol_price < 50 or sol_price > 500:  # Sanity check
+                        # Fallback to CoinGecko
+                        response = await client.get(
+                            "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+                        )
+                        if response.status_code == 200:
+                            sol_price = float(response.json().get("solana", {}).get("usd", 140) or 140)
+            except Exception as e:
+                logger.warning(f"Failed to get SOL price: {e}, using fallback")
+            
+            logger.info(f"Using SOL price: ${sol_price}")
             
             position_value_usd = holding.get("value_usd", 0)
             amount_sol = position_value_usd / sol_price if sol_price > 0 else 0
