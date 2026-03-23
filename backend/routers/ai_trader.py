@@ -808,26 +808,19 @@ async def reject_signal(signal_id: str, wallet_address: str):
 
 @router.get("/positions/{wallet_address}")
 async def get_open_positions(wallet_address: str):
-    """Get all open/active positions for a user with P/L in SOL and USD"""
-    # Query both collections for positions
-    # Include pending_* statuses as these are still active positions awaiting sell execution
+    """Get all active positions for a user - positions that haven't been sold yet"""
     positions = []
     
-    active_statuses = ["open", "pending_stop_loss", "pending_take_profit"]
-    
-    # From positions collection (Quick Buy from Tokens tab)
+    # Simple logic: show positions that are actively held (not closed/sold)
+    # A position is active if:
+    # 1. Status is "open" OR starts with "pending_" (awaiting sell)
+    # 2. Has NOT been sold on-chain yet
     pos_from_positions = await db.ai_trader_positions.find({
         "wallet_address": wallet_address,
-        "status": {"$in": active_statuses}
+        "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]},
+        "sell_executed_on_chain": {"$ne": True}  # Not yet sold
     }, {"_id": 0}).sort("created_at", -1).to_list(50)
     positions.extend(pos_from_positions)
-    
-    # From executions collection (from Signals)
-    pos_from_executions = await db.ai_trader_executions.find({
-        "wallet_address": wallet_address,
-        "status": {"$in": active_statuses}
-    }, {"_id": 0}).sort("created_at", -1).to_list(50)
-    positions.extend(pos_from_executions)
     
     # Get SOL price for USD conversions
     sol_price = await get_token_price("SOL") or 0
