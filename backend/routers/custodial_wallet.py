@@ -863,10 +863,10 @@ async def sync_positions_from_chain(user_wallet: str):
         logger.error(f"Sync positions failed to get holdings: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch on-chain holdings: {str(e)}")
     
-    # Get existing positions
+    # Get existing positions (include pending states - they're still valid positions)
     existing_positions = await ai_db.ai_trader_positions.find({
         "wallet_address": user_wallet,
-        "status": "open"
+        "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
     }).to_list(100)
     
     existing_mints = {p.get("token_mint") for p in existing_positions}
