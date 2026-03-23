@@ -314,3 +314,116 @@ async def proxy_rpc_call(request: RpcRequest):
     except Exception as e:
         logger.error(f"RPC proxy error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/custodial-burn/{user_wallet}")
+async def burn_custodial_accounts(user_wallet: str, max_accounts: int = 10):
+    """
+    Close empty token accounts in the user's custodial wallet and reclaim SOL.
+    This uses the custodial wallet's private key to sign transactions.
+    
+    Args:
+        user_wallet: The user's main wallet address (to find their custodial wallet)
+        max_accounts: Maximum number of accounts to close in one transaction (default 10)
+    """
+    from routers.custodial_wallet import get_custodial_keypair
+    from utils.database import db
+    from solana.rpc.async_api import AsyncClient
+    from solders.pubkey import Pubkey
+    from solders.transaction import VersionedTransaction
+    from solders.message import MessageV0
+    from solders.instruction import Instruction, AccountMeta
+    from solders.hash import Hash
+    import base64
+    
+    try:
+        # Get custodial wallet info
+        wallet_doc = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
+        if not wallet_doc:
+            raise HTTPException(status_code=404, detail="Custodial wallet not found")
+        
+        custodial_address = wallet_doc["custodial_address"]
+        
+        # Scan for empty accounts
+        scan_result = await scan_vacant_accounts(custodial_address)
+        
+        if not scan_result.vacant_accounts:
+            return {
+                "success": True,
+                "message": "No empty accounts to close",
+                "accounts_closed": 0,
+                "sol_reclaimed": 0
+            }
+        
+        # Limit accounts to close
+        accounts_to_close = scan_result.vacant_accounts[:max_accounts]
+        
+        # Get keypair for signing
+        keypair = await get_custodial_keypair(user_wallet)
+        
+        # Use Alchemy RPC (Helius may not be available)
+        rpc_url = f"https://solana-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}" if ALCHEMY_API_KEY else "https://api.mainnet-beta.solana.com"
+        
+        async with AsyncClient(rpc_url) as rpc_client:
+            # Get recent blockhash
+            blockhash_resp = await rpc_client.get_latest_blockhash()
+            recent_blockhash = blockhash_resp.value.blockhash
+            
+            # Build close account instructions
+            TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+            TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+            
+            instructions = []
+            owner_pubkey = Pubkey.from_string(custodial_address)
+            
+            for account in accounts_to_close:
+                account_pubkey = Pubkey.from_string(account.address)
+                program_id = TOKEN_2022_PROGRAM_ID if account.program_id == "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" else TOKEN_PROGRAM_ID
+                
+                # CloseAccount instruction (instruction index 9 in SPL Token)
+                close_ix = Instruction(
+                    program_id=program_id,
+                    accounts=[
+                        AccountMeta(pubkey=account_pubkey, is_signer=False, is_writable=True),  # Account to close
+                        AccountMeta(pubkey=owner_pubkey, is_signer=False, is_writable=True),    # Destination for rent
+                        AccountMeta(pubkey=owner_pubkey, is_signer=True, is_writable=False),    # Owner
+                    ],
+                    data=bytes([9])  # CloseAccount instruction
+                )
+                instructions.append(close_ix)
+            
+            # Build and sign transaction
+            message = MessageV0.try_compile(
+                payer=owner_pubkey,
+                instructions=instructions,
+                address_lookup_table_accounts=[],
+                recent_blockhash=recent_blockhash
+            )
+            
+            tx = VersionedTransaction(message, [keypair])
+            
+            # Send transaction
+            tx_result = await rpc_client.send_transaction(tx)
+            
+            if tx_result.value:
+                tx_signature = str(tx_result.value)
+                estimated_sol = len(accounts_to_close) * RENT_PER_ACCOUNT_SOL
+                
+                logger.info(f"Custodial burn successful: {len(accounts_to_close)} accounts, ~{estimated_sol:.4f} SOL reclaimed")
+                
+                return {
+                    "success": True,
+                    "message": f"Closed {len(accounts_to_close)} accounts",
+                    "accounts_closed": len(accounts_to_close),
+                    "sol_reclaimed": round(estimated_sol, 6),
+                    "tx_signature": tx_signature,
+                    "remaining_empty_accounts": len(scan_result.vacant_accounts) - len(accounts_to_close)
+                }
+            else:
+                raise HTTPException(status_code=500, detail="Transaction failed to send")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Custodial burn error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

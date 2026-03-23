@@ -1018,7 +1018,7 @@ async def reset_statistics(wallet_address: str, full_reset: bool = False):
     Reset trading statistics.
     
     If full_reset=False (default): Removes only non-on-chain trades, keeps successful on-chain history.
-    If full_reset=True: Completely wipes ALL trading history (fresh start).
+    If full_reset=True: Archives ALL trading history for learning, then resets stats to zero.
     """
     from datetime import datetime, timezone
     
@@ -1031,12 +1031,43 @@ async def reset_statistics(wallet_address: str, full_reset: bool = False):
         }
         
         if full_reset:
-            # FULL RESET: Delete ALL history except currently open positions
+            # FULL RESET: Archive data for learning purposes, then clear stats
+            archive_timestamp = datetime.now(timezone.utc).isoformat()
+            
+            # Archive positions before deleting
+            positions_to_archive = await db.ai_trader_positions.find({
+                "wallet_address": wallet_address,
+                "status": {"$regex": "^closed|no_tokens"}
+            }).to_list(1000)
+            
+            if positions_to_archive:
+                for pos in positions_to_archive:
+                    pos["archived_at"] = archive_timestamp
+                    pos["archive_reason"] = "stats_reset"
+                    if "_id" in pos:
+                        del pos["_id"]
+                await db.ai_trader_positions_archive.insert_many(positions_to_archive)
+                logger.info(f"Archived {len(positions_to_archive)} positions for learning")
+            
+            # Archive auto-trade logs before deleting
+            logs_to_archive = await db.auto_trade_logs.find({
+                "wallet_address": wallet_address
+            }).to_list(5000)
+            
+            if logs_to_archive:
+                for log in logs_to_archive:
+                    log["archived_at"] = archive_timestamp
+                    log["archive_reason"] = "stats_reset"
+                    if "_id" in log:
+                        del log["_id"]
+                await db.auto_trade_logs_archive.insert_many(logs_to_archive)
+                logger.info(f"Archived {len(logs_to_archive)} auto-trade logs for learning")
+            
+            # Now delete from main collections
             exec_result = await db.ai_trader_executions.delete_many({
                 "wallet_address": wallet_address
             })
             
-            # Delete all closed positions (keep only open/pending)
             pos_result = await db.ai_trader_positions.delete_many({
                 "wallet_address": wallet_address,
                 "status": {"$regex": "^closed|no_tokens"}
