@@ -1422,43 +1422,63 @@ export default function AITrader() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Take Profit %</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="5"
-                          max="100"
-                          value={autoTradeStatus?.settings?.take_profit_percent || 25}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            updateAutoTradeSettings({ auto_take_profit_percent: value });
+                      <label className="text-xs text-slate-400 mb-2 block">Take Profit %</label>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            const current = autoTradeStatus?.settings?.take_profit_percent || 25;
+                            if (current > 5) updateAutoTradeSettings({ auto_take_profit_percent: current - 1 });
                           }}
-                          className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#00FFA3]"
-                          data-testid="quick-tp-slider"
-                        />
-                        <span className="text-sm font-bold text-[#00FFA3] w-12 text-right">
-                          {autoTradeStatus?.settings?.take_profit_percent || 25}%
-                        </span>
+                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
+                          data-testid="quick-tp-minus"
+                        >
+                          −
+                        </button>
+                        <div className="w-16 h-10 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 flex items-center justify-center">
+                          <span className="text-lg font-bold text-[#00FFA3]">
+                            {autoTradeStatus?.settings?.take_profit_percent || 25}%
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const current = autoTradeStatus?.settings?.take_profit_percent || 25;
+                            if (current < 100) updateAutoTradeSettings({ auto_take_profit_percent: current + 1 });
+                          }}
+                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
+                          data-testid="quick-tp-plus"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Stop Loss %</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="5"
-                          max="50"
-                          value={autoTradeStatus?.settings?.stop_loss_percent || 15}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            updateAutoTradeSettings({ auto_stop_loss_percent: value });
+                      <label className="text-xs text-slate-400 mb-2 block">Stop Loss %</label>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
+                            if (current > 5) updateAutoTradeSettings({ auto_stop_loss_percent: current - 1 });
                           }}
-                          className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#FF6B6B]"
-                          data-testid="quick-sl-slider"
-                        />
-                        <span className="text-sm font-bold text-[#FF6B6B] w-12 text-right">
-                          {autoTradeStatus?.settings?.stop_loss_percent || 15}%
-                        </span>
+                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
+                          data-testid="quick-sl-minus"
+                        >
+                          −
+                        </button>
+                        <div className="w-16 h-10 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center">
+                          <span className="text-lg font-bold text-[#FF6B6B]">
+                            {autoTradeStatus?.settings?.stop_loss_percent || 15}%
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
+                            if (current < 50) updateAutoTradeSettings({ auto_stop_loss_percent: current + 1 });
+                          }}
+                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
+                          data-testid="quick-sl-plus"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
                   </div>
