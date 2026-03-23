@@ -3361,11 +3361,13 @@ async def auto_trade_check_exits(wallet_address: str):
                             logger.info(f"Found {token_balance} raw units of {symbol} to sell")
                             
                             # Execute swap: TOKEN -> SOL
+                            # Pass is_stop_loss=True for exit trades to use higher slippage
                             sell_result = await execute_auto_trade(
                                 user_wallet=wallet_address,
                                 input_mint=token_mint,
                                 output_mint=SOL_MINT,
-                                amount_lamports=token_balance  # This is token units, not lamports
+                                amount_lamports=token_balance,  # This is token units, not lamports
+                                is_stop_loss=(exit_action == "stop_loss")
                             )
                             
                             if sell_result.get("success"):
@@ -3378,6 +3380,29 @@ async def auto_trade_check_exits(wallet_address: str):
                         except Exception as e:
                             sell_error = f"{type(e).__name__}: {str(e)}"
                             logger.warning(f"Auto-sell failed for {symbol}: {sell_error}")
+                            
+                            # CRITICAL: Notify user of failed stop-loss immediately
+                            if exit_action == "stop_loss":
+                                logger.error(f"CRITICAL: Stop-loss sell FAILED for {symbol} at {current_pnl_pct:.1f}% loss!")
+                                # Try to send Telegram alert about failed stop-loss
+                                try:
+                                    from routers.telegram import send_telegram_message
+                                    account = await db.telegram_accounts.find_one({
+                                        "wallet_address": wallet_address,
+                                        "active": True
+                                    })
+                                    if account and account.get("chat_id"):
+                                        await send_telegram_message(
+                                            account["chat_id"],
+                                            f"🚨 <b>STOP-LOSS FAILED</b>\n\n"
+                                            f"<b>{symbol}</b> sell failed!\n"
+                                            f"Current P/L: <code>{current_pnl_pct:.1f}%</code>\n"
+                                            f"Error: {sell_error[:100]}\n\n"
+                                            f"⚠️ Manual intervention may be required.\n"
+                                            f"Will retry on next check (1 min)"
+                                        )
+                                except Exception as notify_e:
+                                    logger.error(f"Failed to send stop-loss failure notification: {notify_e}")
                         
                         # Calculate final P&L
                         pnl_pct = current_pnl_pct

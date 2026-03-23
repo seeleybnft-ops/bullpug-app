@@ -1108,13 +1108,16 @@ async def close_custodial_wallet(user_wallet: str):
 
 # ============== Auto-Trade Execution Helper ==============
 
-async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str, amount_lamports: int) -> dict:
+async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str, amount_lamports: int, is_stop_loss: bool = False) -> dict:
     """
     Execute a swap using the custodial wallet (called by auto-trade system).
     This function handles the actual trade execution for automated trading.
     
     For BUYS (SOL -> Token): amount_lamports is SOL amount to spend
     For SELLS (Token -> SOL): amount_lamports is the token amount in smallest units
+    
+    Args:
+        is_stop_loss: If True, use higher slippage to ensure execution
     """
     
     wallet_doc = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
@@ -1149,9 +1152,10 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
     
     try:
         # Use regular swap with high priority fees and retry logic
+        # For stop-loss/take-profit exits, use higher slippage to ensure execution
         return await _execute_swap_with_retry(
             keypair, custodial_address, input_mint, output_mint,
-            amount_lamports, user_wallet, max_retries=3
+            amount_lamports, user_wallet, max_retries=3, is_stop_loss=is_stop_loss or is_sell
         )
                 
     except Exception as e:
@@ -1166,11 +1170,13 @@ async def _execute_swap_with_retry(
     output_mint: str,
     amount_lamports: int,
     user_wallet: str,
-    max_retries: int = 3
+    max_retries: int = 3,
+    is_stop_loss: bool = False
 ) -> dict:
     """
     Execute swap with retry logic using fresh blockhash each attempt.
-    Uses Helius RPC with staked connections for better transaction landing.
+    Uses progressive slippage on retries for better fill rates.
+    Stop-loss trades use higher initial slippage to ensure execution.
     """
     import asyncio
     from solders.transaction import VersionedTransaction
@@ -1180,21 +1186,27 @@ async def _execute_swap_with_retry(
     rpc_name = "Helius" if HELIUS_RPC_URL and HELIUS_RPC_URL in SOLANA_RPC_URL else "Alchemy"
     logger.info(f"Using {rpc_name} RPC for transaction submission")
     
+    # Progressive slippage: increase with each retry
+    # Stop-loss trades start with higher slippage to ensure execution
+    base_slippage = 500 if is_stop_loss else 200  # 5% for SL, 2% for normal
+    slippage_values = [base_slippage, base_slippage + 300, base_slippage + 700]  # Progressive increase
+    
     last_error = None
     
     for retry in range(max_retries):
         try:
-            logger.info(f"Swap attempt {retry + 1}/{max_retries}")
+            current_slippage = slippage_values[min(retry, len(slippage_values) - 1)]
+            logger.info(f"Swap attempt {retry + 1}/{max_retries} with slippage {current_slippage} bps ({current_slippage/100}%)")
             
             async with httpx.AsyncClient(timeout=45.0) as client:
-                # Get fresh quote
+                # Get fresh quote with progressive slippage
                 quote_response = await client.get(
                     "https://lite-api.jup.ag/swap/v1/quote",
                     params={
                         "inputMint": input_mint,
                         "outputMint": output_mint,
                         "amount": str(amount_lamports),
-                        "slippageBps": "150"  # 1.5% slippage for better fill
+                        "slippageBps": str(current_slippage)
                     }
                 )
                 
