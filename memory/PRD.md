@@ -1216,5 +1216,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Toast notification confirms action
   - Location: `/app/frontend/src/pages/AITrader.js` lines 3305-3315
 
+### Top Picks Global Refresh (March 2026)
+- **Global Refresh Button**: The "Refresh" button on the Top Picks tab now refreshes ALL data sections
+  - Refreshes: Safer Picks, High Risk/High Reward, Runner Tokens, and New Pairs
+  - Implementation: Added `refreshTrigger` prop to RunnerTokens component
+  - Location: `/app/frontend/src/components/RunnerTokens.js` lines 74-82, 122-127
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 75, 1511-1524, 1716
+
 ## License
 MIT License - Bullpug 2025

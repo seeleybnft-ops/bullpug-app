@@ -77,7 +77,8 @@ export default function RunnerTokens({
   compact = false,
   onQuickBuy,
   onAnalyze,
-  onCopy
+  onCopy,
+  refreshTrigger = 0 // When this value changes, component will refresh its data
 }) {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toBase58();
@@ -119,6 +120,13 @@ export default function RunnerTokens({
     const interval = setInterval(() => fetchRunners(true), 2 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchRunners]);
+
+  // Respond to external refresh trigger from parent
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchRunners(true);
+    }
+  }, [refreshTrigger, fetchRunners]);
 
   const copyAddress = async (address) => {
     await safeCopyToClipboard(address);

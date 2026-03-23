@@ -72,6 +72,7 @@ export default function AITrader() {
   const [topPicks, setTopPicks] = useState({ safe: [], volatile: [], newPairs: [] });
   const [topPicksLoading, setTopPicksLoading] = useState(false);
   const [lastTopPicksUpdate, setLastTopPicksUpdate] = useState(null);
+  const [runnerRefreshTrigger, setRunnerRefreshTrigger] = useState(0);
   
   // Price Alerts state
   const [priceAlerts, setPriceAlerts] = useState([]);
@@ -531,9 +532,19 @@ export default function AITrader() {
       const { data } = await axios.get(`${API}/ai-trader/scan-all/${walletAddress}`);
       setLastScan(new Date());
       if (data.signals_generated > 0) {
-        toast.success(`${data.signals_generated} trading signal(s) found!`);
+        toast.success(
+          <div className="flex items-center gap-2">
+            <span>{data.signals_generated} trading signal(s) found!</span>
+            <button 
+              onClick={() => setActiveTab("signals")}
+              className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+            >
+              View
+            </button>
+          </div>,
+          { duration: 5000 }
+        );
         setSignals(prev => [...data.signals, ...prev]);
-        setActiveTab("signals"); // Switch to signals tab
       } else {
         toast.info("No strong trading signals at this time");
       }
@@ -1498,11 +1509,15 @@ export default function AITrader() {
                     </p>
                   </div>
                   <Button
-                    onClick={fetchTopPicks}
+                    onClick={() => {
+                      fetchTopPicks();
+                      setRunnerRefreshTrigger(prev => prev + 1);
+                    }}
                     disabled={topPicksLoading}
                     variant="outline"
                     size="sm"
                     className="border-white/20 text-slate-300"
+                    data-testid="refresh-top-picks-btn"
                   >
                     <RefreshCw className={`w-4 h-4 mr-2 ${topPicksLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -1555,9 +1570,19 @@ export default function AITrader() {
                                   );
                                   toast.dismiss(loadingToast);
                                   if (data.signal) {
-                                    toast.success(`Signal generated for ${coin.symbol}`);
+                                    toast.success(
+                                      <div className="flex items-center gap-2">
+                                        <span>Signal generated for {coin.symbol}</span>
+                                        <button 
+                                          onClick={() => setActiveTab("signals")}
+                                          className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+                                        >
+                                          View
+                                        </button>
+                                      </div>,
+                                      { duration: 5000 }
+                                    );
                                     setSignals(prev => [data.signal, ...prev]);
-                                    setActiveTab("signals");
                                   } else {
                                     toast.info(data.message || "No strong signal detected");
                                   }
@@ -1606,9 +1631,19 @@ export default function AITrader() {
                                   );
                                   toast.dismiss(loadingToast);
                                   if (data.signal) {
-                                    toast.success(`Signal generated for ${coin.symbol}`);
+                                    toast.success(
+                                      <div className="flex items-center gap-2">
+                                        <span>Signal generated for {coin.symbol}</span>
+                                        <button 
+                                          onClick={() => setActiveTab("signals")}
+                                          className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+                                        >
+                                          View
+                                        </button>
+                                      </div>,
+                                      { duration: 5000 }
+                                    );
                                     setSignals(prev => [data.signal, ...prev]);
-                                    setActiveTab("signals");
                                   } else {
                                     toast.info(data.message || "No strong signal detected");
                                   }
@@ -1678,6 +1713,7 @@ export default function AITrader() {
                     onCopy={copyToClipboard}
                     custodialBalance={custodialWallet?.balance_sol || 0}
                     compact={true}
+                    refreshTrigger={runnerRefreshTrigger}
                   />
                 </div>
 
@@ -1716,9 +1752,19 @@ export default function AITrader() {
                               );
                               toast.dismiss(loadingToast);
                               if (data.signal) {
-                                toast.success(`Signal generated for ${pair.symbol}`);
+                                toast.success(
+                                  <div className="flex items-center gap-2">
+                                    <span>Signal generated for {pair.symbol}</span>
+                                    <button 
+                                      onClick={() => setActiveTab("signals")}
+                                      className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+                                    >
+                                      View
+                                    </button>
+                                  </div>,
+                                  { duration: 5000 }
+                                );
                                 setSignals(prev => [data.signal, ...prev]);
-                                setActiveTab("signals");
                               } else {
                                 toast.info(data.message || "No strong signal detected");
                               }
