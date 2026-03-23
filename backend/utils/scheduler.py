@@ -257,6 +257,25 @@ async def auto_complete_pending_journal_entries():
         logger.error(f"Error in journal auto-complete scheduler: {e}")
 
 
+async def scan_runner_alerts():
+    """
+    Scan for new runner tokens and send alerts to subscribed users.
+    Runs every 5 minutes.
+    """
+    try:
+        from services.runner_alerts import RunnerAlertService
+        
+        result = await RunnerAlertService.scan_and_alert()
+        
+        if result.get("alerts_sent", 0) > 0:
+            logger.info(f"Runner alerts: sent {result['alerts_sent']} alerts to users")
+        else:
+            logger.debug(f"Runner alerts scan: {result.get('runners_found', 0)} runners, no alerts sent")
+            
+    except Exception as e:
+        logger.error(f"Error in runner alerts scheduler: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -286,8 +305,17 @@ def start_scheduler():
         max_instances=1
     )
     
+    # Runner alerts - scan every 5 minutes
+    scheduler.add_job(
+        scan_runner_alerts,
+        trigger=IntervalTrigger(minutes=5),
+        id="runner_alerts_scan",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
-    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour)")
+    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour), runner alerts (5 min)")
 
 
 def stop_scheduler():

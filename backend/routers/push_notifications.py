@@ -269,7 +269,8 @@ async def send_push_notification(
         "fee_earned": "fee_earned",
         "profit_alert": "profit_alerts",
         "loss_alert": "loss_alerts",
-        "stop_loss_triggered": "stop_loss_triggered"
+        "stop_loss_triggered": "stop_loss_triggered",
+        "runner_alert": "runner_alerts"  # Runner token alerts
     }
     
     pref_key = type_to_pref.get(notification_type)
