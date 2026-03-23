@@ -1054,7 +1054,7 @@ async def execute_sell(request: ExecuteSellRequest):
             return {
                 "success": True,
                 "tx_signature": result.get("tx_signature"),
-                "received_sol": result.get("output_amount", 0) / LAMPORTS_PER_SOL if result.get("output_amount") else 0
+                "received_sol": int(result.get("output_amount", 0) or 0) / LAMPORTS_PER_SOL
             }
         else:
             return {
@@ -1203,15 +1203,15 @@ async def _execute_swap_with_retry(
                 
                 quote_data = quote_response.json()
                 
-                # Get swap transaction with high priority
+                # Get swap transaction with auto priority fee for landing
                 swap_response = await client.post(
                     "https://lite-api.jup.ag/swap/v1/swap",
                     json={
                         "quoteResponse": quote_data,
                         "userPublicKey": custodial_address,
                         "wrapAndUnwrapSol": True,
-                        "computeUnitPriceMicroLamports": 1000000,  # 1M microlamports = high priority
-                        "dynamicComputeUnitLimit": True
+                        "dynamicComputeUnitLimit": True,
+                        "prioritizationFeeLamports": "auto"  # Let Jupiter auto-optimize priority
                     }
                 )
                 
@@ -1236,63 +1236,94 @@ async def _execute_swap_with_retry(
                 
                 logger.info(f"Transaction signed ({len(signed_tx_bytes)} bytes)")
                 
-                # Send via RPC
-                async with AsyncClient(SOLANA_RPC_URL) as solana_client:
-                    # Simulate first
-                    sim_result = await solana_client.simulate_transaction(signed_tx)
-                    if sim_result.value.err:
-                        raise Exception(f"Simulation failed: {sim_result.value.err}")
-                    
-                    logger.info(f"Simulation passed (units: {sim_result.value.units_consumed})")
-                    
-                    # Send transaction
-                    result = await solana_client.send_raw_transaction(
-                        signed_tx_bytes,
-                        opts=TxOpts(skip_preflight=True, preflight_commitment=Confirmed)
-                    )
-                    tx_signature = str(result.value)
-                    
-                    logger.info(f"Transaction sent: {tx_signature[:20]}...")
-                    
-                    # Wait for confirmation with extended timeout
-                    for attempt in range(12):  # Up to 36 seconds
-                        await asyncio.sleep(3)
-                        try:
-                            sig_obj = Signature.from_string(tx_signature)
-                            tx_info = await solana_client.get_transaction(
-                                sig_obj,
-                                max_supported_transaction_version=0
+                # Send via RPC - try multiple endpoints
+                rpc_endpoints_for_submit = [
+                    os.environ.get("HELIUS_RPC_URL"),
+                    os.environ.get("ALCHEMY_SOLANA_RPC"),
+                    "https://api.mainnet-beta.solana.com"
+                ]
+                rpc_endpoints_for_submit = [r for r in rpc_endpoints_for_submit if r]
+                
+                tx_sent = False
+                rpc_error = None
+                
+                for rpc_url in rpc_endpoints_for_submit:
+                    try:
+                        logger.info(f"Trying RPC: {rpc_url[:40]}...")
+                        async with AsyncClient(rpc_url) as solana_client:
+                            # Simulate first
+                            try:
+                                sim_result = await solana_client.simulate_transaction(signed_tx)
+                                if sim_result.value.err:
+                                    error_detail = str(sim_result.value.err)
+                                    logger.error(f"Simulation failed on {rpc_url[:30]}: {error_detail}")
+                                    rpc_error = error_detail
+                                    continue  # Try next RPC
+                            except Exception as sim_error:
+                                logger.warning(f"Simulation exception on {rpc_url[:30]}: {sim_error}")
+                                rpc_error = str(sim_error)
+                                continue  # Try next RPC
+                            
+                            logger.info(f"Simulation passed (units: {sim_result.value.units_consumed})")
+                            
+                            # Send transaction
+                            result = await solana_client.send_raw_transaction(
+                                signed_tx_bytes,
+                                opts=TxOpts(skip_preflight=True, preflight_commitment=Confirmed)
                             )
-                            if tx_info.value is not None:
-                                if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
-                                    raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
-                                
-                                logger.info(f"Transaction CONFIRMED: {tx_signature}")
-                                
-                                await update_wallet_balance(user_wallet)
-                                
-                                return {
-                                    "success": True,
-                                    "tx_signature": tx_signature,
-                                    "input_amount": amount_lamports,
-                                    "output_amount": quote_data.get("outAmount"),
-                                    "confirmed": True,
-                                    "method": "rpc_with_priority",
-                                    "retry_count": retry
-                                }
-                        except Exception as e:
-                            if "failed" in str(e).lower():
-                                raise
-                            logger.debug(f"Confirmation check {attempt + 1}: {e}")
-                    
-                    # Transaction not confirmed - will retry with fresh blockhash
-                    last_error = f"Transaction {tx_signature[:20]}... not confirmed after 36s"
-                    logger.warning(f"{last_error}, retrying with fresh blockhash...")
+                            tx_signature = str(result.value)
+                            tx_sent = True
+                            
+                            logger.info(f"Transaction sent: {tx_signature[:20]}...")
+                            
+                            # Wait for confirmation with extended timeout
+                            for attempt in range(12):  # Up to 36 seconds
+                                await asyncio.sleep(3)
+                                try:
+                                    sig_obj = Signature.from_string(tx_signature)
+                                    tx_info = await solana_client.get_transaction(
+                                        sig_obj,
+                                        max_supported_transaction_version=0
+                                    )
+                                    if tx_info.value is not None:
+                                        if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
+                                            raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                                        
+                                        logger.info(f"Transaction CONFIRMED: {tx_signature}")
+                                        
+                                        await update_wallet_balance(user_wallet)
+                                        
+                                        return {
+                                            "success": True,
+                                            "tx_signature": tx_signature,
+                                            "input_amount": amount_lamports,
+                                            "output_amount": quote_data.get("outAmount"),
+                                            "confirmed": True,
+                                            "method": "rpc_with_priority",
+                                            "retry_count": retry
+                                        }
+                                except Exception as e:
+                                    if "failed" in str(e).lower():
+                                        raise
+                                    logger.debug(f"Confirmation check {attempt + 1}: {e}")
+                            
+                            # Transaction not confirmed - will retry with fresh blockhash
+                            last_error = f"Transaction {tx_signature[:20]}... not confirmed after 36s"
+                            logger.warning(f"{last_error}, retrying with fresh blockhash...")
+                            break  # Exit RPC loop, retry outer loop
+                            
+                    except Exception as rpc_e:
+                        logger.warning(f"RPC {rpc_url[:30]} failed: {rpc_e}")
+                        rpc_error = str(rpc_e)
+                        continue
+                
+                if not tx_sent and rpc_error:
+                    raise Exception(f"All RPCs failed. Last error: {rpc_error}")
         
         except Exception as e:
             last_error = str(e)
-            if "simulation failed" in str(e).lower() or "failed" in str(e).lower():
-                # Don't retry on simulation failures or explicit failures
+            if "simulation failed" in str(e).lower() or "transaction failed" in str(e).lower():
+                # Don't retry on simulation/transaction failures
                 raise
             logger.warning(f"Attempt {retry + 1} failed: {e}")
             
