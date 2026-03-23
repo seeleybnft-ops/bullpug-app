@@ -1241,5 +1241,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   4. Query now includes both `open` AND pending exit status positions
 - **Location**: `/app/backend/utils/scheduler.py` (scheduler job), `/app/backend/routers/ai_trader.py` lines 3088-3100, 3147-3169
 
+### Statistics Reset Feature (March 2026)
+- **Issue**: Trading statistics included non-on-chain data (failed trades, test data, etc.)
+- **Fix Implemented**:
+  1. Added `POST /api/ai-trader/reset-statistics/{wallet}` endpoint to clean up non-on-chain trades
+  2. Added `on_chain_only` query parameter to `/api/ai-trader/history/{wallet}` endpoint
+  3. Added "Reset Stats" button in the UI next to "Share Performance"
+  4. Cleanup removes: executions without tx_signature, positions without on-chain execution, failed auto-trade logs
+- **Location**: `/app/backend/routers/ai_trader.py` lines 1014-1100, `/app/frontend/src/pages/AITrader.js`
+
 ## License
 MIT License - Bullpug 2025

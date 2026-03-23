@@ -18,7 +18,7 @@ import {
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
   Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3, Bell,
   Cpu, ToggleLeft, ToggleRight, Activity, TrendingUp as TrendUp, Users, Globe,
-  Calculator
+  Calculator, RotateCcw
 } from "lucide-react";
 import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 import SocialTrading from "../components/SocialTrading";
@@ -272,6 +272,43 @@ export default function AITrader() {
     }
     setLoading(false);
   }, [walletAddress]);
+
+  // Reset statistics to on-chain trades only
+  const resetStatistics = async () => {
+    if (!walletAddress) return;
+    
+    const confirmed = window.confirm(
+      "This will reset your trading statistics to only include trades that were executed on-chain. Non-executed trades will be removed from history. Continue?"
+    );
+    
+    if (!confirmed) return;
+    
+    const loadingToast = toast.loading("Resetting statistics...");
+    
+    try {
+      const { data } = await axios.post(`${API}/ai-trader/reset-statistics/${walletAddress}`);
+      
+      toast.dismiss(loadingToast);
+      
+      if (data.success) {
+        toast.success(`Statistics reset! Removed ${data.removed.auto_logs + data.removed.executions + data.removed.positions} non-on-chain records`);
+        
+        // Update local state with new stats
+        setHistory(prev => ({
+          ...prev,
+          stats: data.new_stats
+        }));
+        
+        // Refresh all data
+        fetchData();
+      } else {
+        toast.error("Failed to reset statistics");
+      }
+    } catch (e) {
+      toast.dismiss(loadingToast);
+      toast.error(`Error: ${e.response?.data?.detail || e.message}`);
+    }
+  };
 
   // Fetch Top Picks (Safe, Volatile, New Pairs)
   const fetchTopPicks = useCallback(async (isRefresh = false) => {
@@ -1231,9 +1268,19 @@ export default function AITrader() {
           />
         </div>
         
-        {/* Share Performance Button */}
+        {/* Share Performance & Reset Stats Buttons */}
         {history.stats.total_trades > 0 && (
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4">
+            <Button
+              onClick={resetStatistics}
+              variant="outline"
+              size="sm"
+              className="border-white/20 text-slate-400 hover:text-white text-xs"
+              data-testid="reset-stats-btn"
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Reset Stats
+            </Button>
             <ShareButton 
               type="performance" 
               data={history.stats}

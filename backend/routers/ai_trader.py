@@ -878,33 +878,55 @@ async def get_open_positions(wallet_address: str):
 
 
 @router.get("/history/{wallet_address}")
-async def get_trade_history(wallet_address: str, limit: int = 50):
-    """Get complete trade history including manual trades, auto-trades, and closed positions"""
+async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only: bool = False):
+    """Get complete trade history including manual trades, auto-trades, and closed positions
+    
+    Args:
+        wallet_address: User's wallet address
+        limit: Maximum number of trades to return
+        on_chain_only: If True, only include trades that were executed on-chain (have tx_signature)
+    """
     
     # Get trades from executions collection
+    exec_query = {"wallet_address": wallet_address}
+    if on_chain_only:
+        exec_query["tx_signature"] = {"$exists": True, "$ne": None}
+    
     executions = await db.ai_trader_executions.find(
-        {"wallet_address": wallet_address},
+        exec_query,
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
-    # Get closed positions
+    # Get closed positions - filter for on-chain executed if requested
+    pos_query = {
+        "wallet_address": wallet_address,
+        "status": {"$regex": "^closed"}
+    }
+    if on_chain_only:
+        pos_query["$or"] = [
+            {"executed_on_chain": True},
+            {"sell_executed_on_chain": True}
+        ]
+    
     closed_positions = await db.ai_trader_positions.find(
-        {
-            "wallet_address": wallet_address,
-            "status": {"$regex": "^closed"}
-        },
+        pos_query,
         {"_id": 0}
     ).sort("closed_at", -1).limit(limit).to_list(limit)
     
-    # Get auto-trade logs (buy and sell)
+    # Get auto-trade logs (buy and sell) - filter for successful on-chain if requested
+    log_query = {
+        "wallet_address": wallet_address,
+        "$or": [
+            {"action": {"$regex": "auto"}},
+            {"action": "manual_close"}
+        ]
+    }
+    if on_chain_only:
+        log_query["success"] = True
+        log_query["tx_signature"] = {"$exists": True, "$ne": None}
+    
     auto_trade_logs = await db.auto_trade_logs.find(
-        {
-            "wallet_address": wallet_address,
-            "$or": [
-                {"action": {"$regex": "auto"}},
-                {"action": "manual_close"}
-            ]
-        },
+        log_query,
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
@@ -988,6 +1010,95 @@ async def get_trade_history(wallet_address: str, limit: int = 50):
             "total_pnl_sol": round(total_pnl, 4)
         }
     }
+
+
+@router.post("/reset-statistics/{wallet_address}")
+async def reset_statistics(wallet_address: str):
+    """
+    Reset trading statistics by removing non-on-chain trades and cleaning up stale data.
+    This keeps only trades that were actually executed on the blockchain.
+    """
+    from datetime import datetime, timezone
+    
+    try:
+        # Count records before cleanup
+        before_counts = {
+            "executions": await db.ai_trader_executions.count_documents({"wallet_address": wallet_address}),
+            "positions": await db.ai_trader_positions.count_documents({"wallet_address": wallet_address}),
+            "auto_logs": await db.auto_trade_logs.count_documents({"wallet_address": wallet_address})
+        }
+        
+        # 1. Remove executions without tx_signature (not executed on-chain)
+        exec_result = await db.ai_trader_executions.delete_many({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"tx_signature": {"$exists": False}},
+                {"tx_signature": None},
+                {"tx_signature": ""}
+            ]
+        })
+        
+        # 2. Remove positions that were never executed on-chain and are not open
+        pos_result = await db.ai_trader_positions.delete_many({
+            "wallet_address": wallet_address,
+            "status": {"$ne": "open"},  # Don't delete open positions
+            "executed_on_chain": {"$ne": True},
+            "sell_executed_on_chain": {"$ne": True},
+            # Keep positions that have tx signatures
+            "$and": [
+                {"$or": [{"tx_signature": {"$exists": False}}, {"tx_signature": None}]},
+                {"$or": [{"sell_tx_signature": {"$exists": False}}, {"sell_tx_signature": None}]}
+            ]
+        })
+        
+        # 3. Remove auto-trade logs that weren't successful or don't have tx_signature
+        log_result = await db.auto_trade_logs.delete_many({
+            "wallet_address": wallet_address,
+            "$or": [
+                {"success": {"$ne": True}},
+                {"tx_signature": {"$exists": False}},
+                {"tx_signature": None}
+            ],
+            # Keep skip/pause logs for history
+            "action": {"$nin": ["auto_skip", "auto_pause"]}
+        })
+        
+        # 4. Clean up stale positions (pending status for more than 24 hours without on-chain execution)
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        stale_result = await db.ai_trader_positions.delete_many({
+            "wallet_address": wallet_address,
+            "status": {"$in": ["pending_stop_loss", "pending_take_profit"]},
+            "sell_executed_on_chain": {"$ne": True},
+            "created_at": {"$lt": cutoff}
+        })
+        
+        # Count records after cleanup
+        after_counts = {
+            "executions": await db.ai_trader_executions.count_documents({"wallet_address": wallet_address}),
+            "positions": await db.ai_trader_positions.count_documents({"wallet_address": wallet_address}),
+            "auto_logs": await db.auto_trade_logs.count_documents({"wallet_address": wallet_address})
+        }
+        
+        # Get fresh statistics after cleanup
+        fresh_history = await get_trade_history(wallet_address, limit=100, on_chain_only=True)
+        
+        return {
+            "success": True,
+            "message": "Statistics reset - now showing only on-chain executed trades",
+            "removed": {
+                "executions": exec_result.deleted_count,
+                "positions": pos_result.deleted_count,
+                "auto_logs": log_result.deleted_count,
+                "stale_positions": stale_result.deleted_count
+            },
+            "before": before_counts,
+            "after": after_counts,
+            "new_stats": fresh_history["stats"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Reset statistics error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/quote")
