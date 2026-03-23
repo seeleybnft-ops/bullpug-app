@@ -878,78 +878,40 @@ async def get_open_positions(wallet_address: str):
 
 
 @router.get("/history/{wallet_address}")
-async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only: bool = False):
-    """Get complete trade history including manual trades, auto-trades, and closed positions
+async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only: bool = True):
+    """Get trade history showing only successfully executed on-chain trades.
+    
+    Returns 1 BUY and 1 SELL per position (max), with accurate P/L calculations.
     
     Args:
         wallet_address: User's wallet address
         limit: Maximum number of trades to return
-        on_chain_only: If True, only include trades that were executed on-chain (have tx_signature)
+        on_chain_only: If True (default), only include trades with tx_signature
     """
     
-    # Get trades from executions collection
-    exec_query = {"wallet_address": wallet_address}
-    if on_chain_only:
-        exec_query["tx_signature"] = {"$exists": True, "$ne": None}
-    
-    executions = await db.ai_trader_executions.find(
-        exec_query,
-        {"_id": 0}
-    ).sort("created_at", -1).limit(limit).to_list(limit)
-    
-    # Get closed positions - filter for on-chain executed if requested
-    pos_query = {
-        "wallet_address": wallet_address,
-        "status": {"$regex": "^closed"}
-    }
-    if on_chain_only:
-        pos_query["$or"] = [
-            {"executed_on_chain": True},
-            {"sell_executed_on_chain": True}
-        ]
-    
-    closed_positions = await db.ai_trader_positions.find(
-        pos_query,
-        {"_id": 0}
-    ).sort("closed_at", -1).limit(limit).to_list(limit)
-    
-    # Get auto-trade logs (buy and sell) - filter for successful on-chain if requested
-    log_query = {
-        "wallet_address": wallet_address,
-        "$or": [
-            {"action": {"$regex": "auto"}},
-            {"action": "manual_close"}
-        ]
-    }
-    if on_chain_only:
-        log_query["success"] = True
-        log_query["tx_signature"] = {"$exists": True, "$ne": None}
-    
-    auto_trade_logs = await db.auto_trade_logs.find(
-        log_query,
-        {"_id": 0}
-    ).sort("created_at", -1).limit(limit).to_list(limit)
-    
-    # Combine and normalize all trades
     all_trades = []
-    seen_ids = set()
+    seen_position_buys = set()
+    seen_position_sells = set()
     
-    # Add executions
-    for trade in executions:
-        trade_id = trade.get("execution_id") or trade.get("position_id")
-        if trade_id and trade_id not in seen_ids:
-            seen_ids.add(trade_id)
-            trade["source"] = "manual"
-            all_trades.append(trade)
+    # Primary source: ai_trader_positions - get closed positions with successful sells
+    closed_positions = await db.ai_trader_positions.find({
+        "wallet_address": wallet_address,
+        "status": {"$regex": "^closed"},
+        "sell_executed_on_chain": True,  # Must have successful on-chain sell
+        "sell_tx_signature": {"$exists": True, "$ne": None}
+    }, {"_id": 0}).sort("closed_at", -1).limit(limit).to_list(limit)
     
-    # Add closed positions (convert to trade format)
     for pos in closed_positions:
         pos_id = pos.get("position_id")
-        if pos_id and pos_id not in seen_ids:
-            seen_ids.add(pos_id)
+        symbol = pos.get("token_symbol")
+        
+        # Add SELL trade for this position
+        if pos_id not in seen_position_sells:
+            seen_position_sells.add(pos_id)
             all_trades.append({
-                "execution_id": pos_id,
-                "token_symbol": pos.get("token_symbol"),
+                "execution_id": f"{pos_id}_SELL",
+                "position_id": pos_id,
+                "token_symbol": symbol,
                 "token_mint": pos.get("token_mint"),
                 "trade_type": "sell",
                 "action": pos.get("status", "").replace("closed_", ""),
@@ -958,58 +920,100 @@ async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only:
                 "amount_sol": pos.get("amount_sol"),
                 "pnl_sol": pos.get("pnl_sol"),
                 "pnl_percent": pos.get("pnl_percent"),
-                "created_at": pos.get("created_at"),
-                "closed_at": pos.get("closed_at"),
+                "created_at": pos.get("closed_at"),
                 "executed_at": pos.get("closed_at"),
-                "tx_signature": pos.get("tx_signature"),
-                "sell_tx_signature": pos.get("sell_tx_signature"),
+                "tx_signature": pos.get("sell_tx_signature"),
                 "status": "closed",
-                "source": "auto" if pos.get("auto_trade") else "position"
+                "source": "auto" if pos.get("auto_trade") or pos.get("custodial") else "position",
+                "time_held_minutes": _calculate_time_held(pos.get("created_at"), pos.get("closed_at"))
             })
-    
-    # Add auto-trade logs
-    for log in auto_trade_logs:
-        log_id = log.get("log_id") or log.get("position_id")
-        if log_id and log_id not in seen_ids:
-            seen_ids.add(log_id)
-            is_sell = "sell" in log.get("action", "") or "close" in log.get("action", "") or "take_profit" in log.get("action", "") or "stop_loss" in log.get("action", "")
+        
+        # Add BUY trade for this position (if it was executed on-chain)
+        if pos_id not in seen_position_buys and pos.get("executed_on_chain") and pos.get("tx_signature"):
+            seen_position_buys.add(pos_id)
             all_trades.append({
-                "execution_id": log_id,
-                "token_symbol": log.get("token_symbol"),
-                "token_mint": log.get("token_mint"),
-                "trade_type": "sell" if is_sell else "buy",
-                "action": log.get("action"),
-                "entry_price": log.get("entry_price"),
-                "exit_price": log.get("exit_price"),
-                "amount_sol": log.get("amount_sol"),
-                "pnl_sol": log.get("pnl_sol"),
-                "pnl_percent": log.get("pnl_percent"),
-                "created_at": log.get("created_at"),
-                "executed_at": log.get("created_at"),
-                "tx_signature": log.get("tx_signature"),
-                "status": "closed" if is_sell else "open",
-                "source": "auto-trade"
+                "execution_id": f"{pos_id}_BUY",
+                "position_id": pos_id,
+                "token_symbol": symbol,
+                "token_mint": pos.get("token_mint"),
+                "trade_type": "buy",
+                "action": "auto_buy" if pos.get("auto_trade") or pos.get("custodial") else "buy",
+                "entry_price": pos.get("entry_price"),
+                "amount_sol": pos.get("amount_sol"),
+                "created_at": pos.get("created_at"),
+                "executed_at": pos.get("created_at"),
+                "tx_signature": pos.get("tx_signature"),
+                "status": "closed",  # Position is closed now
+                "source": "auto" if pos.get("auto_trade") or pos.get("custodial") else "position"
             })
     
-    # Sort by date (most recent first)
+    # Secondary source: Open positions with successful buys (not yet sold)
+    open_positions = await db.ai_trader_positions.find({
+        "wallet_address": wallet_address,
+        "status": "open",
+        "executed_on_chain": True,
+        "tx_signature": {"$exists": True, "$ne": None}
+    }, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    for pos in open_positions:
+        pos_id = pos.get("position_id")
+        if pos_id not in seen_position_buys:
+            seen_position_buys.add(pos_id)
+            all_trades.append({
+                "execution_id": f"{pos_id}_BUY",
+                "position_id": pos_id,
+                "token_symbol": pos.get("token_symbol"),
+                "token_mint": pos.get("token_mint"),
+                "trade_type": "buy",
+                "action": "auto_buy" if pos.get("auto_trade") or pos.get("custodial") else "buy",
+                "entry_price": pos.get("entry_price"),
+                "amount_sol": pos.get("amount_sol"),
+                "created_at": pos.get("created_at"),
+                "executed_at": pos.get("created_at"),
+                "tx_signature": pos.get("tx_signature"),
+                "status": "open",
+                "source": "auto" if pos.get("auto_trade") or pos.get("custodial") else "position"
+            })
+    
+    # Sort by executed_at (most recent first)
     all_trades.sort(key=lambda x: x.get("executed_at") or x.get("created_at") or "", reverse=True)
     
-    # Calculate stats from all closed/sell trades
-    sell_trades = [t for t in all_trades if t.get("trade_type") == "sell" or t.get("status") == "closed"]
-    wins = len([t for t in sell_trades if (t.get("pnl_sol") or t.get("pnl_percent") or 0) > 0])
-    losses = len([t for t in sell_trades if (t.get("pnl_sol") or t.get("pnl_percent") or 0) < 0])
-    total_pnl = sum(t.get("pnl_sol") or 0 for t in sell_trades)
+    # Calculate stats from SELL trades only (completed round-trips)
+    # Only count trades with actual P/L data (not None)
+    sell_trades = [t for t in all_trades if t.get("trade_type") == "sell"]
+    trades_with_pnl = [t for t in sell_trades if t.get("pnl_percent") is not None or t.get("pnl_sol") is not None]
+    
+    wins = len([t for t in trades_with_pnl if (t.get("pnl_sol") or t.get("pnl_percent") or 0) > 0])
+    losses = len([t for t in trades_with_pnl if (t.get("pnl_sol") or t.get("pnl_percent") or 0) < 0])
+    total_pnl = sum(t.get("pnl_sol") or 0 for t in trades_with_pnl)
+    
+    # Count trades without P/L data separately
+    trades_no_pnl = len(sell_trades) - len(trades_with_pnl)
     
     return {
         "trades": all_trades[:limit],
         "stats": {
-            "total_trades": len(sell_trades),
+            "total_trades": len(trades_with_pnl),  # Only count trades with actual P/L
             "wins": wins,
             "losses": losses,
-            "win_rate": (wins / len(sell_trades) * 100) if sell_trades else 0,
-            "total_pnl_sol": round(total_pnl, 4)
+            "win_rate": (wins / len(trades_with_pnl) * 100) if trades_with_pnl else 0,
+            "total_pnl_sol": round(total_pnl, 4),
+            "trades_missing_pnl": trades_no_pnl  # Inform about incomplete data
         }
     }
+
+
+def _calculate_time_held(start_time: str, end_time: str) -> int:
+    """Calculate time held in minutes between two ISO timestamps."""
+    try:
+        if not start_time or not end_time:
+            return 0
+        from datetime import datetime
+        start = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        end = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        return int((end - start).total_seconds() / 60)
+    except Exception:
+        return 0
 
 
 @router.post("/reset-statistics/{wallet_address}")
