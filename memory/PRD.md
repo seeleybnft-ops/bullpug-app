@@ -1230,5 +1230,16 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - RunnerTokens component now accepts `onRefreshComplete` callback
   - Location: `/app/frontend/src/pages/AITrader.js` lines 73-77, 1551-1563, 1619-1632, 1693-1712, 1759-1772
 
+### CRITICAL BUG FIX: Auto-Trade Exit Monitoring (March 2026)
+- **Issue**: Auto-trade take-profit and stop-loss triggers were NOT being monitored periodically
+  - The `auto_trade_check_exits` function existed but was only called on settings change or manual trigger
+  - Positions could exceed take-profit targets without automatic sells being executed
+- **Fix Implemented**:
+  1. Added scheduled job `check_auto_trade_exits` running every 1 minute
+  2. Added retry mechanism for failed sells (positions in `pending_stop_loss` or `pending_take_profit` status)
+  3. Added RPC fallback chain (Helius -> Alchemy -> Public) for better reliability
+  4. Query now includes both `open` AND pending exit status positions
+- **Location**: `/app/backend/utils/scheduler.py` (scheduler job), `/app/backend/routers/ai_trader.py` lines 3088-3100, 3147-3169
+
 ## License
 MIT License - Bullpug 2025

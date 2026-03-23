@@ -3091,10 +3091,10 @@ async def auto_trade_check_exits(wallet_address: str):
         
         logger.info(f"Checking exits with SL: {stop_loss_pct*100}%, TP: {take_profit_pct*100}%")
         
-        # Get all open positions
+        # Get all open positions AND positions with pending exit status (for retry)
         positions = await db.ai_trader_positions.find({
             "wallet_address": wallet_address,
-            "status": "open"
+            "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
         }).to_list(50)
         
         if not positions:
@@ -3147,8 +3147,19 @@ async def auto_trade_check_exits(wallet_address: str):
                     # Check for exit conditions
                     exit_action = None
                     exit_reason = ""
+                    position_status = position.get("status", "open")
                     
-                    if current_price <= stop_loss:
+                    # If position is in pending state, retry the sell
+                    if position_status == "pending_stop_loss":
+                        exit_action = "stop_loss"
+                        exit_reason = f"RETRY: Stop-loss pending, retrying sell at ${current_price:.8f}"
+                        logger.info(f"Retrying failed stop-loss sell for {symbol}")
+                    elif position_status == "pending_take_profit":
+                        exit_action = "take_profit"
+                        exit_reason = f"RETRY: Take-profit pending, retrying sell at ${current_price:.8f}"
+                        logger.info(f"Retrying failed take-profit sell for {symbol}")
+                    # Otherwise check if exit conditions are met
+                    elif current_price <= stop_loss:
                         exit_action = "stop_loss"
                         exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
                     elif current_price >= take_profit:
@@ -3169,7 +3180,13 @@ async def auto_trade_check_exits(wallet_address: str):
                             from solders.pubkey import Pubkey
                             import os
                             
-                            HELIUS_RPC = os.environ.get("HELIUS_RPC_URL") or os.environ.get("ALCHEMY_RPC_URL", "https://api.mainnet-beta.solana.com")
+                            # RPC fallback list for reliability
+                            RPC_ENDPOINTS = [
+                                os.environ.get("HELIUS_RPC_URL"),
+                                os.environ.get("ALCHEMY_RPC_URL"),
+                                "https://api.mainnet-beta.solana.com"
+                            ]
+                            RPC_ENDPOINTS = [rpc for rpc in RPC_ENDPOINTS if rpc]  # Filter out None
                             
                             # Get custodial wallet address
                             custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
@@ -3178,44 +3195,59 @@ async def auto_trade_check_exits(wallet_address: str):
                             
                             custodial_address = custodial_wallet["custodial_address"]
                             
-                            # Get token accounts for this wallet
-                            async with AsyncClient(HELIUS_RPC) as rpc_client:
-                                from solana.rpc.types import TokenAccountOpts
-                                
-                                token_pubkey = Pubkey.from_string(token_mint)
-                                wallet_pubkey = Pubkey.from_string(custodial_address)
-                                
-                                # Try standard SPL Token program first
-                                TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-                                TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
-                                
-                                token_balance = 0
-                                
-                                # Check SPL Token accounts
-                                opts = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_PROGRAM_ID)
-                                token_accounts = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
-                                
-                                if token_accounts.value:
-                                    for account in token_accounts.value:
-                                        info = account.account.data.parsed.get("info", {})
-                                        token_amount_info = info.get("tokenAmount", {})
-                                        token_balance = int(token_amount_info.get("amount", 0))
-                                
-                                # If no balance found, check Token-2022 accounts
-                                if token_balance <= 0:
-                                    opts_2022 = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
-                                    token_accounts_2022 = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
-                                    
-                                    if token_accounts_2022.value:
-                                        for account in token_accounts_2022.value:
-                                            info = account.account.data.parsed.get("info", {})
-                                            token_amount_info = info.get("tokenAmount", {})
-                                            token_balance = int(token_amount_info.get("amount", 0))
-                                
-                                if token_balance <= 0:
-                                    raise Exception(f"No {symbol} tokens in custodial wallet")
-                                
-                                logger.info(f"Found {token_balance} raw units of {symbol} to sell")
+                            token_balance = 0
+                            rpc_success = False
+                            rpc_error = None
+                            
+                            # Try each RPC endpoint until one works
+                            for rpc_url in RPC_ENDPOINTS:
+                                try:
+                                    async with AsyncClient(rpc_url) as rpc_client:
+                                        from solana.rpc.types import TokenAccountOpts
+                                        
+                                        token_pubkey = Pubkey.from_string(token_mint)
+                                        wallet_pubkey = Pubkey.from_string(custodial_address)
+                                        
+                                        # Try standard SPL Token program first
+                                        TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                                        TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+                                        
+                                        # Check SPL Token accounts
+                                        opts = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_PROGRAM_ID)
+                                        token_accounts = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts)
+                                        
+                                        if token_accounts.value:
+                                            for account in token_accounts.value:
+                                                info = account.account.data.parsed.get("info", {})
+                                                token_amount_info = info.get("tokenAmount", {})
+                                                token_balance = int(token_amount_info.get("amount", 0))
+                                        
+                                        # If no balance found, check Token-2022 accounts
+                                        if token_balance <= 0:
+                                            opts_2022 = TokenAccountOpts(mint=token_pubkey, program_id=TOKEN_2022_PROGRAM_ID)
+                                            token_accounts_2022 = await rpc_client.get_token_accounts_by_owner_json_parsed(wallet_pubkey, opts_2022)
+                                            
+                                            if token_accounts_2022.value:
+                                                for account in token_accounts_2022.value:
+                                                    info = account.account.data.parsed.get("info", {})
+                                                    token_amount_info = info.get("tokenAmount", {})
+                                                    token_balance = int(token_amount_info.get("amount", 0))
+                                        
+                                        rpc_success = True
+                                        break  # Got a response, stop trying other RPCs
+                                        
+                                except Exception as rpc_e:
+                                    rpc_error = str(rpc_e)
+                                    logger.warning(f"RPC {rpc_url[:30]}... failed: {rpc_e}")
+                                    continue
+                            
+                            if not rpc_success:
+                                raise Exception(f"All RPC endpoints failed. Last error: {rpc_error}")
+                            
+                            if token_balance <= 0:
+                                raise Exception(f"No {symbol} tokens in custodial wallet")
+                            
+                            logger.info(f"Found {token_balance} raw units of {symbol} to sell")
                             
                             # Execute swap: TOKEN -> SOL
                             sell_result = await execute_auto_trade(

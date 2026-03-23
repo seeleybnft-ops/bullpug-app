@@ -276,6 +276,59 @@ async def scan_runner_alerts():
         logger.error(f"Error in runner alerts scheduler: {e}")
 
 
+async def check_auto_trade_exits():
+    """
+    CRITICAL: Check all open positions for take-profit and stop-loss triggers.
+    This runs every minute to ensure timely exit execution.
+    """
+    try:
+        from utils.database import db
+        import httpx
+        
+        # Find all wallets with auto-trading enabled
+        enabled_settings = await db.ai_trader_settings.find({
+            "auto_trade_enabled": True
+        }).to_list(100)
+        
+        if not enabled_settings:
+            logger.debug("Auto-trade exit check: No wallets with auto-trading enabled")
+            return
+        
+        total_exits = 0
+        total_positions = 0
+        
+        for settings in enabled_settings:
+            wallet_address = settings.get("wallet_address")
+            if not wallet_address:
+                continue
+                
+            try:
+                # Import the check_exits function from ai_trader router
+                from routers.ai_trader import auto_trade_check_exits
+                
+                result = await auto_trade_check_exits(wallet_address)
+                
+                exits_count = len(result.get("exits", []))
+                positions_count = result.get("positions_checked", 0)
+                
+                total_exits += exits_count
+                total_positions += positions_count
+                
+                if exits_count > 0:
+                    logger.info(f"Auto-trade exits for {wallet_address[:8]}...: {exits_count} positions closed")
+                    
+            except Exception as e:
+                logger.error(f"Error checking exits for {wallet_address[:8]}...: {e}")
+        
+        if total_exits > 0:
+            logger.info(f"Auto-trade exit check complete: {total_exits} exits across {total_positions} positions")
+        else:
+            logger.debug(f"Auto-trade exit check: {total_positions} positions checked, no exits triggered")
+            
+    except Exception as e:
+        logger.error(f"Error in auto-trade exit scheduler: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -314,8 +367,17 @@ def start_scheduler():
         max_instances=1
     )
     
+    # CRITICAL: Auto-trade exit monitoring - check every 1 minute for TP/SL triggers
+    scheduler.add_job(
+        check_auto_trade_exits,
+        trigger=IntervalTrigger(minutes=1),
+        id="auto_trade_exit_check",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
-    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour), runner alerts (5 min)")
+    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min)")
 
 
 def stop_scheduler():
