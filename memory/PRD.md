@@ -1222,6 +1222,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Implementation: Added `refreshTrigger` prop to RunnerTokens component
   - Location: `/app/frontend/src/components/RunnerTokens.js` lines 74-82, 122-127
   - Location: `/app/frontend/src/pages/AITrader.js` lines 75, 1511-1524, 1716
+- **Visual Loading Indicators**: Each section shows individual refresh status
+  - Section headers display spinning loader icon when refreshing
+  - "Refreshing..." badge appears next to section title
+  - Section content dims (60% opacity) during refresh with smooth transition
+  - Implementation: Added `topPicksRefreshing` and `runnersRefreshing` states
+  - RunnerTokens component now accepts `onRefreshComplete` callback
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 73-77, 1551-1563, 1619-1632, 1693-1712, 1759-1772
 
 ## License
 MIT License - Bullpug 2025

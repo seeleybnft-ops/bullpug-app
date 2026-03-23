@@ -78,7 +78,8 @@ export default function RunnerTokens({
   onQuickBuy,
   onAnalyze,
   onCopy,
-  refreshTrigger = 0 // When this value changes, component will refresh its data
+  refreshTrigger = 0, // When this value changes, component will refresh its data
+  onRefreshComplete = null // Callback when refresh completes
 }) {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toBase58();
@@ -95,7 +96,7 @@ export default function RunnerTokens({
   const [buying, setBuying] = useState(false);
 
   // Fetch runner tokens
-  const fetchRunners = useCallback(async (showRefreshing = false) => {
+  const fetchRunners = useCallback(async (showRefreshing = false, isExternalTrigger = false) => {
     if (showRefreshing) setRefreshing(true);
     else setLoading(true);
     
@@ -111,8 +112,12 @@ export default function RunnerTokens({
     } finally {
       setLoading(false);
       setRefreshing(false);
+      // Notify parent when external trigger refresh completes
+      if (isExternalTrigger && onRefreshComplete) {
+        onRefreshComplete();
+      }
     }
-  }, []);
+  }, [onRefreshComplete]);
 
   // Initial fetch and refresh every 2 minutes
   useEffect(() => {
@@ -124,7 +129,7 @@ export default function RunnerTokens({
   // Respond to external refresh trigger from parent
   useEffect(() => {
     if (refreshTrigger > 0) {
-      fetchRunners(true);
+      fetchRunners(true, true); // Pass true for isExternalTrigger
     }
   }, [refreshTrigger, fetchRunners]);
 

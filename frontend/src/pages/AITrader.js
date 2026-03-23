@@ -71,8 +71,10 @@ export default function AITrader() {
   // Top Picks state (moved from Bullpug AI)
   const [topPicks, setTopPicks] = useState({ safe: [], volatile: [], newPairs: [] });
   const [topPicksLoading, setTopPicksLoading] = useState(false);
+  const [topPicksRefreshing, setTopPicksRefreshing] = useState(false);
   const [lastTopPicksUpdate, setLastTopPicksUpdate] = useState(null);
   const [runnerRefreshTrigger, setRunnerRefreshTrigger] = useState(0);
+  const [runnersRefreshing, setRunnersRefreshing] = useState(false);
   
   // Price Alerts state
   const [priceAlerts, setPriceAlerts] = useState([]);
@@ -271,8 +273,12 @@ export default function AITrader() {
   }, [walletAddress]);
 
   // Fetch Top Picks (Safe, Volatile, New Pairs)
-  const fetchTopPicks = useCallback(async () => {
-    setTopPicksLoading(true);
+  const fetchTopPicks = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setTopPicksRefreshing(true);
+    } else {
+      setTopPicksLoading(true);
+    }
     try {
       const [recsRes, newPairsRes] = await Promise.all([
         axios.get(`${API}/ai-suggestions/coin-recommendations`),
@@ -289,6 +295,7 @@ export default function AITrader() {
       console.error("Error fetching top picks:", e);
     }
     setTopPicksLoading(false);
+    setTopPicksRefreshing(false);
   }, []);
 
   // Fetch Auto-Trade Status
@@ -1510,16 +1517,17 @@ export default function AITrader() {
                   </div>
                   <Button
                     onClick={() => {
-                      fetchTopPicks();
+                      fetchTopPicks(true);
+                      setRunnersRefreshing(true);
                       setRunnerRefreshTrigger(prev => prev + 1);
                     }}
-                    disabled={topPicksLoading}
+                    disabled={topPicksLoading || topPicksRefreshing}
                     variant="outline"
                     size="sm"
                     className="border-white/20 text-slate-300"
                     data-testid="refresh-top-picks-btn"
                   >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${topPicksLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 mr-2 ${(topPicksLoading || topPicksRefreshing) ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                 </div>
@@ -1541,10 +1549,19 @@ export default function AITrader() {
                     {/* Safe Picks */}
                     <div>
                       <h4 className="flex items-center gap-2 text-sm font-bold text-[#00FFA3] mb-3">
-                        <CheckCircle className="w-4 h-4" />
+                        {topPicksRefreshing ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
                         SAFER PICKS
+                        {topPicksRefreshing && (
+                          <span className="text-[10px] px-2 py-0.5 bg-[#00FFA3]/10 text-[#00FFA3]/70 rounded-full">
+                            Refreshing...
+                          </span>
+                        )}
                       </h4>
-                      <div className="space-y-2">
+                      <div className={`space-y-2 ${topPicksRefreshing ? 'opacity-60' : ''} transition-opacity duration-300`}>
                         {topPicks.safe.length > 0 ? (
                           topPicks.safe.slice(0, 5).map((coin, i) => (
                             <TopPickCard
@@ -1602,10 +1619,19 @@ export default function AITrader() {
                     {/* Volatile Picks */}
                     <div>
                       <h4 className="flex items-center gap-2 text-sm font-bold text-[#FF6B6B] mb-3">
-                        <AlertCircle className="w-4 h-4" />
+                        {topPicksRefreshing ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4" />
+                        )}
                         HIGH RISK / HIGH REWARD
+                        {topPicksRefreshing && (
+                          <span className="text-[10px] px-2 py-0.5 bg-[#FF6B6B]/10 text-[#FF6B6B]/70 rounded-full">
+                            Refreshing...
+                          </span>
+                        )}
                       </h4>
-                      <div className="space-y-2">
+                      <div className={`space-y-2 ${topPicksRefreshing ? 'opacity-60' : ''} transition-opacity duration-300`}>
                         {topPicks.volatile.length > 0 ? (
                           topPicks.volatile.slice(0, 5).map((coin, i) => (
                             <TopPickCard
@@ -1665,69 +1691,91 @@ export default function AITrader() {
                 {/* Runner Tokens Section - Between High Risk and New Pairs */}
                 <div className="mt-6 pt-6 border-t border-white/10">
                   <h4 className="flex items-center gap-2 text-sm font-bold text-[#D946EF] mb-3">
-                    <Rocket className="w-4 h-4" />
+                    {runnersRefreshing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Rocket className="w-4 h-4" />
+                    )}
                     RUNNER TOKENS
-                    <span className="text-[10px] px-2 py-0.5 bg-[#D946EF]/20 text-[#D946EF] rounded-full animate-pulse">HOT</span>
+                    {runnersRefreshing ? (
+                      <span className="text-[10px] px-2 py-0.5 bg-[#D946EF]/10 text-[#D946EF]/70 rounded-full">
+                        Refreshing...
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 bg-[#D946EF]/20 text-[#D946EF] rounded-full animate-pulse">HOT</span>
+                    )}
                   </h4>
                   <p className="text-xs text-slate-500 mb-3">
                     Trending tokens with high momentum - auto-trade candidates
                   </p>
-                  <RunnerTokens 
-                    onTradeRunner={(runner) => {
-                      toast.info(`Analyzing ${runner.symbol}...`);
-                      runAutoTradeScan();
-                    }}
-                    onQuickBuy={async (runner, amount) => {
-                      // Convert runner to coin format for quickBuyToken
-                      const coin = {
-                        symbol: runner.symbol,
-                        contract_address: runner.token_address,
-                        price: runner.price_usd
-                      };
-                      await quickBuyToken(coin, amount);
-                    }}
-                    onAnalyze={async (runner) => {
-                      if (!disclaimerAccepted) {
-                        toast.error("Please accept the disclaimer first");
-                        return;
-                      }
-                      const loadingToast = toast.loading(`Analyzing ${runner.symbol}...`);
-                      try {
-                        const params = new URLSearchParams({
-                          wallet_address: walletAddress,
-                          ...(runner.token_address && { contract_address: runner.token_address })
-                        });
-                        const { data } = await axios.post(
-                          `${API}/ai-trader/analyze/${runner.symbol}?${params}`
-                        );
-                        toast.dismiss(loadingToast);
-                        if (data.signal) {
-                          toast.success(`Signal generated for ${runner.symbol}`);
-                          setSignals(prev => [data.signal, ...prev]);
+                  <div className={`${runnersRefreshing ? 'opacity-60' : ''} transition-opacity duration-300`}>
+                    <RunnerTokens 
+                      onTradeRunner={(runner) => {
+                        toast.info(`Analyzing ${runner.symbol}...`);
+                        runAutoTradeScan();
+                      }}
+                      onQuickBuy={async (runner, amount) => {
+                        // Convert runner to coin format for quickBuyToken
+                        const coin = {
+                          symbol: runner.symbol,
+                          contract_address: runner.token_address,
+                          price: runner.price_usd
+                        };
+                        await quickBuyToken(coin, amount);
+                      }}
+                      onAnalyze={async (runner) => {
+                        if (!disclaimerAccepted) {
+                          toast.error("Please accept the disclaimer first");
+                          return;
                         }
-                      } catch (e) {
-                        toast.dismiss(loadingToast);
-                        toast.error(`Analysis failed: ${e.response?.data?.detail || e.message}`);
-                      }
-                    }}
-                    onCopy={copyToClipboard}
-                    custodialBalance={custodialWallet?.balance_sol || 0}
-                    compact={true}
-                    refreshTrigger={runnerRefreshTrigger}
-                  />
+                        const loadingToast = toast.loading(`Analyzing ${runner.symbol}...`);
+                        try {
+                          const params = new URLSearchParams({
+                            wallet_address: walletAddress,
+                            ...(runner.token_address && { contract_address: runner.token_address })
+                          });
+                          const { data } = await axios.post(
+                            `${API}/ai-trader/analyze/${runner.symbol}?${params}`
+                          );
+                          toast.dismiss(loadingToast);
+                          if (data.signal) {
+                            toast.success(`Signal generated for ${runner.symbol}`);
+                            setSignals(prev => [data.signal, ...prev]);
+                          }
+                        } catch (e) {
+                          toast.dismiss(loadingToast);
+                          toast.error(`Analysis failed: ${e.response?.data?.detail || e.message}`);
+                        }
+                      }}
+                      onCopy={copyToClipboard}
+                      custodialBalance={custodialWallet?.balance_sol || 0}
+                      compact={true}
+                      refreshTrigger={runnerRefreshTrigger}
+                      onRefreshComplete={() => setRunnersRefreshing(false)}
+                    />
+                  </div>
                 </div>
 
                 {/* New Pairs Section */}
                 {topPicks.newPairs && topPicks.newPairs.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-white/10">
                     <h4 className="flex items-center gap-2 text-sm font-bold text-[#F5D300] mb-3">
-                      <Rocket className="w-4 h-4" />
+                      {topPicksRefreshing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Rocket className="w-4 h-4" />
+                      )}
                       NEW PAIRS (Potential Runners)
+                      {topPicksRefreshing && (
+                        <span className="text-[10px] px-2 py-0.5 bg-[#F5D300]/10 text-[#F5D300]/70 rounded-full">
+                          Refreshing...
+                        </span>
+                      )}
                     </h4>
                     <p className="text-xs text-slate-500 mb-3">
                       Recently created pairs that meet minimum criteria - extremely high risk
                     </p>
-                    <div className="grid md:grid-cols-2 gap-2">
+                    <div className={`grid md:grid-cols-2 gap-2 ${topPicksRefreshing ? 'opacity-60' : ''} transition-opacity duration-300`}>
                       {topPicks.newPairs.slice(0, 5).map((pair, i) => (
                         <TopPickCard
                           key={`new-${i}`}
