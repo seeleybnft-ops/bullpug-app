@@ -1193,5 +1193,28 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
 - **React Hooks Fix**: Moved useState hooks to top level to fix Rules of Hooks violation
   - Location: `/app/frontend/src/components/RunnerTokens.js` lines 91-94
 
+### Auto Optimization Feature (March 2026)
+- **New Toggle**: "Auto Optimization" toggle added next to Enable/Disable button
+  - When **ON**: System automatically applies optimal settings from signal analytics
+  - When **OFF**: Manual configuration takes effect
+  - Location: `/app/frontend/src/components/UnifiedAutoTrader.js` lines 223-245
+- **Backend Implementation**:
+  - New field `auto_optimization_enabled` in `AutoTradeSettingsUpdate` model
+  - Auto-trade scan fetches optimal settings when optimization enabled
+  - Applies: `recommended_min_confidence`, `recommended_max_daily_trades`, `recommended_cooldown_minutes`
+  - Graceful fallback to manual settings if fetch fails
+  - Location: `/app/backend/routers/ai_trader.py` lines 2449-2466
+- **Visual Feedback**:
+  - Purple banner when auto optimization is active
+  - Shows current optimized settings (min confidence, max trades, cooldown)
+  - Toggle shows "Auto Optimize" or "Manual" label
+
+### Risk Calculator Auto-Fill (March 2026)
+- **Calculator Button on Position Cards**: Purple calculator icon auto-fills Risk Calculator
+  - Fills "Position (SOL)" from position's `amount_sol`
+  - Fills "Entry Price ($)" from position's `entry_price`
+  - Toast notification confirms action
+  - Location: `/app/frontend/src/pages/AITrader.js` lines 3305-3315
+
 ## License
 MIT License - Bullpug 2025
