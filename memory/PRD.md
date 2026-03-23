@@ -1161,5 +1161,22 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Sanity check: SOL price must be $50-$500
   - Fixed bug where positions showed 29 SOL invested instead of 0.003 SOL
 
+### Manual Sell Execution Fix (March 2026)
+- **Multi-RPC Fallback**: Execute-sell now tries multiple RPC endpoints
+  - Helius → Alchemy → public Solana RPC
+  - Continues to next RPC if simulation fails
+  - Location: `/app/backend/routers/custodial_wallet.py` lines 1255-1334
+- **Type Conversion Fix**: Fixed `output_amount` string-to-int conversion
+  - Jupiter API returns string, but code expected int
+  - Added `int()` conversion before division
+  - Location: `/app/backend/routers/custodial_wallet.py` line 1057
+- **Jupiter Auto Priority Fee**: Improved transaction landing
+  - Uses `prioritizationFeeLamports: "auto"` for Jupiter swaps
+  - Lets Jupiter optimize priority fee based on network conditions
+  - Location: `/app/backend/routers/custodial_wallet.py` lines 1207-1215
+- **Position Custodial Flags**: Synced positions now properly marked as custodial
+  - Sets `custodial: true`, `auto_trade: true`, `source: "custodial"`
+  - Frontend `isCustodialPosition` check updated to include `synced_from_chain`
+
 ## License
 MIT License - Bullpug 2025
