@@ -1178,5 +1178,20 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - Sets `custodial: true`, `auto_trade: true`, `source: "custodial"`
   - Frontend `isCustodialPosition` check updated to include `synced_from_chain`
 
+### Runner Tokens UI Enhancement (March 2026)
+- **Compact Mode Action Buttons**: Runner Tokens now display same actions as New Pairs
+  - **Analyze button**: Generates trading signal via `/api/ai-trader/analyze/{symbol}`
+  - **Buy button**: Opens inline SOL amount input (0.01-10 SOL range)
+  - **DEX link**: External link to DexScreener for the token
+  - Location: `/app/frontend/src/components/RunnerTokens.js` lines 125-290
+- **Additional Features**:
+  - Contract address display with copy button
+  - Token image support
+  - Price and 24h change display
+  - "BONDED" and "HOT" badges
+  - Buy input with confirm button
+- **React Hooks Fix**: Moved useState hooks to top level to fix Rules of Hooks violation
+  - Location: `/app/frontend/src/components/RunnerTokens.js` lines 91-94
+
 ## License
 MIT License - Bullpug 2025
