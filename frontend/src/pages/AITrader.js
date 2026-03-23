@@ -1150,15 +1150,6 @@ export default function AITrader() {
           
           <div className="flex gap-3">
             <Button
-              onClick={() => setShowSettings(true)}
-              variant="outline"
-              className="border-white/20 text-slate-300 hover:text-white hover:bg-white/5"
-              data-testid="settings-btn"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
-            <Button
               onClick={scanMarkets}
               disabled={scanning || !disclaimerAccepted}
               className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3] hover:opacity-90 disabled:opacity-50"
