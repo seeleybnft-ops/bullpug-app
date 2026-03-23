@@ -2264,7 +2264,7 @@ export default function SpeedRunGame() {
                     Stage {currentStage}/5
                   </Badge>
                   <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
-                    <Clock className="w-3 h-3 mr-1" /> Resets in {leaderboardMeta.days_until_reset}d
+                    <Clock className="w-3 h-3 mr-1" /> Leaderboard resets in {leaderboardMeta.days_until_reset}d
                   </Badge>
                 </div>
               </div>

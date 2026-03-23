@@ -173,7 +173,7 @@ export default function JackpotDisplay({ compact = false }) {
             ))}
           </div>
           <p className="text-xs text-slate-500 text-center mt-3">
-            25% of all rake fees & skin purchases go to the prize pool
+            Funded by skin purchases
           </p>
         </div>
       )}
