@@ -1013,10 +1013,12 @@ def _calculate_time_held(start_time: str, end_time: str) -> int:
 
 
 @router.post("/reset-statistics/{wallet_address}")
-async def reset_statistics(wallet_address: str):
+async def reset_statistics(wallet_address: str, full_reset: bool = False):
     """
-    Reset trading statistics by removing non-on-chain trades and cleaning up stale data.
-    This keeps only trades that were actually executed on the blockchain.
+    Reset trading statistics.
+    
+    If full_reset=False (default): Removes only non-on-chain trades, keeps successful on-chain history.
+    If full_reset=True: Completely wipes ALL trading history (fresh start).
     """
     from datetime import datetime, timezone
     
@@ -1028,49 +1030,64 @@ async def reset_statistics(wallet_address: str):
             "auto_logs": await db.auto_trade_logs.count_documents({"wallet_address": wallet_address})
         }
         
-        # 1. Remove executions without tx_signature (not executed on-chain)
-        exec_result = await db.ai_trader_executions.delete_many({
-            "wallet_address": wallet_address,
-            "$or": [
-                {"tx_signature": {"$exists": False}},
-                {"tx_signature": None},
-                {"tx_signature": ""}
-            ]
-        })
-        
-        # 2. Remove positions that were never executed on-chain and are not open
-        pos_result = await db.ai_trader_positions.delete_many({
-            "wallet_address": wallet_address,
-            "status": {"$ne": "open"},  # Don't delete open positions
-            "executed_on_chain": {"$ne": True},
-            "sell_executed_on_chain": {"$ne": True},
-            # Keep positions that have tx signatures
-            "$and": [
-                {"$or": [{"tx_signature": {"$exists": False}}, {"tx_signature": None}]},
-                {"$or": [{"sell_tx_signature": {"$exists": False}}, {"sell_tx_signature": None}]}
-            ]
-        })
-        
-        # 3. Remove auto-trade logs that weren't successful or don't have tx_signature
-        log_result = await db.auto_trade_logs.delete_many({
-            "wallet_address": wallet_address,
-            "$or": [
-                {"success": {"$ne": True}},
-                {"tx_signature": {"$exists": False}},
-                {"tx_signature": None}
-            ],
-            # Keep skip/pause logs for history
-            "action": {"$nin": ["auto_skip", "auto_pause"]}
-        })
-        
-        # 4. Clean up stale positions (pending status for more than 24 hours without on-chain execution)
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-        stale_result = await db.ai_trader_positions.delete_many({
-            "wallet_address": wallet_address,
-            "status": {"$in": ["pending_stop_loss", "pending_take_profit"]},
-            "sell_executed_on_chain": {"$ne": True},
-            "created_at": {"$lt": cutoff}
-        })
+        if full_reset:
+            # FULL RESET: Delete ALL history except currently open positions
+            exec_result = await db.ai_trader_executions.delete_many({
+                "wallet_address": wallet_address
+            })
+            
+            # Delete all closed positions (keep only open/pending)
+            pos_result = await db.ai_trader_positions.delete_many({
+                "wallet_address": wallet_address,
+                "status": {"$regex": "^closed|no_tokens"}
+            })
+            
+            log_result = await db.auto_trade_logs.delete_many({
+                "wallet_address": wallet_address
+            })
+            
+            stale_result_count = 0
+        else:
+            # PARTIAL RESET: Only remove non-on-chain records
+            exec_result = await db.ai_trader_executions.delete_many({
+                "wallet_address": wallet_address,
+                "$or": [
+                    {"tx_signature": {"$exists": False}},
+                    {"tx_signature": None},
+                    {"tx_signature": ""}
+                ]
+            })
+            
+            pos_result = await db.ai_trader_positions.delete_many({
+                "wallet_address": wallet_address,
+                "status": {"$ne": "open"},
+                "executed_on_chain": {"$ne": True},
+                "sell_executed_on_chain": {"$ne": True},
+                "$and": [
+                    {"$or": [{"tx_signature": {"$exists": False}}, {"tx_signature": None}]},
+                    {"$or": [{"sell_tx_signature": {"$exists": False}}, {"sell_tx_signature": None}]}
+                ]
+            })
+            
+            log_result = await db.auto_trade_logs.delete_many({
+                "wallet_address": wallet_address,
+                "$or": [
+                    {"success": {"$ne": True}},
+                    {"tx_signature": {"$exists": False}},
+                    {"tx_signature": None}
+                ],
+                "action": {"$nin": ["auto_skip", "auto_pause"]}
+            })
+            
+            # Clean up stale positions
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+            stale_result = await db.ai_trader_positions.delete_many({
+                "wallet_address": wallet_address,
+                "status": {"$in": ["pending_stop_loss", "pending_take_profit"]},
+                "sell_executed_on_chain": {"$ne": True},
+                "created_at": {"$lt": cutoff}
+            })
+            stale_result_count = stale_result.deleted_count
         
         # Count records after cleanup
         after_counts = {
@@ -1084,12 +1101,12 @@ async def reset_statistics(wallet_address: str):
         
         return {
             "success": True,
-            "message": "Statistics reset - now showing only on-chain executed trades",
+            "message": "All trading history cleared - fresh start!" if full_reset else "Statistics reset - now showing only on-chain executed trades",
             "removed": {
                 "executions": exec_result.deleted_count,
                 "positions": pos_result.deleted_count,
                 "auto_logs": log_result.deleted_count,
-                "stale_positions": stale_result.deleted_count
+                "stale_positions": stale_result_count if not full_reset else 0
             },
             "before": before_counts,
             "after": after_counts,

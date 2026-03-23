@@ -273,12 +273,12 @@ export default function AITrader() {
     setLoading(false);
   }, [walletAddress]);
 
-  // Reset statistics to on-chain trades only
+  // Reset statistics - full wipe of trading history
   const resetStatistics = async () => {
     if (!walletAddress) return;
     
     const confirmed = window.confirm(
-      "This will reset your trading statistics to only include trades that were executed on-chain. Non-executed trades will be removed from history. Continue?"
+      "This will completely reset ALL your trading statistics and history. This cannot be undone. Continue?"
     );
     
     if (!confirmed) return;
@@ -286,17 +286,18 @@ export default function AITrader() {
     const loadingToast = toast.loading("Resetting statistics...");
     
     try {
-      const { data } = await axios.post(`${API}/ai-trader/reset-statistics/${walletAddress}`);
+      const { data } = await axios.post(`${API}/ai-trader/reset-statistics/${walletAddress}?full_reset=true`);
       
       toast.dismiss(loadingToast);
       
       if (data.success) {
-        toast.success(`Statistics reset! Removed ${data.removed.auto_logs + data.removed.executions + data.removed.positions} non-on-chain records`);
+        toast.success("Statistics reset! Fresh start.");
         
         // Update local state with new stats
         setHistory(prev => ({
           ...prev,
-          stats: data.new_stats
+          stats: data.new_stats,
+          trades: []
         }));
         
         // Refresh all data
