@@ -17,7 +17,8 @@ import {
   DollarSign, Target, Clock, ArrowRight, ChevronDown, ChevronUp,
   Wallet, History, Play, Pause, Info, Copy, ExternalLink, Star,
   Rocket, CheckCircle, AlertCircle, Timer, Trash2, Share2, BarChart3, Bell,
-  Cpu, ToggleLeft, ToggleRight, Activity, TrendingUp as TrendUp, Users, Globe
+  Cpu, ToggleLeft, ToggleRight, Activity, TrendingUp as TrendUp, Users, Globe,
+  Calculator
 } from "lucide-react";
 import { ShareButton, ShareTradeResult, ShareSignal, SharePortfolioPerformance } from "../components/SocialShare";
 import SocialTrading from "../components/SocialTrading";
@@ -93,6 +94,10 @@ export default function AITrader() {
   // Custodial Wallet state
   const [custodialWallet, setCustodialWallet] = useState(null);
   const [custodialLoading, setCustodialLoading] = useState(false);
+
+  // Risk Calculator state (lifted for position integration)
+  const [riskCalcPosition, setRiskCalcPosition] = useState(0.1);
+  const [riskCalcEntryPrice, setRiskCalcEntryPrice] = useState(1);
 
   // Fetch Telegram status
   const fetchTelegramStatus = useCallback(async () => {
@@ -1394,7 +1399,13 @@ export default function AITrader() {
                 </div>
                 
                 {/* Risk Calculator */}
-                <RiskCalculator settings={settings} />
+                <RiskCalculator 
+                  settings={settings}
+                  positionSize={riskCalcPosition}
+                  entryPrice={riskCalcEntryPrice}
+                  onPositionChange={setRiskCalcPosition}
+                  onEntryChange={setRiskCalcEntryPrice}
+                />
                 
                 {positions.length === 0 ? (
                   <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/5">
@@ -1442,6 +1453,11 @@ export default function AITrader() {
                         onManualClose={manualClosePosition}
                         onCustodialSell={custodialSell}
                         custodialWallet={custodialWallet}
+                        onUseInCalculator={(position) => {
+                          setRiskCalcPosition(position.amount_sol || 0.1);
+                          setRiskCalcEntryPrice(position.entry_price || 1);
+                          toast.success(`${position.token_symbol} loaded into Risk Calculator`);
+                        }}
                       />
                     ))}
                   </>
@@ -1999,11 +2015,34 @@ function StatCard({ icon, label, value, color, testId }) {
 }
 
 // Risk Calculator Component
-function RiskCalculator({ settings }) {
-  const [positionSize, setPositionSize] = useState(0.1);
-  const [entryPrice, setEntryPrice] = useState(1);
-  const [stopLoss, setStopLoss] = useState(10);
-  const [takeProfit, setTakeProfit] = useState(25);
+function RiskCalculator({ settings, positionSize: externalPosition, entryPrice: externalEntry, onPositionChange, onEntryChange }) {
+  const [positionSize, setPositionSize] = useState(externalPosition || 0.1);
+  const [entryPrice, setEntryPrice] = useState(externalEntry || 1);
+  const [stopLoss, setStopLoss] = useState(settings?.stop_loss_percent || 10);
+  const [takeProfit, setTakeProfit] = useState(settings?.take_profit_percent || 25);
+  
+  // Sync with external values when they change
+  useEffect(() => {
+    if (externalPosition !== undefined && externalPosition !== positionSize) {
+      setPositionSize(externalPosition);
+    }
+  }, [externalPosition]);
+  
+  useEffect(() => {
+    if (externalEntry !== undefined && externalEntry !== entryPrice) {
+      setEntryPrice(externalEntry);
+    }
+  }, [externalEntry]);
+  
+  const handlePositionChange = (value) => {
+    setPositionSize(value);
+    if (onPositionChange) onPositionChange(value);
+  };
+  
+  const handleEntryChange = (value) => {
+    setEntryPrice(value);
+    if (onEntryChange) onEntryChange(value);
+  };
   
   const maxLoss = positionSize * (stopLoss / 100);
   const potentialProfit = positionSize * (takeProfit / 100);
@@ -2022,10 +2061,11 @@ function RiskCalculator({ settings }) {
           <input
             type="number"
             value={positionSize}
-            onChange={(e) => setPositionSize(Math.max(0.01, parseFloat(e.target.value) || 0))}
+            onChange={(e) => handlePositionChange(Math.max(0.01, parseFloat(e.target.value) || 0))}
             step="0.01"
             min="0.01"
             className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#D946EF] focus:outline-none"
+            data-testid="risk-calc-position"
           />
         </div>
         <div>
@@ -2033,10 +2073,11 @@ function RiskCalculator({ settings }) {
           <input
             type="number"
             value={entryPrice}
-            onChange={(e) => setEntryPrice(Math.max(0.000001, parseFloat(e.target.value) || 0))}
+            onChange={(e) => handleEntryChange(Math.max(0.000001, parseFloat(e.target.value) || 0))}
             step="0.01"
             min="0.000001"
             className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-xs font-mono text-white focus:border-[#D946EF] focus:outline-none"
+            data-testid="risk-calc-entry"
           />
         </div>
         <div>
@@ -3024,7 +3065,7 @@ function SignalCard({ signal, onReject, onQuickTrade }) {
   );
 }
 
-function PositionCard({ position, onQuickSell, onDelete, onManualClose, onCustodialSell, custodialWallet }) {
+function PositionCard({ position, onQuickSell, onDelete, onManualClose, onCustodialSell, custodialWallet, onUseInCalculator }) {
   const [showSellInput, setShowSellInput] = useState(false);
   const [sellPercentage, setSellPercentage] = useState(100); // Default to sell 100%
   const [tokenBalance, setTokenBalance] = useState(null);
@@ -3252,6 +3293,19 @@ function PositionCard({ position, onQuickSell, onDelete, onManualClose, onCustod
                 data-testid={`close-btn-${position.token_symbol}`}
               >
                 {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              </Button>
+            )}
+            {/* Use in Risk Calculator */}
+            {onUseInCalculator && (
+              <Button
+                onClick={() => onUseInCalculator(position)}
+                size="sm"
+                variant="outline"
+                className="border-[#D946EF]/30 text-[#D946EF] hover:bg-[#D946EF]/10"
+                title="Use position data in Risk Calculator"
+                data-testid={`calc-btn-${position.token_symbol}`}
+              >
+                <Calculator className="w-4 h-4" />
               </Button>
             )}
             <button
