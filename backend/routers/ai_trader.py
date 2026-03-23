@@ -2769,16 +2769,53 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         trade_confidence = min(0.95, trade_confidence + 0.05)
                     
                     if should_trade:
-                        # Check if we already have a position
+                        # Check if we already have an OPEN position
                         existing_position = await db.ai_trader_positions.find_one({
                             "wallet_address": wallet_address,
-                            "token_mint": token_mint
+                            "token_mint": token_mint,
+                            "status": "open"
                         })
                         
                         if existing_position:
                             skipped.append({
                                 "symbol": symbol,
-                                "reason": "Already have position"
+                                "reason": "Already have open position"
+                            })
+                            continue
+                        
+                        # CRITICAL: Check if we recently hit stop-loss on this token
+                        # Don't re-buy a token within 60 minutes of a stop-loss
+                        stop_loss_cooldown_minutes = 60
+                        stop_loss_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=stop_loss_cooldown_minutes)).isoformat()
+                        
+                        recent_stop_loss = await db.ai_trader_positions.find_one({
+                            "wallet_address": wallet_address,
+                            "token_mint": token_mint,
+                            "status": {"$regex": "stop_loss|closed_stop"},
+                            "closed_at": {"$gte": stop_loss_cutoff}
+                        })
+                        
+                        if recent_stop_loss:
+                            logger.warning(f"Skipping {symbol}: Recent stop-loss triggered within {stop_loss_cooldown_minutes} minutes")
+                            skipped.append({
+                                "symbol": symbol,
+                                "reason": f"Recent stop-loss (cooldown {stop_loss_cooldown_minutes}m)"
+                            })
+                            continue
+                        
+                        # Also check for any recent loss on this token (including pending exits)
+                        recent_loss = await db.ai_trader_positions.find_one({
+                            "wallet_address": wallet_address,
+                            "token_mint": token_mint,
+                            "status": {"$in": ["closed_stop_loss", "closed_manual_sell", "pending_stop_loss"]},
+                            "created_at": {"$gte": stop_loss_cutoff}
+                        })
+                        
+                        if recent_loss:
+                            logger.warning(f"Skipping {symbol}: Recent losing position within {stop_loss_cooldown_minutes} minutes")
+                            skipped.append({
+                                "symbol": symbol,
+                                "reason": f"Recent losing trade (cooldown {stop_loss_cooldown_minutes}m)"
                             })
                             continue
                         
@@ -3012,16 +3049,37 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             should_trade = True
                         
                         if should_trade:
-                            # Check if we already have a position
+                            # Check if we already have an OPEN position
                             existing_position = await db.ai_trader_positions.find_one({
                                 "wallet_address": wallet_address,
-                                "token_mint": token_mint
+                                "token_mint": token_mint,
+                                "status": "open"
                             })
                             
                             if existing_position:
                                 skipped.append({
                                     "symbol": f"{symbol} (RUNNER)",
-                                    "reason": "Already have position",
+                                    "reason": "Already have open position",
+                                    "runner_score": runner_score
+                                })
+                                continue
+                            
+                            # CRITICAL: Check if we recently hit stop-loss on this token
+                            stop_loss_cooldown_minutes = 60
+                            stop_loss_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=stop_loss_cooldown_minutes)).isoformat()
+                            
+                            recent_stop_loss = await db.ai_trader_positions.find_one({
+                                "wallet_address": wallet_address,
+                                "token_mint": token_mint,
+                                "status": {"$in": ["closed_stop_loss", "closed_manual_sell", "pending_stop_loss"]},
+                                "created_at": {"$gte": stop_loss_cutoff}
+                            })
+                            
+                            if recent_stop_loss:
+                                logger.warning(f"Skipping runner {symbol}: Recent stop-loss within {stop_loss_cooldown_minutes}m")
+                                skipped.append({
+                                    "symbol": f"{symbol} (RUNNER)",
+                                    "reason": f"Recent stop-loss (cooldown {stop_loss_cooldown_minutes}m)",
                                     "runner_score": runner_score
                                 })
                                 continue
