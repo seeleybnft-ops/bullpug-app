@@ -1013,6 +1013,15 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### Auto-Burn Before Buys (Feb 2026)
+- **Feature**: Automatically reclaim SOL from empty token accounts before every buy trade
+- **Integration Points**:
+  - Signal-based buy path in `auto_trade_scan_and_execute()` (~line 2982)
+  - Runner-based buy path in `auto_trade_scan_and_execute()` (~line 3233)
+- **Function**: `ensure_sufficient_sol_for_trade(wallet_address, position_sol)` at line 40
+- **Behavior**: Calls PugBurn scan + burn on custodial wallet, reclaims rent from empty accounts, then re-checks balance before proceeding with the buy
+- **Logging**: Emits info-level logs when accounts are burned with reclaimed SOL amount
+
 ### Auto-Sell Full Position Execution Fix (March 2026)
 - **Issue**: LOL position at +200% wasn't being auto-sold
 - **Root Causes Fixed**:

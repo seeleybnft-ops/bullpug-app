@@ -2980,6 +2980,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         execution_error = None
                         
                         try:
+                            # Auto-burn empty accounts to reclaim SOL before buying
+                            burn_result = await ensure_sufficient_sol_for_trade(wallet_address, position_sol)
+                            if burn_result.get("burned_accounts", 0) > 0:
+                                logger.info(f"Auto-burn before signal buy: reclaimed {burn_result.get('reclaimed_sol', 0):.4f} SOL from {burn_result['burned_accounts']} accounts")
+                            
                             # Check if user has custodial wallet with sufficient balance
                             from routers.custodial_wallet import get_wallet_balance, get_or_create_custodial_wallet, execute_auto_trade
                             
@@ -3226,6 +3231,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             execution_error = None
                             
                             try:
+                                # Auto-burn empty accounts to reclaim SOL before runner buy
+                                burn_result = await ensure_sufficient_sol_for_trade(wallet_address, position_sol)
+                                if burn_result.get("burned_accounts", 0) > 0:
+                                    logger.info(f"Auto-burn before runner buy: reclaimed {burn_result.get('reclaimed_sol', 0):.4f} SOL from {burn_result['burned_accounts']} accounts")
+                                
                                 from routers.custodial_wallet import get_wallet_balance, execute_auto_trade
                                 
                                 custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
