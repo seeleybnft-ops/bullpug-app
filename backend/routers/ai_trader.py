@@ -2019,6 +2019,7 @@ async def scan_for_breakouts(wallet_address: str):
 class AutoTradeSettingsUpdate(BaseModel):
     """Update auto-trade settings"""
     auto_trade_enabled: Optional[bool] = None
+    auto_optimization_enabled: Optional[bool] = None  # NEW: Auto-apply optimal settings
     auto_trade_mode: Optional[str] = None
     auto_min_confidence: Optional[float] = None
     auto_max_daily_trades: Optional[int] = None
@@ -2124,6 +2125,7 @@ async def get_auto_trade_status(wallet_address: str):
         
         return {
             "auto_trade_enabled": settings.get("auto_trade_enabled", False),
+            "auto_optimization_enabled": settings.get("auto_optimization_enabled", False),
             "auto_paused": auto_paused,
             "pause_reason": pause_reason,
             "settings": {
@@ -2443,6 +2445,25 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         if not settings.get("auto_trade_enabled"):
             return {"success": False, "message": "Auto-trading is disabled", "trades": []}
+        
+        # If auto_optimization_enabled, fetch and apply optimal settings
+        if settings.get("auto_optimization_enabled"):
+            try:
+                from routers.signal_analytics import get_optimal_settings
+                optimal = await get_optimal_settings()
+                if optimal.get("sufficient_data") and optimal.get("settings"):
+                    opt_settings = optimal["settings"]
+                    auto_trade_opt = opt_settings.get("auto_trade", {})
+                    
+                    # Apply optimal settings to current settings
+                    settings["auto_min_confidence"] = auto_trade_opt.get("recommended_min_confidence", settings.get("auto_min_confidence", 0.6))
+                    settings["auto_max_daily_trades"] = auto_trade_opt.get("recommended_max_daily_trades", settings.get("auto_max_daily_trades", 3))
+                    settings["auto_cooldown_minutes"] = auto_trade_opt.get("recommended_cooldown_minutes", settings.get("auto_cooldown_minutes", 45))
+                    settings["auto_require_multiple_signals"] = auto_trade_opt.get("require_multiple_signals", True)
+                    
+                    logger.info(f"Auto-optimization applied: min_conf={settings['auto_min_confidence']}, max_trades={settings['auto_max_daily_trades']}, cooldown={settings['auto_cooldown_minutes']}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch optimal settings: {e}, using manual settings")
         
         # FIRST: Check and execute exits for positions hitting TP/SL
         exits_result = await auto_trade_check_exits(wallet_address)

@@ -219,8 +219,32 @@ export default function UnifiedAutoTrader({
             </div>
           </div>
           
-          {/* Master Toggle */}
+          {/* Master Toggle + Auto Optimization */}
           <div className="flex items-center gap-3">
+            {/* Auto Optimization Toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onUpdateSettings({ auto_optimization_enabled: !status?.auto_optimization_enabled })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  status?.auto_optimization_enabled ? 'bg-[#D946EF]' : 'bg-slate-600'
+                }`}
+                title={status?.auto_optimization_enabled 
+                  ? "Auto Optimization ON - Using data-driven settings" 
+                  : "Auto Optimization OFF - Using manual settings"}
+                data-testid="auto-optimization-toggle"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    status?.auto_optimization_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                {status?.auto_optimization_enabled ? 'Auto Optimize' : 'Manual'}
+              </span>
+            </div>
+            
+            {/* Enable/Disable Button */}
             <Button
               onClick={() => onToggle(!isEnabled)}
               className={isEnabled 
@@ -276,6 +300,25 @@ export default function UnifiedAutoTrader({
             loading={false}
           />
         </div>
+
+        {/* Auto Optimization Status */}
+        {status?.auto_optimization_enabled && optimalSettings?.sufficient_data && (
+          <div className="mt-4 p-3 bg-[#D946EF]/10 border border-[#D946EF]/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#D946EF]/20 flex items-center justify-center">
+                <Zap className="w-4 h-4 text-[#D946EF]" />
+              </div>
+              <div>
+                <p className="text-sm text-[#D946EF] font-medium">Auto Optimization Active</p>
+                <p className="text-xs text-slate-400">
+                  Using data-driven settings: Min {(optimalSettings?.settings?.auto_trade?.recommended_min_confidence * 100 || 60).toFixed(0)}% confidence, 
+                  {' '}{optimalSettings?.settings?.auto_trade?.recommended_max_daily_trades || 3} max daily trades,
+                  {' '}{optimalSettings?.settings?.auto_trade?.recommended_cooldown_minutes || 45}min cooldown
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Recommendation Alert */}
         {optimalSettings?.sufficient_data && settingsForm.auto_min_confidence < recommendedConfidence && (
