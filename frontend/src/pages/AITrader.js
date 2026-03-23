@@ -1149,16 +1149,6 @@ export default function AITrader() {
           </div>
           
           <div className="flex gap-3">
-            {/* Auto-scan toggle */}
-            <Button
-              onClick={() => setAutoScanEnabled(!autoScanEnabled)}
-              variant="outline"
-              className={`border-white/20 ${autoScanEnabled ? 'text-[#00FFA3] border-[#00FFA3]/30' : 'text-slate-500'}`}
-              data-testid="auto-scan-toggle"
-              title={autoScanEnabled ? "Auto-scan enabled (5 min)" : "Auto-scan disabled"}
-            >
-              {autoScanEnabled ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-            </Button>
             <Button
               onClick={() => setShowSettings(true)}
               variant="outline"
