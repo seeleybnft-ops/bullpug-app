@@ -1626,6 +1626,40 @@ export default function AITrader() {
                       toast.info(`Analyzing ${runner.symbol}...`);
                       runAutoTradeScan();
                     }}
+                    onQuickBuy={async (runner, amount) => {
+                      // Convert runner to coin format for quickBuyToken
+                      const coin = {
+                        symbol: runner.symbol,
+                        contract_address: runner.token_address,
+                        price: runner.price_usd
+                      };
+                      await quickBuyToken(coin, amount);
+                    }}
+                    onAnalyze={async (runner) => {
+                      if (!disclaimerAccepted) {
+                        toast.error("Please accept the disclaimer first");
+                        return;
+                      }
+                      const loadingToast = toast.loading(`Analyzing ${runner.symbol}...`);
+                      try {
+                        const params = new URLSearchParams({
+                          wallet_address: walletAddress,
+                          ...(runner.token_address && { contract_address: runner.token_address })
+                        });
+                        const { data } = await axios.post(
+                          `${API}/ai-trader/analyze/${runner.symbol}?${params}`
+                        );
+                        toast.dismiss(loadingToast);
+                        if (data.signal) {
+                          toast.success(`Signal generated for ${runner.symbol}`);
+                          setSignals(prev => [data.signal, ...prev]);
+                        }
+                      } catch (e) {
+                        toast.dismiss(loadingToast);
+                        toast.error(`Analysis failed: ${e.response?.data?.detail || e.message}`);
+                      }
+                    }}
+                    onCopy={copyToClipboard}
                     custodialBalance={custodialWallet?.balance_sol || 0}
                     compact={true}
                   />

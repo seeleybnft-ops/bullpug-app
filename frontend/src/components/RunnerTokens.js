@@ -71,7 +71,14 @@ const safeCopyToClipboard = async (text) => {
   }
 };
 
-export default function RunnerTokens({ onTradeRunner, custodialBalance = 0, compact = false }) {
+export default function RunnerTokens({ 
+  onTradeRunner, 
+  custodialBalance = 0, 
+  compact = false,
+  onQuickBuy,
+  onAnalyze,
+  onCopy
+}) {
   const { publicKey, connected } = useWallet();
   const walletAddress = publicKey?.toBase58();
 
@@ -80,6 +87,11 @@ export default function RunnerTokens({ onTradeRunner, custodialBalance = 0, comp
   const [lastUpdate, setLastUpdate] = useState(null);
   const [expandedRunner, setExpandedRunner] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Compact mode state - must be at top level to follow Rules of Hooks
+  const [buyInputOpen, setBuyInputOpen] = useState(null);
+  const [buyAmount, setBuyAmount] = useState(0.1);
+  const [buying, setBuying] = useState(false);
 
   // Fetch runner tokens
   const fetchRunners = useCallback(async (showRefreshing = false) => {
@@ -122,40 +134,157 @@ export default function RunnerTokens({ onTradeRunner, custodialBalance = 0, comp
     );
   }
 
-  // Compact mode - skip header and warnings, show fewer runners
+  // Compact mode - show action buttons like TopPickCard
   if (compact) {
+    const truncateAddress = (address) => {
+      if (!address) return "";
+      if (address.length <= 12) return address;
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    };
+
+    const handleQuickBuy = async (runner) => {
+      if (buyAmount <= 0) return;
+      setBuying(true);
+      try {
+        await onQuickBuy(runner, buyAmount);
+      } finally {
+        setBuying(false);
+        setBuyInputOpen(null);
+      }
+    };
+
     return (
       <div className="space-y-2" data-testid="runner-tokens-compact">
         {runners.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-4">No runners found</p>
         ) : (
-          <div className="grid md:grid-cols-2 gap-2">
+          <div className="space-y-2">
             {runners.slice(0, 6).map((runner, idx) => {
               const tier = getScoreTier(runner.runner_score);
+              const isHot = runner.volume_24h && runner.volume_24h > 100000;
+              const isBuyOpen = buyInputOpen === runner.token_address;
+              
               return (
                 <div
                   key={runner.token_address || idx}
-                  className="bg-[#12121A] border border-white/10 rounded-lg p-3 hover:border-white/20 transition-colors"
+                  className="bg-[#12121A] border border-[#D946EF]/20 rounded-xl p-3 hover:border-[#D946EF]/40 transition-colors"
+                  data-testid={`runner-compact-${idx}`}
                 >
+                  {/* Main Row: Token info & Price */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg ${tier.bg} flex items-center justify-center`}>
-                        <span className="text-sm font-bold" style={{ color: tier.color }}>
-                          {runner.symbol?.charAt(0) || '?'}
-                        </span>
-                      </div>
+                      {runner.image_url ? (
+                        <img src={runner.image_url} alt={runner.symbol} className="w-9 h-9 rounded-lg object-cover" />
+                      ) : (
+                        <div className={`w-9 h-9 rounded-lg ${tier.bg} flex items-center justify-center`}>
+                          <span className="text-sm font-bold" style={{ color: tier.color }}>
+                            {runner.symbol?.charAt(0) || '?'}
+                          </span>
+                        </div>
+                      )}
                       <div>
-                        <p className="font-semibold text-sm">{runner.symbol}</p>
-                        <p className="text-xs text-slate-500">{formatNumber(runner.liquidity_usd || 0)} liq</p>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <p className="font-semibold text-sm text-white">{runner.symbol}</p>
+                          {runner.is_bonded && (
+                            <span className="px-1.5 py-0.5 text-[8px] bg-[#00FFA3]/20 text-[#00FFA3] rounded font-bold">
+                              BONDED
+                            </span>
+                          )}
+                          {isHot && (
+                            <span className="px-1.5 py-0.5 text-[8px] bg-[#FF6B6B]/30 text-[#FF6B6B] rounded font-bold animate-pulse">
+                              🔥 HOT
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 capitalize">{runner.dex || 'Solana'}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-mono ${runner.price_change_5m >= 0 ? 'text-[#00FFA3]' : 'text-[#FF6B6B]'}`}>
-                        {runner.price_change_5m >= 0 ? '+' : ''}{runner.price_change_5m?.toFixed(1)}%
+                      <p className="font-mono text-sm text-white">
+                        ${formatPrice(runner.price_usd || 0)}
                       </p>
-                      <p className="text-[10px] text-slate-500">Score: {runner.runner_score}</p>
+                      <p className={`text-[10px] ${runner.price_change_24h >= 0 ? 'text-[#00FFA3]' : 'text-[#FF6B6B]'}`}>
+                        {runner.price_change_24h >= 0 ? '+' : ''}{runner.price_change_24h?.toFixed(1)}%
+                      </p>
                     </div>
                   </div>
+
+                  {/* Contract Address & Actions Row */}
+                  <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-2">
+                    <button 
+                      onClick={() => onCopy ? onCopy(runner.token_address, "Contract") : copyAddress(runner.token_address)}
+                      className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-white transition-colors"
+                      title="Click to copy contract address"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span className="font-mono">{truncateAddress(runner.token_address)}</span>
+                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Analyze Button */}
+                      <button
+                        onClick={() => onAnalyze ? onAnalyze(runner) : toast.info(`Analyzing ${runner.symbol}...`)}
+                        className="flex items-center gap-1 text-[10px] text-[#D946EF] hover:text-white transition-colors"
+                        title="Generate trading signal"
+                      >
+                        <Zap className="w-3 h-3" />
+                        Analyze
+                      </button>
+                      
+                      {/* Buy Button */}
+                      {onQuickBuy && (
+                        <button
+                          onClick={() => {
+                            if (custodialBalance <= 0) {
+                              toast.error('Deposit SOL to enable trading');
+                              return;
+                            }
+                            setBuyInputOpen(isBuyOpen ? null : runner.token_address);
+                          }}
+                          className="flex items-center gap-1 text-[10px] bg-[#00FFA3]/20 text-[#00FFA3] px-2 py-1 rounded hover:bg-[#00FFA3]/30 transition-colors"
+                          title="Quick buy this token"
+                          data-testid={`buy-runner-${idx}`}
+                        >
+                          <DollarSign className="w-3 h-3" />
+                          Buy
+                        </button>
+                      )}
+                      
+                      {/* DEX Link */}
+                      <a 
+                        href={`https://dexscreener.com/solana/${runner.pair_address || runner.token_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px] text-[#D946EF] hover:text-white transition-colors"
+                        title="View on DexScreener"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Quick Buy Input */}
+                  {isBuyOpen && onQuickBuy && (
+                    <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={buyAmount}
+                        onChange={(e) => setBuyAmount(Math.max(0.01, parseFloat(e.target.value) || 0))}
+                        step="0.01"
+                        min="0.01"
+                        max="10"
+                        className="flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-sm font-mono text-white focus:border-[#00FFA3] focus:outline-none"
+                        placeholder="SOL amount"
+                      />
+                      <button
+                        onClick={() => handleQuickBuy(runner)}
+                        disabled={buying || buyAmount <= 0}
+                        className="bg-gradient-to-r from-[#00FFA3] to-[#00C2FF] text-black text-xs font-bold px-3 py-1 rounded hover:opacity-90 disabled:opacity-50"
+                      >
+                        {buying ? 'Buying...' : `Buy ${buyAmount} SOL`}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
