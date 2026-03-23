@@ -13,130 +13,109 @@ PRODUCT REQUIREMENTS:
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a React frontend and a FastAPI backend. The core features are a highly functional AI Trading Bot and a Trading Journal.
-
-This session completed a large number of bug fixes and feature enhancements, significantly improving the stability and functionality of the AI Trading Bot. Key accomplishments include fixing the manual sell execution, resolving data synchronization issues between the database and the on-chain custodial wallet, correcting statistical calculations, and adding several user-requested UI/UX improvements like an Auto Optimization toggle and a feature to auto-fill the Risk Calculator from an existing position. The system now correctly uses data-driven analysis to inform trading strategies when enabled.
+A full-stack application (React frontend, FastAPI backend) with a functional AI Trading Bot and Trading Journal. This session focused heavily on hardening the AI Trading Bot, fixing numerous critical bugs related to trade execution, data integrity, and fee management. Key new features include real-time runner alerts and a custodial wallet SOL reclaim service (PugBurn). The bot's reliability is now significantly higher, with protections against common failure modes like insufficient fees, excessive slippage, and immediate re-buys after losses.
 
 **Last working item**:
--   **Last item agent was working:** The user requested that the Refresh button on the Top Picks tab should refresh all data categories on the AI Trader page (Top Picks, Runners, Signals, Positions), not just the Top Picks. The agent was investigating this requirement.
--   **Status:** NOT STARTED
+-   **Last item agent was working:** Implementing an automatic SOL reclaim (PugBurn) feature to run before executing buy trades. The goal is to ensure the custodial wallet always has enough SOL for transaction fees.
+-   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** Frontend testing agent
+-   **Which testing method agent to use?** Backend testing agent
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Refresh on Top Picks tab should be global (P0)**
--   **Issue 2: Solana Smart Contract Deployment Blocked by Disk Space (P2)**
-
-Issues Detail:
--   **Issue 1: Refresh on Top Picks tab should be global (P0)**
-    -   **Attempted fixes:** None. The agent was in the investigation phase before the session ended.
-    -   **Next debug checklist:**
-        1.  Locate the  handler for the Top Picks tab in .
-        2.  Identify all the primary data-fetching functions on the page (e.g., , , ).
-        3.  Modify the single  handler to call all necessary data-fetching functions to perform a global refresh of the page's content.
-        4.  Ensure a comprehensive loading state is triggered to provide user feedback during the global refresh.
-    -   **Why fix this issue and what will be achieved with the fix?** To provide a consistent and intuitive user experience, allowing a single click to refresh all dynamic data on the page.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on other issue:** None
--   **Issue 2: Solana Smart Contract Deployment Blocked by Disk Space (P2)**
-    -   **Attempted fixes:** None are possible due to platform constraints.
-    -   **Next debug checklist:** Do not attempt to install the Solana or Anchor CLI.
-    -   **Why fix this issue and what will be achieved with the fix?** This unblocks the development of the P2P Betting Arena.
-    -   **Status:** BLOCKED
-    -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** N/A
-    -   **Blocked on other issue:** Platform limitation.
+-   There are no pending issues.
 
 **In progress Task List**:
--   None.
+-   **Task 1: Integrate auto-burn feature into the buy logic (P0)**
+
+Task Detail:
+-   **Task 1: Integrate auto-burn feature into the buy logic (P0)**
+    -   **Where to resume:** The helper function  has been created in . It now needs to be called within the auto-buy logic (in both the signal-based and runner-based trade execution paths) before  is invoked for a purchase.
+    -   **What will be achieved with this?** The system will automatically try to reclaim SOL from empty token accounts before buying a new token. This proactively ensures the custodial wallet has sufficient funds for future sell transaction fees, preventing a recurrence of the critical AGAINST stop-loss failure.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Backend
+    -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   Implement Trading Competitions with leaderboards (P1).
-    -   Re-enable Plushie Sales & NFT Gallery (P2).
-    -   Implement real-time Runner Alerts via Telegram/Push Notifications (P2).
+    -   **User Verification: Cosmic Runner Review (P1):** The user requested a review of the Cosmic Runner game. The agent performed a check and believes all items are addressed, but the next agent should confirm with the user if they are satisfied with the following checks:
+        -   Purchasable items are linked to the .
+        -   Prize distribution is connected to the .
+        -   P2P rake mention was removed from jackpot text.
+        -   Achievements are persistent; the UI was clarified to state only the *leaderboard* resets.
+    -   **Implement Trading Competitions with leaderboards (P1).**
+    -   **Re-enable Plushie Sales & NFT Gallery (P2).**
 -   **Future Tasks:**
     -   P2P Betting Arena (BLOCKED).
 
 **Completed work in this session**
--   **FIXED**: Critical bug preventing manual sell execution from position cards.
--   **FIXED**: Critical SOL price calculation error that caused wildly inflated Invested SOL values.
--   **FIXED**: Numerous data integrity issues by cleaning up duplicate/stale positions.
--   **FIXED**: An issue where the Your Holdings section was checking the wrong wallet for synced positions.
--   **IMPLEMENTED**: A Sync Positions feature to align the database with on-chain holdings in the custodial wallet.
--   **IMPLEMENTED**: An Auto Optimization toggle that allows the auto-trader to use data-driven optimal settings.
--   **IMPLEMENTED**: A feature to auto-fill the Risk Calculator from a position card.
--   **ENHANCED**: The Runner Tokens UI to include Analyze, Buy, and DEX link buttons.
--   **ENHANCED**: The AI Trader page to use a toast notification for new signals instead of switching tabs.
--   **FIXED**: The Delete Trade button in the Trading Journal.
--   **IMPLEMENTED**: A 24-hour scheduler to auto-complete pending journal entries.
--   **FIXED**: AI Trader page defaulting to the wrong tab on load.
--   **IMPLEMENTED**: A notification badge on the Journal tab for pending entries.
+-   **CRITICAL FIX**: Added a periodic 1-minute scheduler job to monitor for trade exits (TP/SL), fixing a bug where positions were not being monitored continuously.
+-   **CRITICAL FIX**: Implemented progressive slippage (5% -> 8% -> 12%) for stop-loss sells to overcome Jupiter error 6024 and ensure execution in volatile conditions.
+-   **CRITICAL FIX**: Fixed stop-loss failure due to insufficient SOL for fees by lowering the required fee threshold and implementing a minimum SOL reserve check before buys.
+-   **CRITICAL FIX**: Prevented the bot from re-buying a token within 60 minutes after a stop-loss on that same token.
+-   **CRITICAL FIX**: Fixed a bug where holding timers were reset on sync by ensuring the sync logic correctly identifies and updates positions in  or  states.
+-   **CRITICAL FIX**: Fixed the Open Positions tab to correctly display active positions that are in  or  status.
+-   **Data Integrity**: Corrected Trade History and Statistics to only show successfully executed on-chain trades, removing duplicates and failed attempts.
+-   **Implemented**: A Full Reset for statistics that archives data to  collections before wiping trade history, preserving data for future learning.
+-   **Implemented**: A feature to reclaim SOL from the custodial wallet via PugBurn ().
+-   **Implemented**: Real-time Runner Alerts via Telegram/Push, including a backend scheduler, new API routes, and a frontend management component.
+-   **UI/UX**: Changed Quick Settings from sliders to a more precise - % + stepper format.
+-   **UI/UX**: Removed the now-redundant Auto-Scan Toggle and Settings buttons from the AI Trader header.
 
 **Earlier issues found/mentioned but not fixed**
 -   None.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork:** P/L display inaccuracies and the non-functional delete trade button were recurring issues from the previous session; both were resolved in this session.
--   **Recurrence count:** 2
--   **Status:** RESOLVED
+-   None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **On-Chain Data Synchronization:** Created a  endpoint that fetches all token holdings for the custodial wallet from the blockchain, compares them against the database, and creates/updates/closes positions to ensure data integrity.
--   **RPC Fallback Strategy:** Critical backend services (balance fetching, transaction submission) were made more resilient by implementing a fallback chain: Helius -> Alchemy -> Public Solana RPC.
--   **Lifting State Up (React):** The Risk Calculator's state (, ) was moved from the  component to the parent  page to allow sibling components () to update its state.
--   **Solana Transaction Priority:** Resolved transaction landing failures by using  in the Jupiter Swap API call, the modern way to handle priority fees.
--   **Data-Driven Feature Toggling:** An Auto Optimization feature was added where a setting () determines if the auto-trader uses manual settings or dynamically applies optimal parameters derived from historical signal analysis.
+-   **Periodic Job Scheduling (APScheduler):** Added a critical 1-minute job to  to monitor for trade exits (TP/SL), which was a major bug fix.
+-   **State-based Re-entry Prevention:** Added logic to  to prevent re-buying a token by checking for a recent  position within a 60-minute cooldown.
+-   **Progressive Slippage:** Implemented a retry mechanism in  that increases slippage on subsequent swap attempts (e.g., 5% -> 8% -> 12%) to handle volatile token sells.
+-   **Minimum SOL Reserve:** Added a check in  to prevent buys if the custodial wallet's SOL balance falls below a minimum threshold (0.005 SOL), ensuring funds for sell fees.
+-   **Data Archiving:** Implemented a pattern to move data to an  collection before deletion during a full reset to preserve it for future analysis.
+-   **Custodial Wallet Automation (PugBurn):** Extended the PugBurn feature to allow programmatic closing of empty token accounts and SOL reclaim for the server-managed custodial wallet.
 
 **key DB schema**
--   **ai_trader_settings:** Added .
--   **ai_trader_positions:** Synced positions are now flagged with , , and .
+-   **ai_trader_positions:** The  field is critical. open, , and  are all considered active holdings.
+-   **archive_positions, archive_auto_trade_logs:** New collections created to store data before a full reset.
 
 **All files of reference**
--   : Main page for the trading bot, heavily modified with new features and state management.
--   : Logic for auto-trading, settings, position management, and auto-optimization.
--   : Logic for custodial wallet operations, including the position sync and manual sell fixes.
--   : Component enhanced with new action buttons.
--   : Component that now contains the Auto Optimization toggle.
+-    (Critical logic for trading, stats, and bug fixes)
+-    (Critical logic for wallet operations, sync, and swaps)
+-    (Main UI for the trading bot)
+-    (Background job definitions)
+-    (SOL reclaim logic)
 
 **Critical Info for New Agent**
--   **Highest Priority (P0):** Implement the user's last request: make the Refresh button on the Top Picks tab trigger a global data refresh for the entire  page. This involves modifying its  handler to call all relevant data fetching functions.
--   The manual sell functionality is fixed but can take 50-60 seconds to confirm on-chain. This is expected Solana behavior and should not be treated as a bug.
--   The P2P Betting Arena feature remains blocked due to a platform disk space limitation preventing the installation of the Solana CLI. Do not attempt to install it.
+-   **Top Priority is completing the auto-burn integration.** The helper function  in  must be called before a buy is executed to ensure sufficient SOL for fees.
+-   The trading bot's reliability has been significantly improved. These systems are complex and should be tested carefully after any related changes. Key protections include minimum SOL reserves, progressive slippage, and re-buy cooldowns.
+-   The custodial wallet requires a minimum SOL balance to function. The bot now enforces a reserve on buys, but the user should be aware that topping up the custodial wallet might be necessary if it runs low on SOL.
+-   The user was concerned about data loss after a reset stats request deleted trade history. An archiving mechanism has since been added, but the previously deleted data is gone. Be mindful of this context if the user mentions it again.
 
 **documents and test reports created in this job**
--   
--   
--   
--   
--   
--   
--   
 -   
 -    (Updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Request:** Ensure the Refresh button on the Top Picks tab refreshes all data categories. (NOT STARTED)
-2.  **Request:** Add a button to position cards to auto-fill the Risk Calculator. (DONE)
-3.  **Question:** Is new data being used to improve our trading? (Answered YES, with details)
-4.  **Request:** Implement agent's suggestion to auto-apply optimal settings, using a new Auto Optimization toggle. (DONE)
-5.  **Bug Report:** The UI tab automatically switches to signals when new ones are detected; it should just be a notification. (DONE)
-6.  **Bug Report:** Invested sol and current value are way off. (DONE)
-7.  **Bug Report:** WRT position not showing correctly in the positions tab. (DONE)
-8.  **Bug Report:** Manual sell button on positions is not executing. (DONE)
-9.  **Request:** Ensure Runner Tokens display with the same Analyze, Buy, and DEX link buttons as other coins. (DONE)
-10. **Request:** Continue with the enhancement to auto-apply optimal settings. (DONE)
+1.  **Request:** Burn before trades please. **(IN PROGRESS)**
+2.  **Question:** What's the automatic burn threshold? (Answered: it's manual, but can be automated).
+3.  **Question:** Did we lose data for 1181 trades? (Answered: Yes, unfortunately, but an archive system is now in place).
+4.  **Request:** Reclaim SOL on the custodial wallet through PugBurn & ensure data is preserved on reset. (DONE - Custodial burn added, archive on reset added).
+5.  **Bug/Request:** Reset these stats, the Reset Stats button isn't working. (DONE - Stats manually reset, button fixed to do a full reset).
+6.  **Critical Bug:** AGAINST rug pull, -99% loss, stop-loss didn't trigger. (DONE - Root cause was insufficient SOL for fees. Fixes implemented.)
+7.  **Bug:** It's showing positions I don't hold. (DONE - Query logic simplified.)
+8.  **Bug:** 4 coins held but no positions are showing. (DONE - Fixed query to include pending statuses.)
+9.  **Bug:** Holding timer is resetting when using Sync. (DONE - Fixed sync logic to handle pending statuses.)
+10. **Critical Bug:** Bot re-bought TEK immediately after a stop-loss. (DONE - Added 60-min re-buy cooldown.)
 
 **Project Health Check:**
--   **Broken:** The Refresh button on the Top Picks tab has incomplete functionality.
--   **Mocked:** None.
--   **Blocked:** The P2P Betting Arena feature remains blocked by platform disk space limitations.
+-   **Broken:** None
+-   **Mocked:** None
+-   **Blocked:** The P2P Betting Arena feature remains blocked by a platform disk space limitation.
 
 **3rd Party Integrations**
 -   **OpenAI GPT-4o:** Powers AI chat and analysis (uses Emergent LLM Key).
@@ -156,7 +135,7 @@ Issues Detail:
 **Credentials to test flow:**
 -   **User Wallet:** 
 -   **Custodial Wallet:** 
--   **Helius API Key:** Available in  under .
+-   **Alchemy API Key:** Available in  under .
 
 **What agent forgot to execute**
--   The agent did not start the implementation for making the Refresh button on the Top Picks tab a global refresh for the entire page, which was the user's final request.</analysis>
+-   The agent created the  helper function in  but did not integrate it into the trade execution path. This is the main pending task.</analysis>

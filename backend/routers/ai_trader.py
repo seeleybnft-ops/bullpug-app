@@ -33,6 +33,92 @@ from services.strategy_engine import StrategyEngine
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-trader", tags=["AI Trader"])
 
+
+# Minimum SOL balance required before attempting auto-burn (0.01 SOL)
+MIN_SOL_BEFORE_BURN = 0.01
+
+async def ensure_sufficient_sol_for_trade(wallet_address: str, required_sol: float) -> dict:
+    """
+    Ensure the custodial wallet has sufficient SOL for a trade.
+    If balance is low, automatically burn empty token accounts to reclaim rent.
+    
+    Returns:
+        dict with 'success', 'balance', 'burned_accounts', 'reclaimed_sol'
+    """
+    from routers.custodial_wallet import get_wallet_balance
+    
+    try:
+        custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+        if not custodial_wallet:
+            return {"success": False, "error": "No custodial wallet found"}
+        
+        custodial_address = custodial_wallet["custodial_address"]
+        current_balance = await get_wallet_balance(custodial_address)
+        current_balance_sol = current_balance / 1_000_000_000  # Convert lamports to SOL
+        
+        # Calculate required (trade amount + fees + reserve)
+        required_total = required_sol + 0.005  # Keep 0.005 SOL reserve for fees
+        
+        # If we have enough, no burn needed
+        if current_balance_sol >= required_total:
+            return {
+                "success": True,
+                "balance": current_balance_sol,
+                "burned_accounts": 0,
+                "reclaimed_sol": 0
+            }
+        
+        # If balance is low, try to burn empty accounts
+        logger.info(f"Low balance ({current_balance_sol:.4f} SOL) - attempting auto-burn before trade")
+        
+        try:
+            from routers.pugburn import scan_vacant_accounts, burn_custodial_accounts
+            
+            # Scan for empty accounts
+            scan_result = await scan_vacant_accounts(custodial_address)
+            
+            if scan_result.vacant_accounts:
+                # Burn up to 15 accounts at a time
+                burn_result = await burn_custodial_accounts(wallet_address, max_accounts=15)
+                
+                if burn_result.get("success"):
+                    # Re-check balance after burn
+                    new_balance = await get_wallet_balance(custodial_address)
+                    new_balance_sol = new_balance / 1_000_000_000
+                    
+                    logger.info(f"Auto-burn complete: reclaimed {burn_result.get('sol_reclaimed', 0):.4f} SOL, new balance: {new_balance_sol:.4f} SOL")
+                    
+                    return {
+                        "success": new_balance_sol >= required_total,
+                        "balance": new_balance_sol,
+                        "burned_accounts": burn_result.get("accounts_closed", 0),
+                        "reclaimed_sol": burn_result.get("sol_reclaimed", 0)
+                    }
+            
+            # No accounts to burn or burn failed
+            return {
+                "success": current_balance_sol >= required_total,
+                "balance": current_balance_sol,
+                "burned_accounts": 0,
+                "reclaimed_sol": 0,
+                "warning": "No empty accounts to reclaim" if not scan_result.vacant_accounts else "Burn failed"
+            }
+            
+        except Exception as burn_error:
+            logger.warning(f"Auto-burn failed: {burn_error}")
+            # Continue with current balance even if burn fails
+            return {
+                "success": current_balance_sol >= required_total,
+                "balance": current_balance_sol,
+                "burned_accounts": 0,
+                "reclaimed_sol": 0,
+                "warning": f"Auto-burn failed: {str(burn_error)}"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking SOL balance: {e}")
+        return {"success": False, "error": str(e)}
+
 # Database connection
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")

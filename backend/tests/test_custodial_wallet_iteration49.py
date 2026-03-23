@@ -12,7 +12,7 @@ import uuid
 # Get the base URL from environment variable
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://pug-journal-1.preview.emergentagent.com"
+    BASE_URL = "https://pug-arena-1.preview.emergentagent.com"
 
 # Test wallet prefix for cleanup
 TEST_WALLET = f"TEST_custodial_{uuid.uuid4().hex[:8]}"
