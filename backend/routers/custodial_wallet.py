@@ -1132,19 +1132,30 @@ async def execute_auto_trade(user_wallet: str, input_mint: str, output_mint: str
     is_sell = output_mint == "So11111111111111111111111111111111111111112"
     
     if is_sell:
-        # For sells, only need SOL for transaction fees (~0.003 SOL should be enough)
-        min_fee_buffer = 3000000  # 0.003 SOL for fees
+        # For sells, only need SOL for transaction fees
+        # Priority fees can be 0.0005-0.002 SOL, regular fee ~0.000005
+        # Use 0.002 SOL as minimum - should cover most cases
+        min_fee_buffer = 2000000  # 0.002 SOL for fees
         if balance < min_fee_buffer:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient SOL for fees. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: ~0.003 SOL for fees"
-            )
+            # If we have SOME SOL, try anyway - Jupiter might succeed with lower fees
+            if balance >= 500000:  # At least 0.0005 SOL
+                logger.warning(f"Low SOL balance for fees ({balance/LAMPORTS_PER_SOL:.4f}), attempting anyway...")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient SOL for fees. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: ~0.002 SOL. Please deposit SOL to custodial wallet."
+                )
     else:
-        # For buys, check SOL balance covers the swap amount + fees
-        if balance < amount_lamports + 50000:
+        # For buys, check SOL balance covers the swap amount + fees + reserve for selling later
+        # IMPORTANT: Always keep at least 0.005 SOL reserved for future sell transactions
+        sell_fee_reserve = 5000000  # 0.005 SOL reserved for future sells
+        min_required = amount_lamports + 50000 + sell_fee_reserve
+        
+        if balance < min_required:
+            available_for_trade = max(0, balance - sell_fee_reserve - 50000)
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient custodial balance. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Need: {amount_lamports/LAMPORTS_PER_SOL:.4f} SOL"
+                detail=f"Insufficient balance. Have: {balance/LAMPORTS_PER_SOL:.4f} SOL, Available for trade: {available_for_trade/LAMPORTS_PER_SOL:.4f} SOL (keeping 0.005 SOL reserved for fees)"
             )
     
     # Get keypair
