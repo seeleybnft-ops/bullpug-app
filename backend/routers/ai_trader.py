@@ -497,6 +497,61 @@ async def get_disclaimer():
     }
 
 
+@router.get("/platform-stats")
+async def get_platform_stats():
+    """Get aggregate trading stats across all users for the homepage widget."""
+    try:
+        # Count all closed positions with on-chain sell execution
+        pipeline = [
+            {"$match": {
+                "status": {"$regex": "^closed"},
+                "sell_executed_on_chain": True,
+                "sell_tx_signature": {"$exists": True, "$ne": None}
+            }},
+            {"$group": {
+                "_id": None,
+                "total_trades": {"$sum": 1},
+                "total_pnl_sol": {"$sum": {"$ifNull": ["$pnl_sol", 0]}},
+                "wins": {"$sum": {"$cond": [{"$gt": [{"$ifNull": ["$pnl_sol", 0]}, 0]}, 1, 0]}},
+                "unique_traders": {"$addToSet": "$wallet_address"}
+            }}
+        ]
+        result = await db.ai_trader_positions.aggregate(pipeline).to_list(1)
+
+        # Count active positions
+        active_count = await db.ai_trader_positions.count_documents({
+            "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
+        })
+
+        if result and len(result) > 0:
+            r = result[0]
+            total = r["total_trades"]
+            wins = r["wins"]
+            return {
+                "total_trades": total,
+                "win_rate": round((wins / total * 100) if total > 0 else 0, 1),
+                "total_pnl_sol": round(r["total_pnl_sol"], 4),
+                "active_positions": active_count,
+                "active_traders": len(r.get("unique_traders", []))
+            }
+        return {
+            "total_trades": 0,
+            "win_rate": 0,
+            "total_pnl_sol": 0,
+            "active_positions": active_count,
+            "active_traders": 0
+        }
+    except Exception as e:
+        logger.error(f"Platform stats error: {e}")
+        return {
+            "total_trades": 0,
+            "win_rate": 0,
+            "total_pnl_sol": 0,
+            "active_positions": 0,
+            "active_traders": 0
+        }
+
+
 @router.get("/tokens")
 async def get_available_tokens():
     """Get available tokens for trading"""

@@ -152,6 +152,17 @@ class TestPugBurn:
         assert "total_accounts" in data or "accounts" in data or "vacant_accounts" in data
 
 
+class TestPlatformStats:
+    def test_platform_stats_endpoint(self, client):
+        r = client.get(f"{API}/ai-trader/platform-stats")
+        assert r.status_code == 200
+        data = r.json()
+        for key in ["total_trades", "win_rate", "total_pnl_sol", "active_positions"]:
+            assert key in data, f"Missing key: {key}"
+        assert isinstance(data["win_rate"], (int, float))
+        assert isinstance(data["active_positions"], int)
+
+
 # ========================
 # Price Alerts
 # ========================

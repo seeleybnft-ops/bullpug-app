@@ -1013,6 +1013,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### Homepage: Bot Quick Stats Widget (March 2026)
+- **Feature**: Live platform-wide trading bot stats displayed on homepage
+- **Placement**: Between "Market Pulse" and "The Legend" sections
+- **Data shown**: Total Trades, Win Rate %, Total P/L (SOL), Active Positions, Active Traders count
+- **Backend**: `GET /api/ai-trader/platform-stats` — aggregates across all users from `ai_trader_positions`
+- **Frontend**: `/frontend/src/components/BotQuickStats.js` — auto-refreshes every 60s
+- **Design**: Glass-card with glow effects, Orbitron font, gradient CTA button linking to Trading Bot
+
 ### Frontend Refactoring: AITrader.js Decomposition (March 2026)
 - **Before**: AITrader.js was 4,261 lines — a monolith file containing all trading bot logic
 - **After**: AITrader.js reduced to 2,133 lines (50% reduction)
