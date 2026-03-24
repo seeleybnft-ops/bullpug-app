@@ -1,22 +1,88 @@
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Settings } from "lucide-react";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+
+function EditDialog({ label, value, min, max, color, onConfirm, onCancel }) {
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    const parsed = parseInt(draft, 10);
+    if (isNaN(parsed)) { onCancel(); return; }
+    const clamped = Math.min(max, Math.max(min, parsed));
+    if (clamped === value) { onCancel(); return; }
+    onConfirm(clamped);
+  }, [draft, min, max, value, onConfirm, onCancel]);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={onCancel} data-testid="edit-percent-dialog">
+      <div className="bg-[#12121A] rounded-2xl p-6 max-w-sm w-full border border-white/10" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-white mb-1">Edit {label}</h3>
+        <p className="text-xs text-slate-500 mb-4">Current: {value}% &middot; Range: {min}% - {max}%</p>
+
+        <input
+          ref={inputRef}
+          type="number"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Escape") onCancel();
+          }}
+          min={min}
+          max={max}
+          step="1"
+          className="w-full h-14 rounded-xl text-center text-3xl font-bold font-mono border-2 bg-black/40 focus:outline-none mb-4"
+          style={{ color, borderColor: color }}
+          data-testid="edit-percent-input"
+        />
+
+        <div className="flex gap-3">
+          <Button onClick={onCancel} variant="outline" className="flex-1 border-white/20 text-slate-300">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            className="flex-1 font-bold"
+            style={{ backgroundColor: color, color: "#000" }}
+            data-testid="edit-percent-apply"
+          >
+            Apply {draft}%
+          </Button>
+        </div>
+        <p className="text-[10px] text-slate-600 text-center mt-3">This applies to all open positions</p>
+      </div>
+    </div>
+  );
+}
 
 function EditablePercent({ label, value, color, borderColor, bgColor, min, max, onConfirm, testIdPrefix }) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [pendingValue, setPendingValue] = useState(null);
 
-  const handleClickValue = () => {
-    const input = window.prompt(
-      `Enter new ${label} (current: ${value}%)\nRange: ${min}% - ${max}%`,
-      String(value)
-    );
-    if (input === null) return; // User cancelled
-    const parsed = parseInt(input, 10);
-    if (isNaN(parsed)) { toast.error("Please enter a valid number"); return; }
-    const clamped = Math.min(max, Math.max(min, parsed));
-    if (clamped === value) return; // No change
-    if (window.confirm(`Change ${label} from ${value}% to ${clamped}%?\n\nThis applies to all open positions.`)) {
-      onConfirm(clamped);
-    }
+  const handleDialogConfirm = (newValue) => {
+    setPendingValue(newValue);
+    setShowDialog(false);
   };
+
+  useEffect(() => {
+    if (pendingValue !== null) {
+      const confirmed = window.confirm(
+        `Change ${label} from ${value}% to ${pendingValue}%?\n\nThis applies to all open positions.`
+      );
+      if (confirmed) {
+        onConfirm(pendingValue);
+      }
+      setPendingValue(null);
+    }
+  }, [pendingValue, label, value, onConfirm]);
 
   const stepDown = () => { if (value > min) onConfirm(value - 1); };
   const stepUp = () => { if (value < max) onConfirm(value + 1); };
@@ -35,9 +101,9 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
         </button>
 
         <button
-          onClick={handleClickValue}
-          className="w-16 h-10 rounded-lg border flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/20 transition-all"
-          style={{ backgroundColor: bgColor, borderColor: borderColor }}
+          onClick={() => setShowDialog(true)}
+          className="w-16 h-10 rounded-lg border flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/20 hover:scale-105 transition-all active:scale-95"
+          style={{ backgroundColor: bgColor, borderColor }}
           title="Click to enter a custom value"
           data-testid={`${testIdPrefix}-display`}
         >
@@ -53,6 +119,18 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
           +
         </button>
       </div>
+
+      {showDialog && (
+        <EditDialog
+          label={label}
+          value={value}
+          min={min}
+          max={max}
+          color={color}
+          onConfirm={handleDialogConfirm}
+          onCancel={() => setShowDialog(false)}
+        />
+      )}
     </div>
   );
 }
@@ -68,7 +146,7 @@ export function QuickSettings({ autoTradeStatus, onUpdateSettings }) {
           <Settings className="w-4 h-4 text-[#D946EF]" />
           Quick Settings
         </h4>
-        <span className="text-xs text-slate-500">Click value to type custom % &middot; Changes apply to all positions</span>
+        <span className="text-xs text-slate-500">Click value to type custom %</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <EditablePercent
