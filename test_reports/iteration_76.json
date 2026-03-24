@@ -1,0 +1,109 @@
+{
+  "summary": "Iteration 76: Testing 3 A-tier upgrades for Bullpug Trading Bot. All 23 backend API tests passed (100%). All 5 frontend pages load correctly without console errors. Fixed missing tier1_whales and weighted_buy_ratio fields in smart_money neutral response.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/ai-trader/intelligence/{token_mint}",
+        "issue": "smart_money response was missing tier1_whales and weighted_buy_ratio fields when no signals present - FIXED",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. GET /api/ai-trader/intelligence-dashboard returns 200",
+    "2. smart_money.wallets_tracked >= 50 (expanded whale list verified)",
+    "3. price_collector status active with tokens tracked",
+    "4. sentiment status active",
+    "5. jito status active",
+    "6. GET /api/ai-trader/intelligence/{JUP_MINT} returns 200",
+    "7. GET /api/ai-trader/intelligence/{BONK_MINT} returns 200",
+    "8. JUP sentiment has ai_analysis from GPT (bearish, 70% confidence)",
+    "9. BONK sentiment has ai_analysis from GPT",
+    "10. sentiment.factors includes ai_analysis factor when GPT succeeds",
+    "11. smart_money has tier1_whales field (after fix)",
+    "12. smart_money has weighted_buy_ratio field (after fix)",
+    "13. data_quality has candles field",
+    "14. GET /api/ai-trader/settings/{wallet} returns 200",
+    "15. Settings has trailing stop fields (auto_trailing_stop_enabled, auto_trailing_stop_percent)",
+    "16. Trailing stop settings can be updated",
+    "17. GET /api/ai-trader/positions/{wallet} returns 200",
+    "18. Positions response has correct structure",
+    "19. GET /api/ root health check returns 200",
+    "20. GET /api/ai-trader/platform-stats returns 200",
+    "21. GET /api/competitions/active returns 200",
+    "22. GET /api/leaderboard?limit=10 returns 200",
+    "23. GET /api/journal/dashboard returns 200",
+    "24. Homepage (/) loads without errors",
+    "25. AI Trader page (/ai-trader) loads with wallet connect prompt",
+    "26. Journal page (/journal) loads correctly with dashboard stats",
+    "27. Game page (/game) loads correctly with Cosmic Runner",
+    "28. PugBurn page (/pugburn) loads correctly",
+    "29. No console errors on any page"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "expanded_whale_wallets_50_plus": {
+      "status": "VERIFIED",
+      "details": "smart_money.wallets_tracked returns 56 wallets (50+ with 3-tier profit scoring)"
+    },
+    "gpt_sentiment_analysis": {
+      "status": "VERIFIED",
+      "details": "sentiment.ai_analysis present with ai_sentiment, ai_confidence, reasoning, key_signal fields. GPT-4o via Emergent LLM Key working."
+    },
+    "trailing_stop_settings": {
+      "status": "VERIFIED",
+      "details": "auto_trailing_stop_enabled and auto_trailing_stop_percent fields present in settings. Can be updated via POST /api/ai-trader/settings"
+    },
+    "tier1_whales_field": {
+      "status": "VERIFIED (after fix)",
+      "details": "smart_money response now includes tier1_whales field even when no signals present"
+    },
+    "weighted_buy_ratio_field": {
+      "status": "VERIFIED (after fix)",
+      "details": "smart_money response now includes weighted_buy_ratio field even when no signals present"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration76_atier_upgrades.py",
+    "/app/test_reports/pytest/pytest_iteration76_atier_upgrades.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: 50+ whale wallets implemented with 3-tier profit scoring (Tier 1=1.0, Tier 2=0.7, Tier 3=0.4 weights)",
+    "POSITIVE: GPT-4o sentiment analysis working via Emergent LLM Key - returns ai_sentiment, ai_confidence, reasoning, key_signal",
+    "POSITIVE: Trailing stop settings exposed in TraderSettings model and QuickSettings UI component",
+    "FIXED: smart_money neutral response now includes tier1_whales and weighted_buy_ratio fields for API consistency",
+    "NOTE: GPT analysis may return None if API call fails - this is handled gracefully",
+    "NOTE: Trailing stop logic in check_exits tracks peak_price and moves stop-loss up when price rises above 5% entry"
+  ],
+  "updated_files": [
+    "/app/backend/services/smart_money_tracker.py",
+    "/app/backend/tests/test_iteration76_atier_upgrades.py"
+  ],
+  "success_rate": {
+    "backend": "100% (23/23 tests passed)",
+    "frontend": "100% (5/5 pages load correctly, no console errors)"
+  },
+  "test_credentials": {
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "token_mints_tested": {
+      "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+    }
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 76 verified all 3 A-tier upgrades: 1) 56 whale wallets with 3-tier profit scoring (Tier 1=10 wallets, Tier 2=15 wallets, Tier 3=31 wallets), 2) GPT-4o sentiment analysis via Emergent LLM Key adds ai_analysis factor to sentiment response, 3) Trailing stop-loss settings in TraderSettings model (auto_trailing_stop_enabled, auto_trailing_stop_percent). Fixed smart_money neutral response to include tier1_whales and weighted_buy_ratio fields. All frontend pages load without errors. IntelligenceDashboard shows GPT analysis when available.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All integrations are live: DexScreener for prices/sentiment, Helius RPC for smart money tracking, Emergent LLM Key for GPT-4o sentiment analysis, Jito for MEV protection"
+  }
+}

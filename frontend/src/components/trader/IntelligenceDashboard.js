@@ -254,6 +254,30 @@ export default function IntelligenceDashboard({ walletAddress }) {
                       ))}
                     </div>
                   )}
+                  {/* AI GPT Analysis */}
+                  {intel.sentiment?.ai_analysis && (
+                    <div className="mt-2 pt-2 border-t border-zinc-700/50">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Zap className="w-3 h-3 text-cyan-400" />
+                        <span className="text-[10px] font-medium text-cyan-400">GPT Analysis</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          intel.sentiment.ai_analysis.ai_sentiment === "bullish" ? "bg-green-500/20 text-green-400" :
+                          intel.sentiment.ai_analysis.ai_sentiment === "bearish" ? "bg-red-500/20 text-red-400" :
+                          "bg-zinc-700 text-zinc-400"
+                        }`}>
+                          {intel.sentiment.ai_analysis.ai_sentiment?.toUpperCase()} ({(intel.sentiment.ai_analysis.ai_confidence * 100).toFixed(0)}%)
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 italic">
+                        "{intel.sentiment.ai_analysis.reasoning}"
+                      </p>
+                      {intel.sentiment.ai_analysis.key_signal && (
+                        <p className="text-[10px] text-yellow-400/80 mt-0.5">
+                          Key signal: {intel.sentiment.ai_analysis.key_signal}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Smart Money */}
@@ -261,7 +285,7 @@ export default function IntelligenceDashboard({ walletAddress }) {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-white flex items-center gap-1.5">
                       <Eye className="w-3 h-3 text-purple-400" />
-                      Smart Money
+                      Smart Money ({intel.smart_money?.whale_count || 0} wallets)
                     </span>
                     <span className={`text-xs font-mono px-2 py-0.5 rounded ${
                       intel.smart_money?.action === "buy" ? "bg-green-500/20 text-green-400" :
@@ -271,10 +295,14 @@ export default function IntelligenceDashboard({ walletAddress }) {
                       {intel.smart_money?.action?.toUpperCase() || "NEUTRAL"}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-4 gap-2 text-center">
                     <div>
                       <div className="text-sm font-bold text-white">{intel.smart_money?.whale_count || 0}</div>
-                      <div className="text-[10px] text-zinc-500">Whales</div>
+                      <div className="text-[10px] text-zinc-500">Total</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-yellow-400">{intel.smart_money?.tier1_whales || 0}</div>
+                      <div className="text-[10px] text-zinc-500">Tier 1</div>
                     </div>
                     <div>
                       <div className="text-sm font-bold text-green-400">{intel.smart_money?.buy_count || 0}</div>
@@ -287,8 +315,25 @@ export default function IntelligenceDashboard({ walletAddress }) {
                   </div>
                   {intel.smart_money?.total_sol > 0 && (
                     <p className="text-[10px] text-zinc-500 mt-1 text-center">
-                      Total volume: {intel.smart_money.total_sol} SOL
+                      Total volume: {intel.smart_money.total_sol} SOL | Weighted buy ratio: {((intel.smart_money?.weighted_buy_ratio || 0.5) * 100).toFixed(0)}%
                     </p>
+                  )}
+                  {intel.smart_money?.details?.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {intel.smart_money.details.slice(0, 3).map((d, i) => (
+                        <div key={i} className="flex items-center justify-between text-[10px]">
+                          <span className="text-zinc-400">
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${
+                              d.tier === 1 ? "bg-yellow-400" : d.tier === 2 ? "bg-blue-400" : "bg-zinc-500"
+                            }`} />
+                            {d.wallet}
+                          </span>
+                          <span className={d.action === "buy" ? "text-green-400" : "text-red-400"}>
+                            {d.action.toUpperCase()} {d.sol} SOL
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 

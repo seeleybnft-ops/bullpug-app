@@ -3609,6 +3609,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
 async def auto_trade_check_exits(wallet_address: str):
     """
     Check open positions for stop-loss or take-profit triggers.
+    Implements TRAILING STOP-LOSS: when price rises, stop-loss moves up to lock in gains.
     Executes sells on-chain via custodial wallet when triggers hit.
     Should be called periodically to manage risk.
     """
@@ -3624,7 +3625,17 @@ async def auto_trade_check_exits(wallet_address: str):
         stop_loss_pct = settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10)) / 100
         take_profit_pct = settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20)) / 100
         
-        logger.info(f"Checking exits with SL: {stop_loss_pct*100}%, TP: {take_profit_pct*100}%")
+        # Trailing stop configuration
+        trailing_enabled = settings.get("trailing_stop_enabled", settings.get("auto_trailing_stop_enabled", True))
+        # Trail activation: trailing stop kicks in after price rises this % above entry
+        trail_activation_pct = settings.get("trailing_activation_pct", 5) / 100  # Default 5%
+        # Trail distance: how far below the peak price the stop-loss trails
+        trail_distance_pct = settings.get("trailing_distance_pct", settings.get("auto_trailing_stop_percent", 0)) / 100
+        # If trail distance is 0 or not set, use the original stop loss % as trail distance
+        if trail_distance_pct <= 0:
+            trail_distance_pct = stop_loss_pct
+        
+        logger.info(f"Checking exits with SL: {stop_loss_pct*100}%, TP: {take_profit_pct*100}%, Trailing: {'ON' if trailing_enabled else 'OFF'}")
         
         # Get all open positions AND positions with pending exit status (for retry)
         positions = await db.ai_trader_positions.find({
@@ -3666,10 +3677,58 @@ async def auto_trade_check_exits(wallet_address: str):
                     
                     entry_price = position.get("entry_price", 0)
                     
-                    # ALWAYS calculate SL/TP from settings to ensure consistent behavior
-                    # Position-specific values may have been set with different percentages
-                    stop_loss = entry_price * (1 - stop_loss_pct)
+                    # === TRAILING STOP-LOSS LOGIC ===
+                    # Track the highest price seen since entry
+                    peak_price = position.get("peak_price", entry_price)
+                    trailing_stop_active = position.get("trailing_stop_active", False)
+                    
+                    # Update peak price if current price is higher
+                    if current_price > peak_price:
+                        peak_price = current_price
+                        await db.ai_trader_positions.update_one(
+                            {"position_id": position.get("position_id")},
+                            {"$set": {"peak_price": peak_price}}
+                        )
+                    
+                    # Calculate base stop-loss and take-profit
+                    base_stop_loss = entry_price * (1 - stop_loss_pct)
                     take_profit = entry_price * (1 + take_profit_pct)
+                    
+                    # Determine effective stop-loss (base or trailing)
+                    if trailing_enabled and entry_price > 0:
+                        current_gain_pct = (current_price - entry_price) / entry_price
+                        peak_gain_pct = (peak_price - entry_price) / entry_price
+                        
+                        # Activate trailing stop when price has risen above activation threshold
+                        if peak_gain_pct >= trail_activation_pct:
+                            trailing_stop_active = True
+                            # Trailing stop = peak price - trail distance
+                            trailing_stop = peak_price * (1 - trail_distance_pct)
+                            # Trailing stop should never be lower than entry price (lock in at least breakeven)
+                            trailing_stop = max(trailing_stop, entry_price * 1.001)
+                            # Use trailing stop if it's higher than base stop-loss
+                            stop_loss = max(base_stop_loss, trailing_stop)
+                            
+                            # Update trailing stop state
+                            if not position.get("trailing_stop_active"):
+                                await db.ai_trader_positions.update_one(
+                                    {"position_id": position.get("position_id")},
+                                    {"$set": {
+                                        "trailing_stop_active": True,
+                                        "trailing_stop_price": trailing_stop,
+                                        "trail_activated_at": datetime.now(timezone.utc).isoformat()
+                                    }}
+                                )
+                                logger.info(f"Trailing stop ACTIVATED for {symbol}: trail @ ${trailing_stop:.8f} (peak: ${peak_price:.8f})")
+                            else:
+                                await db.ai_trader_positions.update_one(
+                                    {"position_id": position.get("position_id")},
+                                    {"$set": {"trailing_stop_price": trailing_stop}}
+                                )
+                        else:
+                            stop_loss = base_stop_loss
+                    else:
+                        stop_loss = base_stop_loss
                     
                     # Calculate current P&L percentage
                     if entry_price > 0:
@@ -3677,7 +3736,8 @@ async def auto_trade_check_exits(wallet_address: str):
                     else:
                         current_pnl_pct = 0
                     
-                    logger.info(f"Position {symbol}: entry={entry_price:.8f}, current={current_price:.8f}, SL={stop_loss:.8f}, TP={take_profit:.8f}, P/L={current_pnl_pct:.2f}%")
+                    trail_info = f", TRAIL={'ACTIVE' if trailing_stop_active else 'OFF'}" if trailing_enabled else ""
+                    logger.info(f"Position {symbol}: entry={entry_price:.8f}, current={current_price:.8f}, peak={peak_price:.8f}, SL={stop_loss:.8f}, TP={take_profit:.8f}, P/L={current_pnl_pct:.2f}%{trail_info}")
                     
                     # Check for exit conditions
                     exit_action = None
@@ -3695,8 +3755,12 @@ async def auto_trade_check_exits(wallet_address: str):
                         logger.info(f"Retrying failed take-profit sell for {symbol}")
                     # Otherwise check if exit conditions are met
                     elif current_price <= stop_loss:
-                        exit_action = "stop_loss"
-                        exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
+                        if trailing_stop_active:
+                            exit_action = "trailing_stop"
+                            exit_reason = f"Trailing stop triggered at ${current_price:.8f} (trail SL: ${stop_loss:.8f}, peak: ${peak_price:.8f}, locked +{((stop_loss - entry_price) / entry_price * 100):.1f}%)"
+                        else:
+                            exit_action = "stop_loss"
+                            exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
                     elif current_price >= take_profit:
                         exit_action = "take_profit"
                         exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f}, +{current_pnl_pct:.1f}%)"
@@ -3841,6 +3905,8 @@ async def auto_trade_check_exits(wallet_address: str):
                                     "exit_price": current_price,
                                     "pnl_percent": pnl_pct,
                                     "pnl_sol": pnl_sol,
+                                    "peak_price": peak_price,
+                                    "trailing_stop_active": trailing_stop_active,
                                     "closed_at": datetime.now(timezone.utc).isoformat(),
                                     "sell_tx_signature": tx_signature,
                                     "sell_executed_on_chain": sell_success,

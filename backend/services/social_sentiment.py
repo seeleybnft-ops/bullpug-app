@@ -17,6 +17,8 @@ from utils.database import db
 
 logger = logging.getLogger(__name__)
 
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+
 # Sentiment cache duration
 SENTIMENT_CACHE_MINUTES = 15
 
@@ -204,6 +206,25 @@ async def analyze_token_sentiment(
     final_score = total_score / total_weight if total_weight > 0 else 0
     final_score = max(-1.0, min(1.0, final_score))
 
+    # 6. AI-powered GPT Sentiment Analysis (weight: 0.20)
+    ai_analysis = None
+    token_symbol = pair_data.get("baseToken", {}).get("symbol", "UNKNOWN")
+    try:
+        ai_analysis = await _gpt_sentiment_analysis(token_symbol, pair_data, factors)
+        if ai_analysis and abs(ai_analysis.get("ai_score", 0)) > 0.01:
+            ai_score = ai_analysis["ai_score"]
+            # Blend AI score with on-chain score (20% weight for AI)
+            final_score = final_score * 0.80 + ai_score * 0.20
+            final_score = max(-1.0, min(1.0, final_score))
+
+            factors.append({
+                "factor": "ai_analysis",
+                "score": round(ai_score, 3),
+                "detail": f"GPT: {ai_analysis.get('reasoning', 'N/A')[:60]}"
+            })
+    except Exception as e:
+        logger.debug(f"AI sentiment skipped: {e}")
+
     # Determine label
     if final_score > 0.3:
         label = "very_bullish"
@@ -225,6 +246,7 @@ async def analyze_token_sentiment(
         "confidence_adjustment": confidence_adj,
         "factors": factors,
         "data_points": len(factors),
+        "ai_analysis": ai_analysis,
         "analyzed_at": datetime.now(timezone.utc).isoformat()
     }
 
@@ -251,8 +273,89 @@ def _neutral_sentiment() -> Dict:
         "confidence_adjustment": 0.0,
         "factors": [],
         "data_points": 0,
+        "ai_analysis": None,
         "analyzed_at": datetime.now(timezone.utc).isoformat()
     }
+
+
+async def _gpt_sentiment_analysis(
+    token_symbol: str,
+    pair_data: Dict,
+    on_chain_factors: list
+) -> Optional[Dict]:
+    """
+    Use GPT to analyze token sentiment from aggregated market data.
+    Provides a professional trader's perspective on the token.
+    """
+    if not EMERGENT_LLM_KEY:
+        return None
+
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+        # Build concise market context for GPT
+        price_changes = pair_data.get("priceChange", {})
+        txns = pair_data.get("txns", {})
+        volume = pair_data.get("volume", {})
+        liquidity = pair_data.get("liquidity", {})
+
+        buys_24h = txns.get("h24", {}).get("buys", 0)
+        sells_24h = txns.get("h24", {}).get("sells", 0)
+        buys_1h = txns.get("h1", {}).get("buys", 0)
+        sells_1h = txns.get("h1", {}).get("sells", 0)
+
+        market_context = f"""Token: {token_symbol}
+Price: ${pair_data.get('priceUsd', 'N/A')}
+Market Cap: ${pair_data.get('marketCap', 'N/A')}
+Liquidity: ${liquidity.get('usd', 'N/A')}
+Volume 24h: ${volume.get('h24', 0)}, 1h: ${volume.get('h1', 0)}
+Price Change: 5m {price_changes.get('m5', 0)}%, 1h {price_changes.get('h1', 0)}%, 6h {price_changes.get('h6', 0)}%, 24h {price_changes.get('h24', 0)}%
+Transactions 24h: {buys_24h} buys / {sells_24h} sells
+Transactions 1h: {buys_1h} buys / {sells_1h} sells
+On-chain factors: {'; '.join(f['detail'] for f in on_chain_factors[:4])}"""
+
+        prompt = f"""You are a professional Solana crypto trader. Analyze this token's market data and provide a brief trading sentiment assessment.
+
+{market_context}
+
+Respond in EXACTLY this JSON format, nothing else:
+{{"sentiment": "bullish" or "bearish" or "neutral", "confidence": 0.0 to 1.0, "reasoning": "one sentence max", "key_signal": "the single most important signal"}}"""
+
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"sentiment-{token_symbol}",
+            system_message="You are a professional crypto market analyst. Provide concise JSON sentiment analysis."
+        ).with_model("openai", "gpt-4o")
+
+        response = await chat.send_message(UserMessage(text=prompt))
+        response_text = str(response).strip()
+
+        # Parse JSON response
+        import json
+        # Handle markdown code blocks
+        if "```" in response_text:
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+
+        ai_result = json.loads(response_text)
+
+        sentiment_map = {"bullish": 0.3, "neutral": 0.0, "bearish": -0.3}
+        ai_score = sentiment_map.get(ai_result.get("sentiment", "neutral"), 0.0)
+        ai_confidence = float(ai_result.get("confidence", 0.5))
+
+        return {
+            "ai_sentiment": ai_result.get("sentiment", "neutral"),
+            "ai_confidence": ai_confidence,
+            "ai_score": round(ai_score * ai_confidence, 3),
+            "reasoning": ai_result.get("reasoning", ""),
+            "key_signal": ai_result.get("key_signal", "")
+        }
+
+    except Exception as e:
+        logger.warning(f"GPT sentiment analysis failed for {token_symbol}: {e}")
+        return None
 
 
 async def get_confidence_adjustment(token_mint: str, pair_data: Optional[Dict] = None) -> float:

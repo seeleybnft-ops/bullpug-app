@@ -178,11 +178,27 @@ export function PositionCard({ position, onQuickSell, onDelete, onManualClose, o
           <span className="text-slate-400">Holding for:</span>
           <span className="font-mono text-[#D946EF] font-medium">{holdTime}</span>
         </div>
-        {position.token_mint && (
-          <a href={`https://dexscreener.com/solana/${position.token_mint}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-[#00C2FF] hover:underline">
-            <ExternalLink className="w-3 h-3" /> DexScreener
-          </a>
-        )}
+        <div className="flex items-center gap-3">
+          {position.trailing_stop_active && (
+            <span data-testid={`trailing-stop-${position.token_symbol}`} className="flex items-center gap-1 text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              Trail Active
+              {position.trailing_stop_price && position.entry_price && (
+                <span className="font-mono ml-1">
+                  +{(((position.trailing_stop_price - position.entry_price) / position.entry_price) * 100).toFixed(1)}%
+                </span>
+              )}
+            </span>
+          )}
+          {position.data_source === "real_ohlcv" && (
+            <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Real Data</span>
+          )}
+          {position.token_mint && (
+            <a href={`https://dexscreener.com/solana/${position.token_mint}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-[#00C2FF] hover:underline">
+              <ExternalLink className="w-3 h-3" /> DexScreener
+            </a>
+          )}
+        </div>
       </div>
 
       {showSellInput && (

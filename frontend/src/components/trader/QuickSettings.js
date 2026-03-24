@@ -87,6 +87,8 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
 export function QuickSettings({ autoTradeStatus, onUpdateSettings }) {
   const tpValue = autoTradeStatus?.settings?.take_profit_percent || 25;
   const slValue = autoTradeStatus?.settings?.stop_loss_percent || 15;
+  const trailingEnabled = autoTradeStatus?.settings?.auto_trailing_stop_enabled ?? true;
+  const trailingPct = autoTradeStatus?.settings?.auto_trailing_stop_percent || 5;
 
   return (
     <div className="bg-gradient-to-r from-[#D946EF]/5 to-[#00FFA3]/5 border border-white/10 rounded-xl p-4" data-testid="quick-settings-panel">
@@ -100,6 +102,36 @@ export function QuickSettings({ autoTradeStatus, onUpdateSettings }) {
       <div className="grid grid-cols-2 gap-4">
         <EditablePercent label="Take Profit" value={tpValue} color="#00FFA3" borderColor="rgba(0,255,163,0.3)" bgColor="rgba(0,255,163,0.1)" min={5} max={200} onConfirm={(v) => onUpdateSettings({ auto_take_profit_percent: v })} testIdPrefix="quick-tp" />
         <EditablePercent label="Stop Loss" value={slValue} color="#FF6B6B" borderColor="rgba(255,107,107,0.3)" bgColor="rgba(255,107,107,0.1)" min={3} max={50} onConfirm={(v) => onUpdateSettings({ auto_stop_loss_percent: v })} testIdPrefix="quick-sl" />
+      </div>
+      {/* Trailing Stop Controls */}
+      <div className="mt-3 pt-3 border-t border-white/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="trailing-stop-toggle"
+              onClick={() => onUpdateSettings({ auto_trailing_stop_enabled: !trailingEnabled })}
+              className={`relative w-9 h-5 rounded-full transition-colors ${trailingEnabled ? 'bg-cyan-500' : 'bg-zinc-600'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${trailingEnabled ? 'translate-x-4' : ''}`} />
+            </button>
+            <span className="text-xs text-white">Trailing Stop</span>
+            <span className="text-[10px] text-zinc-500">locks gains as price rises</span>
+          </div>
+          {trailingEnabled && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-zinc-500">Trail after +{trailingPct}%</span>
+              <button
+                onClick={() => onUpdateSettings({ auto_trailing_stop_percent: Math.max(2, trailingPct - 1) })}
+                className="w-5 h-5 rounded bg-white/10 text-xs text-cyan-400 hover:bg-white/20 flex items-center justify-center"
+              >-</button>
+              <span className="text-xs font-mono text-cyan-400 w-6 text-center">{trailingPct}%</span>
+              <button
+                onClick={() => onUpdateSettings({ auto_trailing_stop_percent: Math.min(20, trailingPct + 1) })}
+                className="w-5 h-5 rounded bg-white/10 text-xs text-cyan-400 hover:bg-white/20 flex items-center justify-center"
+              >+</button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
