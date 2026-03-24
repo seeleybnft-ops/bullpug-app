@@ -153,9 +153,23 @@ app.include_router(api_router)
 # ========== Startup/Shutdown Events ==========
 @app.on_event("startup")
 async def startup_event():
-    """Start background tasks on app startup."""
+    """Start background tasks and create indexes on app startup."""
     start_scheduler()
     logger.info("Prize pool scheduler started")
+
+    # Create indexes for new intelligence collections
+    try:
+        await db.price_candles.create_index([("token_mint", 1), ("interval_key", 1)], unique=True)
+        await db.price_candles.create_index([("token_mint", 1), ("timestamp", -1)])
+        await db.smart_money_signals.create_index("signature", unique=True)
+        await db.smart_money_signals.create_index([("token_mint", 1), ("detected_at", -1)])
+        await db.smart_money_signals.create_index("expires_at")
+        await db.sentiment_cache.create_index("token_mint", unique=True)
+        await db.sentiment_cache.create_index("expires_at")
+        await db.ai_trader_positions.create_index([("wallet_address", 1), ("status", 1)])
+        logger.info("MongoDB indexes created for intelligence collections")
+    except Exception as e:
+        logger.warning(f"Index creation (non-fatal): {e}")
 
 
 # ========== WebSocket Endpoints ==========

@@ -109,6 +109,7 @@ async def fetch_wallet_transactions(wallet_address: str, limit: int = 20) -> Lis
     """
     Fetch recent transactions for a wallet using Helius enhanced RPC.
     Uses the RPC URL directly (not REST API) for compatibility.
+    Batches getTransaction calls in parallel for performance.
     """
     rpc_url = os.environ.get("HELIUS_RPC_URL", "")
     if not rpc_url:
@@ -132,108 +133,114 @@ async def fetch_wallet_transactions(wallet_address: str, limit: int = 20) -> Lis
             if not sigs_data:
                 return []
 
-            # Step 2: Fetch parsed transactions for recent signatures
+            # Step 2: Fetch parsed transactions in PARALLEL (up to 5 at a time)
+            import asyncio
+            sigs_to_fetch = [s.get("signature") for s in sigs_data[:10] if s.get("signature")]
+
+            async def fetch_single_tx(sig):
+                try:
+                    tx_payload = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "getTransaction",
+                        "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}]
+                    }
+                    tx_response = await client.post(rpc_url, json=tx_payload)
+                    if tx_response.status_code != 200:
+                        return None
+                    return tx_response.json().get("result")
+                except Exception:
+                    return None
+
+            # Batch in groups of 5 to avoid rate limits
             transactions = []
-            for sig_info in sigs_data[:10]:  # Limit to 10 most recent
-                sig = sig_info.get("signature")
-                if not sig:
-                    continue
-
-                tx_payload = {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "getTransaction",
-                    "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}]
-                }
-
-                tx_response = await client.post(rpc_url, json=tx_payload)
-                if tx_response.status_code != 200:
-                    continue
-
-                tx_data = tx_response.json().get("result")
-                if not tx_data:
-                    continue
-
-                # Parse the transaction into our expected format
-                block_time = tx_data.get("blockTime", 0)
-                meta = tx_data.get("meta", {})
-
-                # Detect swaps by looking at token balance changes
-                pre_token_balances = meta.get("preTokenBalances", [])
-                post_token_balances = meta.get("postTokenBalances", [])
-
-                # Simple swap detection: look for SOL + token balance changes
-                pre_sol = meta.get("preBalances", [0])[0] if meta.get("preBalances") else 0
-                post_sol = meta.get("postBalances", [0])[0] if meta.get("postBalances") else 0
-                sol_change = (post_sol - pre_sol) / 1e9
-
-                token_changes = {}
-                for post_bal in post_token_balances:
-                    mint = post_bal.get("mint", "")
-                    if mint == SOL_MINT:
+            for i in range(0, len(sigs_to_fetch), 5):
+                batch = sigs_to_fetch[i:i+5]
+                results = await asyncio.gather(*[fetch_single_tx(sig) for sig in batch])
+                for sig, tx_data in zip(batch, results):
+                    if not tx_data:
                         continue
-                    owner = post_bal.get("owner", "")
-                    post_amount = float(post_bal.get("uiTokenAmount", {}).get("uiAmount", 0) or 0)
-
-                    pre_amount = 0
-                    for pre_bal in pre_token_balances:
-                        if pre_bal.get("mint") == mint and pre_bal.get("owner") == owner:
-                            pre_amount = float(pre_bal.get("uiTokenAmount", {}).get("uiAmount", 0) or 0)
-                            break
-
-                    change = post_amount - pre_amount
-                    if abs(change) > 0:
-                        token_changes[mint] = {"amount": change, "owner": owner}
-
-                if not token_changes:
-                    continue
-
-                # Build a simplified transaction object
-                parsed_tx = {
-                    "signature": sig,
-                    "timestamp": block_time,
-                    "type": "SWAP" if token_changes and abs(sol_change) > 0.01 else "TRANSFER",
-                    "source": "UNKNOWN",
-                    "sol_change": sol_change,
-                    "token_changes": token_changes,
-                    "nativeTransfers": [],
-                    "tokenTransfers": []
-                }
-
-                # Build tokenTransfers
-                for mint, data in token_changes.items():
-                    if data["amount"] > 0:
-                        parsed_tx["tokenTransfers"].append({
-                            "mint": mint,
-                            "tokenAmount": data["amount"],
-                            "toUserAccount": wallet_address
-                        })
-                    else:
-                        parsed_tx["tokenTransfers"].append({
-                            "mint": mint,
-                            "tokenAmount": abs(data["amount"]),
-                            "fromUserAccount": wallet_address
-                        })
-
-                # Build nativeTransfers
-                if sol_change < -0.01:
-                    parsed_tx["nativeTransfers"].append({
-                        "fromUserAccount": wallet_address,
-                        "amount": abs(sol_change) * 1e9
-                    })
-                elif sol_change > 0.01:
-                    parsed_tx["nativeTransfers"].append({
-                        "toUserAccount": wallet_address,
-                        "amount": sol_change * 1e9
-                    })
-
-                transactions.append(parsed_tx)
+                    parsed = _parse_rpc_transaction(wallet_address, sig, tx_data)
+                    if parsed:
+                        transactions.append(parsed)
 
             return transactions
 
     except Exception as e:
         logger.warning(f"Failed to fetch transactions for {wallet_address[:8]}...: {e}")
         return []
+
+
+def _parse_rpc_transaction(wallet_address: str, sig: str, tx_data: Dict) -> Optional[Dict]:
+    """Parse a raw RPC transaction into our simplified format."""
+    block_time = tx_data.get("blockTime", 0)
+    meta = tx_data.get("meta", {})
+
+    pre_token_balances = meta.get("preTokenBalances", [])
+    post_token_balances = meta.get("postTokenBalances", [])
+
+    pre_sol = meta.get("preBalances", [0])[0] if meta.get("preBalances") else 0
+    post_sol = meta.get("postBalances", [0])[0] if meta.get("postBalances") else 0
+    sol_change = (post_sol - pre_sol) / 1e9
+
+    token_changes = {}
+    for post_bal in post_token_balances:
+        mint = post_bal.get("mint", "")
+        if mint == SOL_MINT:
+            continue
+        owner = post_bal.get("owner", "")
+        post_amount = float(post_bal.get("uiTokenAmount", {}).get("uiAmount", 0) or 0)
+
+        pre_amount = 0
+        for pre_bal in pre_token_balances:
+            if pre_bal.get("mint") == mint and pre_bal.get("owner") == owner:
+                pre_amount = float(pre_bal.get("uiTokenAmount", {}).get("uiAmount", 0) or 0)
+                break
+
+        change = post_amount - pre_amount
+        if abs(change) > 0:
+            token_changes[mint] = {"amount": change, "owner": owner}
+
+    if not token_changes:
+        return None
+
+    parsed_tx = {
+        "signature": sig,
+        "timestamp": block_time,
+        "type": "SWAP" if token_changes and abs(sol_change) > 0.01 else "TRANSFER",
+        "source": "UNKNOWN",
+        "sol_change": sol_change,
+        "token_changes": token_changes,
+        "nativeTransfers": [],
+        "tokenTransfers": []
+    }
+
+    for mint, data in token_changes.items():
+        if data["amount"] > 0:
+            parsed_tx["tokenTransfers"].append({
+                "mint": mint,
+                "tokenAmount": data["amount"],
+                "toUserAccount": wallet_address
+            })
+        else:
+            parsed_tx["tokenTransfers"].append({
+                "mint": mint,
+                "tokenAmount": abs(data["amount"]),
+                "fromUserAccount": wallet_address
+            })
+
+    if sol_change < -0.01:
+        parsed_tx["nativeTransfers"].append({
+            "fromUserAccount": wallet_address,
+            "amount": abs(sol_change) * 1e9
+        })
+    elif sol_change > 0.01:
+        parsed_tx["nativeTransfers"].append({
+            "toUserAccount": wallet_address,
+            "amount": sol_change * 1e9
+        })
+
+    return parsed_tx
 
 
 def parse_swap_from_transaction(tx: Dict) -> Optional[Dict]:

@@ -10,6 +10,7 @@ Provides a sentiment score that adjusts trading confidence.
 """
 import os
 import logging
+import json
 import httpx
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
@@ -330,8 +331,6 @@ Respond in EXACTLY this JSON format, nothing else:
         response = await chat.send_message(UserMessage(text=prompt))
         response_text = str(response).strip()
 
-        # Parse JSON response
-        import json
         # Handle markdown code blocks
         if "```" in response_text:
             response_text = response_text.split("```")[1]

@@ -83,90 +83,8 @@ fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else 
 
 
 # ============== Jito Bundle Helper ==============
-
-async def send_transaction_via_jito(
-    signed_tx_bytes: bytes,
-    keypair: Keypair = None,  # Not needed when tip is in tx
-    tip_lamports: int = JITO_TIP_LAMPORTS
-) -> dict:
-    """
-    Send a transaction via Jito bundles for reliable landing.
-    
-    When using Jupiter's jitoTipLamports parameter, the tip is already included
-    in the swap transaction, so we just need to send a single-tx bundle.
-    
-    Args:
-        signed_tx_bytes: The signed swap transaction bytes (with Jito tip included)
-        keypair: Not used when tip is already in transaction
-        tip_lamports: For logging only
-    
-    Returns:
-        dict with bundle_id on success
-    """
-    import asyncio
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Encode transaction as base64
-        swap_tx_b64 = base64.b64encode(signed_tx_bytes).decode('utf-8')
-        
-        # Send single-tx bundle (tip is already in the swap tx)
-        bundle_payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "sendBundle",
-            "params": [
-                [swap_tx_b64],  # Single transaction with tip included
-                {"encoding": "base64"}
-            ]
-        }
-        
-        logger.info(f"Sending Jito bundle (tip: {tip_lamports} lamports included in swap)...")
-        
-        # Try multiple endpoints with retry
-        last_error = None
-        shuffled_endpoints = random.sample(JITO_BUNDLE_ENDPOINTS, len(JITO_BUNDLE_ENDPOINTS))
-        
-        for endpoint in shuffled_endpoints:
-            try:
-                response = await client.post(endpoint, json=bundle_payload)
-                result = response.json()
-                
-                if "error" in result:
-                    error_msg = result.get("error", {}).get("message", str(result))
-                    logger.warning(f"Jito {endpoint}: {error_msg}")
-                    
-                    # If rate limited, try next endpoint
-                    if "rate limit" in error_msg.lower() or "congested" in error_msg.lower():
-                        last_error = error_msg
-                        await asyncio.sleep(0.5)
-                        continue
-                    # If invalid transaction, this is a real error
-                    if "invalid" in error_msg.lower():
-                        last_error = error_msg
-                        continue
-                    raise Exception(f"Jito bundle failed: {error_msg}")
-                
-                bundle_id = result.get("result")
-                if bundle_id:
-                    logger.info(f"Jito bundle submitted via {endpoint}: {bundle_id}")
-                    return {
-                        "bundle_id": bundle_id,
-                        "tip_lamports": tip_lamports,
-                        "endpoint": endpoint
-                    }
-                    
-            except httpx.TimeoutException:
-                logger.warning(f"Jito {endpoint} timeout, trying next...")
-                last_error = "timeout"
-                continue
-            except Exception as e:
-                if "rate limit" not in str(e).lower() and "congested" not in str(e).lower():
-                    raise
-                last_error = str(e)
-                continue
-        
-        raise Exception(f"All Jito endpoints failed: {last_error}")
-
+# NOTE: Primary Jito execution now in services/jito_executor.py
+# These legacy functions are kept for potential direct bundle usage
 
 async def check_jito_bundle_status(bundle_id: str, endpoint: str = None) -> dict:
     """
@@ -1275,11 +1193,11 @@ async def _execute_swap_with_retry(
                     logger.warning(f"Jito execution failed, falling back to RPC: {jito_err}")
                 
                 if jito_success:
-                    # Wait for confirmation
+                    # Wait for confirmation (reduced timeout: 5 attempts × 2s = 10s max)
                     rpc_url = os.environ.get("HELIUS_RPC_URL") or "https://api.mainnet-beta.solana.com"
                     async with AsyncClient(rpc_url) as solana_client:
-                        for attempt in range(12):
-                            await asyncio.sleep(3)
+                        for attempt in range(5):
+                            await asyncio.sleep(2)
                             try:
                                 sig_obj = Signature.from_string(tx_signature)
                                 tx_info = await solana_client.get_transaction(
