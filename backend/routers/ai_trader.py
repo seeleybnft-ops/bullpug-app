@@ -2404,8 +2404,15 @@ async def get_auto_trade_status(wallet_address: str):
         # All open positions represent SOL currently in trades
         position_sol = sum(p.get("amount_sol", 0) for p in open_positions)
         
+        # Count completed round-trips today (1 trade = buy + sell)
+        today_completed = await db.ai_trader_positions.count_documents({
+            "wallet_address": wallet_address,
+            "closed_at": {"$gte": today_start},
+            "status": {"$regex": "^closed"}
+        })
+        
         today_stats = {
-            "trades_executed": max(trades_from_logs, len(open_positions)),  # At least count open positions
+            "trades_executed": today_completed,  # Completed round-trips only
             "total_sol_used": sol_from_logs + position_sol,  # Total capital at risk
             "wins": len([log for log in successful_logs if log.get("pnl_sol", 0) > 0]),
             "losses": len([log for log in successful_logs if log.get("pnl_sol", 0) < 0]),
@@ -2430,7 +2437,7 @@ async def get_auto_trade_status(wallet_address: str):
                 auto_paused = True
                 pause_reason = "Paused after loss - resume manually"
         
-        # Check daily limits
+        # Check daily limits (based on completed round-trips)
         if today_stats["trades_executed"] >= settings.get("auto_max_daily_trades", 3):
             auto_paused = True
             pause_reason = "Daily trade limit reached"
@@ -2788,20 +2795,21 @@ async def auto_trade_scan_and_execute(wallet_address: str):
             logger.info(f"Auto-exits executed: {len(exits_executed)} positions closed for {wallet_address}")
         
         # Check daily limits
+        # A "trade" = a completed round-trip (buy + sell). 
+        # We count closed positions today, NOT buys. Sells (TP/SL) must never be blocked.
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
         
-        today_trades = await db.auto_trade_logs.count_documents({
+        today_completed_trades = await db.ai_trader_positions.count_documents({
             "wallet_address": wallet_address,
-            "created_at": {"$gte": today_start},
-            "action": "auto_buy",
-            "success": True
+            "closed_at": {"$gte": today_start},
+            "status": {"$regex": "^closed"}
         })
         
         max_daily = settings.get("auto_max_daily_trades", 3)
-        if today_trades >= max_daily:
+        if today_completed_trades >= max_daily:
             return {
                 "success": False,
-                "message": f"Daily trade limit reached ({today_trades}/{max_daily})",
+                "message": f"Daily trade limit reached ({today_completed_trades}/{max_daily} completed trades)",
                 "trades": []
             }
         
@@ -2864,7 +2872,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         executed_trades = []
         skipped = []
-        remaining_daily_trades = max_daily - today_trades  # Track how many trades we can still do
+        remaining_daily_trades = max_daily - today_completed_trades  # Track how many trades we can still do
         
         async with httpx.AsyncClient(timeout=20.0) as client:
             # First scan known tokens

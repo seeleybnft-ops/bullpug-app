@@ -1262,7 +1262,7 @@ export default function AITrader() {
               { id: "dashboard", label: "Dashboard", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length || undefined },
               { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
               { id: "discover", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
-              { id: "social", label: "Social & Alerts", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length || undefined },
+              { id: "social", label: "Social & Alerts", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
             ].map(tab => (
             <button
               key={tab.id}
