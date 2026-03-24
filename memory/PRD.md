@@ -1013,6 +1013,24 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### Frontend Refactoring: AITrader.js Decomposition (March 2026)
+- **Before**: AITrader.js was 4,261 lines — a monolith file containing all trading bot logic
+- **After**: AITrader.js reduced to 2,133 lines (50% reduction)
+- **Extracted Components** (to `/frontend/src/components/trader/`):
+  - `StatCard.js` — stats display cards
+  - `RiskCalculator.js` — risk/reward calculator widget
+  - `SignalCard.js` — trading signal cards
+  - `PositionCard.js` — open position cards with sell/close controls
+  - `TradeHistoryCard.js` — trade history display
+  - `SettingsModal.js` — trading settings modal
+  - `TopPickCard.js` — top picks token cards
+  - `AlertCard.js` — price alert cards with watchlist integration
+  - `constants.js` — shared constants (API, TOKENS, RISK_COLORS, etc.)
+  - `index.js` — barrel export
+- **Dead code removed**: AutoTradeTab (~795 lines) and TokenCard (~19 lines) — unused components
+- **Backend Test Suite**: 20 pytest tests covering critical trading paths (positions, history, stats, auto-trade, custodial wallet, PugBurn, alerts, settings, auto-burn integration)
+- **Test file**: `/app/backend/tests/test_trading_critical.py`
+
 ### Auto-Burn Before Buys (Feb 2026)
 - **Feature**: Automatically reclaim SOL from empty token accounts before every buy trade
 - **Integration Points**:
