@@ -15,11 +15,11 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 ## Architecture
 - **Frontend:** React (CRA) + TailwindCSS + Shadcn/UI
 - **Backend:** FastAPI + MongoDB (Motor)
-- **Blockchain:** Solana (Jupiter DEX, Helius/Alchemy RPC)
+- **Blockchain:** Solana (Jupiter DEX, Helius/Alchemy RPC, Jito)
 - **AI:** OpenAI GPT-4o via Emergent LLM Key
-- **Integrations:** DexScreener, CoinGecko, Telegram, Jito
+- **Integrations:** DexScreener, CoinGecko, Telegram, Jito Block Engine
 
-## What's Implemented (as of March 2026)
+## What's Implemented
 
 ### Core Features
 - Homepage with hero, BotQuickStats widget, social links
@@ -34,50 +34,72 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Notification system (WebSocket + Telegram)
 - Skin Store & Showcase
 
-### Competitive Intelligence Upgrades (March 24, 2026)
-1. **Real OHLCV Price Data** (`/app/backend/services/price_collector.py`)
-   - Collects real candle data every 5 minutes from DexScreener
-   - Stores OHLCV in MongoDB `price_candles` collection
-   - Removes -10% synthetic data penalty when 20+ real candles available
-   - Tracks 8 tokens: SOL, JUP, PYTH, RNDR, BONK, WIF, RAY, ORCA
+### B-Tier Competitive Upgrades (March 24, 2026)
+1. **Real OHLCV Price Data** - Collects actual candle data every 5 min
+2. **Smart Money Tracking (5 wallets)** - Initial whale monitoring
+3. **On-chain Sentiment Analysis** - 5-factor market analysis
+4. **Jito MEV-Protected Execution** - Bundle-based transaction submission
 
-2. **Smart Money Whale Tracking** (`/app/backend/services/smart_money_tracker.py`)
-   - Monitors 5 known profitable whale wallets via Helius RPC
-   - Detects swap transactions (buy/sell) and their size
-   - Applies +/-15% confidence adjustment based on whale activity
-   - Runs every 10 minutes via scheduler
+### A-Tier Competitive Upgrades (March 24, 2026)
+1. **Expanded Smart Money (56 wallets, 3-tier profit scoring)**
+   - Tier 1 (10 wallets, weight 1.0): Fund/institutional wallets
+   - Tier 2 (15 wallets, weight 0.7): Active DeFi whales
+   - Tier 3 (31 wallets, weight 0.4): Community-tracked profitable traders
+   - Tiered scanning: T1 every cycle, T2 every other, T3 every 3rd
+   - Profit-weighted signal aggregation with conviction bonuses
 
-3. **Social Sentiment Analysis** (`/app/backend/services/social_sentiment.py`)
-   - Multi-factor analysis: buy/sell ratio, price momentum, volume trends, liquidity health, pair age
-   - Provides -10% to +10% confidence adjustment
-   - Cached for 15 minutes per token
-   - No external API key needed (uses DexScreener data)
+2. **GPT-Powered Sentiment Analysis**
+   - GPT-4o via Emergent LLM Key analyzes market data per token
+   - Returns sentiment (bullish/bearish/neutral), confidence, reasoning, key signal
+   - Blended 80/20 with on-chain factors (20% AI weight)
+   - Cached 15 minutes to optimize API costs
 
-4. **Jito MEV-Protected Execution** (`/app/backend/services/jito_executor.py`)
-   - Transactions sent via Jito block engines first for MEV protection
-   - Automatic fallback to standard RPC if Jito unavailable
-   - Higher priority tips for stop-loss orders (0.001 SOL vs 0.0001 SOL)
-   - Multiple regional engines (NY, Amsterdam, Tokyo)
+3. **Trailing Stop-Losses**
+   - Dynamically moves stop-loss up as price rises above entry
+   - Activation threshold: configurable (default 5% above entry)
+   - Trail distance: uses stop-loss % as trailing distance
+   - Guarantees at least breakeven when trailing stop activates
+   - Tracks peak_price per position for accurate trailing
+   - UI toggle in QuickSettings with adjustable trail percentage
+   - Position cards show "Trail Active" indicator with locked gain %
 
-### API Endpoints Added
+### New API Endpoints
 - `GET /api/ai-trader/intelligence-dashboard` - All systems status
-- `GET /api/ai-trader/intelligence/{token_mint}` - Per-token intelligence data
+- `GET /api/ai-trader/intelligence/{token_mint}` - Per-token intelligence
 
-### Frontend Components Added
-- `IntelligenceDashboard` (`/app/frontend/src/components/trader/IntelligenceDashboard.js`)
-  - Real-time status of all 4 intelligence systems
-  - Per-token drill-down with sentiment factors, smart money signals, data quality
+### New/Updated Frontend Components
+- `IntelligenceDashboard` - 4-system status + per-token drill-down with GPT analysis
+- `QuickSettings` - Added trailing stop toggle and trail % controls
+- `PositionCard` - Shows trailing stop active indicator and data source badge
+
+## File Architecture (Key New/Modified Files)
+```
+backend/services/
+  price_collector.py      # Real OHLCV candle data collection
+  smart_money_tracker.py  # 56 whale wallets, 3-tier profit scoring
+  social_sentiment.py     # 6-factor sentiment + GPT analysis
+  jito_executor.py        # Jito MEV-protected execution
+  market_quality.py       # Volume/liquidity quality checks
+
+backend/routers/
+  ai_trader.py            # Trailing stops, intelligence endpoints, signal integration
+  custodial_wallet.py     # Jito bundle execution integrated
+
+frontend/src/components/trader/
+  IntelligenceDashboard.js  # Intelligence systems UI
+  QuickSettings.js          # Trailing stop controls
+  PositionCard.js           # Trail active indicator
+```
 
 ## Backlog
-- P0: None (all critical features working)
-- P1: Create active Trading Competitions (needs content/admin)
+- P1: Create active Trading Competitions with leaderboards
 - P2: Plushie Sales & NFT Gallery re-enable
 - P3: P2P Betting Arena (BLOCKED by disk space)
 - P3: Push Notifications improvements
 - P3: Achievement badges & Share on X
 
 ## Test Coverage
-- Backend: 100% (19/19 new tests + 21 existing pytest tests)
-- Frontend: 100% (all pages load correctly, mobile responsive)
+- Backend: 100% (29/29 tests passed, iteration 76)
+- Frontend: 100% (all pages load, no console errors)
 - Bot logic: pytest suite with 21+ tests
 - No regressions detected
