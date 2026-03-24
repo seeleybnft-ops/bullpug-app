@@ -1013,6 +1013,16 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### UX Simplification: Trading Bot Tabs Consolidated (March 2026)
+- **Before**: 7 tabs (Auto-Trade, Top Picks, Signals, Breakouts, Copy Trading, Positions, Trade History)
+- **After**: 4 tabs (Dashboard, Discover, Auto-Trade, Social & Alerts)
+- **Dashboard**: Positions + Quick Settings + Risk Calculator + Recent Trade History (combined)
+- **Discover**: Active Signals + Top Picks + Runner Tokens + New Pairs (combined, with scan CTA)
+- **Auto-Trade**: Unchanged (UnifiedAutoTrader)
+- **Social & Alerts**: Telegram + Push Notifications + Breakout Scanner + Copy Trading (combined)
+- Default tab changed from "autotrade" to "dashboard"
+- All internal navigation references updated (signals→discover, positions→dashboard)
+
 ### Homepage: Bot Quick Stats Widget (March 2026)
 - **Feature**: Live platform-wide trading bot stats displayed on homepage
 - **Placement**: Between "Market Pulse" and "The Legend" sections

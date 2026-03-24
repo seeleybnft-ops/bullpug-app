@@ -48,7 +48,7 @@ export default function AITrader() {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [activeTab, setActiveTab] = useState("autotrade");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [showSettings, setShowSettings] = useState(false);
   const [lastScan, setLastScan] = useState(null);
   const [autoScanEnabled, setAutoScanEnabled] = useState(true);
@@ -566,7 +566,7 @@ export default function AITrader() {
           <div className="flex items-center gap-2">
             <span>{data.signals_generated} trading signal(s) found!</span>
             <button 
-              onClick={() => setActiveTab("signals")}
+              onClick={() => setActiveTab("discover")}
               className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
             >
               View
@@ -1051,7 +1051,7 @@ export default function AITrader() {
         );
 
         // Switch to positions tab and refresh
-        setActiveTab("positions");
+        setActiveTab("dashboard");
         fetchData();
       }
     } catch (e) {
@@ -1259,13 +1259,10 @@ export default function AITrader() {
         <div className="relative mb-4 sm:mb-6">
           <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto tabs-container scrollbar-thin scrollbar-thumb-[#D946EF]/30 scrollbar-track-transparent">
             {[
+              { id: "dashboard", label: "Dashboard", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length || undefined },
+              { id: "discover", label: "Discover", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
               { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
-              { id: "tokens", label: "Top Picks", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
-              { id: "signals", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, count: signals.length },
-              { id: "alerts", label: "Breakouts", icon: <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length },
-              { id: "social", label: "Copy Trading", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
-              { id: "positions", label: "Positions", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length },
-              { id: "history", label: "Trade History", icon: <History className="w-3 h-3 sm:w-4 sm:h-4" /> }
+              { id: "social", label: "Social & Alerts", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length || undefined },
             ].map(tab => (
             <button
               key={tab.id}
@@ -1303,240 +1300,256 @@ export default function AITrader() {
           </div>
         ) : (
           <>
-            {/* Signals Tab */}
-            {activeTab === "signals" && (
-              <div className="space-y-4" data-testid="signals-content">
-                {signals.length === 0 ? (
-                  <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/5" data-testid="no-signals">
-                    <Zap className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                    <h3 className="text-lg font-semibold mb-2">No pending signals</h3>
-                    <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
-                      Click "Scan Markets" to analyze tokens for trading opportunities based on technical indicators like RSI, MACD, and Bollinger Bands.
-                    </p>
+            {/* ===== DASHBOARD TAB ===== */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-6" data-testid="dashboard-content">
+                {/* Positions Section */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Target className="w-5 h-5 text-[#D946EF]" />
+                        Open Positions
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {positions.length} active position{positions.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={syncPositionsFromChain}
+                        size="sm"
+                        variant="outline"
+                        className="border-[#00FFA3]/30 hover:bg-[#00FFA3]/10 text-[#00FFA3]"
+                        data-testid="sync-positions-btn"
+                        title="Sync positions from blockchain"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                        Sync
+                      </Button>
+                      <Button
+                        onClick={fetchData}
+                        size="sm"
+                        variant="outline"
+                        className="border-white/10 hover:bg-white/5 text-slate-300"
+                        data-testid="refresh-positions-btn"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Quick Settings Panel */}
+                  <div className="bg-gradient-to-r from-[#D946EF]/5 to-[#00FFA3]/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-[#D946EF]" />
+                        Quick Settings
+                      </h4>
+                      <span className="text-xs text-slate-500">Changes apply to all positions</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-2 block">Take Profit %</label>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              const current = autoTradeStatus?.settings?.take_profit_percent || 25;
+                              if (current > 5) updateAutoTradeSettings({ auto_take_profit_percent: current - 1 });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
+                            data-testid="quick-tp-minus"
+                          >
+                            −
+                          </button>
+                          <div className="w-16 h-10 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 flex items-center justify-center">
+                            <span className="text-lg font-bold text-[#00FFA3]">
+                              {autoTradeStatus?.settings?.take_profit_percent || 25}%
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const current = autoTradeStatus?.settings?.take_profit_percent || 25;
+                              if (current < 100) updateAutoTradeSettings({ auto_take_profit_percent: current + 1 });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
+                            data-testid="quick-tp-plus"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-2 block">Stop Loss %</label>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
+                              if (current > 5) updateAutoTradeSettings({ auto_stop_loss_percent: current - 1 });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
+                            data-testid="quick-sl-minus"
+                          >
+                            −
+                          </button>
+                          <div className="w-16 h-10 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center">
+                            <span className="text-lg font-bold text-[#FF6B6B]">
+                              {autoTradeStatus?.settings?.stop_loss_percent || 15}%
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
+                              if (current < 50) updateAutoTradeSettings({ auto_stop_loss_percent: current + 1 });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
+                            data-testid="quick-sl-plus"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Risk Calculator */}
+                  <RiskCalculator 
+                    settings={settings}
+                    positionSize={riskCalcPosition}
+                    entryPrice={riskCalcEntryPrice}
+                    onPositionChange={setRiskCalcPosition}
+                    onEntryChange={setRiskCalcEntryPrice}
+                  />
+                  
+                  {positions.length === 0 ? (
+                    <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5">
+                      <Target className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                      <p className="text-slate-400">No open positions</p>
+                      <p className="text-sm text-slate-500 mt-1">Head to the Discover tab to find tokens</p>
+                    </div>
+                  ) : (
+                    <>
+                      {positions.some(p => p.executed_on_chain === false) && (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-amber-400" />
+                            <div>
+                              <p className="text-sm text-amber-200 font-medium">Ghost Positions Detected</p>
+                              <p className="text-xs text-amber-400/80">
+                                {positions.filter(p => p.executed_on_chain === false).length} position(s) failed to execute on-chain
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={async () => {
+                              if (!window.confirm("Remove all ghost positions? This will clear positions that failed to execute on-chain.")) return;
+                              const ghostPositions = positions.filter(p => p.executed_on_chain === false);
+                              for (const pos of ghostPositions) {
+                                await deletePosition(pos);
+                              }
+                            }}
+                            size="sm"
+                            className="bg-amber-500 text-black hover:bg-amber-400"
+                            data-testid="clear-ghost-positions"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Clear All Ghost
+                          </Button>
+                        </div>
+                      )}
+                      {positions.map(pos => (
+                        <PositionCard 
+                          key={pos.execution_id || pos.position_id} 
+                          position={pos} 
+                          onQuickSell={quickSell}
+                          onDelete={deletePosition}
+                          onManualClose={manualClosePosition}
+                          onCustodialSell={custodialSell}
+                          custodialWallet={custodialWallet}
+                          onUseInCalculator={(position) => {
+                            setRiskCalcPosition(position.amount_sol || 0.1);
+                            setRiskCalcEntryPrice(position.entry_price || 1);
+                            toast.success(`${position.token_symbol} loaded into Risk Calculator`);
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
+
+                {/* Trade History Section */}
+                <div className="border-t border-white/10 pt-6">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                    <History className="w-5 h-5 text-[#00C2FF]" />
+                    Recent Trade History
+                  </h3>
+                  {history.trades.length === 0 ? (
+                    <div className="text-center py-8 bg-white/5 rounded-2xl">
+                      <History className="w-10 h-10 mx-auto mb-3 text-slate-600" />
+                      <p className="text-slate-400 text-sm">No trade history yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {history.trades.slice(0, 10).map(trade => (
+                        <TradeHistoryCard key={trade.execution_id} trade={trade} />
+                      ))}
+                      {history.trades.length > 10 && (
+                        <p className="text-center text-xs text-slate-500 pt-2">
+                          Showing 10 of {history.trades.length} trades
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ===== DISCOVER TAB ===== */}
+            {activeTab === "discover" && (
+              <div className="space-y-6" data-testid="discover-content">
+                {/* Active Signals Section */}
+                {signals.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-[#D946EF]" />
+                        Active Signals
+                        <span className="px-1.5 py-0.5 bg-[#D946EF] text-white text-[10px] rounded-full">{signals.length}</span>
+                      </h3>
+                    </div>
+                    {signals.map(signal => (
+                      <SignalCard
+                        key={signal.signal_id}
+                        signal={signal}
+                        onReject={() => rejectSignal(signal.signal_id)}
+                        onQuickTrade={quickTrade}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Scan Markets CTA (when no signals) */}
+                {signals.length === 0 && (
+                  <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/5">
+                    <div>
+                      <p className="text-sm font-medium text-white">No active signals</p>
+                      <p className="text-xs text-slate-500">Scan markets for trading opportunities</p>
+                    </div>
                     <Button
                       onClick={scanMarkets}
                       disabled={scanning || !disclaimerAccepted}
+                      size="sm"
                       className="bg-[#D946EF] hover:bg-[#D946EF]/80"
+                      data-testid="scan-markets-btn"
                     >
-                      {scanning ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Zap className="w-4 h-4 mr-2" />
-                      )}
-                      {scanning ? "Scanning..." : "Scan Markets Now"}
+                      {scanning ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+                      {scanning ? "Scanning..." : "Scan Markets"}
                     </Button>
                   </div>
-                ) : (
-                  signals.map(signal => (
-                    <SignalCard
-                      key={signal.signal_id}
-                      signal={signal}
-                      onReject={() => rejectSignal(signal.signal_id)}
-                      onQuickTrade={quickTrade}
-                    />
-                  ))
                 )}
-              </div>
-            )}
 
-            {/* Positions Tab */}
-            {activeTab === "positions" && (
-              <div className="space-y-4" data-testid="positions-content">
-                {/* Header with Refresh & Sync */}
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Target className="w-5 h-5 text-[#D946EF]" />
-                      Open Positions
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {positions.length} active position{positions.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={syncPositionsFromChain}
-                      size="sm"
-                      variant="outline"
-                      className="border-[#00FFA3]/30 hover:bg-[#00FFA3]/10 text-[#00FFA3]"
-                      data-testid="sync-positions-btn"
-                      title="Sync positions from blockchain"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Sync
-                    </Button>
-                    <Button
-                      onClick={fetchData}
-                      size="sm"
-                      variant="outline"
-                      className="border-white/10 hover:bg-white/5 text-slate-300"
-                      data-testid="refresh-positions-btn"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Quick Settings Panel */}
-                <div className="bg-gradient-to-r from-[#D946EF]/5 to-[#00FFA3]/5 border border-white/10 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-[#D946EF]" />
-                      Quick Settings
-                    </h4>
-                    <span className="text-xs text-slate-500">Changes apply to all positions</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-slate-400 mb-2 block">Take Profit %</label>
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            const current = autoTradeStatus?.settings?.take_profit_percent || 25;
-                            if (current > 5) updateAutoTradeSettings({ auto_take_profit_percent: current - 1 });
-                          }}
-                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
-                          data-testid="quick-tp-minus"
-                        >
-                          −
-                        </button>
-                        <div className="w-16 h-10 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 flex items-center justify-center">
-                          <span className="text-lg font-bold text-[#00FFA3]">
-                            {autoTradeStatus?.settings?.take_profit_percent || 25}%
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const current = autoTradeStatus?.settings?.take_profit_percent || 25;
-                            if (current < 100) updateAutoTradeSettings({ auto_take_profit_percent: current + 1 });
-                          }}
-                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
-                          data-testid="quick-tp-plus"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-2 block">Stop Loss %</label>
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
-                            if (current > 5) updateAutoTradeSettings({ auto_stop_loss_percent: current - 1 });
-                          }}
-                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
-                          data-testid="quick-sl-minus"
-                        >
-                          −
-                        </button>
-                        <div className="w-16 h-10 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center">
-                          <span className="text-lg font-bold text-[#FF6B6B]">
-                            {autoTradeStatus?.settings?.stop_loss_percent || 15}%
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
-                            if (current < 50) updateAutoTradeSettings({ auto_stop_loss_percent: current + 1 });
-                          }}
-                          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
-                          data-testid="quick-sl-plus"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Risk Calculator */}
-                <RiskCalculator 
-                  settings={settings}
-                  positionSize={riskCalcPosition}
-                  entryPrice={riskCalcEntryPrice}
-                  onPositionChange={setRiskCalcPosition}
-                  onEntryChange={setRiskCalcEntryPrice}
-                />
-                
-                {positions.length === 0 ? (
-                  <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/5">
-                    <Target className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                    <p className="text-slate-400">No open positions</p>
-                    <p className="text-sm text-slate-500 mt-1">Buy tokens from the Tokens tab to create positions</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Ghost Position Warning & Cleanup */}
-                    {positions.some(p => p.executed_on_chain === false) && (
-                      <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <AlertCircle className="w-5 h-5 text-amber-400" />
-                          <div>
-                            <p className="text-sm text-amber-200 font-medium">Ghost Positions Detected</p>
-                            <p className="text-xs text-amber-400/80">
-                              {positions.filter(p => p.executed_on_chain === false).length} position(s) failed to execute on-chain
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={async () => {
-                            if (!window.confirm("Remove all ghost positions? This will clear positions that failed to execute on-chain.")) return;
-                            const ghostPositions = positions.filter(p => p.executed_on_chain === false);
-                            for (const pos of ghostPositions) {
-                              await deletePosition(pos);
-                            }
-                          }}
-                          size="sm"
-                          className="bg-amber-500 text-black hover:bg-amber-400"
-                          data-testid="clear-ghost-positions"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Clear All Ghost
-                        </Button>
-                      </div>
-                    )}
-                    {positions.map(pos => (
-                      <PositionCard 
-                        key={pos.execution_id || pos.position_id} 
-                        position={pos} 
-                        onQuickSell={quickSell}
-                        onDelete={deletePosition}
-                        onManualClose={manualClosePosition}
-                        onCustodialSell={custodialSell}
-                        custodialWallet={custodialWallet}
-                        onUseInCalculator={(position) => {
-                          setRiskCalcPosition(position.amount_sol || 0.1);
-                          setRiskCalcEntryPrice(position.entry_price || 1);
-                          toast.success(`${position.token_symbol} loaded into Risk Calculator`);
-                        }}
-                      />
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* History Tab */}
-            {activeTab === "history" && (
-              <div className="space-y-4">
-                {history.trades.length === 0 ? (
-                  <div className="text-center py-16 bg-white/5 rounded-2xl">
-                    <History className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                    <p className="text-slate-400">No trade history</p>
-                  </div>
-                ) : (
-                  history.trades.slice(0, 20).map(trade => (
-                    <TradeHistoryCard key={trade.execution_id} trade={trade} />
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Tokens Tab - Now shows Top Picks */}
-            {activeTab === "tokens" && (
-              <div className="space-y-6" data-testid="tokens-content">
-                {/* Header with refresh */}
+                {/* Top Picks Section */}
+                <div className={`${signals.length > 0 ? 'border-t border-white/10 pt-6' : ''}`}>
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-bold text-white">Top Picks</h3>
@@ -1625,7 +1638,7 @@ export default function AITrader() {
                                       <div className="flex items-center gap-2">
                                         <span>Signal generated for {coin.symbol}</span>
                                         <button 
-                                          onClick={() => setActiveTab("signals")}
+                                          onClick={() => setActiveTab("discover")}
                                           className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
                                         >
                                           View
@@ -1695,7 +1708,7 @@ export default function AITrader() {
                                       <div className="flex items-center gap-2">
                                         <span>Signal generated for {coin.symbol}</span>
                                         <button 
-                                          onClick={() => setActiveTab("signals")}
+                                          onClick={() => setActiveTab("discover")}
                                           className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
                                         >
                                           View
@@ -1838,7 +1851,7 @@ export default function AITrader() {
                                   <div className="flex items-center gap-2">
                                     <span>Signal generated for {pair.symbol}</span>
                                     <button 
-                                      onClick={() => setActiveTab("signals")}
+                                      onClick={() => setActiveTab("discover")}
                                       className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
                                     >
                                       View
@@ -1862,8 +1875,9 @@ export default function AITrader() {
                 )}
 
                 <p className="text-[10px] text-slate-600 text-center mt-4">
-                  ⚠️ Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
+                  Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
                 </p>
+                </div>
               </div>
             )}
             
@@ -1885,87 +1899,48 @@ export default function AITrader() {
               />
             )}
             
-            {/* Combined Copy Trading Tab - Social + Multi-Chain */}
+            {/* ===== SOCIAL & ALERTS TAB ===== */}
             {activeTab === "social" && (
-              <div className="space-y-6">
-                {/* Solana Copy Trading */}
-                <div>
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-[#00FFA3]" />
-                    Solana Copy Trading
-                  </h3>
-                  <SocialTrading />
-                </div>
-                
-                {/* Divider */}
-                <div className="border-t border-white/10 pt-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-[#00C2FF]" />
-                    Multi-Chain Copy Trading
-                  </h3>
-                  <MultiChainCopyTrading />
-                </div>
-              </div>
-            )}
-            
-            {/* Alerts Tab */}
-            {activeTab === "alerts" && (
-              <div className="space-y-4" data-testid="alerts-tab">
-                {/* Runner Token Alerts */}
-                <RunnerAlertManager />
-                
-                {/* Push Notifications for Copy Trading */}
-                <PushNotificationManager />
-                
-                {/* Telegram Connection Banner */}
-                <div className={`rounded-xl p-4 border ${telegramLinked ? 'bg-[#0088CC]/10 border-[#0088CC]/30' : 'bg-[#0088CC]/5 border-[#0088CC]/20'}`}>
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${telegramLinked ? 'bg-[#0088CC]/30' : 'bg-[#0088CC]/20'}`}>
-                        <svg className="w-5 h-5 text-[#0088CC]" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-                        </svg>
+              <div className="space-y-6" data-testid="social-alerts-content">
+                {/* Notifications & Telegram */}
+                <div className="space-y-4">
+                  <RunnerAlertManager />
+                  <PushNotificationManager />
+                  
+                  {/* Telegram Connection Banner */}
+                  <div className={`rounded-xl p-4 border ${telegramLinked ? 'bg-[#0088CC]/10 border-[#0088CC]/30' : 'bg-[#0088CC]/5 border-[#0088CC]/20'}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${telegramLinked ? 'bg-[#0088CC]/30' : 'bg-[#0088CC]/20'}`}>
+                          <svg className="w-5 h-5 text-[#0088CC]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-white flex items-center gap-2">
+                            Telegram Alerts
+                            {telegramLinked && <span className="text-[10px] px-2 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] rounded-full">Connected</span>}
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            {telegramLinked 
+                              ? `Alerts will be sent to ${telegramStatus?.telegram_username ? '@' + telegramStatus.telegram_username : 'your Telegram'}`
+                              : 'Get alerts directly in Telegram, even when offline!'
+                            }
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-white flex items-center gap-2">
-                          Telegram Alerts
-                          {telegramLinked && <span className="text-[10px] px-2 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] rounded-full">Connected</span>}
-                        </h4>
-                        <p className="text-xs text-slate-400">
-                          {telegramLinked 
-                            ? `Alerts will be sent to ${telegramStatus?.telegram_username ? '@' + telegramStatus.telegram_username : 'your Telegram'}`
-                            : 'Get alerts directly in Telegram, even when offline!'
-                          }
-                        </p>
+                      <div className="flex gap-2">
+                        {telegramLinked ? (
+                          <Button onClick={unlinkTelegram} variant="outline" size="sm" className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10">
+                            <X className="w-4 h-4 mr-1" /> Unlink
+                          </Button>
+                        ) : (
+                          <Button onClick={generateTelegramCode} disabled={telegramLoading} size="sm" className="bg-[#0088CC] hover:bg-[#0088CC]/80 text-white" data-testid="link-telegram-btn">
+                            {telegramLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Bell className="w-4 h-4 mr-1" />}
+                            Link Telegram
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      {telegramLinked ? (
-                        <Button
-                          onClick={unlinkTelegram}
-                          variant="outline"
-                          size="sm"
-                          className="border-[#FF6B6B]/30 text-[#FF6B6B] hover:bg-[#FF6B6B]/10"
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Unlink
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={generateTelegramCode}
-                          disabled={telegramLoading}
-                          size="sm"
-                          className="bg-[#0088CC] hover:bg-[#0088CC]/80 text-white"
-                          data-testid="link-telegram-btn"
-                        >
-                          {telegramLoading ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <Bell className="w-4 h-4 mr-1" />
-                          )}
-                          Link Telegram
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1985,14 +1960,12 @@ export default function AITrader() {
                           <X className="w-5 h-5" />
                         </button>
                       </div>
-                      
                       <div className="space-y-4">
                         <div className="bg-[#0088CC]/10 rounded-xl p-4 text-center">
                           <p className="text-sm text-slate-400 mb-2">Your link code:</p>
                           <p className="text-3xl font-mono font-bold text-[#0088CC] tracking-widest">{telegramLinkCode.code}</p>
                           <p className="text-xs text-slate-500 mt-2">Expires in 15 minutes</p>
                         </div>
-                        
                         <div className="space-y-2 text-sm">
                           <p className="font-bold">Instructions:</p>
                           <ol className="list-decimal list-inside space-y-1 text-slate-400">
@@ -2001,128 +1974,93 @@ export default function AITrader() {
                             <li>Send the code: <span className="font-mono text-white">{telegramLinkCode.code}</span></li>
                           </ol>
                         </div>
-                        
-                        <a
-                          href={telegramLinkCode.bot_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-[#0088CC] hover:bg-[#0088CC]/80 text-white font-medium rounded-xl transition-colors"
-                        >
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-                          </svg>
+                        <a href={telegramLinkCode.bot_link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-[#0088CC] hover:bg-[#0088CC]/80 text-white font-medium rounded-xl transition-colors">
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
                           Open Telegram
                         </a>
-                        
-                        <Button
-                          onClick={() => { setShowTelegramModal(false); fetchTelegramStatus(); }}
-                          variant="outline"
-                          className="w-full border-white/20"
-                        >
+                        <Button onClick={() => { setShowTelegramModal(false); fetchTelegramStatus(); }} variant="outline" className="w-full border-white/20">
                           I've sent the code
                         </Button>
                       </div>
                     </div>
                   </div>
                 )}
-                
-                {/* Alerts Header */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-[#F5D300]" />
-                      Price Alerts & Breakout Scanner
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Get notified when tokens break out or hit your price targets
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={scanForBreakouts}
-                      className="bg-gradient-to-r from-[#F5D300] to-[#FF8C00] text-black hover:opacity-90"
-                      size="sm"
-                      data-testid="scan-breakouts-btn"
-                    >
-                      <Zap className="w-4 h-4 mr-1" />
-                      Scan Breakouts
-                    </Button>
-                    <Button
-                      onClick={fetchAlerts}
-                      variant="outline"
-                      size="sm"
-                      className="border-white/20"
-                      data-testid="refresh-alerts-btn"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Triggered Alerts Banner */}
-                {triggeredAlerts.length > 0 && (
-                  <div className="bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl p-4">
-                    <h4 className="font-bold text-[#00FFA3] flex items-center gap-2 mb-2">
-                      <CheckCircle className="w-4 h-4" />
-                      Recently Triggered ({triggeredAlerts.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {triggeredAlerts.map((alert, i) => (
-                        <div key={i} className="flex items-center justify-between bg-black/20 rounded-lg p-2 text-sm">
-                          <div>
-                            <span className="font-bold text-white">{alert.symbol}</span>
-                            <span className="text-slate-400 ml-2">{alert.trigger_reason}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500">
-                            {new Date(alert.triggered_at).toLocaleTimeString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Info Banner */}
-                <div className="bg-[#F5D300]/10 border border-[#F5D300]/20 rounded-xl p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-[#F5D300] flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-slate-300">
-                      <p><strong>Breakout Alerts</strong> trigger when a token gains &gt;10% in 1 hour with high volume.</p>
-                      <p className="mt-1 text-slate-500">
-                        {telegramLinked 
-                          ? '✅ Telegram connected - you\'ll receive alerts there too!'
-                          : 'Link Telegram above to receive alerts even when offline.'
-                        }
+
+                {/* Breakout Alerts Section */}
+                <div className="border-t border-white/10 pt-6 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-[#F5D300]" />
+                        Price Alerts & Breakout Scanner
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Get notified when tokens break out or hit your price targets
                       </p>
                     </div>
+                    <div className="flex gap-2">
+                      <Button onClick={scanForBreakouts} className="bg-gradient-to-r from-[#F5D300] to-[#FF8C00] text-black hover:opacity-90" size="sm" data-testid="scan-breakouts-btn">
+                        <Zap className="w-4 h-4 mr-1" /> Scan Breakouts
+                      </Button>
+                      <Button onClick={fetchAlerts} variant="outline" size="sm" className="border-white/20" data-testid="refresh-alerts-btn">
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {triggeredAlerts.length > 0 && (
+                    <div className="bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl p-4">
+                      <h4 className="font-bold text-[#00FFA3] flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-4 h-4" /> Recently Triggered ({triggeredAlerts.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {triggeredAlerts.map((alert, i) => (
+                          <div key={i} className="flex items-center justify-between bg-black/20 rounded-lg p-2 text-sm">
+                            <div>
+                              <span className="font-bold text-white">{alert.symbol}</span>
+                              <span className="text-slate-400 ml-2">{alert.trigger_reason}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500">{new Date(alert.triggered_at).toLocaleTimeString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {alertsLoading ? (
+                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#F5D300]" /></div>
+                  ) : priceAlerts.length > 0 ? (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-bold text-slate-400">Active Alerts ({priceAlerts.length})</h4>
+                      {priceAlerts.map((alert) => (
+                        <AlertCard key={alert.alert_id} alert={alert} onDelete={deleteAlert} walletAddress={walletAddress} onQuickBuy={quickBuyToken} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
+                      <AlertCircle className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-400 text-sm">No active alerts</p>
+                      <p className="text-xs text-slate-500 mt-1">Click "Scan Breakouts" to find opportunities</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Copy Trading Section */}
+                <div className="border-t border-white/10 pt-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#00FFA3]" />
+                    Solana Copy Trading
+                  </h3>
+                  <SocialTrading />
                 </div>
                 
-                {/* Active Alerts List */}
-                {alertsLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#F5D300]" />
-                  </div>
-                ) : priceAlerts.length > 0 ? (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-bold text-slate-400">Active Alerts ({priceAlerts.length})</h4>
-                    {priceAlerts.map((alert) => (
-                      <AlertCard 
-                        key={alert.alert_id}
-                        alert={alert}
-                        onDelete={deleteAlert}
-                        walletAddress={walletAddress}
-                        onQuickBuy={quickBuyToken}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-white/5 rounded-xl border border-dashed border-white/10">
-                    <AlertCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400">No active alerts</p>
-                    <p className="text-xs text-slate-500 mt-1">Click "Scan Breakouts" to find potential opportunities</p>
-                  </div>
-                )}
+                <div className="border-t border-white/10 pt-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-[#00C2FF]" />
+                    Multi-Chain Copy Trading
+                  </h3>
+                  <MultiChainCopyTrading />
+                </div>
               </div>
             )}
           </>
