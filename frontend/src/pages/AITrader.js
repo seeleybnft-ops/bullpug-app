@@ -28,7 +28,7 @@ import RunnerTokens from "../components/RunnerTokens";
 import RunnerAlertManager from "../components/RunnerAlertManager";
 import {
   StatCard, RiskCalculator, SignalCard, PositionCard,
-  TradeHistoryCard, SettingsModal, TopPickCard, AlertCard,
+  TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
@@ -1340,77 +1340,10 @@ export default function AITrader() {
                   </div>
                   
                   {/* Quick Settings Panel */}
-                  <div className="bg-gradient-to-r from-[#D946EF]/5 to-[#00FFA3]/5 border border-white/10 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-[#D946EF]" />
-                        Quick Settings
-                      </h4>
-                      <span className="text-xs text-slate-500">Changes apply to all positions</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs text-slate-400 mb-2 block">Take Profit %</label>
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              const current = autoTradeStatus?.settings?.take_profit_percent || 25;
-                              if (current > 5) updateAutoTradeSettings({ auto_take_profit_percent: current - 1 });
-                            }}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
-                            data-testid="quick-tp-minus"
-                          >
-                            −
-                          </button>
-                          <div className="w-16 h-10 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 flex items-center justify-center">
-                            <span className="text-lg font-bold text-[#00FFA3]">
-                              {autoTradeStatus?.settings?.take_profit_percent || 25}%
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              const current = autoTradeStatus?.settings?.take_profit_percent || 25;
-                              if (current < 100) updateAutoTradeSettings({ auto_take_profit_percent: current + 1 });
-                            }}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#00FFA3] font-bold text-xl flex items-center justify-center transition-colors"
-                            data-testid="quick-tp-plus"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 mb-2 block">Stop Loss %</label>
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
-                              if (current > 5) updateAutoTradeSettings({ auto_stop_loss_percent: current - 1 });
-                            }}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
-                            data-testid="quick-sl-minus"
-                          >
-                            −
-                          </button>
-                          <div className="w-16 h-10 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center">
-                            <span className="text-lg font-bold text-[#FF6B6B]">
-                              {autoTradeStatus?.settings?.stop_loss_percent || 15}%
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              const current = autoTradeStatus?.settings?.stop_loss_percent || 15;
-                              if (current < 50) updateAutoTradeSettings({ auto_stop_loss_percent: current + 1 });
-                            }}
-                            className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-[#FF6B6B] font-bold text-xl flex items-center justify-center transition-colors"
-                            data-testid="quick-sl-plus"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <QuickSettings
+                    autoTradeStatus={autoTradeStatus}
+                    onUpdateSettings={updateAutoTradeSettings}
+                  />
                   
                   {/* Risk Calculator */}
                   <RiskCalculator 
