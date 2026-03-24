@@ -14,7 +14,7 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 
 ## Architecture
 - **Frontend:** React (CRA) + TailwindCSS + Shadcn/UI
-- **Backend:** FastAPI + MongoDB (Motor)
+- **Backend:** FastAPI + MongoDB (Motor) — shared DB via `utils/database.py`
 - **Blockchain:** Solana (Jupiter DEX, Helius/Alchemy RPC, Jito)
 - **AI:** OpenAI GPT-4o via Emergent LLM Key
 - **Integrations:** DexScreener, CoinGecko, Telegram, Jito Block Engine
@@ -42,53 +42,56 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 
 ### A-Tier Competitive Upgrades (March 24, 2026)
 1. **Expanded Smart Money (56 wallets, 3-tier profit scoring)**
-   - Tier 1 (10 wallets, weight 1.0): Fund/institutional wallets
-   - Tier 2 (15 wallets, weight 0.7): Active DeFi whales
-   - Tier 3 (31 wallets, weight 0.4): Community-tracked profitable traders
-   - Tiered scanning: T1 every cycle, T2 every other, T3 every 3rd
-   - Profit-weighted signal aggregation with conviction bonuses
+2. **GPT-Powered Sentiment Analysis** (GPT-4o via Emergent LLM Key)
+3. **Trailing Stop-Losses** (dynamic, configurable)
+4. **Conviction-Based Position Sizing** (scale by confidence)
+5. **Multi-Timeframe Confirmation** (OHLCV + DexScreener alignment)
+6. **DCA Exit Strategy** (staged TP1/TP2/trailing)
+7. **Token Sniping Mode** (new pair scanning via DexScreener)
+8. **Trading Mode Selector** (conservative/normal/aggressive/sniper)
 
-2. **GPT-Powered Sentiment Analysis**
-   - GPT-4o via Emergent LLM Key analyzes market data per token
-   - Returns sentiment (bullish/bearish/neutral), confidence, reasoning, key signal
-   - Blended 80/20 with on-chain factors (20% AI weight)
-   - Cached 15 minutes to optimize API costs
+### P0 Stabilization (March 24, 2026)
+- Fixed critical `/platform-stats` route bug (decorator had no function body)
+- Integrated `TradingModeSelector` into AITrader dashboard
+- Added DCA stage + sniper badges to `PositionCard`
+- All 31 tests passed (iteration 77)
 
-3. **Trailing Stop-Losses**
-   - Dynamically moves stop-loss up as price rises above entry
-   - Activation threshold: configurable (default 5% above entry)
-   - Trail distance: uses stop-loss % as trailing distance
-   - Guarantees at least breakeven when trailing stop activates
-   - Tracks peak_price per position for accurate trailing
-   - UI toggle in QuickSettings with adjustable trail percentage
-   - Position cards show "Trail Active" indicator with locked gain %
+### Refactoring (March 24, 2026)
+- Extracted Pydantic models → `backend/models/ai_trader_models.py`
+- Extracted token/price utilities → `backend/services/token_price.py`
+- Unified DB connections: `ai_trader.py`, `custodial_wallet.py`, `signal_analytics.py` now use shared `utils/database.py`
+- Removed duplicate `AsyncIOMotorClient` connections
+- Fixed lint warnings (unused variables)
+- `ai_trader.py` reduced from 4217 → 3927 lines
 
-### New API Endpoints
-- `GET /api/ai-trader/intelligence-dashboard` - All systems status
-- `GET /api/ai-trader/intelligence/{token_mint}` - Per-token intelligence
-
-### New/Updated Frontend Components
-- `IntelligenceDashboard` - 4-system status + per-token drill-down with GPT analysis
-- `QuickSettings` - Added trailing stop toggle and trail % controls
-- `PositionCard` - Shows trailing stop active indicator and data source badge
-
-## File Architecture (Key New/Modified Files)
+## File Architecture
 ```
-backend/services/
-  price_collector.py      # Real OHLCV candle data collection
-  smart_money_tracker.py  # 56 whale wallets, 3-tier profit scoring
-  social_sentiment.py     # 6-factor sentiment + GPT analysis
-  jito_executor.py        # Jito MEV-protected execution
-  market_quality.py       # Volume/liquidity quality checks
+backend/
+  models/
+    ai_trader_models.py       # Pydantic models (TraderSettings, TradeSignal, etc.)
+  services/
+    token_price.py            # Token constants, Jupiter, DexScreener price utils
+    price_collector.py        # Real OHLCV candle data collection
+    smart_money_tracker.py    # 56 whale wallets, 3-tier profit scoring
+    social_sentiment.py       # 6-factor sentiment + GPT analysis
+    jito_executor.py          # Jito MEV-protected execution
+    token_sniper.py           # New pair scanning
+    whale_profit_scorer.py    # Whale P/L evaluation
+    market_quality.py         # Volume/liquidity quality checks
+  routers/
+    ai_trader.py              # Core bot logic, routes, auto-trade
+    custodial_wallet.py       # Wallet management + Jito execution
+    signal_analytics.py       # Performance tracking
+  utils/
+    database.py               # Shared MongoDB connection
 
-backend/routers/
-  ai_trader.py            # Trailing stops, intelligence endpoints, signal integration
-  custodial_wallet.py     # Jito bundle execution integrated
-
-frontend/src/components/trader/
-  IntelligenceDashboard.js  # Intelligence systems UI
-  QuickSettings.js          # Trailing stop controls
-  PositionCard.js           # Trail active indicator
+frontend/src/
+  pages/AITrader.js           # Main trading bot page
+  components/trader/
+    TradingModeSelector.js    # Mode switching (conservative/normal/aggressive/sniper)
+    IntelligenceDashboard.js  # Intelligence systems UI
+    QuickSettings.js          # Trailing stop controls
+    PositionCard.js           # Trail/DCA/sniper badges
 ```
 
 ## Backlog
@@ -99,7 +102,7 @@ frontend/src/components/trader/
 - P3: Achievement badges & Share on X
 
 ## Test Coverage
-- Backend: 100% (29/29 tests passed, iteration 76)
-- Frontend: 100% (all pages load, no console errors)
-- Bot logic: pytest suite with 21+ tests
+- Backend: 100% (31/31 tests passed, iteration 77)
+- Frontend: 100% (all pages load, components render)
+- Bot logic: All A-tier features verified
 - No regressions detected

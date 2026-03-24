@@ -21,7 +21,6 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
 import numpy as np
 
 # Import refactored services
@@ -30,12 +29,22 @@ from services.runner_detector import RunnerDetector
 from services.technical_analyzer import TechnicalAnalyzer
 from services.strategy_engine import StrategyEngine
 
+# Import extracted models and utilities
+from models.ai_trader_models import (
+    TraderSettings, AutoTradeLog, TradeSignal, TradeExecution,
+    ApproveSignalRequest, MIN_POSITION_SOL, MAX_POSITION_SOL
+)
+from services.token_price import (
+    SOL_MINT, LAMPORTS_PER_SOL, JUPITER_QUOTE_URL, JUPITER_SWAP_URL,
+    TOKENS, SAFER_TOKENS, HIGH_RISK_TOKENS,
+    RUNNER_MIN_LIQUIDITY, RUNNER_MIN_VOLUME_24H, RUNNER_MIN_PRICE_CHANGE_1H,
+    RUNNER_MAX_PRICE_CHANGE_1H, RUNNER_MIN_TXNS_1H, RUNNER_MAX_AGE_HOURS,
+    get_jupiter_quote, get_token_price, get_token_price_by_mint, get_price_history
+)
+from utils.database import db
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-trader", tags=["AI Trader"])
-
-
-# Minimum SOL balance required before attempting auto-burn (0.01 SOL)
-MIN_SOL_BEFORE_BURN = 0.01
 
 async def ensure_sufficient_sol_for_trade(wallet_address: str, required_sol: float) -> dict:
     """
@@ -119,13 +128,6 @@ async def ensure_sufficient_sol_for_trade(wallet_address: str, required_sol: flo
         logger.error(f"Error checking SOL balance: {e}")
         return {"success": False, "error": str(e)}
 
-# Database connection
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "test_database")
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
-
-
 # ============== Journal Integration Helper ==============
 
 async def create_pending_journal_entry(
@@ -195,294 +197,6 @@ async def create_pending_journal_entry(
     except Exception as e:
         logger.error(f"Failed to create pending journal entry: {e}")
         return None
-
-# Token constants
-SOL_MINT = "So11111111111111111111111111111111111111112"
-LAMPORTS_PER_SOL = 1_000_000_000
-
-# Jupiter API Configuration
-JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1"
-JUPITER_SWAP_URL = "https://lite-api.jup.ag/swap/v1"
-
-# Token Mint Addresses (Solana)
-TOKENS = {
-    "SOL": "So11111111111111111111111111111111111111112",
-    "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
-    "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
-    "PYTH": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
-    "RNDR": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
-    "RAY": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
-    "ORCA": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
-}
-
-# Risk Categories
-SAFER_TOKENS = ["SOL", "USDC", "USDT", "JUP", "PYTH", "RNDR"]
-HIGH_RISK_TOKENS = ["BONK", "WIF", "RAY", "ORCA"]
-
-# Runner Detection Settings
-RUNNER_MIN_LIQUIDITY = 10000  # Minimum $10k liquidity
-RUNNER_MIN_VOLUME_24H = 50000  # Minimum $50k 24h volume
-RUNNER_MIN_PRICE_CHANGE_1H = 5  # Minimum 5% gain in 1h
-RUNNER_MAX_PRICE_CHANGE_1H = 100  # Max 100% (avoid pump & dumps)
-RUNNER_MIN_TXNS_1H = 50  # Minimum transactions to avoid manipulation
-RUNNER_MAX_AGE_HOURS = 72  # Focus on pairs created within 72 hours
-
-# Position Limits (in SOL)
-MIN_POSITION_SOL = 0.05
-MAX_POSITION_SOL = 1.0
-
-
-# ============== Pydantic Models ==============
-
-class TraderSettings(BaseModel):
-    """User trading bot settings"""
-    wallet_address: str
-    enabled: bool = False
-    risk_level: str = Field(default="safer", pattern="^(safer|high_risk|both)$")
-    max_position_sol: float = Field(default=0.5, ge=MIN_POSITION_SOL, le=MAX_POSITION_SOL)
-    min_position_sol: float = Field(default=MIN_POSITION_SOL, ge=MIN_POSITION_SOL)
-    stop_loss_percent: float = Field(default=10.0, ge=1.0, le=50.0)
-    take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)
-    max_daily_trades: int = Field(default=5, ge=1, le=20)
-    auto_approve: bool = False  # Legacy field
-    # Phase 3: Auto-Trade Settings
-    auto_trade_enabled: bool = False  # Master toggle for auto-trading
-    auto_trade_mode: str = Field(default="conservative", pattern="^(conservative|moderate|aggressive)$")
-    auto_min_confidence: float = Field(default=0.65, ge=0.5, le=0.95)  # Min confidence to auto-execute
-    auto_max_daily_trades: int = Field(default=3, ge=1, le=10)  # Max auto-trades per day
-    auto_max_position_sol: float = Field(default=0.2, ge=0.01, le=1.0)  # Max position for auto-trades
-    auto_cooldown_minutes: int = Field(default=30, ge=5, le=120)  # Cooldown between auto-trades
-    auto_require_multiple_signals: bool = True  # Require 2+ strategies to agree
-    auto_pause_on_loss: bool = True  # Pause auto-trading after a loss
-    auto_total_daily_limit_sol: float = Field(default=1.0, ge=0.1, le=5.0)  # Max total SOL per day
-    auto_stop_loss_percent: float = Field(default=10.0, ge=2.0, le=50.0)  # Stop loss for auto-trades
-    auto_take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)  # Take profit for auto-trades
-    # Trailing Stop Settings
-    auto_trailing_stop_enabled: bool = False  # Enable trailing stop-loss
-    auto_trailing_stop_percent: float = Field(default=5.0, ge=1.0, le=20.0)  # Trailing distance
-    auto_scale_in_enabled: bool = False  # Enable position scaling (DCA on dips)
-    auto_scale_in_threshold: float = Field(default=5.0, ge=2.0, le=15.0)  # % dip to trigger scale-in
-    auto_scale_in_max_adds: int = Field(default=2, ge=1, le=5)  # Max scale-in additions
-    auto_avoid_volatile_hours: bool = True  # Avoid trading during high volatility
-    auto_profit_target_alert: bool = True  # Send alerts when profit targets hit
-    # A-TIER: Trading Mode (conservative/normal/aggressive/sniper)
-    trading_mode: str = Field(default="normal", pattern="^(conservative|normal|aggressive|sniper)$")
-    # A-TIER: Conviction-Based Position Sizing
-    conviction_sizing_enabled: bool = True  # Scale position size by confidence
-    # A-TIER: Multi-Timeframe Confirmation
-    multi_timeframe_enabled: bool = True  # Require multi-TF alignment
-    # A-TIER: DCA Exit Strategy
-    dca_exit_enabled: bool = False  # Staged exit instead of single TP
-    dca_tp1_percent: float = Field(default=15.0, ge=5.0, le=100.0)  # TP1: sell 50%
-    dca_tp2_percent: float = Field(default=30.0, ge=10.0, le=200.0)  # TP2: sell 25%
-    # dca remaining 25% uses trailing stop
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-
-class AutoTradeLog(BaseModel):
-    """Log entry for auto-executed trades"""
-    log_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
-    wallet_address: str
-    token_symbol: str
-    token_mint: str
-    action: str  # "auto_buy", "auto_sell", "auto_skip", "auto_pause"
-    amount_sol: Optional[float] = None
-    entry_price: Optional[float] = None
-    confidence: float
-    strategy: str
-    reason: str
-    success: bool
-    error_message: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-
-class TradeSignal(BaseModel):
-    """AI-generated trade signal"""
-    signal_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    wallet_address: str
-    token_symbol: str
-    token_mint: str
-    signal_type: str  # "buy" or "sell"
-    entry_price: float
-    suggested_position_sol: float
-    stop_loss_price: float
-    take_profit_price: float
-    confidence: float = Field(ge=0.0, le=1.0)
-    strategy: str  # "momentum", "mean_reversion", "combined"
-    risk_category: str  # "safer" or "high_risk"
-    reasoning: str
-    technical_indicators: Dict[str, Any]
-    status: str = "pending"  # pending, approved, rejected, executed, expired
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    expires_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat())
-
-
-class TradeExecution(BaseModel):
-    """Executed trade record"""
-    execution_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    signal_id: str
-    wallet_address: str
-    token_symbol: str
-    token_mint: str
-    trade_type: str  # "buy" or "sell"
-    amount_sol: float
-    amount_tokens: Optional[float] = None
-    entry_price: float
-    exit_price: Optional[float] = None
-    stop_loss_price: float
-    take_profit_price: float
-    status: str = "open"  # open, closed_profit, closed_loss, closed_manual
-    pnl_sol: Optional[float] = None
-    pnl_percent: Optional[float] = None
-    tx_signature: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    closed_at: Optional[str] = None
-
-
-class ApproveSignalRequest(BaseModel):
-    """Request to approve a trade signal"""
-    signal_id: str
-    wallet_address: str
-    position_sol: Optional[float] = None  # Override suggested position
-    stop_loss_percent: Optional[float] = None  # Override stop loss
-
-
-# ============== Services (Refactored) ==============
-# The following classes have been moved to separate modules for better maintainability:
-# - MarketConditionAnalyzer -> services/market_analyzer.py
-# - RunnerDetector -> services/runner_detector.py
-# - TechnicalAnalyzer -> services/technical_analyzer.py
-# - StrategyEngine -> services/strategy_engine.py
-
-
-# ============== Jupiter Integration ==============
-
-async def get_jupiter_quote(
-    input_mint: str,
-    output_mint: str,
-    amount_lamports: int,
-    slippage_bps: int = 100
-) -> Optional[Dict]:
-    """Get swap quote from Jupiter"""
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(
-                f"{JUPITER_QUOTE_URL}/quote",
-                params={
-                    "inputMint": input_mint,
-                    "outputMint": output_mint,
-                    "amount": str(amount_lamports),
-                    "slippageBps": slippage_bps
-                }
-            )
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logger.warning(f"Jupiter quote failed: {response.status_code} - {response.text}")
-                return None
-    except Exception as e:
-        logger.error(f"Jupiter quote error: {e}")
-        return None
-
-
-async def get_token_price(token_symbol: str) -> Optional[float]:
-    """Get current token price in USD"""
-    token_mint = TOKENS.get(token_symbol)
-    if not token_mint:
-        return None
-    
-    return await get_token_price_by_mint(token_mint)
-
-
-async def get_token_price_by_mint(token_mint: str) -> Optional[float]:
-    """Get current token price in USD by mint address"""
-    if not token_mint:
-        return None
-    
-    try:
-        # Use DexScreener for price
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
-            )
-            if response.status_code == 200:
-                data = response.json()
-                pairs = data.get("pairs", [])
-                if pairs:
-                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
-                    return float(best_pair.get("priceUsd", 0) or 0)
-    except Exception as e:
-        logger.warning(f"Price fetch error for {token_mint}: {e}")
-    
-    return None
-
-
-async def get_price_history(token_symbol: str, periods: int = 50) -> List[float]:
-    """Get historical prices for technical analysis using DexScreener data"""
-    current_price = await get_token_price(token_symbol)
-    if not current_price:
-        return []
-    
-    token_mint = TOKENS.get(token_symbol)
-    if not token_mint:
-        return [current_price]
-    
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
-            )
-            if response.status_code == 200:
-                data = response.json()
-                pairs = data.get("pairs", [])
-                if pairs:
-                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
-                    
-                    # Get price changes at different intervals
-                    change_5m = float(best_pair.get("priceChange", {}).get("m5", 0) or 0) / 100
-                    change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0) / 100
-                    change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0) / 100
-                    change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0) / 100
-                    
-                    # Generate more realistic price history using available changes
-                    prices = []
-                    price_24h_ago = current_price / (1 + change_24h) if change_24h != -1 else current_price
-                    price_6h_ago = current_price / (1 + change_6h) if change_6h != -1 else current_price
-                    price_1h_ago = current_price / (1 + change_1h) if change_1h != -1 else current_price
-                    
-                    # Create more varied price movement pattern
-                    key_prices = [
-                        (0.0, price_24h_ago),
-                        (0.25, price_24h_ago * 1.02),  # 6h mark with some movement
-                        (0.5, price_6h_ago),
-                        (0.75, price_6h_ago * 0.98),  # 3h mark
-                        (0.90, price_1h_ago),
-                        (0.95, price_1h_ago * (1 + change_5m * 0.5)),
-                        (1.0, current_price)
-                    ]
-                    
-                    for i in range(periods):
-                        t = i / periods
-                        # Find the two key prices to interpolate between
-                        for j in range(len(key_prices) - 1):
-                            if key_prices[j][0] <= t < key_prices[j+1][0]:
-                                t_local = (t - key_prices[j][0]) / (key_prices[j+1][0] - key_prices[j][0])
-                                base_price = key_prices[j][1] + (key_prices[j+1][1] - key_prices[j][1]) * t_local
-                                # Add volatility noise based on position in time
-                                volatility = 0.008 if t > 0.8 else 0.004  # More recent = more volatile
-                                noise = np.random.normal(0, base_price * volatility)
-                                prices.append(max(base_price + noise, 0.000001))
-                                break
-                    
-                    prices.append(current_price)
-                    return prices
-    except Exception as e:
-        logger.warning(f"Price history error for {token_symbol}: {e}")
-    
-    return [current_price] * periods
 
 
 # ============== API Endpoints ==============
@@ -3656,8 +3370,6 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         logger.warning(f"Runner scan error for {runner.get('symbol', '?')}: {e}")
                         continue
         
-        runner_trades = len([t for t in executed_trades if t.get("is_runner")])
-        
         # Include exits in the response
         exits_count = len(exits_executed)
         
@@ -3865,7 +3577,6 @@ async def auto_trade_check_exits(wallet_address: str):
                     
                     # Determine effective stop-loss (base or trailing)
                     if trailing_enabled and entry_price > 0:
-                        current_gain_pct = (current_price - entry_price) / entry_price
                         peak_gain_pct = (peak_price - entry_price) / entry_price
                         
                         # Activate trailing stop when price has risen above activation threshold

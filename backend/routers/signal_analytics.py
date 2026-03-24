@@ -9,22 +9,17 @@ Features:
 - Generate insights for strategy optimization
 """
 
-import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, Query
-from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/signal-analytics", tags=["Signal Analytics"])
 
-# Database connection
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "test_database")
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+# Use shared database connection
+from utils.database import db
 
 
 # ============== Models ==============

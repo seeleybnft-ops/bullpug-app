@@ -29,12 +29,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/custodial-wallet", tags=["custodial-wallet"])
 
-# Database connection
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "test_database")
-from motor.motor_asyncio import AsyncIOMotorClient
-mongo_client = AsyncIOMotorClient(MONGO_URL)
-db = mongo_client[DB_NAME]
+# Use shared database connection
+from utils.database import db
 
 # Configuration
 MAX_DEPOSIT_SOL = 0.5  # Maximum deposit limit
