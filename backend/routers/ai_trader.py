@@ -2864,6 +2864,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         executed_trades = []
         skipped = []
+        remaining_daily_trades = max_daily - today_trades  # Track how many trades we can still do
         
         async with httpx.AsyncClient(timeout=20.0) as client:
             # First scan known tokens
@@ -2970,6 +2971,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         trade_confidence = min(0.95, trade_confidence + 0.05)
                     
                     if should_trade:
+                        # Check daily limit hasn't been reached during this scan
+                        if remaining_daily_trades <= 0:
+                            skipped.append({"symbol": symbol, "reason": f"Daily trade limit reached ({max_daily}/{max_daily})"})
+                            continue
+                        
                         # Check if we already have an OPEN position
                         existing_position = await db.ai_trader_positions.find_one({
                             "wallet_address": wallet_address,
@@ -3144,6 +3150,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 "executed_on_chain": True,
                                 "tx_signature": tx_signature
                             })
+                            remaining_daily_trades -= 1
                             
                             logger.info(f"Position saved: {symbol} @ {current_price} - TX: {tx_signature}")
                             
@@ -3255,6 +3262,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             should_trade = True
                         
                         if should_trade:
+                            # Check daily limit hasn't been reached during this scan
+                            if remaining_daily_trades <= 0:
+                                skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Daily trade limit reached ({max_daily}/{max_daily})"})
+                                continue
+                            
                             # Check if we already have an OPEN position
                             existing_position = await db.ai_trader_positions.find_one({
                                 "wallet_address": wallet_address,
@@ -3399,6 +3411,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                     "executed_on_chain": True,
                                     "tx_signature": tx_signature
                                 })
+                                remaining_daily_trades -= 1
                                 
                                 logger.info(f"Runner position saved: {symbol} @ {current_price} - TX: {tx_signature}")
                                 
