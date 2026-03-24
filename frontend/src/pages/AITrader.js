@@ -14,7 +14,7 @@ import {
   Settings, TrendingUp, TrendingDown,
   Loader2, RefreshCw, Zap,
   DollarSign, Target,
-  History, Info,
+  History, Info, AlertTriangle,
   Rocket, CheckCircle, AlertCircle, Timer, Trash2, Bell,
   Cpu, Users, Globe,
   RotateCcw, X

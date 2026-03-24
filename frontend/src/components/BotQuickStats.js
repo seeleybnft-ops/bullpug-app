@@ -112,13 +112,24 @@ export default function BotQuickStats() {
             ))}
           </div>
 
-          {/* Active traders footer */}
-          {stats?.active_traders > 0 && (
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-slate-500 relative z-10">
-              <Users className="w-3.5 h-3.5 text-[#D946EF]" />
-              <span>{stats.active_traders} active trader{stats.active_traders !== 1 ? "s" : ""} on the platform</span>
-            </div>
-          )}
+          {/* Active traders footer + Best trade highlight */}
+          <div className="mt-4 pt-4 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
+            {stats?.active_traders > 0 && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Users className="w-3.5 h-3.5 text-[#D946EF]" />
+                <span>{stats.active_traders} active trader{stats.active_traders !== 1 ? "s" : ""} on the platform</span>
+              </div>
+            )}
+            {stats?.best_trade && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#00FFA3]/10 border border-[#00FFA3]/20" data-testid="best-trade-highlight">
+                <TrendingUp className="w-3.5 h-3.5 text-[#00FFA3]" />
+                <span className="text-xs text-slate-400">Best Trade:</span>
+                <span className="text-xs font-bold text-[#00FFA3] font-mono">
+                  +{stats.best_trade.pnl_pct?.toFixed(1)}% on {stats.best_trade.token_symbol}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>

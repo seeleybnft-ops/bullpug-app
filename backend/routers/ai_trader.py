@@ -523,6 +523,20 @@ async def get_platform_stats():
             "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
         })
 
+        # Find best trade (highest PnL %)
+        best_trade_pipeline = [
+            {"$match": {
+                "status": {"$regex": "^closed"},
+                "sell_executed_on_chain": True,
+                "pnl_pct": {"$exists": True, "$gt": 0}
+            }},
+            {"$sort": {"pnl_pct": -1}},
+            {"$limit": 1},
+            {"$project": {"_id": 0, "token_symbol": 1, "pnl_pct": 1, "pnl_sol": 1}}
+        ]
+        best_trade_result = await db.ai_trader_positions.aggregate(best_trade_pipeline).to_list(1)
+        best_trade = best_trade_result[0] if best_trade_result else None
+
         if result and len(result) > 0:
             r = result[0]
             total = r["total_trades"]
@@ -532,14 +546,16 @@ async def get_platform_stats():
                 "win_rate": round((wins / total * 100) if total > 0 else 0, 1),
                 "total_pnl_sol": round(r["total_pnl_sol"], 4),
                 "active_positions": active_count,
-                "active_traders": len(r.get("unique_traders", []))
+                "active_traders": len(r.get("unique_traders", [])),
+                "best_trade": best_trade
             }
         return {
             "total_trades": 0,
             "win_rate": 0,
             "total_pnl_sol": 0,
             "active_positions": active_count,
-            "active_traders": 0
+            "active_traders": 0,
+            "best_trade": best_trade
         }
     except Exception as e:
         logger.error(f"Platform stats error: {e}")
