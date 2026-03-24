@@ -11,6 +11,7 @@ import { EVMWalletProvider } from "@/providers/EVMWalletProvider";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
+import PrivateAccessGate from "@/components/PrivateAccessGate";
 import HomePage from "@/pages/HomePage";
 import BettingArena from "@/pages/BettingArena";
 import Shop from "@/pages/Shop";
@@ -114,10 +115,11 @@ function App() {
       <WalletProvider wallets={wallets} onError={onError} autoConnect={shouldAutoConnect}>
         <WalletModalProvider>
           <EVMWalletProvider>
-            <BrowserRouter>
-              <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
-                <Navbar />
-                <Routes>
+            <PrivateAccessGate>
+              <BrowserRouter>
+                <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
+                  <Navbar />
+                  <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
                   <Route path="/journal" element={<TradingJournal />} />
@@ -142,6 +144,7 @@ function App() {
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>
+          </PrivateAccessGate>
           </EVMWalletProvider>
         </WalletModalProvider>
       </WalletProvider>
