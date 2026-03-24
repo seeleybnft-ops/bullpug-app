@@ -497,6 +497,87 @@ async def get_disclaimer():
     }
 
 
+@router.get("/intelligence/{token_mint}")
+async def get_token_intelligence(token_mint: str):
+    """Get combined intelligence data for a token (smart money, sentiment, price quality)."""
+    try:
+        from services.smart_money_tracker import get_smart_money_signal
+        from services.social_sentiment import analyze_token_sentiment
+        from services.price_collector import get_data_quality_status
+
+        smart_money = await get_smart_money_signal(token_mint)
+        sentiment = await analyze_token_sentiment(token_mint)
+        data_quality = await get_data_quality_status()
+
+        # Find the matching token in data quality
+        token_quality = None
+        for sym, quality in data_quality.items():
+            if TOKENS.get(sym) == token_mint:
+                token_quality = quality
+                break
+
+        return {
+            "token_mint": token_mint,
+            "smart_money": smart_money,
+            "sentiment": sentiment,
+            "data_quality": token_quality or {"candles": 0, "has_real_data": False},
+            "combined_confidence_adj": round(
+                smart_money.get("strength", 0) * 0.15 * (1 if smart_money.get("action") == "buy" else -1 if smart_money.get("action") == "sell" else 0)
+                + sentiment.get("confidence_adjustment", 0),
+                3
+            )
+        }
+    except Exception as e:
+        logger.error(f"Intelligence fetch error: {e}")
+        return {"token_mint": token_mint, "smart_money": {}, "sentiment": {}, "data_quality": {}, "combined_confidence_adj": 0}
+
+
+@router.get("/intelligence-dashboard")
+async def get_intelligence_dashboard():
+    """Get overview of all intelligence systems status."""
+    try:
+        from services.price_collector import get_data_quality_status
+        from services.smart_money_tracker import SMART_MONEY_WALLETS
+
+        data_quality = await get_data_quality_status()
+
+        # Count recent smart money signals
+        from datetime import timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        recent_signals = await db.smart_money_signals.count_documents({"detected_at": {"$gte": cutoff}})
+
+        # Count sentiment entries
+        sentiment_entries = await db.sentiment_cache.count_documents({})
+
+        tokens_with_real_data = sum(1 for v in data_quality.values() if v.get("has_real_data"))
+
+        return {
+            "price_collector": {
+                "status": "active",
+                "tokens_tracked": len(data_quality),
+                "tokens_with_real_data": tokens_with_real_data,
+                "details": data_quality
+            },
+            "smart_money": {
+                "status": "active",
+                "wallets_tracked": len(SMART_MONEY_WALLETS),
+                "recent_signals": recent_signals
+            },
+            "sentiment": {
+                "status": "active",
+                "cached_entries": sentiment_entries
+            },
+            "jito": {
+                "status": "active",
+                "description": "MEV-protected execution via Jito bundles with RPC fallback"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Intelligence dashboard error: {e}")
+        return {"error": str(e)}
+
+
+
 @router.get("/platform-stats")
 async def get_platform_stats():
     """Get aggregate trading stats across all users for the homepage widget."""
@@ -2911,12 +2992,20 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     if current_price <= 0:
                         continue
                     
-                    # Build price history from DexScreener % changes (synthetic but directionally accurate)
-                    price_change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
-                    price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
-                    price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+                    # === IMPROVEMENT 1: Try REAL OHLCV data first, fall back to synthetic ===
+                    from services.price_collector import get_real_price_history, add_runner_to_tracking
+                    prices, is_synthetic = await get_real_price_history(token_mint)
                     
-                    prices, is_synthetic = build_price_history_from_dex(current_price, price_change_24h, price_change_6h, price_change_1h)
+                    if is_synthetic:
+                        # Fall back to synthetic price history from DexScreener % changes
+                        price_change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
+                        price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
+                        price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+                        prices, is_synthetic = build_price_history_from_dex(current_price, price_change_24h, price_change_6h, price_change_1h)
+                        # Ensure this token is tracked for future real data
+                        await add_runner_to_tracking(symbol, token_mint)
+                    else:
+                        logger.info(f"Using REAL price data for {symbol} ({len(prices)} candles)")
                     
                     # Calculate indicators using TechnicalAnalyzer.analyze() to get all required fields
                     indicators = TechnicalAnalyzer.analyze(prices, current_price)
@@ -2962,6 +3051,35 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     # Bonus: if multiple strategies strongly agree, boost confidence slightly
                     if should_trade and agreement_count >= 2:
                         trade_confidence = min(0.95, trade_confidence + 0.05)
+                    
+                    # === IMPROVEMENT 2: Smart Money confidence adjustment ===
+                    smart_money_adj = 0.0
+                    try:
+                        from services.smart_money_tracker import get_confidence_adjustment as smart_money_confidence
+                        smart_money_adj = await smart_money_confidence(token_mint)
+                        if abs(smart_money_adj) > 0.01:
+                            trade_confidence = max(0.0, min(0.95, trade_confidence + smart_money_adj))
+                            trade_reason = f"[SM {'+'  if smart_money_adj > 0 else ''}{smart_money_adj:.0%}] {trade_reason}"
+                            logger.info(f"Smart money adjustment for {symbol}: {smart_money_adj:+.2f}")
+                    except Exception as e:
+                        logger.debug(f"Smart money check skipped for {symbol}: {e}")
+                    
+                    # === IMPROVEMENT 3: Social Sentiment confidence adjustment ===
+                    sentiment_adj = 0.0
+                    try:
+                        from services.social_sentiment import get_confidence_adjustment as sentiment_confidence
+                        sentiment_adj = await sentiment_confidence(token_mint, pair_data=best_pair)
+                        if abs(sentiment_adj) > 0.01:
+                            trade_confidence = max(0.0, min(0.95, trade_confidence + sentiment_adj))
+                            trade_reason = f"[SENT {'+'  if sentiment_adj > 0 else ''}{sentiment_adj:.0%}] {trade_reason}"
+                    except Exception as e:
+                        logger.debug(f"Sentiment check skipped for {symbol}: {e}")
+                    
+                    # Re-check confidence after all adjustments
+                    if should_trade and trade_confidence < min_confidence:
+                        should_trade = False
+                        skipped.append({"symbol": symbol, "reason": f"Confidence {trade_confidence:.2f} below threshold after adjustments (SM:{smart_money_adj:+.2f}, SENT:{sentiment_adj:+.2f})"})
+                        continue
                     
                     if should_trade:
                         # Check daily limit hasn't been reached during this scan
@@ -3041,6 +3159,9 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             "auto_trade": True,
                             "confidence": trade_confidence,
                             "strategy": combined["strategy"],
+                            "data_source": "synthetic" if is_synthetic else "real_ohlcv",
+                            "smart_money_adj": smart_money_adj,
+                            "sentiment_adj": sentiment_adj,
                             "created_at": datetime.now(timezone.utc).isoformat()
                         }
                         

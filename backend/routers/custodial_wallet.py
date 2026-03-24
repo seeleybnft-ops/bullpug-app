@@ -1259,7 +1259,56 @@ async def _execute_swap_with_retry(
                 
                 logger.info(f"Transaction signed ({len(signed_tx_bytes)} bytes)")
                 
-                # Send via RPC - try multiple endpoints
+                # === IMPROVEMENT 4: Try Jito bundle execution first for MEV protection ===
+                jito_success = False
+                try:
+                    from services.jito_executor import send_transaction_with_jito
+                    jito_result = await send_transaction_with_jito(
+                        signed_tx_bytes,
+                        is_stop_loss=is_stop_loss
+                    )
+                    if jito_result.get("success"):
+                        tx_signature = jito_result["signature"]
+                        jito_success = True
+                        logger.info(f"Transaction sent via Jito: {tx_signature[:20]}...")
+                except Exception as jito_err:
+                    logger.warning(f"Jito execution failed, falling back to RPC: {jito_err}")
+                
+                if jito_success:
+                    # Wait for confirmation
+                    rpc_url = os.environ.get("HELIUS_RPC_URL") or "https://api.mainnet-beta.solana.com"
+                    async with AsyncClient(rpc_url) as solana_client:
+                        for attempt in range(12):
+                            await asyncio.sleep(3)
+                            try:
+                                sig_obj = Signature.from_string(tx_signature)
+                                tx_info = await solana_client.get_transaction(
+                                    sig_obj,
+                                    max_supported_transaction_version=0
+                                )
+                                if tx_info.value is not None:
+                                    if tx_info.value.transaction.meta and tx_info.value.transaction.meta.err:
+                                        raise Exception(f"Transaction failed: {tx_info.value.transaction.meta.err}")
+                                    
+                                    logger.info(f"Jito transaction CONFIRMED: {tx_signature}")
+                                    await update_wallet_balance(user_wallet)
+                                    return {
+                                        "success": True,
+                                        "tx_signature": tx_signature,
+                                        "input_amount": amount_lamports,
+                                        "output_amount": quote_data.get("outAmount"),
+                                        "confirmed": True,
+                                        "method": "jito_bundle",
+                                        "retry_count": retry
+                                    }
+                            except Exception as e:
+                                if "failed" in str(e).lower():
+                                    raise
+                                logger.debug(f"Jito confirmation check {attempt + 1}: {e}")
+                        
+                        logger.warning("Jito transaction not confirmed, falling back to standard RPC")
+                
+                # Fallback: Send via standard RPC endpoints
                 rpc_endpoints_for_submit = [
                     os.environ.get("HELIUS_RPC_URL"),
                     os.environ.get("ALCHEMY_SOLANA_RPC"),

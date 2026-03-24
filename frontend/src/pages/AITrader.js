@@ -29,6 +29,7 @@ import RunnerAlertManager from "../components/RunnerAlertManager";
 import {
   StatCard, RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
+  IntelligenceDashboard,
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
@@ -1346,6 +1347,9 @@ export default function AITrader() {
                     autoTradeStatus={autoTradeStatus}
                     onUpdateSettings={updateAutoTradeSettings}
                   />
+                  
+                  {/* Intelligence Dashboard */}
+                  <IntelligenceDashboard walletAddress={walletAddress} />
                   
                   {/* Risk Calculator */}
                   <RiskCalculator 

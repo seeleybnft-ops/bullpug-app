@@ -329,6 +329,27 @@ async def check_auto_trade_exits():
         logger.error(f"Error in auto-trade exit scheduler: {e}")
 
 
+async def collect_real_prices():
+    """Collect real OHLCV price data for tracked tokens."""
+    try:
+        from services.price_collector import collect_price_snapshot, cleanup_old_candles
+        await collect_price_snapshot()
+        # Cleanup old data every run (cheap operation)
+        await cleanup_old_candles(max_age_hours=48)
+    except Exception as e:
+        logger.error(f"Error in price collector: {e}")
+
+
+async def scan_smart_money():
+    """Scan smart money wallets for trading signals."""
+    try:
+        from services.smart_money_tracker import scan_smart_money_activity, cleanup_expired_signals
+        await scan_smart_money_activity()
+        await cleanup_expired_signals()
+    except Exception as e:
+        logger.error(f"Error in smart money scanner: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -376,8 +397,30 @@ def start_scheduler():
         max_instances=1
     )
     
+    # NEW: Real OHLCV price data collection - every 5 minutes
+    scheduler.add_job(
+        collect_real_prices,
+        trigger=IntervalTrigger(minutes=5),
+        id="price_collector",
+        replace_existing=True,
+        max_instances=1
+    )
+    
+    # NEW: Smart money wallet tracking - every 10 minutes
+    scheduler.add_job(
+        scan_smart_money,
+        trigger=IntervalTrigger(minutes=10),
+        id="smart_money_scanner",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
-    logger.info("Background scheduler started - prize pool (5 min), signal tracking (1 hour), journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min)")
+    logger.info(
+        "Background scheduler started - prize pool (5 min), signal tracking (1 hour), "
+        "journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min), "
+        "PRICE COLLECTOR (5 min), SMART MONEY SCANNER (10 min)"
+    )
 
 
 def stop_scheduler():
