@@ -1260,8 +1260,8 @@ export default function AITrader() {
           <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto tabs-container scrollbar-thin scrollbar-thumb-[#D946EF]/30 scrollbar-track-transparent">
             {[
               { id: "dashboard", label: "Dashboard", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length || undefined },
-              { id: "discover", label: "Discover", icon: <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
               { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
+              { id: "discover", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
               { id: "social", label: "Social & Alerts", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" />, count: priceAlerts.length || undefined },
             ].map(tab => (
             <button
@@ -1877,6 +1877,65 @@ export default function AITrader() {
                 <p className="text-[10px] text-slate-600 text-center mt-4">
                   Memecoins are highly volatile. "Safer" means relatively lower risk, not safe. Always DYOR.
                 </p>
+
+                {/* Breakout Scanner Section */}
+                <div className="border-t border-white/10 pt-6 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-[#F5D300]" />
+                        Breakout Scanner
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Tokens breaking out with &gt;10% gain in 1 hour + high volume
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={scanForBreakouts} className="bg-gradient-to-r from-[#F5D300] to-[#FF8C00] text-black hover:opacity-90" size="sm" data-testid="scan-breakouts-btn">
+                        <Zap className="w-4 h-4 mr-1" /> Scan Breakouts
+                      </Button>
+                      <Button onClick={fetchAlerts} variant="outline" size="sm" className="border-white/20" data-testid="refresh-alerts-btn">
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {triggeredAlerts.length > 0 && (
+                    <div className="bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl p-4">
+                      <h4 className="font-bold text-[#00FFA3] flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-4 h-4" /> Recently Triggered ({triggeredAlerts.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {triggeredAlerts.map((alert, i) => (
+                          <div key={i} className="flex items-center justify-between bg-black/20 rounded-lg p-2 text-sm">
+                            <div>
+                              <span className="font-bold text-white">{alert.symbol}</span>
+                              <span className="text-slate-400 ml-2">{alert.trigger_reason}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500">{new Date(alert.triggered_at).toLocaleTimeString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {alertsLoading ? (
+                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#F5D300]" /></div>
+                  ) : priceAlerts.length > 0 ? (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-bold text-slate-400">Active Alerts ({priceAlerts.length})</h4>
+                      {priceAlerts.map((alert) => (
+                        <AlertCard key={alert.alert_id} alert={alert} onDelete={deleteAlert} walletAddress={walletAddress} onQuickBuy={quickBuyToken} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
+                      <AlertCircle className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-400 text-sm">No active alerts</p>
+                      <p className="text-xs text-slate-500 mt-1">Click "Scan Breakouts" to find opportunities</p>
+                    </div>
+                  )}
+                </div>
                 </div>
               </div>
             )}
@@ -1985,65 +2044,6 @@ export default function AITrader() {
                     </div>
                   </div>
                 )}
-
-                {/* Breakout Alerts Section */}
-                <div className="border-t border-white/10 pt-6 space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-[#F5D300]" />
-                        Price Alerts & Breakout Scanner
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Get notified when tokens break out or hit your price targets
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={scanForBreakouts} className="bg-gradient-to-r from-[#F5D300] to-[#FF8C00] text-black hover:opacity-90" size="sm" data-testid="scan-breakouts-btn">
-                        <Zap className="w-4 h-4 mr-1" /> Scan Breakouts
-                      </Button>
-                      <Button onClick={fetchAlerts} variant="outline" size="sm" className="border-white/20" data-testid="refresh-alerts-btn">
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {triggeredAlerts.length > 0 && (
-                    <div className="bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl p-4">
-                      <h4 className="font-bold text-[#00FFA3] flex items-center gap-2 mb-2">
-                        <CheckCircle className="w-4 h-4" /> Recently Triggered ({triggeredAlerts.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {triggeredAlerts.map((alert, i) => (
-                          <div key={i} className="flex items-center justify-between bg-black/20 rounded-lg p-2 text-sm">
-                            <div>
-                              <span className="font-bold text-white">{alert.symbol}</span>
-                              <span className="text-slate-400 ml-2">{alert.trigger_reason}</span>
-                            </div>
-                            <span className="text-[10px] text-slate-500">{new Date(alert.triggered_at).toLocaleTimeString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {alertsLoading ? (
-                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#F5D300]" /></div>
-                  ) : priceAlerts.length > 0 ? (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-bold text-slate-400">Active Alerts ({priceAlerts.length})</h4>
-                      {priceAlerts.map((alert) => (
-                        <AlertCard key={alert.alert_id} alert={alert} onDelete={deleteAlert} walletAddress={walletAddress} onQuickBuy={quickBuyToken} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-white/5 rounded-xl border border-dashed border-white/10">
-                      <AlertCircle className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                      <p className="text-slate-400 text-sm">No active alerts</p>
-                      <p className="text-xs text-slate-500 mt-1">Click "Scan Breakouts" to find opportunities</p>
-                    </div>
-                  )}
-                </div>
 
                 {/* Copy Trading Section */}
                 <div className="border-t border-white/10 pt-6">

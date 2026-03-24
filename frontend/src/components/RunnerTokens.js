@@ -122,7 +122,7 @@ export default function RunnerTokens({
   // Initial fetch and refresh every 2 minutes
   useEffect(() => {
     fetchRunners();
-    const interval = setInterval(() => fetchRunners(true), 2 * 60 * 1000);
+    const interval = setInterval(() => fetchRunners(true), 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchRunners]);
 
@@ -621,7 +621,7 @@ export default function RunnerTokens({
       {/* Info Footer */}
       <div className="text-center text-xs text-slate-500 py-2">
         <p>Runner scores are based on momentum, volume, liquidity, and buy pressure.</p>
-        <p className="mt-1">Data sourced from DexScreener. Auto-refreshes every 2 minutes.</p>
+        <p className="mt-1">Data sourced from DexScreener. Auto-refreshes every 10 minutes.</p>
       </div>
     </div>
   );
