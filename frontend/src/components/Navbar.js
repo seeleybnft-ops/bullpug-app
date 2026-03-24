@@ -69,10 +69,10 @@ export default function Navbar() {
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
     { name: "Journal", path: "/journal", color: "#F5D300", badge: pendingEntryCount > 0 ? pendingEntryCount : null },
-    { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
-    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3", comingSoon: true },
     { name: "Trading Bot", path: "/ai-trader", icon: <Bot className="w-3 h-3" />, color: "#D946EF", hasBorder: true },
+    { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
     { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
+    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3", comingSoon: true },
   ];
 
   return (
