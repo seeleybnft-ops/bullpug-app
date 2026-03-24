@@ -190,6 +190,17 @@ export function PositionCard({ position, onQuickSell, onDelete, onManualClose, o
               )}
             </span>
           )}
+          {position.dca_exit_stage > 0 && (
+            <span data-testid={`dca-stage-${position.token_symbol}`} className="flex items-center gap-1 text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-mono">
+              DCA TP{position.dca_exit_stage} done
+              {position.remaining_percent && <span> ({position.remaining_percent}% left)</span>}
+            </span>
+          )}
+          {position.is_snipe && (
+            <span data-testid={`sniper-badge-${position.token_symbol}`} className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+              SNIPER
+            </span>
+          )}
           {position.data_source === "real_ohlcv" && (
             <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Real Data</span>
           )}

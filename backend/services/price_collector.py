@@ -15,11 +15,11 @@ from utils.database import db
 
 logger = logging.getLogger(__name__)
 
-# Candle interval in minutes
-CANDLE_INTERVAL_MINUTES = 5
+# Candle interval in minutes (1-min for maximum signal accuracy)
+CANDLE_INTERVAL_MINUTES = 1
 
-# Minimum candles needed to use real data (50 candles = ~4 hours at 5min intervals)
-MIN_CANDLES_FOR_REAL_DATA = 20
+# Minimum candles needed to use real data (30 candles = 30 min at 1-min intervals)
+MIN_CANDLES_FOR_REAL_DATA = 30
 
 # Token mints we actively collect for
 TRACKED_TOKENS = {

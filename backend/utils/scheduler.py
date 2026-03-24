@@ -350,6 +350,16 @@ async def scan_smart_money():
         logger.error(f"Error in smart money scanner: {e}")
 
 
+async def evaluate_whale_profits():
+    """Evaluate whale trade outcomes and recalculate dynamic weights."""
+    try:
+        from services.whale_profit_scorer import evaluate_whale_outcomes, recalculate_wallet_weights
+        await evaluate_whale_outcomes()
+        await recalculate_wallet_weights()
+    except Exception as e:
+        logger.error(f"Error in whale profit scoring: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -397,10 +407,10 @@ def start_scheduler():
         max_instances=1
     )
     
-    # NEW: Real OHLCV price data collection - every 5 minutes
+    # CRITICAL: Real OHLCV price data collection - every 1 minute
     scheduler.add_job(
         collect_real_prices,
-        trigger=IntervalTrigger(minutes=5),
+        trigger=IntervalTrigger(minutes=1),
         id="price_collector",
         replace_existing=True,
         max_instances=1
@@ -411,6 +421,15 @@ def start_scheduler():
         scan_smart_money,
         trigger=IntervalTrigger(minutes=10),
         id="smart_money_scanner",
+        replace_existing=True,
+        max_instances=1
+    )
+    
+    # NEW: Whale profit scoring - every 30 minutes
+    scheduler.add_job(
+        evaluate_whale_profits,
+        trigger=IntervalTrigger(minutes=30),
+        id="whale_profit_scorer",
         replace_existing=True,
         max_instances=1
     )

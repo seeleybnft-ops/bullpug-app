@@ -260,7 +260,7 @@ class TraderSettings(BaseModel):
     auto_total_daily_limit_sol: float = Field(default=1.0, ge=0.1, le=5.0)  # Max total SOL per day
     auto_stop_loss_percent: float = Field(default=10.0, ge=2.0, le=50.0)  # Stop loss for auto-trades
     auto_take_profit_percent: float = Field(default=20.0, ge=5.0, le=200.0)  # Take profit for auto-trades
-    # NEW: Advanced Auto-Trade Settings
+    # Trailing Stop Settings
     auto_trailing_stop_enabled: bool = False  # Enable trailing stop-loss
     auto_trailing_stop_percent: float = Field(default=5.0, ge=1.0, le=20.0)  # Trailing distance
     auto_scale_in_enabled: bool = False  # Enable position scaling (DCA on dips)
@@ -268,6 +268,17 @@ class TraderSettings(BaseModel):
     auto_scale_in_max_adds: int = Field(default=2, ge=1, le=5)  # Max scale-in additions
     auto_avoid_volatile_hours: bool = True  # Avoid trading during high volatility
     auto_profit_target_alert: bool = True  # Send alerts when profit targets hit
+    # A-TIER: Trading Mode (conservative/normal/aggressive/sniper)
+    trading_mode: str = Field(default="normal", pattern="^(conservative|normal|aggressive|sniper)$")
+    # A-TIER: Conviction-Based Position Sizing
+    conviction_sizing_enabled: bool = True  # Scale position size by confidence
+    # A-TIER: Multi-Timeframe Confirmation
+    multi_timeframe_enabled: bool = True  # Require multi-TF alignment
+    # A-TIER: DCA Exit Strategy
+    dca_exit_enabled: bool = False  # Staged exit instead of single TP
+    dca_tp1_percent: float = Field(default=15.0, ge=5.0, le=100.0)  # TP1: sell 50%
+    dca_tp2_percent: float = Field(default=30.0, ge=10.0, le=200.0)  # TP2: sell 25%
+    # dca remaining 25% uses trailing stop
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -576,6 +587,18 @@ async def get_intelligence_dashboard():
         logger.error(f"Intelligence dashboard error: {e}")
         return {"error": str(e)}
 
+
+
+@router.get("/sniper-targets")
+async def get_sniper_targets():
+    """Get current sniper targets (new pairs detected)."""
+    try:
+        from services.token_sniper import scan_new_pairs
+        targets = await scan_new_pairs()
+        return {"targets": targets, "count": len(targets)}
+    except Exception as e:
+        logger.error(f"Sniper targets error: {e}")
+        return {"targets": [], "count": 0, "error": str(e)}
 
 
 @router.get("/platform-stats")
@@ -2930,7 +2953,19 @@ async def auto_trade_scan_and_execute(wallet_address: str):
             min_confidence = min(0.75, min_confidence + 0.05)  # Conservative: 0.70-0.75
         
         # Log effective settings
-        logger.info(f"Auto-trade scan for {wallet_address}: mode={mode}, min_conf={min_confidence:.2f}, risk={risk_level}")
+        trading_mode = settings.get("trading_mode", "normal")
+        logger.info(f"Auto-trade scan for {wallet_address}: mode={mode}, trading_mode={trading_mode}, min_conf={min_confidence:.2f}, risk={risk_level}")
+        
+        # === SNIPER MODE: Scan for brand new tokens ===
+        sniper_targets = []
+        if trading_mode == "sniper":
+            try:
+                from services.token_sniper import scan_new_pairs
+                sniper_targets = await scan_new_pairs()
+                if sniper_targets:
+                    logger.info(f"Sniper mode: found {len(sniper_targets)} new pair targets")
+            except Exception as e:
+                logger.warning(f"Sniper scan error: {e}")
         
         # Get tokens to scan based on risk level (exclude SOL - can't swap SOL to SOL)
         tokens_to_scan = []
@@ -3081,6 +3116,33 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         skipped.append({"symbol": symbol, "reason": f"Confidence {trade_confidence:.2f} below threshold after adjustments (SM:{smart_money_adj:+.2f}, SENT:{sentiment_adj:+.2f})"})
                         continue
                     
+                    # === MULTI-TIMEFRAME CONFIRMATION ===
+                    if should_trade and settings.get("multi_timeframe_enabled", True):
+                        price_changes = best_pair.get("priceChange", {})
+                        change_5m = float(price_changes.get("m5", 0) or 0)
+                        change_1h = float(price_changes.get("h1", 0) or 0)
+                        change_6h = float(price_changes.get("h6", 0) or 0)
+                        change_24h = float(price_changes.get("h24", 0) or 0)
+                        
+                        # Count how many timeframes agree with the signal direction
+                        tf_bullish = sum(1 for c in [change_5m, change_1h, change_6h, change_24h] if c > 0)
+                        tf_bearish = sum(1 for c in [change_5m, change_1h, change_6h, change_24h] if c < 0)
+                        
+                        # For a BUY signal, we want mostly bullish timeframes
+                        if combined.get("action") == "buy":
+                            if tf_bearish >= 3:
+                                # 3+ timeframes bearish = strong contradiction
+                                trade_confidence = max(0.0, trade_confidence - 0.15)
+                                trade_reason = f"[MTF CONFLICT -{tf_bearish}/4 bearish] {trade_reason}"
+                                if trade_confidence < min_confidence:
+                                    should_trade = False
+                                    skipped.append({"symbol": symbol, "reason": f"Multi-TF conflict: {tf_bearish}/4 timeframes bearish"})
+                                    continue
+                            elif tf_bullish >= 3:
+                                # 3+ timeframes agree = bonus
+                                trade_confidence = min(0.95, trade_confidence + 0.05)
+                                trade_reason = f"[MTF ALIGNED {tf_bullish}/4] {trade_reason}"
+                    
                     if should_trade:
                         # Check daily limit hasn't been reached during this scan
                         if remaining_daily_trades <= 0:
@@ -3137,8 +3199,26 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             })
                             continue
                         
-                        # Calculate position size
-                        position_sol = min(max_position, settings.get("max_position_sol", 0.5))
+                        # Calculate position size with CONVICTION-BASED SIZING
+                        base_position = min(max_position, settings.get("max_position_sol", 0.5))
+                        
+                        if settings.get("conviction_sizing_enabled", True):
+                            # Scale position by confidence:
+                            # 90%+ = 1.5x, 80-90% = 1.2x, 70-80% = 1.0x, 60-70% = 0.7x, <60% = 0.5x
+                            if trade_confidence >= 0.90:
+                                sizing_mult = 1.5
+                            elif trade_confidence >= 0.80:
+                                sizing_mult = 1.2
+                            elif trade_confidence >= 0.70:
+                                sizing_mult = 1.0
+                            elif trade_confidence >= 0.60:
+                                sizing_mult = 0.7
+                            else:
+                                sizing_mult = 0.5
+                            position_sol = round(min(base_position * sizing_mult, max_position), 4)
+                            trade_reason = f"[SIZE {sizing_mult}x] {trade_reason}"
+                        else:
+                            position_sol = base_position
                         
                         # Create position record
                         position_id = str(uuid.uuid4())[:8]
@@ -3577,17 +3657,104 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         continue
         
         runner_trades = len([t for t in executed_trades if t.get("is_runner")])
-        known_trades = len(executed_trades) - runner_trades
         
         # Include exits in the response
         exits_count = len(exits_executed)
+        
+        # === SNIPER MODE EXECUTION ===
+        SNIPER_MAX_POSITION_MULT = 0.3
+        sniper_trades = 0
+        if sniper_targets and today_completed_trades < max_daily:
+            for target in sniper_targets[:2]:  # Max 2 sniper trades per scan
+                try:
+                    if today_completed_trades >= max_daily:
+                        break
+                    
+                    sniper_conf = target["confidence"]
+                    if sniper_conf < min_confidence:
+                        skipped.append({"symbol": target["token_symbol"], "reason": f"Sniper conf {sniper_conf:.2f} < {min_confidence:.2f}"})
+                        continue
+                    
+                    # Sniper uses smaller positions (30% of normal)
+                    sniper_position = round(max_position * SNIPER_MAX_POSITION_MULT, 4)
+                    
+                    # Apply conviction sizing to sniper positions too
+                    if settings.get("conviction_sizing_enabled", True):
+                        if sniper_conf >= 0.80:
+                            sniper_position = round(sniper_position * 1.2, 4)
+                        elif sniper_conf < 0.65:
+                            sniper_position = round(sniper_position * 0.5, 4)
+                    
+                    if sniper_position < MIN_POSITION_SOL:
+                        continue
+                    
+                    # Check duplicate position
+                    existing_pos = await db.ai_trader_positions.find_one({
+                        "wallet_address": wallet_address,
+                        "token_mint": target["token_mint"],
+                        "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
+                    })
+                    if existing_pos:
+                        skipped.append({"symbol": target["token_symbol"], "reason": "Already have open position"})
+                        continue
+                    
+                    logger.info(f"SNIPER: Executing buy for {target['token_symbol']} (conf: {sniper_conf:.2f}, pos: {sniper_position} SOL, age: {target['pair_age_minutes']}min)")
+                    
+                    from services.token_sniper import record_snipe
+                    await record_snipe(target["token_mint"], target["token_symbol"], sniper_conf, wallet_address)
+                    
+                    sniper_position_id = f"snipe_{target['token_symbol']}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+                    sniper_execution_id = f"exec_snipe_{datetime.now(timezone.utc).timestamp()}"
+                    
+                    position_doc = {
+                        "position_id": sniper_position_id,
+                        "execution_id": sniper_execution_id,
+                        "wallet_address": wallet_address,
+                        "token_symbol": target["token_symbol"],
+                        "token_mint": target["token_mint"],
+                        "amount_sol": sniper_position,
+                        "entry_price": target["price_usd"],
+                        "stop_loss_price": target["price_usd"] * (1 - settings.get("auto_stop_loss_percent", 10) / 100),
+                        "take_profit_price": target["price_usd"] * (1 + settings.get("auto_take_profit_percent", 20) / 100),
+                        "trade_type": "buy",
+                        "status": "open",
+                        "auto_trade": True,
+                        "is_snipe": True,
+                        "confidence": sniper_conf,
+                        "strategy": "sniper",
+                        "data_source": "dexscreener_new_pair",
+                        "pair_age_minutes": target["pair_age_minutes"],
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    
+                    await db.ai_trader_positions.insert_one(position_doc)
+                    executed_trades.append({
+                        "symbol": target["token_symbol"],
+                        "action": "sniper_buy",
+                        "amount_sol": sniper_position,
+                        "confidence": sniper_conf,
+                        "reason": f"Sniper: new pair ({target['pair_age_minutes']}min old), liq ${target['liquidity_usd']:,.0f}"
+                    })
+                    sniper_trades += 1
+                    today_completed_trades += 1
+                    
+                except Exception as e:
+                    logger.warning(f"Sniper execution error for {target.get('token_symbol')}: {e}")
+        
+        # Summarize results
+
+        known_trades = len([t for t in executed_trades if t.get("action") != "sniper_buy" and t.get("action") != "runner_buy"])
+        runner_trades_count = len([t for t in executed_trades if t.get("action") == "runner_buy"])
+        
         message_parts = []
         if exits_count:
             message_parts.append(f"{exits_count} exits")
         if known_trades:
             message_parts.append(f"{known_trades} known buys")
-        if runner_trades:
-            message_parts.append(f"{runner_trades} runner buys")
+        if runner_trades_count:
+            message_parts.append(f"{runner_trades_count} runner buys")
+        if sniper_trades:
+            message_parts.append(f"{sniper_trades} sniper buys")
         
         return {
             "success": True,
@@ -3597,6 +3764,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
             "exits": exits_executed,
             "skipped": skipped,
             "runners_found": len(runner_tokens),
+            "sniper_targets_found": len(sniper_targets),
+            "trading_mode": trading_mode,
             "message": f"Auto-scan complete: {', '.join(message_parts) if message_parts else 'no trades'}"
         }
         
@@ -3762,8 +3931,28 @@ async def auto_trade_check_exits(wallet_address: str):
                             exit_action = "stop_loss"
                             exit_reason = f"Stop-loss triggered at ${current_price:.8f} (SL: ${stop_loss:.8f})"
                     elif current_price >= take_profit:
-                        exit_action = "take_profit"
-                        exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f}, +{current_pnl_pct:.1f}%)"
+                        # === DCA EXIT STRATEGY ===
+                        dca_enabled = settings.get("dca_exit_enabled", False)
+                        dca_stage = position.get("dca_exit_stage", 0)  # 0=none, 1=TP1 done, 2=TP2 done
+                        
+                        if dca_enabled and dca_stage < 2:
+                            dca_tp1_pct = settings.get("dca_tp1_percent", 15) / 100
+                            dca_tp2_pct = settings.get("dca_tp2_percent", 30) / 100
+                            tp1_price = entry_price * (1 + dca_tp1_pct)
+                            tp2_price = entry_price * (1 + dca_tp2_pct)
+                            
+                            if dca_stage == 0 and current_price >= tp1_price:
+                                exit_action = "dca_tp1"
+                                exit_reason = f"DCA TP1 triggered: sell 50% at ${current_price:.8f} (+{current_pnl_pct:.1f}%)"
+                            elif dca_stage == 1 and current_price >= tp2_price:
+                                exit_action = "dca_tp2"
+                                exit_reason = f"DCA TP2 triggered: sell 25% at ${current_price:.8f} (+{current_pnl_pct:.1f}%)"
+                            else:
+                                # Between TP1 and TP2, or not yet at TP1 — skip
+                                pass
+                        else:
+                            exit_action = "take_profit"
+                            exit_reason = f"Take-profit triggered at ${current_price:.8f} (TP: ${take_profit:.8f}, +{current_pnl_pct:.1f}%)"
                     
                     if exit_action:
                         logger.info(f"Exit triggered for {symbol}: {exit_action} at {current_pnl_pct:.1f}%")
@@ -3848,14 +4037,26 @@ async def auto_trade_check_exits(wallet_address: str):
                             
                             logger.info(f"Found {token_balance} raw units of {symbol} to sell")
                             
+                            # DCA partial sell: adjust sell amount for staged exits
+                            sell_amount = token_balance
+                            if exit_action == "dca_tp1":
+                                sell_amount = int(token_balance * 0.50)  # Sell 50%
+                                logger.info(f"DCA TP1: selling 50% = {sell_amount} of {token_balance}")
+                            elif exit_action == "dca_tp2":
+                                sell_amount = int(token_balance * 0.50)  # Sell 50% of remaining (= 25% of original)
+                                logger.info(f"DCA TP2: selling 50% of remaining = {sell_amount}")
+                            
+                            if sell_amount <= 0:
+                                raise Exception(f"Calculated sell amount is 0 for {symbol}")
+                            
                             # Execute swap: TOKEN -> SOL
                             # Pass is_stop_loss=True for exit trades to use higher slippage
                             sell_result = await execute_auto_trade(
                                 user_wallet=wallet_address,
                                 input_mint=token_mint,
                                 output_mint=SOL_MINT,
-                                amount_lamports=token_balance,  # This is token units, not lamports
-                                is_stop_loss=(exit_action == "stop_loss")
+                                amount_lamports=sell_amount,  # This is token units, not lamports
+                                is_stop_loss=(exit_action in ("stop_loss", "trailing_stop"))
                             )
                             
                             if sell_result.get("success"):
@@ -3897,23 +4098,41 @@ async def auto_trade_check_exits(wallet_address: str):
                         pnl_sol = position.get("amount_sol", 0) * (pnl_pct / 100)
                         
                         # Update position in database
-                        await db.ai_trader_positions.update_one(
-                            {"position_id": position.get("position_id")},
-                            {
-                                "$set": {
-                                    "status": f"closed_{exit_action}" if sell_success else f"pending_{exit_action}",
-                                    "exit_price": current_price,
-                                    "pnl_percent": pnl_pct,
-                                    "pnl_sol": pnl_sol,
+                        # For DCA exits, keep position open and track stage
+                        if exit_action in ("dca_tp1", "dca_tp2") and sell_success:
+                            new_stage = 1 if exit_action == "dca_tp1" else 2
+                            remaining_pct = 50 if new_stage == 1 else 25
+                            await db.ai_trader_positions.update_one(
+                                {"position_id": position.get("position_id")},
+                                {"$set": {
+                                    "status": "open",  # Keep open for remaining position
+                                    "dca_exit_stage": new_stage,
+                                    "dca_last_exit_price": current_price,
+                                    "dca_last_exit_at": datetime.now(timezone.utc).isoformat(),
+                                    "remaining_percent": remaining_pct,
                                     "peak_price": peak_price,
                                     "trailing_stop_active": trailing_stop_active,
-                                    "closed_at": datetime.now(timezone.utc).isoformat(),
-                                    "sell_tx_signature": tx_signature,
-                                    "sell_executed_on_chain": sell_success,
-                                    "sell_error": sell_error
+                                }}
+                            )
+                            logger.info(f"DCA stage {new_stage} complete for {symbol}: {remaining_pct}% remaining")
+                        else:
+                            await db.ai_trader_positions.update_one(
+                                {"position_id": position.get("position_id")},
+                                {
+                                    "$set": {
+                                        "status": f"closed_{exit_action}" if sell_success else f"pending_{exit_action}",
+                                        "exit_price": current_price,
+                                        "pnl_percent": pnl_pct,
+                                        "pnl_sol": pnl_sol,
+                                        "peak_price": peak_price,
+                                        "trailing_stop_active": trailing_stop_active,
+                                        "closed_at": datetime.now(timezone.utc).isoformat(),
+                                        "sell_tx_signature": tx_signature,
+                                        "sell_executed_on_chain": sell_success,
+                                        "sell_error": sell_error
+                                    }
                                 }
-                            }
-                        )
+                            )
                         
                         # Log the exit
                         await db.auto_trade_logs.insert_one({
