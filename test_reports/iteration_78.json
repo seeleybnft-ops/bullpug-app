@@ -1,0 +1,100 @@
+{
+  "summary": "Iteration 78: Testing 3 layout changes for Bullpug Trading Bot. All 19 backend tests passed (100%). Frontend compiles without errors. Layout changes verified via code review.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. GET /api/ai-trader/performance-scorecard/{wallet} - Returns 200 with valid scorecard data",
+    "2. Performance scorecard has all_time stats (total_trades, win_rate, total_pnl_sol, wins, losses)",
+    "3. Performance scorecard has this_week stats (trades, pnl_sol, wins, win_rate)",
+    "4. Performance scorecard has current_streak (integer)",
+    "5. Performance scorecard has active_positions (integer)",
+    "6. Performance scorecard has best_trade_this_week (can be null)",
+    "7. GET /api/ai-trader/platform-stats - Returns 200 (regression test)",
+    "8. Platform stats has correct fields (total_trades, win_rate, total_pnl_sol, active_positions)",
+    "9. GET /api/ai-trader/sniper-targets - Returns 200 (regression test)",
+    "10. Sniper targets has targets array and count",
+    "11. GET /api/ai-trader/intelligence-dashboard - Returns 200 (regression test)",
+    "12. Intelligence dashboard has all 4 systems (price_collector, smart_money, sentiment, jito)",
+    "13. GET /api/ai-trader/settings/{wallet} - Returns 200",
+    "14. Settings has trading_mode field (conservative/normal/aggressive/sniper)",
+    "15. POST /api/ai-trader/settings with trading_mode saves correctly",
+    "16. GET /api/ root health check - Returns 200",
+    "17. GET /api/ai-trader/tokens - Returns safer_tokens and high_risk_tokens",
+    "18. GET /api/ai-trader/positions/{wallet} - Returns positions array",
+    "19. GET /api/ai-trader/signals/{wallet} - Returns signals array",
+    "20. Frontend compiles without errors (webpack compiled with 9 warnings - deprecation only)",
+    "21. Frontend /ai-trader page loads correctly with wallet connection prompt"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "performance_scorecard_endpoint": {
+      "status": "VERIFIED",
+      "details": "New endpoint GET /api/ai-trader/performance-scorecard/{wallet_address} returns all_time, this_week, current_streak, active_positions, best_trade_this_week"
+    },
+    "layout_change_1_trading_mode_selector": {
+      "status": "VERIFIED (CODE REVIEW)",
+      "details": "TradingModeSelector moved from AITrader.js dashboard tab to UnifiedAutoTrader.js > TradeSettingsPanel (line 743). Now uses tile UI instead of dropdown."
+    },
+    "layout_change_2_intelligence_dashboard": {
+      "status": "VERIFIED (CODE REVIEW)",
+      "details": "IntelligenceDashboard moved from AITrader.js dashboard tab to UnifiedAutoTrader.js > Controls section (line 518), placed after ActivityLog."
+    },
+    "layout_change_3_performance_scorecard": {
+      "status": "VERIFIED (CODE REVIEW)",
+      "details": "PerformanceScorecard added to AITrader.js dashboard tab (line 1352), after QuickSettings and before RiskCalculator."
+    },
+    "components_not_in_dashboard": {
+      "status": "VERIFIED (CODE REVIEW)",
+      "details": "TradingModeSelector and IntelligenceDashboard are NOT rendered in Dashboard tab - only QuickSettings, PerformanceScorecard, RiskCalculator, and PositionCards are present."
+    },
+    "settings_crud_with_trading_mode": {
+      "status": "VERIFIED",
+      "details": "Settings CRUD works with trading_mode field via tile selector in Trade Settings tab"
+    },
+    "regression_tests": {
+      "status": "VERIFIED",
+      "details": "platform-stats, sniper-targets, intelligence-dashboard endpoints all working correctly"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration78_layout_changes.py",
+    "/app/test_reports/pytest/pytest_iteration78_layout_changes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: All 3 layout changes correctly implemented",
+    "POSITIVE: TradingModeSelector now uses tile UI (4 tiles: conservative, normal, aggressive, sniper) instead of dropdown",
+    "POSITIVE: IntelligenceDashboard placed after ActivityLog in Controls & Wallet section",
+    "POSITIVE: PerformanceScorecard has collapsible UI with share-on-X feature",
+    "POSITIVE: UnifiedAutoTrader receives traderSettings and onSaveSettings props for trading_mode persistence",
+    "POSITIVE: All data-testid attributes present for testing (performance-scorecard, scorecard-toggle, share-scorecard-x, trading-mode-selector, mode-*, intelligence-dashboard, etc.)",
+    "NOTE: Full UI testing requires wallet connection - page shows connection prompt without wallet (expected behavior)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration78_layout_changes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "100% (compiles without errors, page loads correctly)"
+  },
+  "test_credentials": {
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "backend_url": "https://pug-journal-2.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 78 verified 3 layout changes: (1) TradingModeSelector moved from Dashboard to Auto Trade Engine > Trade Settings tab with tile UI, (2) IntelligenceDashboard moved from Dashboard to Auto Trade Engine > Controls & Wallet tab below ActivityLog, (3) PerformanceScorecard added to Dashboard tab with collapsible UI and share-on-X feature. New endpoint GET /api/ai-trader/performance-scorecard/{wallet} returns all_time, this_week, current_streak, active_positions, best_trade_this_week. All regression tests pass. Frontend requires wallet connection to see full UI.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All integrations are live"
+  }
+}

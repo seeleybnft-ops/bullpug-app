@@ -386,6 +386,120 @@ async def get_platform_stats():
         }
 
 
+
+@router.get("/performance-scorecard/{wallet_address}")
+async def get_performance_scorecard(wallet_address: str):
+    """Generate a weekly performance scorecard for sharing on X."""
+    try:
+        week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+
+        # All-time stats
+        all_pipeline = [
+            {"$match": {
+                "wallet_address": wallet_address,
+                "status": {"$regex": "^closed"},
+                "sell_executed_on_chain": True
+            }},
+            {"$group": {
+                "_id": None,
+                "total_trades": {"$sum": 1},
+                "total_pnl_sol": {"$sum": {"$ifNull": ["$pnl_sol", 0]}},
+                "wins": {"$sum": {"$cond": [{"$gt": [{"$ifNull": ["$pnl_sol", 0]}, 0]}, 1, 0]}},
+                "losses": {"$sum": {"$cond": [{"$lte": [{"$ifNull": ["$pnl_sol", 0]}, 0]}, 1, 0]}}
+            }}
+        ]
+        all_result = await db.ai_trader_positions.aggregate(all_pipeline).to_list(1)
+
+        # Weekly stats
+        week_pipeline = [
+            {"$match": {
+                "wallet_address": wallet_address,
+                "status": {"$regex": "^closed"},
+                "sell_executed_on_chain": True,
+                "closed_at": {"$gte": week_ago}
+            }},
+            {"$group": {
+                "_id": None,
+                "trades": {"$sum": 1},
+                "pnl_sol": {"$sum": {"$ifNull": ["$pnl_sol", 0]}},
+                "wins": {"$sum": {"$cond": [{"$gt": [{"$ifNull": ["$pnl_sol", 0]}, 0]}, 1, 0]}}
+            }}
+        ]
+        week_result = await db.ai_trader_positions.aggregate(week_pipeline).to_list(1)
+
+        # Best trade this week
+        best_pipeline = [
+            {"$match": {
+                "wallet_address": wallet_address,
+                "status": {"$regex": "^closed"},
+                "sell_executed_on_chain": True,
+                "closed_at": {"$gte": week_ago},
+                "pnl_pct": {"$exists": True, "$gt": 0}
+            }},
+            {"$sort": {"pnl_pct": -1}},
+            {"$limit": 1},
+            {"$project": {"_id": 0, "token_symbol": 1, "pnl_pct": 1, "pnl_sol": 1}}
+        ]
+        best_result = await db.ai_trader_positions.aggregate(best_pipeline).to_list(1)
+
+        # Active positions count
+        active_count = await db.ai_trader_positions.count_documents({
+            "wallet_address": wallet_address,
+            "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}
+        })
+
+        # Win streak calculation
+        recent_trades = await db.ai_trader_positions.find(
+            {"wallet_address": wallet_address, "status": {"$regex": "^closed"}, "sell_executed_on_chain": True},
+            {"_id": 0, "pnl_sol": 1}
+        ).sort("closed_at", -1).to_list(50)
+
+        streak = 0
+        for t in recent_trades:
+            if (t.get("pnl_sol") or 0) > 0:
+                streak += 1
+            else:
+                break
+
+        all_stats = all_result[0] if all_result else {}
+        week_stats = week_result[0] if week_result else {}
+        best_trade = best_result[0] if best_result else None
+        total_all = all_stats.get("total_trades", 0)
+        wins_all = all_stats.get("wins", 0)
+
+        return {
+            "wallet_address": wallet_address[:6] + "..." + wallet_address[-4:],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "all_time": {
+                "total_trades": total_all,
+                "win_rate": round((wins_all / total_all * 100) if total_all > 0 else 0, 1),
+                "total_pnl_sol": round(all_stats.get("total_pnl_sol", 0), 4),
+                "wins": wins_all,
+                "losses": all_stats.get("losses", 0)
+            },
+            "this_week": {
+                "trades": week_stats.get("trades", 0),
+                "pnl_sol": round(week_stats.get("pnl_sol", 0), 4),
+                "wins": week_stats.get("wins", 0),
+                "win_rate": round((week_stats.get("wins", 0) / week_stats.get("trades", 1) * 100) if week_stats.get("trades", 0) > 0 else 0, 1)
+            },
+            "best_trade_this_week": best_trade,
+            "current_streak": streak,
+            "active_positions": active_count
+        }
+    except Exception as e:
+        logger.error(f"Performance scorecard error: {e}")
+        return {
+            "wallet_address": wallet_address[:6] + "..." + wallet_address[-4:],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "all_time": {"total_trades": 0, "win_rate": 0, "total_pnl_sol": 0, "wins": 0, "losses": 0},
+            "this_week": {"trades": 0, "pnl_sol": 0, "wins": 0, "win_rate": 0},
+            "best_trade_this_week": None,
+            "current_streak": 0,
+            "active_positions": 0
+        }
+
+
 @router.get("/tokens")
 async def get_available_tokens():
     """Get available tokens for trading"""

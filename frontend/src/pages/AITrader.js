@@ -29,7 +29,7 @@ import RunnerAlertManager from "../components/RunnerAlertManager";
 import {
   StatCard, RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
-  IntelligenceDashboard, TradingModeSelector,
+  IntelligenceDashboard, TradingModeSelector, PerformanceScorecard,
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
@@ -1347,22 +1347,9 @@ export default function AITrader() {
                     autoTradeStatus={autoTradeStatus}
                     onUpdateSettings={updateAutoTradeSettings}
                   />
-                  
-                  {/* Trading Mode Selector */}
-                  <TradingModeSelector
-                    currentMode={settings?.trading_mode || "normal"}
-                    onModeChange={async (mode) => {
-                      try {
-                        await saveSettings({ ...(settings || {}), trading_mode: mode });
-                        toast.success(`Trading mode set to ${mode}`);
-                      } catch (e) {
-                        toast.error("Failed to update trading mode");
-                      }
-                    }}
-                  />
-                  
-                  {/* Intelligence Dashboard */}
-                  <IntelligenceDashboard walletAddress={walletAddress} />
+
+                  {/* Performance Scorecard */}
+                  <PerformanceScorecard walletAddress={walletAddress} />
                   
                   {/* Risk Calculator */}
                   <RiskCalculator 
@@ -1907,6 +1894,8 @@ export default function AITrader() {
                 onWithdraw={withdrawFromCustodial}
                 walletAddress={walletAddress}
                 walletConnected={connected}
+                traderSettings={settings}
+                onSaveSettings={saveSettings}
               />
             )}
             

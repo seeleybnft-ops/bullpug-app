@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import StrategyBacktester from './StrategyBacktester';
 import AdaptiveLearning from './AdaptiveLearning';
+import { TradingModeSelector, IntelligenceDashboard } from './trader';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -50,7 +51,9 @@ export default function UnifiedAutoTrader({
   onRefreshCustodial,
   onWithdraw,
   walletAddress,
-  walletConnected
+  walletConnected,
+  traderSettings,
+  onSaveSettings
 }) {
   const [activeSection, setActiveSection] = useState('controls');
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -510,6 +513,9 @@ export default function UnifiedAutoTrader({
 
           {/* Activity Log */}
           <ActivityLog logs={logs} />
+          
+          {/* Intelligence Systems */}
+          <IntelligenceDashboard walletAddress={walletAddress} />
         </div>
       )}
 
@@ -523,6 +529,12 @@ export default function UnifiedAutoTrader({
           handleSaveSettings={handleSaveSettings}
           recommendedConfidence={recommendedConfidence}
           optimalSettings={optimalSettings}
+          tradingMode={traderSettings?.trading_mode || "normal"}
+          onTradingModeChange={async (mode) => {
+            if (onSaveSettings) {
+              await onSaveSettings({ ...(traderSettings || {}), trading_mode: mode });
+            }
+          }}
         />
       )}
 
@@ -716,7 +728,9 @@ function TradeSettingsPanel({
   setShowAdvancedSettings,
   handleSaveSettings,
   recommendedConfidence,
-  optimalSettings
+  optimalSettings,
+  tradingMode,
+  onTradingModeChange
 }) {
   return (
     <div className="glass-card rounded-2xl p-6 border border-white/10 space-y-5">
@@ -725,26 +739,13 @@ function TradeSettingsPanel({
         Auto-Trade Configuration
       </h4>
 
-      <div className="grid md:grid-cols-2 gap-5">
-        {/* Mode Selection */}
-        <div>
-          <label className="text-sm text-slate-400 mb-2 block">Trading Mode</label>
-          <select
-            value={settingsForm.auto_trade_mode}
-            onChange={(e) => setSettingsForm(f => ({ ...f, auto_trade_mode: e.target.value }))}
-            className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
-          >
-            <option value="conservative">Conservative (Safest)</option>
-            <option value="moderate">Moderate (Balanced)</option>
-            <option value="aggressive">Aggressive (Risky)</option>
-          </select>
-          <p className="text-[10px] text-slate-500 mt-1">
-            {settingsForm.auto_trade_mode === 'conservative' && 'Higher confidence required, one trade per scan'}
-            {settingsForm.auto_trade_mode === 'moderate' && 'Balanced approach with standard settings'}
-            {settingsForm.auto_trade_mode === 'aggressive' && 'Lower confidence threshold, more frequent trades'}
-          </p>
-        </div>
+      {/* Trading Mode Tile Selector */}
+      <TradingModeSelector
+        currentMode={tradingMode}
+        onModeChange={onTradingModeChange}
+      />
 
+      <div className="grid md:grid-cols-2 gap-5">
         {/* Min Confidence with Recommendation */}
         <div>
           <label className="text-sm text-slate-400 mb-2 block flex items-center justify-between">
