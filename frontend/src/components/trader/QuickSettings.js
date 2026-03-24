@@ -3,31 +3,49 @@ import { Settings, Check, X } from "lucide-react";
 
 function EditablePercent({ label, value, color, borderColor, bgColor, min, max, onConfirm, testIdPrefix }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(String(value));
   const inputRef = useRef(null);
+  const confirmingRef = useRef(false);
 
-  useEffect(() => { setDraft(value); }, [value]);
-  useEffect(() => { if (editing && inputRef.current) inputRef.current.select(); }, [editing]);
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
 
-  const handleConfirm = () => {
-    const clamped = Math.min(max, Math.max(min, Math.round(draft)));
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const applyChange = () => {
+    const parsed = parseInt(draft, 10);
+    if (isNaN(parsed)) { setEditing(false); return; }
+    const clamped = Math.min(max, Math.max(min, parsed));
     if (clamped !== value) {
       if (window.confirm(`Change ${label} from ${value}% to ${clamped}%?\n\nThis applies to all open positions.`)) {
         onConfirm(clamped);
       }
     }
     setEditing(false);
-    setDraft(value);
   };
 
-  const handleCancel = () => {
-    setDraft(value);
+  const cancel = () => {
+    if (confirmingRef.current) return;
+    setDraft(String(value));
     setEditing(false);
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleConfirm();
-    if (e.key === "Escape") handleCancel();
+    if (e.key === "Enter") { e.preventDefault(); applyChange(); }
+    if (e.key === "Escape") { e.preventDefault(); cancel(); }
+  };
+
+  const handleBlur = () => {
+    // Delay to let confirm button's mousedown fire first
+    setTimeout(() => {
+      if (!confirmingRef.current) cancel();
+    }, 150);
   };
 
   const stepDown = () => { if (value > min) onConfirm(value - 1); };
@@ -39,7 +57,7 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
       <div className="flex items-center justify-center gap-2">
         <button
           onClick={stepDown}
-          className={`w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 font-bold text-xl flex items-center justify-center transition-colors`}
+          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 font-bold text-xl flex items-center justify-center transition-colors"
           style={{ color }}
           data-testid={`${testIdPrefix}-minus`}
         >
@@ -52,9 +70,9 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
               ref={inputRef}
               type="number"
               value={draft}
-              onChange={(e) => setDraft(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
-              onBlur={handleCancel}
+              onBlur={handleBlur}
               min={min}
               max={max}
               step="1"
@@ -63,14 +81,24 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
               data-testid={`${testIdPrefix}-input`}
             />
             <button
-              onMouseDown={(e) => { e.preventDefault(); handleConfirm(); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                confirmingRef.current = true;
+                applyChange();
+                confirmingRef.current = false;
+              }}
               className="w-8 h-8 rounded-lg bg-[#00FFA3]/20 text-[#00FFA3] flex items-center justify-center hover:bg-[#00FFA3]/30 transition-colors"
               data-testid={`${testIdPrefix}-confirm`}
             >
               <Check className="w-4 h-4" />
             </button>
             <button
-              onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                confirmingRef.current = true;
+                cancel();
+                confirmingRef.current = false;
+              }}
               className="w-8 h-8 rounded-lg bg-[#FF6B6B]/20 text-[#FF6B6B] flex items-center justify-center hover:bg-[#FF6B6B]/30 transition-colors"
               data-testid={`${testIdPrefix}-cancel`}
             >
@@ -80,7 +108,7 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className={`w-16 h-10 rounded-lg border flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/20 transition-all`}
+            className="w-16 h-10 rounded-lg border flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-white/20 transition-all"
             style={{ backgroundColor: bgColor, borderColor: borderColor }}
             title="Click to type a custom value"
             data-testid={`${testIdPrefix}-display`}
@@ -91,7 +119,7 @@ function EditablePercent({ label, value, color, borderColor, bgColor, min, max, 
 
         <button
           onClick={stepUp}
-          className={`w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 font-bold text-xl flex items-center justify-center transition-colors`}
+          className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 font-bold text-xl flex items-center justify-center transition-colors"
           style={{ color }}
           data-testid={`${testIdPrefix}-plus`}
         >
