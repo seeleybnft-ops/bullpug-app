@@ -1013,6 +1013,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug". The applicati
   - JUP: 5.65 tokens
 - **NO tokens were sold** - all purchases are still held
 
+### Bot Accuracy & Reliability Improvements (March 2026)
+
+**1. Synthetic Price Data Handling (P0)**
+- When real price history has <10 data points, bot now uses `build_price_history_from_dex()` to reconstruct from DexScreener % changes
+- **10% confidence penalty** applied to all signals generated from synthetic data (via `confidence_penalty_for_synthetic_data()`)
+- Signals tagged with `[SYNTHETIC DATA -10%]` prefix in reasoning
+- If confidence drops below threshold after penalty → trade is **skipped**, not executed
+- `analyze_token()` now refuses to generate a signal (returns null) when no price data at all is available — no more trading on pure random noise
+- New module: `/backend/services/market_quality.py`
+
+**2. Volume + Liquidity Filters (P1)**
+- Minimum thresholds enforced before every buy trade:
+  - 24h volume must be >= $50,000
+  - Liquidity must be >= $20,000
+- `extract_market_quality()` checks both signal-based and runner-based buy paths
+- Tokens failing quality check are logged to `skipped[]` with specific rejection reasons
+- Quality metrics logged: volume, liquidity, buys/sells, pair age
+
+**3. Frontend Error Handling + Duplicate Position Guard (P1)**
+- Added toast.error notifications to 2 critical silent catch blocks (data fetch, auto-trade status)
+- **Atomic duplicate guard**: Before inserting a position, checks for existing open position with same token_mint → prevents race condition double-inserts (both signal and runner paths)
+- Duplicate runner positions also detected and logged
+
 ### UX Simplification: Trading Bot Tabs Consolidated (March 2026)
 - **Before**: 7 tabs (Auto-Trade, Top Picks, Signals, Breakouts, Copy Trading, Positions, Trade History)
 - **After**: 4 tabs (Dashboard, Discover, Auto-Trade, Social & Alerts)

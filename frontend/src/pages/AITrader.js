@@ -253,6 +253,7 @@ export default function AITrader() {
       }
     } catch (e) {
       console.error("Error fetching data:", e);
+      toast.error("Failed to load trading data — check your connection");
     }
     setLoading(false);
   }, [walletAddress]);
@@ -334,6 +335,7 @@ export default function AITrader() {
       setAutoTradeLogs(logsRes.data.logs || []);
     } catch (err) {
       console.error("Auto-trade status error:", err);
+      toast.error("Failed to load auto-trade status");
     }
     setAutoTradeLoading(false);
   }, [walletAddress]);

@@ -753,10 +753,10 @@ async def analyze_token(token_symbol: str, wallet_address: str, contract_address
         }
     
     price_history = await get_price_history(token_symbol)
+    is_synthetic = False
     
-    # If no history, create improved simulated history with realistic volatility
+    # If no history, reconstruct from DexScreener price changes (directionally accurate)
     if len(price_history) < 10:
-        # Fetch price changes from DexScreener for better simulation
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}")
@@ -768,36 +768,21 @@ async def analyze_token(token_symbol: str, wallet_address: str, contract_address
                         price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
                         price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
                         
-                        price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
-                        price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
-                        price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
-                        
-                        # Generate realistic price history with volatility
-                        import random
-                        random.seed(int(current_price * 1e8) % 10000)
-                        volatility = max(abs(price_change_24h), abs(price_change_6h), abs(price_change_1h)) / 100
-                        volatility = max(0.005, min(volatility, 0.05))
-                        
-                        price_history = []
-                        for i in range(50):
-                            noise = random.uniform(-volatility, volatility) * current_price
-                            if i < 6:
-                                base = price_1h_ago + (current_price - price_1h_ago) * (i / 6)
-                            elif i < 12:
-                                base = price_6h_ago + (price_1h_ago - price_6h_ago) * ((i - 6) / 6)
-                            elif i < 24:
-                                base = price_24h_ago + (price_6h_ago - price_24h_ago) * ((i - 12) / 12)
-                            else:
-                                base = price_24h_ago * (1 - (i - 24) * 0.002)
-                            price_history.append(base + noise)
-                        price_history.append(current_price)
+                        from services.market_quality import build_price_history_from_dex
+                        price_history, is_synthetic = build_price_history_from_dex(
+                            current_price, price_change_24h, price_change_6h, price_change_1h
+                        )
         except Exception as e:
             logger.warning(f"Failed to create price history for {token_symbol}: {e}")
         
-        # Fallback if DexScreener fails
+        # If still no data, refuse to generate signal rather than trading on pure noise
         if len(price_history) < 10:
-            price_history = [current_price * (1 + np.random.normal(0, 0.02)) for _ in range(50)]
-            price_history.append(current_price)
+            logger.warning(f"Insufficient price data for {token_symbol} — cannot generate reliable signal")
+            return {
+                "signal": None,
+                "message": f"Insufficient price data for {token_symbol}. Need real market data to generate signals.",
+                "current_price": current_price
+            }
     
     # Run technical analysis
     indicators = TechnicalAnalyzer.analyze(price_history, current_price)
@@ -811,6 +796,21 @@ async def analyze_token(token_symbol: str, wallet_address: str, contract_address
     MIN_SIGNAL_THRESHOLD = StrategyEngine.MIN_SIGNAL_CONFIDENCE
     
     if strategy_result["signal"] and strategy_result["confidence"] >= MIN_SIGNAL_THRESHOLD:
+        # Apply synthetic data penalty when trading on reconstructed price history
+        final_confidence = strategy_result["confidence"]
+        reasoning_prefix = ""
+        if is_synthetic:
+            from services.market_quality import confidence_penalty_for_synthetic_data
+            final_confidence = confidence_penalty_for_synthetic_data(final_confidence)
+            reasoning_prefix = "[Synthetic price data -10%] "
+            if final_confidence < MIN_SIGNAL_THRESHOLD:
+                return {
+                    "signal": None,
+                    "message": f"Signal confidence {final_confidence:.2f} below threshold after synthetic data penalty.",
+                    "current_price": current_price,
+                    "raw_confidence": strategy_result["confidence"]
+                }
+        
         # Calculate position size and risk levels
         stop_loss_pct = settings.get("stop_loss_percent", 10) / 100
         take_profit_pct = settings.get("take_profit_percent", 20) / 100
@@ -824,22 +824,22 @@ async def analyze_token(token_symbol: str, wallet_address: str, contract_address
         
         # Suggested position based on confidence
         base_position = settings.get("max_position_sol", 0.5)
-        suggested_position = base_position * strategy_result["confidence"]
+        suggested_position = base_position * final_confidence
         suggested_position = max(MIN_POSITION_SOL, min(suggested_position, MAX_POSITION_SOL))
         
         signal = TradeSignal(
             wallet_address=wallet_address,
             token_symbol=token_symbol,
-            token_mint=token_mint,  # Use resolved token_mint (supports unknown tokens via contract_address)
+            token_mint=token_mint,
             signal_type=strategy_result["signal"],
             entry_price=current_price,
             suggested_position_sol=round(suggested_position, 4),
             stop_loss_price=round(stop_loss_price, 8),
             take_profit_price=round(take_profit_price, 8),
-            confidence=strategy_result["confidence"],
+            confidence=final_confidence,
             strategy=strategy_result["strategy"],
             risk_category=risk_category,
-            reasoning=strategy_result["reasoning"],
+            reasoning=f"{reasoning_prefix}{strategy_result['reasoning']}",
             technical_indicators=indicators
         )
         
@@ -2397,8 +2397,6 @@ async def get_auto_trade_status(wallet_address: str):
         # Calculate stats from both logs and positions
         successful_logs = [log for log in today_logs if log.get("success")]
         buy_logs = [log for log in successful_logs if log.get("action") in ["auto_buy"]]
-        
-        trades_from_logs = len(successful_logs)
         sol_from_logs = sum(log.get("amount_sol", 0) for log in buy_logs)
         
         # All open positions represent SOL currently in trades
@@ -2900,47 +2898,25 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     
                     best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
                     
+                    # === QUALITY CHECK: Volume + Liquidity filter ===
+                    from services.market_quality import extract_market_quality, build_price_history_from_dex, confidence_penalty_for_synthetic_data
+                    quality = extract_market_quality(best_pair)
+                    if not quality["passes_quality_check"]:
+                        skipped.append({"symbol": symbol, "reason": f"Market quality: {', '.join(quality['rejection_reasons'])}"})
+                        continue
+                    
                     # Get price history for analysis
-                    prices = []
                     current_price = float(best_pair.get("priceUsd", 0) or 0)
                     
                     if current_price <= 0:
                         continue
                     
-                    # Simulate price history from price changes
+                    # Build price history from DexScreener % changes (synthetic but directionally accurate)
                     price_change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
                     price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
                     price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
                     
-                    # Create synthetic price history with realistic volatility
-                    price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
-                    price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
-                    price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
-                    
-                    # Generate price history with natural volatility for meaningful MACD
-                    import random
-                    random.seed(int(current_price * 1e8) % 10000)  # Deterministic but varied
-                    
-                    # Calculate volatility factor from price changes
-                    volatility = max(abs(price_change_24h), abs(price_change_6h), abs(price_change_1h)) / 100
-                    volatility = max(0.005, min(volatility, 0.05))  # Clamp between 0.5% and 5%
-                    
-                    for i in range(50):
-                        # Add micro-volatility to create MACD movement
-                        noise = random.uniform(-volatility, volatility) * current_price
-                        
-                        if i < 6:  # Last 1 hour (most recent)
-                            base = price_1h_ago + (current_price - price_1h_ago) * (i / 6)
-                        elif i < 12:  # 1-6 hours ago
-                            base = price_6h_ago + (price_1h_ago - price_6h_ago) * ((i - 6) / 6)
-                        elif i < 24:  # 6-12 hours ago
-                            base = price_24h_ago + (price_6h_ago - price_24h_ago) * ((i - 12) / 12)
-                        else:  # 12-24 hours ago
-                            base = price_24h_ago * (1 - (i - 24) * 0.002)
-                        
-                        prices.append(base + noise)
-                    
-                    prices.append(current_price)
+                    prices, is_synthetic = build_price_history_from_dex(current_price, price_change_24h, price_change_6h, price_change_1h)
                     
                     # Calculate indicators using TechnicalAnalyzer.analyze() to get all required fields
                     indicators = TechnicalAnalyzer.analyze(prices, current_price)
@@ -2973,6 +2949,15 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             trade_reason = f"[{agreement_count}/3 agree] {trade_reason}"
                         elif agreement_count == 1:
                             trade_reason = f"[Combined strategy] {trade_reason}"
+                    
+                    # Apply synthetic data penalty
+                    if should_trade and is_synthetic:
+                        trade_confidence = confidence_penalty_for_synthetic_data(trade_confidence)
+                        trade_reason = f"[SYNTHETIC DATA -10%] {trade_reason}"
+                        if trade_confidence < min_confidence:
+                            should_trade = False
+                            skipped.append({"symbol": symbol, "reason": f"Confidence {trade_confidence:.2f} below threshold after synthetic penalty"})
+                            continue
                     
                     # Bonus: if multiple strategies strongly agree, boost confidence slightly
                     if should_trade and agreement_count >= 2:
@@ -3112,7 +3097,17 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             position_doc["executed_on_chain"] = True
                             position_doc["execution_error"] = None
                             
-                            await db.ai_trader_positions.insert_one(position_doc)
+                            # Atomic duplicate guard — prevent race condition double-inserts
+                            existing_check = await db.ai_trader_positions.find_one({
+                                "wallet_address": wallet_address,
+                                "token_mint": token_mint,
+                                "status": "open"
+                            })
+                            if existing_check:
+                                logger.warning(f"Duplicate position prevented for {symbol} — already open")
+                                skipped.append({"symbol": symbol, "reason": "Duplicate position race condition prevented"})
+                            else:
+                                await db.ai_trader_positions.insert_one(position_doc)
                             
                             # Log the successful auto-trade
                             log_doc = {
@@ -3207,33 +3202,26 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         if current_price <= 0:
                             continue
                         
-                        # Create synthetic price history from runner data
+                        # === QUALITY CHECK: Volume + Liquidity filter for runners ===
+                        from services.market_quality import extract_market_quality, build_price_history_from_dex, confidence_penalty_for_synthetic_data
+                        runner_volume_24h = runner.get("volume_24h", 0)
+                        runner_liquidity = runner.get("liquidity_usd", 0)
+                        # Build a minimal pair_data dict for quality check
+                        runner_pair_data = {
+                            "volume": {"h24": runner_volume_24h},
+                            "liquidity": {"usd": runner_liquidity}
+                        }
+                        quality = extract_market_quality(runner_pair_data)
+                        if not quality["passes_quality_check"]:
+                            skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Market quality: {', '.join(quality['rejection_reasons'])}"})
+                            continue
+                        
+                        # Build price history from runner data
                         price_change_24h = runner.get("price_change_24h", 0)
                         price_change_6h = runner.get("price_change_6h", 0)
                         price_change_1h = runner.get("price_change_1h", 0)
                         
-                        price_24h_ago = current_price / (1 + price_change_24h / 100) if price_change_24h != -100 else current_price
-                        price_6h_ago = current_price / (1 + price_change_6h / 100) if price_change_6h != -100 else current_price
-                        price_1h_ago = current_price / (1 + price_change_1h / 100) if price_change_1h != -100 else current_price
-                        
-                        import random
-                        random.seed(int(current_price * 1e8) % 10000)
-                        volatility = max(abs(price_change_24h), abs(price_change_6h), abs(price_change_1h)) / 100
-                        volatility = max(0.01, min(volatility, 0.08))  # Runners are more volatile
-                        
-                        prices = []
-                        for i in range(50):
-                            noise = random.uniform(-volatility, volatility) * current_price
-                            if i < 6:
-                                base = price_1h_ago + (current_price - price_1h_ago) * (i / 6)
-                            elif i < 12:
-                                base = price_6h_ago + (price_1h_ago - price_6h_ago) * ((i - 6) / 6)
-                            elif i < 24:
-                                base = price_24h_ago + (price_6h_ago - price_24h_ago) * ((i - 12) / 12)
-                            else:
-                                base = price_24h_ago * (1 - (i - 24) * 0.002)
-                            prices.append(base + noise)
-                        prices.append(current_price)
+                        prices, is_synthetic = build_price_history_from_dex(current_price, price_change_24h, price_change_6h, price_change_1h)
                         
                         # Calculate indicators
                         indicators = TechnicalAnalyzer.analyze(prices, current_price)
@@ -3268,6 +3256,15 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         should_trade = False
                         if combined["signal"] == "buy" and trade_confidence >= min_confidence:
                             should_trade = True
+                        
+                        # Apply synthetic data penalty for runners too
+                        if should_trade and is_synthetic:
+                            trade_confidence = confidence_penalty_for_synthetic_data(trade_confidence)
+                            trade_reason = f"[SYNTHETIC DATA -10%] {trade_reason}"
+                            if trade_confidence < min_confidence:
+                                should_trade = False
+                                skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Confidence {trade_confidence:.2f} below threshold after synthetic penalty"})
+                                continue
                         
                         if should_trade:
                             # Check daily limit hasn't been reached during this scan
@@ -3381,6 +3378,18 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                     "tx_signature": tx_signature,
                                     "created_at": datetime.now(timezone.utc).isoformat()
                                 }
+                                
+                                # Atomic duplicate guard for runners
+                                runner_dup = await db.ai_trader_positions.find_one({
+                                    "wallet_address": wallet_address,
+                                    "token_mint": token_mint,
+                                    "status": "open",
+                                    "execution_id": {"$ne": position_doc.get("execution_id")}
+                                })
+                                if runner_dup:
+                                    logger.warning(f"Duplicate runner position prevented for {symbol}")
+                                    skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": "Duplicate position race condition"})
+                                    continue
                                 
                                 await db.ai_trader_positions.insert_one(position_doc)
                                 
