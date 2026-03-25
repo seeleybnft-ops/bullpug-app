@@ -30,6 +30,7 @@ import {
   StatCard, RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
   IntelligenceDashboard, TradingModeSelector, PerformanceScorecard,
+  FundLedger,
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
@@ -1347,6 +1348,9 @@ export default function AITrader() {
                     autoTradeStatus={autoTradeStatus}
                     onUpdateSettings={updateAutoTradeSettings}
                   />
+
+                  {/* Fund Ledger — Per-user balance tracking */}
+                  <FundLedger walletAddress={walletAddress} />
 
                   {/* Performance Scorecard */}
                   <PerformanceScorecard walletAddress={walletAddress} />

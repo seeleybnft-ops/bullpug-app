@@ -87,6 +87,8 @@ async def startup_event():
         await db.sentiment_cache.create_index("token_mint", unique=True)
         await db.sentiment_cache.create_index("expires_at")
         await db.ai_trader_positions.create_index([("wallet_address", 1), ("status", 1)])
+        await db.user_ledger.create_index([("user_wallet", 1), ("created_at", -1)])
+        await db.user_ledger.create_index([("user_wallet", 1), ("entry_type", 1)])
         logger.info("MongoDB indexes created for intelligence collections")
     except Exception as e:
         logger.warning(f"Index creation (non-fatal): {e}")

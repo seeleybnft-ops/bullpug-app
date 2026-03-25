@@ -31,6 +31,7 @@ router = APIRouter(prefix="/custodial-wallet", tags=["custodial-wallet"])
 
 # Use shared database connection
 from utils.database import db
+from services.ledger import record_entry as ledger_record, get_available_balance as ledger_balance
 
 # Configuration
 MAX_DEPOSIT_SOL = 0.5  # Maximum deposit limit
@@ -401,11 +402,13 @@ async def confirm_deposit(user_wallet: str, tx_signature: str, amount_lamports: 
     if not wallet_doc:
         raise HTTPException(status_code=404, detail="Custodial wallet not found")
     
+    amount_sol = amount_lamports / LAMPORTS_PER_SOL
+    
     # Record the transaction
     tx_record = {
         "tx_type": "deposit",
         "amount_lamports": amount_lamports,
-        "amount_sol": amount_lamports / LAMPORTS_PER_SOL,
+        "amount_sol": amount_sol,
         "tx_signature": tx_signature,
         "status": "confirmed",
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -420,6 +423,15 @@ async def confirm_deposit(user_wallet: str, tx_signature: str, amount_lamports: 
             "$push": {"transaction_history": tx_record},
             "$inc": {"total_deposits_lamports": amount_lamports}
         }
+    )
+    
+    # Record in internal ledger (credit)
+    await ledger_record(
+        user_wallet, "deposit", amount_sol,
+        reference_id=tx_signature,
+        reference_type="deposit_tx",
+        description=f"Deposit {amount_sol:.6f} SOL",
+        metadata={"tx_signature": tx_signature, "amount_lamports": amount_lamports}
     )
     
     logger.info(f"Deposit confirmed: {amount_lamports} lamports to custodial wallet for {user_wallet[:8]}...")
@@ -440,7 +452,15 @@ async def withdraw_funds(request: WithdrawRequest):
     if not wallet_doc:
         raise HTTPException(status_code=404, detail="Custodial wallet not found")
     
-    # Get current balance
+    # Validate against internal ledger balance first
+    virtual_balance = await ledger_balance(request.user_wallet)
+    if request.amount_sol > virtual_balance:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient ledger balance. Available: {virtual_balance:.6f} SOL"
+        )
+    
+    # Get current on-chain balance
     custodial_address = wallet_doc["custodial_address"]
     balance_lamports = await get_wallet_balance(custodial_address)
     
@@ -452,7 +472,7 @@ async def withdraw_funds(request: WithdrawRequest):
         max_withdraw = (balance_lamports - fee_buffer) / LAMPORTS_PER_SOL
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient balance. Max withdrawal: {max_withdraw:.6f} SOL"
+            detail=f"Insufficient on-chain balance. Max withdrawal: {max_withdraw:.6f} SOL"
         )
     
     # Get keypair for signing
@@ -510,6 +530,15 @@ async def withdraw_funds(request: WithdrawRequest):
                 }
             )
             
+            # Record in internal ledger (debit)
+            await ledger_record(
+                request.user_wallet, "withdrawal", -request.amount_sol,
+                reference_id=tx_signature,
+                reference_type="withdrawal_tx",
+                description=f"Withdraw {request.amount_sol:.6f} SOL to {destination[:12]}…",
+                metadata={"tx_signature": tx_signature, "destination": destination}
+            )
+            
             logger.info(f"Withdrawal successful: {request.amount_sol} SOL from custodial wallet to {destination[:8]}...")
             
             return {
@@ -521,6 +550,8 @@ async def withdraw_funds(request: WithdrawRequest):
                 "message": f"Successfully withdrew {request.amount_sol} SOL"
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Withdrawal failed: {e}")
         raise HTTPException(status_code=500, detail=f"Withdrawal failed: {str(e)}")

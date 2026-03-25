@@ -42,6 +42,7 @@ from services.token_price import (
     get_jupiter_quote, get_token_price, get_token_price_by_mint, get_price_history
 )
 from utils.database import db
+from services.ledger import record_entry as ledger_record, get_available_balance as ledger_balance
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-trader", tags=["AI Trader"])
@@ -1432,6 +1433,18 @@ async def add_position(
         
         await db.ai_trader_positions.insert_one(position)
         
+        # Record in internal ledger (debit — lock funds for this trade)
+        try:
+            await ledger_record(
+                wallet_address, "trade_open", -input_sol,
+                reference_id=position_id,
+                reference_type="position",
+                description=f"Buy {token_symbol.upper()} — {input_sol:.6f} SOL",
+                metadata={"token_symbol": token_symbol.upper(), "token_mint": token_mint, "entry_price": entry_price}
+            )
+        except Exception as le:
+            logger.warning(f"Ledger record failed for trade_open: {le}")
+        
         # Also add to history
         history_record = {
             **position,
@@ -1529,6 +1542,18 @@ async def close_position(
             "executed_at": datetime.now(timezone.utc).isoformat()
         }
         await db.ai_trader_history.insert_one(close_record)
+        
+        # Record in internal ledger (credit — return funds + P&L)
+        try:
+            await ledger_record(
+                wallet_address, "trade_close", received_sol,
+                reference_id=position_id,
+                reference_type="position",
+                description=f"Sell {position.get('token_symbol', '?')} — {received_sol:.6f} SOL (PnL: {pnl_sol:+.6f})",
+                metadata={"token_symbol": position.get("token_symbol"), "pnl_sol": pnl_sol, "pnl_pct": pnl_pct}
+            )
+        except Exception as le:
+            logger.warning(f"Ledger record failed for trade_close: {le}")
         
         return {
             "success": True,
@@ -1670,6 +1695,19 @@ async def manual_close_position(request: ManualCloseRequest):
             "position_id": request.position_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
+        
+        # Record in internal ledger (credit — return original + P&L)
+        try:
+            received = amount_sol + pnl_sol
+            await ledger_record(
+                request.wallet_address, "trade_close", received,
+                reference_id=request.position_id,
+                reference_type="position_manual_close",
+                description=f"Manual close {position.get('token_symbol', '?')} — {received:.6f} SOL (PnL: {pnl_sol:+.6f})",
+                metadata={"token_symbol": position.get("token_symbol"), "pnl_sol": pnl_sol, "pnl_pct": pnl_percent, "exit_reason": request.exit_reason}
+            )
+        except Exception as le:
+            logger.warning(f"Ledger record failed for manual_close: {le}")
         
         return {
             "success": True,
@@ -3176,6 +3214,18 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 trigger_reason=trade_reason
                             )
                             
+                            # Record in internal ledger (debit — lock funds)
+                            try:
+                                await ledger_record(
+                                    wallet_address, "trade_open", -position_sol,
+                                    reference_id=position_id,
+                                    reference_type="auto_buy",
+                                    description=f"Auto-buy {symbol} — {position_sol:.6f} SOL",
+                                    metadata={"token_symbol": symbol, "token_mint": token_mint, "confidence": trade_confidence}
+                                )
+                            except Exception as le:
+                                logger.warning(f"Ledger record failed for auto_buy: {le}")
+                            
                             executed_trades.append({
                                 "symbol": symbol,
                                 "action": "buy",
@@ -3426,6 +3476,18 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 
                                 await db.ai_trader_positions.insert_one(position_doc)
                                 
+                                # Record in internal ledger (debit — lock funds for runner trade)
+                                try:
+                                    await ledger_record(
+                                        wallet_address, "trade_open", -position_sol,
+                                        reference_id=position_id,
+                                        reference_type="auto_buy_runner",
+                                        description=f"Auto-buy runner {symbol} — {position_sol:.6f} SOL",
+                                        metadata={"token_symbol": symbol, "runner_score": runner_score}
+                                    )
+                                except Exception as le:
+                                    logger.warning(f"Ledger record failed for runner buy: {le}")
+                                
                                 # Log the successful trade
                                 log_doc = {
                                     "log_id": str(uuid.uuid4()),
@@ -3558,6 +3620,19 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     }
                     
                     await db.ai_trader_positions.insert_one(position_doc)
+                    
+                    # Record in internal ledger (debit — lock funds for sniper trade)
+                    try:
+                        await ledger_record(
+                            wallet_address, "trade_open", -sniper_position,
+                            reference_id=position_doc.get("position_id", ""),
+                            reference_type="sniper_buy",
+                            description=f"Sniper buy {target['token_symbol']} — {sniper_position:.6f} SOL",
+                            metadata={"token_symbol": target["token_symbol"], "pair_age_minutes": target["pair_age_minutes"]}
+                        )
+                    except Exception as le:
+                        logger.warning(f"Ledger record failed for sniper buy: {le}")
+                    
                     executed_trades.append({
                         "symbol": target["token_symbol"],
                         "action": "sniper_buy",
@@ -3999,6 +4074,24 @@ async def auto_trade_check_exits(wallet_address: str):
                                 pnl_sol=pnl_sol,
                                 trigger_reason=exit_action  # "take_profit" or "stop_loss"
                             )
+                            
+                            # Record in internal ledger (credit — return funds + P&L)
+                            try:
+                                amount_sol = position.get("amount_sol", 0)
+                                received = amount_sol + pnl_sol
+                                # For DCA partial sells, only credit the partial amount
+                                if exit_action in ("dca_tp1", "dca_tp2"):
+                                    sell_frac = 0.50 if exit_action == "dca_tp1" else 0.25
+                                    received = amount_sol * sell_frac * (1 + pnl_pct / 100)
+                                await ledger_record(
+                                    wallet_address, "trade_close", received,
+                                    reference_id=position.get("position_id", ""),
+                                    reference_type=f"auto_{exit_action}",
+                                    description=f"Auto {exit_action} {symbol} — {received:.6f} SOL (PnL: {pnl_sol:+.6f})",
+                                    metadata={"token_symbol": symbol, "pnl_sol": pnl_sol, "pnl_pct": pnl_pct, "exit_action": exit_action}
+                                )
+                            except Exception as le:
+                                logger.warning(f"Ledger record failed for auto exit: {le}")
                         
                         exits.append({
                             "symbol": symbol,

@@ -39,6 +39,7 @@ from routers.signal_analytics import router as signal_analytics_router
 from routers.multichain_copy import router as multichain_copy_router
 from routers.runner_alerts import router as runner_alerts_router
 from routers.trading_competitions import router as trading_competitions_router
+from routers.ledger import router as ledger_router
 
 ALL_ROUTERS = [
     betting_router, auth_router, email_router, leaderboard_router,
@@ -51,5 +52,5 @@ ALL_ROUTERS = [
     watchlist_router, ai_trader_router, pugburn_router, simulator_router,
     telegram_router, custodial_wallet_router, social_trading_router,
     push_notifications_router, signal_analytics_router, multichain_copy_router,
-    runner_alerts_router, trading_competitions_router,
+    runner_alerts_router, trading_competitions_router, ledger_router,
 ]
