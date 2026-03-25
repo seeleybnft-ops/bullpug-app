@@ -93,6 +93,13 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Index creation (non-fatal): {e}")
 
+    # Restore ledger state if deploying with a fresh database
+    try:
+        from services.post_deploy_init import run_post_deploy_init
+        await run_post_deploy_init()
+    except Exception as e:
+        logger.warning(f"Post-deploy init (non-fatal): {e}")
+
 
 # ========== WebSocket Endpoints ==========
 @app.websocket("/ws/pot")
