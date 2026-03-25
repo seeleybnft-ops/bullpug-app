@@ -10,22 +10,18 @@ export const PROGRAM_ID = 'H8GBfrx5drPZkAQXw1ueGtBrKD5QBwbh2DE4EcP2DCFm';
 
 // Network configuration
 export const SOLANA_CONFIG = {
-  // Current network: 'devnet' | 'mainnet-beta'
-  NETWORK: 'devnet',
+  NETWORK: process.env.REACT_APP_SOLANA_NETWORK || 'devnet',
   
-  // RPC endpoints
   RPC_URLS: {
-    'devnet': 'https://api.devnet.solana.com',
+    'devnet': process.env.REACT_APP_SOLANA_DEVNET_RPC || 'https://api.devnet.solana.com',
     'mainnet-beta': process.env.REACT_APP_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
   },
   
-  // WebSocket endpoints for real-time updates
   WS_URLS: {
-    'devnet': 'wss://api.devnet.solana.com',
-    'mainnet-beta': 'wss://api.mainnet-beta.solana.com',
+    'devnet': process.env.REACT_APP_SOLANA_DEVNET_WS || 'wss://api.devnet.solana.com',
+    'mainnet-beta': process.env.REACT_APP_SOLANA_MAINNET_WS || 'wss://api.mainnet-beta.solana.com',
   },
   
-  // Commitment level
   COMMITMENT: 'confirmed',
 };
 
@@ -50,7 +46,6 @@ export const BETTING_CONFIG = {
   POT_COUNTDOWN_SECONDS: 60,
 };
 
-// Treasury wallet (receives rake)
 export const TREASURY_WALLET = process.env.REACT_APP_TREASURY_WALLET || 'we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT';
 
 // Helper to get current RPC URL
