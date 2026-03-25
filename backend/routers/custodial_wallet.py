@@ -444,6 +444,85 @@ async def confirm_deposit(user_wallet: str, tx_signature: str, amount_lamports: 
     }
 
 
+@router.post("/detect-deposit/{user_wallet}")
+async def detect_deposit(user_wallet: str):
+    """
+    Auto-detect new deposits by comparing on-chain balance with tracked deposits.
+    If new SOL is found, record it as a deposit in the ledger.
+    """
+    wallet_doc = await db.custodial_wallets.find_one({"user_wallet": user_wallet})
+    if not wallet_doc:
+        raise HTTPException(status_code=404, detail="Custodial wallet not found")
+
+    custodial_address = wallet_doc["custodial_address"]
+
+    # Get current on-chain balance
+    on_chain_lamports = await get_wallet_balance(custodial_address)
+    on_chain_sol = on_chain_lamports / LAMPORTS_PER_SOL
+
+    # Get previously stored balance
+    stored_lamports = wallet_doc.get("balance_lamports", 0)
+
+    # Calculate new deposit amount
+    diff_lamports = on_chain_lamports - stored_lamports
+    diff_sol = diff_lamports / LAMPORTS_PER_SOL
+
+    if diff_lamports <= 0:
+        # Update balance in case it decreased
+        await db.custodial_wallets.update_one(
+            {"user_wallet": user_wallet},
+            {"$set": {"balance_lamports": on_chain_lamports}}
+        )
+        return {
+            "success": True,
+            "detected": False,
+            "on_chain_sol": round(on_chain_sol, 6),
+            "message": "No new deposit detected"
+        }
+
+    # New SOL detected! Record it
+    await db.custodial_wallets.update_one(
+        {"user_wallet": user_wallet},
+        {
+            "$set": {
+                "balance_lamports": on_chain_lamports,
+                "last_activity": datetime.now(timezone.utc).isoformat(),
+            },
+            "$inc": {"total_deposits_lamports": diff_lamports},
+            "$push": {
+                "transaction_history": {
+                    "tx_type": "deposit",
+                    "amount_lamports": diff_lamports,
+                    "amount_sol": round(diff_sol, 6),
+                    "tx_signature": "auto_detected",
+                    "status": "confirmed",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+            },
+        },
+    )
+
+    # Record in internal ledger
+    await ledger_record(
+        user_wallet,
+        "deposit",
+        round(diff_sol, 6),
+        reference_type="auto_detected_deposit",
+        description=f"Deposit detected: {diff_sol:.6f} SOL",
+        metadata={"on_chain_lamports": on_chain_lamports, "previous_lamports": stored_lamports},
+    )
+
+    logger.info(f"Auto-detected deposit of {diff_sol:.6f} SOL for {user_wallet[:8]}…")
+
+    return {
+        "success": True,
+        "detected": True,
+        "deposit_sol": round(diff_sol, 6),
+        "new_balance_sol": round(on_chain_sol, 6),
+        "message": f"Deposit of {diff_sol:.6f} SOL detected and recorded",
+    }
+
+
 @router.post("/withdraw")
 async def withdraw_funds(request: WithdrawRequest):
     """Withdraw SOL from custodial wallet back to user's wallet"""

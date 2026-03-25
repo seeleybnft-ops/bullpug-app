@@ -34,6 +34,107 @@ import {
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
+function DepositModal({ custodialWallet, walletAddress, onClose, onDepositDetected }) {
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState(null);
+
+  const safeCopyAddr = () => {
+    const addr = custodialWallet.wallet_address;
+    const fallback = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = addr;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        toast.success("Address copied!");
+      } catch { toast.error("Copy failed — please copy manually"); }
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(addr).then(() => toast.success("Address copied!"), fallback);
+    } else { fallback(); }
+  };
+
+  const detectDeposit = async () => {
+    setDetecting(true);
+    try {
+      const { data } = await axios.post(`${API}/custodial-wallet/detect-deposit/${walletAddress}`);
+      if (data.detected) {
+        setDetected(data);
+        toast.success(`Deposit of ${data.deposit_sol} SOL detected!`);
+        onDepositDetected();
+      } else {
+        toast.info("No new deposit found yet. Make sure the transaction is confirmed on-chain.");
+      }
+    } catch (e) {
+      toast.error("Failed to check for deposit");
+    }
+    setDetecting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-[#00FFA3]/30" onClick={e => e.stopPropagation()} data-testid="deposit-modal">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-[#00FFA3]" />
+            Deposit SOL
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="space-y-4">
+          <div className="p-4 bg-black/30 rounded-xl">
+            <p className="text-xs text-slate-500 mb-2">Send SOL to this address:</p>
+            <code className="block p-3 bg-black/50 rounded-lg text-sm font-mono text-[#00FFA3] break-all">
+              {custodialWallet.wallet_address}
+            </code>
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={safeCopyAddr} variant="outline" className="flex-1 border-[#00FFA3]/30 text-[#00FFA3]">
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Address
+            </Button>
+          </div>
+
+          <div className="border-t border-white/10 pt-4">
+            <p className="text-xs text-slate-400 mb-3">
+              After sending SOL from your wallet, click below to confirm and record the deposit:
+            </p>
+            <Button
+              onClick={detectDeposit}
+              disabled={detecting}
+              className="w-full bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80 font-bold"
+              data-testid="detect-deposit-btn"
+            >
+              {detecting ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking...</>
+              ) : (
+                <><CheckCircle className="w-4 h-4 mr-2" /> I've Sent SOL — Confirm Deposit</>
+              )}
+            </Button>
+          </div>
+
+          {detected && (
+            <div className="p-4 bg-[#00FFA3]/10 border border-[#00FFA3]/30 rounded-xl">
+              <p className="text-sm font-bold text-[#00FFA3]">Deposit Recorded!</p>
+              <p className="text-xs text-slate-300 mt-1">
+                {detected.deposit_sol} SOL has been added to your Fund Ledger.
+              </p>
+              <Button onClick={onClose} className="w-full mt-3 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80">
+                Done
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AITrader() {
   const { publicKey, connected, signTransaction } = useWallet();
   const { connection } = useConnection();
@@ -1988,65 +2089,14 @@ export default function AITrader() {
         )}
       </div>
 
-      {/* Deposit Modal — lifted from UnifiedAutoTrader for global access */}
+      {/* Deposit Modal — with auto-detection flow */}
       {showDepositModal && custodialWallet && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDepositModal(false)}>
-          <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-[#00FFA3]/30" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-[#00FFA3]" />
-                Deposit SOL
-              </h3>
-              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="p-4 bg-black/30 rounded-xl">
-                <p className="text-xs text-slate-500 mb-2">Send SOL to this address:</p>
-                <code className="block p-3 bg-black/50 rounded-lg text-sm font-mono text-[#00FFA3] break-all">
-                  {custodialWallet.wallet_address}
-                </code>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                After sending, the balance will update automatically within a few seconds.
-              </p>
-              <div className="flex gap-3">
-                <Button onClick={() => setShowDepositModal(false)} variant="outline" className="flex-1 border-white/20">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    const addr = custodialWallet.wallet_address;
-                    const fallback = () => {
-                      try {
-                        const ta = document.createElement("textarea");
-                        ta.value = addr;
-                        ta.style.position = "fixed";
-                        ta.style.left = "-9999px";
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand("copy");
-                        document.body.removeChild(ta);
-                        toast.success("Address copied!");
-                      } catch { toast.error("Copy failed — please copy manually"); }
-                    };
-                    if (navigator.clipboard && window.isSecureContext) {
-                      navigator.clipboard.writeText(addr).then(
-                        () => toast.success("Address copied!"),
-                        () => fallback()
-                      );
-                    } else { fallback(); }
-                  }}
-                  className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Address
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DepositModal
+          custodialWallet={custodialWallet}
+          walletAddress={walletAddress}
+          onClose={() => setShowDepositModal(false)}
+          onDepositDetected={() => { fetchCustodialWallet(); }}
+        />
       )}
     </div>
   );

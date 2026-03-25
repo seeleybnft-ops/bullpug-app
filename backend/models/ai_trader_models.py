@@ -24,7 +24,7 @@ class TraderSettings(BaseModel):
     auto_approve: bool = False
     # Auto-Trade Settings
     auto_trade_enabled: bool = False
-    auto_trade_mode: str = Field(default="conservative", pattern="^(conservative|moderate|aggressive)$")
+    auto_trade_mode: str = Field(default="conservative", pattern="^(conservative|moderate|normal|aggressive|sniper)$")
     auto_min_confidence: float = Field(default=0.65, ge=0.5, le=0.95)
     auto_max_daily_trades: int = Field(default=3, ge=1, le=10)
     auto_max_position_sol: float = Field(default=0.2, ge=0.01, le=1.0)

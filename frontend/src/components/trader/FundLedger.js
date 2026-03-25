@@ -64,6 +64,8 @@ export default function FundLedger({ walletAddress, custodialWallet, onDeposit, 
   const fetchData = useCallback(async () => {
     if (!walletAddress) return;
     try {
+      // Auto-detect deposits on each refresh
+      await axios.post(`${API}/custodial-wallet/detect-deposit/${walletAddress}`).catch(() => null);
       const [balRes, histRes] = await Promise.all([
         axios.get(`${API}/ledger/balance/${walletAddress}`).catch(() => null),
         axios.get(`${API}/ledger/history/${walletAddress}?limit=20`).catch(() => null),
