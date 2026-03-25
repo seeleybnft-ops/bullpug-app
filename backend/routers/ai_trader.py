@@ -47,6 +47,40 @@ from services.ledger import record_entry as ledger_record, get_available_balance
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-trader", tags=["AI Trader"])
 
+RAKE_PERCENT = 2.5  # Platform rake on profitable trades (% of profit only)
+
+
+async def apply_rake(wallet_address: str, pnl_sol: float, position_id: str, token_symbol: str) -> float:
+    """
+    Apply a rake (platform fee) on profitable trades.
+    Takes RAKE_PERCENT of the PROFIT ONLY — never touches the original investment.
+    Returns the rake amount deducted (0 if trade was not profitable).
+    """
+    if pnl_sol <= 0:
+        return 0.0
+
+    rake_amount = round(pnl_sol * (RAKE_PERCENT / 100), 9)
+
+    try:
+        await ledger_record(
+            wallet_address, "fee", -rake_amount,
+            reference_id=position_id,
+            reference_type="rake",
+            description=f"Rake {RAKE_PERCENT}% on {token_symbol} profit ({pnl_sol:+.6f} SOL)",
+            metadata={
+                "token_symbol": token_symbol,
+                "gross_pnl_sol": pnl_sol,
+                "rake_percent": RAKE_PERCENT,
+                "rake_sol": rake_amount,
+            }
+        )
+        logger.info(f"Rake applied: {rake_amount:.6f} SOL ({RAKE_PERCENT}% of {pnl_sol:.6f} profit) for {token_symbol} position {position_id}")
+    except Exception as e:
+        logger.warning(f"Rake ledger record failed: {e}")
+
+    return rake_amount
+
+
 async def ensure_sufficient_sol_for_trade(wallet_address: str, required_sol: float) -> dict:
     """
     Ensure the custodial wallet has sufficient SOL for a trade.
@@ -1555,6 +1589,9 @@ async def close_position(
         except Exception as le:
             logger.warning(f"Ledger record failed for trade_close: {le}")
         
+        # Apply rake on profit
+        rake_amount = await apply_rake(wallet_address, pnl_sol, position_id, position.get("token_symbol", "?"))
+        
         return {
             "success": True,
             "message": "Position closed",
@@ -1562,6 +1599,11 @@ async def close_position(
             "pnl": {
                 "sol": pnl_sol,
                 "percent": pnl_pct
+            },
+            "rake": {
+                "applied": rake_amount > 0,
+                "amount_sol": rake_amount,
+                "percent": RAKE_PERCENT
             }
         }
         
@@ -1709,6 +1751,9 @@ async def manual_close_position(request: ManualCloseRequest):
         except Exception as le:
             logger.warning(f"Ledger record failed for manual_close: {le}")
         
+        # Apply rake on profit
+        rake_amount = await apply_rake(request.wallet_address, pnl_sol, request.position_id, position.get("token_symbol", "?"))
+        
         return {
             "success": True,
             "message": f"Position closed at ${exit_price:.8f}" if exit_price else "Position closed",
@@ -1716,7 +1761,12 @@ async def manual_close_position(request: ManualCloseRequest):
             "entry_price": entry_price,
             "exit_price": exit_price,
             "pnl_percent": pnl_percent,
-            "pnl_sol": pnl_sol
+            "pnl_sol": pnl_sol,
+            "rake": {
+                "applied": rake_amount > 0,
+                "amount_sol": rake_amount,
+                "percent": RAKE_PERCENT
+            }
         }
         
     except HTTPException:
@@ -4092,6 +4142,14 @@ async def auto_trade_check_exits(wallet_address: str):
                                 )
                             except Exception as le:
                                 logger.warning(f"Ledger record failed for auto exit: {le}")
+                            
+                            # Apply rake on profit (2.5% of profit only)
+                            actual_pnl = pnl_sol
+                            # For DCA partial exits, scale the P&L to the sold fraction
+                            if exit_action in ("dca_tp1", "dca_tp2"):
+                                sell_frac = 0.50 if exit_action == "dca_tp1" else 0.25
+                                actual_pnl = position.get("amount_sol", 0) * sell_frac * (pnl_pct / 100)
+                            await apply_rake(wallet_address, actual_pnl, position.get("position_id", ""), symbol)
                         
                         exits.append({
                             "symbol": symbol,

@@ -43,3 +43,27 @@ async def api_reconcile():
 async def api_migrate():
     """One-time migration from existing custodial wallet data into the ledger."""
     return await migrate_existing_data()
+
+
+@router.get("/rake-stats/{user_wallet}")
+async def api_rake_stats(user_wallet: str):
+    """Get rake (platform fee) statistics for a user."""
+    pipeline = [
+        {"$match": {"user_wallet": user_wallet, "entry_type": "fee", "metadata.rake_percent": {"$exists": True}}},
+        {"$group": {
+            "_id": None,
+            "total_rake_sol": {"$sum": {"$abs": "$amount_sol"}},
+            "total_gross_profit_sol": {"$sum": "$metadata.gross_pnl_sol"},
+            "rake_count": {"$sum": 1},
+        }},
+    ]
+    result = await db.user_ledger.aggregate(pipeline).to_list(1)
+    if result:
+        r = result[0]
+        return {
+            "total_rake_sol": round(r["total_rake_sol"], 6),
+            "total_gross_profit_sol": round(r["total_gross_profit_sol"], 6),
+            "rake_count": r["rake_count"],
+            "rake_percent": 2.5,
+        }
+    return {"total_rake_sol": 0, "total_gross_profit_sol": 0, "rake_count": 0, "rake_percent": 2.5}

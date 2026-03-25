@@ -1,0 +1,118 @@
+{
+  "summary": "Iteration 83: Verified NEW rake system (2.5% platform fee on profitable trades). All 21 backend tests passed. Rake correctly applies ONLY to profit portion, not original investment. Rake stats endpoint returns accurate totals. Fee entries in ledger have correct metadata (rake_percent, gross_pnl_sol). Frontend loads without errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. GET /api/ accessible",
+    "2. GET /api/ai-trader/platform-stats returns 200",
+    "3. GET /api/ai-trader/settings/{wallet} returns 200",
+    "4. POST /api/ai-trader/add-position creates test position",
+    "5. POST /api/ai-trader/manual-close-position with PROFIT returns rake object with applied=true, amount_sol>0, percent=2.5",
+    "6. POST /api/ai-trader/manual-close-position with LOSS returns rake object with applied=false, amount_sol=0",
+    "7. Rake calculation: 2.5% of profit ONLY (verified: 0.01 SOL profit → 0.00025 SOL rake)",
+    "8. GET /api/ledger/rake-stats/{wallet} returns total_rake_sol, total_gross_profit_sol, rake_count, rake_percent",
+    "9. GET /api/ledger/history/{wallet}?entry_type=fee returns rake entries",
+    "10. Fee entries have metadata.rake_percent=2.5 and metadata.gross_pnl_sol",
+    "11. Fee entries have negative amount_sol (debit)",
+    "12. GET /api/ledger/balance/{wallet} includes total_fees_sol field",
+    "13. GET /api/ledger/balance/{wallet} returns all required fields",
+    "14. GET /api/ledger/history/{wallet} returns entries with filtering",
+    "15. GET /api/ledger/reconciliation returns admin data",
+    "16. Rake calculation accuracy test: 0.1 SOL investment, 50% profit → 0.00125 SOL rake",
+    "17. GET /api/ai-trader/positions/{wallet} returns 200",
+    "18. GET /api/ai-trader/history/{wallet} returns 200",
+    "19. Frontend homepage loads without errors",
+    "20. Frontend AI Trader page loads without errors",
+    "21. Page title is 'Bullpug'"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "rake_on_profit": {
+      "status": "VERIFIED",
+      "endpoint": "POST /api/ai-trader/manual-close-position",
+      "behavior": "Returns rake object with applied=true, amount_sol>0 when pnl_sol>0"
+    },
+    "no_rake_on_loss": {
+      "status": "VERIFIED",
+      "endpoint": "POST /api/ai-trader/manual-close-position",
+      "behavior": "Returns rake object with applied=false, amount_sol=0 when pnl_sol<=0"
+    },
+    "rake_calculation": {
+      "status": "VERIFIED",
+      "formula": "rake_amount = profit * 2.5%",
+      "example": "0.01 SOL profit → 0.00025 SOL rake"
+    },
+    "rake_stats_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ledger/rake-stats/{wallet}",
+      "fields": ["total_rake_sol", "total_gross_profit_sol", "rake_count", "rake_percent"]
+    },
+    "fee_entries_in_ledger": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ledger/history/{wallet}?entry_type=fee",
+      "metadata": ["rake_percent", "gross_pnl_sol", "rake_sol", "token_symbol"]
+    },
+    "ledger_balance_includes_fees": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ledger/balance/{wallet}",
+      "field": "total_fees_sol"
+    },
+    "previous_ledger_endpoints": {
+      "status": "VERIFIED",
+      "endpoints": ["/api/ledger/balance", "/api/ledger/history", "/api/ledger/reconciliation"]
+    },
+    "other_endpoints": {
+      "status": "VERIFIED",
+      "endpoints": ["/api/", "/api/ai-trader/platform-stats", "/api/ai-trader/settings"]
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration83_rake.py",
+    "/app/test_reports/pytest/pytest_iteration83_rake.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: apply_rake() function at lines 53-81 correctly checks pnl_sol > 0 before applying rake",
+    "POSITIVE: Rake is calculated as pnl_sol * (RAKE_PERCENT / 100) - only on profit, not investment",
+    "POSITIVE: Rake is recorded as 'fee' entry with reference_type='rake' and comprehensive metadata",
+    "POSITIVE: manual_close_position returns rake object in response (lines 1765-1769)",
+    "POSITIVE: close_position also returns rake object (lines 1603-1607)",
+    "POSITIVE: rake-stats endpoint aggregates fee entries with rake_percent metadata (lines 48-69 in ledger.py)",
+    "POSITIVE: Ledger balance breakdown includes total_fees_sol field"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration83_rake.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "100% (all pages load without errors)"
+  },
+  "test_credentials": {
+    "access_code": "bullpug2026",
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "Created 4 test positions (RAKETEST_PROFIT, RAKETEST_LOSS, RAKETEST_CALC) for rake testing. 3 rake fee entries now exist in ledger.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 83 verified the NEW rake system. Key points: 1) Rake is 2.5% of PROFIT ONLY, never touches original investment, 2) apply_rake() function at lines 53-81 in ai_trader.py, 3) Rake entries are stored as 'fee' type in user_ledger with metadata.rake_percent and metadata.gross_pnl_sol, 4) GET /api/ledger/rake-stats/{wallet} aggregates rake data, 5) Test wallet now has 3 rake entries totaling 0.001525 SOL from 0.061 SOL gross profit. Previous ledger system from iteration 82 still works.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All integrations are live - rake uses MongoDB user_ledger collection"
+  },
+  "rake_test_data": {
+    "total_rake_sol": 0.001525,
+    "total_gross_profit_sol": 0.061,
+    "rake_count": 3,
+    "rake_percent": 2.5,
+    "test_positions_created": ["RAKETEST_PROFIT", "RAKETEST_LOSS", "RAKETEST_CALC"]
+  }
+}
