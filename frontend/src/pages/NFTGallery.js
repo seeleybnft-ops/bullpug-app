@@ -5,18 +5,12 @@ import { toast } from "sonner";
 import { Sparkles, Lock, Eye } from "lucide-react";
 
 const GALLERY = [
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.01.54_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/09.10.2024_19.19.17_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.02.50_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.02.38_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.03.28_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.04.59_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.06.12_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.10.27_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.07.25_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.11.16_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.11.45_rec.png",
-  "https://bullpug.com/wp-content/uploads/2024/10/25.10.2024_17.14.33_rec.png",
+  "https://images.unsplash.com/photo-1511862190988-d7dd089c60e0?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
+  "https://images.pexels.com/photos/1884500/pexels-photo-1884500.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+  "https://images.unsplash.com/photo-1549665611-985efeea9f39?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
+  "https://images.unsplash.com/photo-1629755725339-efd38b8253bb?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
+  "https://images.unsplash.com/photo-1629757257537-62cedbcffbe6?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
+  "https://images.pexels.com/photos/3609068/pexels-photo-3609068.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
 ];
 
 const RARITIES = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];

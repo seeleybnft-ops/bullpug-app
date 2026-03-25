@@ -478,10 +478,11 @@ export default function UnifiedAutoTrader({
             <StatCard
               icon={<Target className="w-4 h-4" />}
               label="Mode"
-              value={status?.settings?.mode || 'Conservative'}
+              value={(traderSettings?.trading_mode || status?.settings?.mode || 'normal').charAt(0).toUpperCase() + (traderSettings?.trading_mode || status?.settings?.mode || 'normal').slice(1)}
               color={
-                status?.settings?.mode === 'aggressive' ? '#FF6B6B' : 
-                status?.settings?.mode === 'moderate' ? '#F5D300' : '#00FFA3'
+                (traderSettings?.trading_mode || status?.settings?.mode) === 'aggressive' ? '#FF6B6B' : 
+                (traderSettings?.trading_mode || status?.settings?.mode) === 'sniper' ? '#FF6B6B' :
+                (traderSettings?.trading_mode || status?.settings?.mode) === 'normal' ? '#F5D300' : '#00FFA3'
               }
             />
             <StatCard

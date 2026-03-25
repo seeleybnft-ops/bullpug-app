@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles, Star, Moon, Rocket, Crown, Building, Shield, Calendar } from "lucide-react";
 
-const LOGO = "https://bullpug.com/wp-content/uploads/2024/10/04.10.2024_13.24.29_rec-1.png";
+const LOGO = "https://static.prod-images.emergentagent.com/jobs/5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/images/f1d0541c7fe62eec34f67eb36d2ef523f876a709a22868a2e44ba8658e32c7d2.png";
 
 export default function Lore() {
   const { t } = useTranslation();
