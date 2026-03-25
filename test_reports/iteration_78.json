@@ -86,7 +86,7 @@
   },
   "test_credentials": {
     "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
-    "backend_url": "https://pug-journal-2.preview.emergentagent.com"
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
   },
   "seed_data_creation": "None - used existing data",
   "retest_needed": false,

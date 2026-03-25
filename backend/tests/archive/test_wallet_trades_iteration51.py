@@ -7,7 +7,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pug-journal-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://cosmic-runner-hub.preview.emergentagent.com')
 
 # Test wallet addresses
 TEST_SOLANA_ADDRESS = "7T4vW3VJmYkXHsxNQ1DKwCPxvw8bQ3v4J6vZ9R2Kk1Lp"

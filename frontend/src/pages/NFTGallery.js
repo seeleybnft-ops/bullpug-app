@@ -5,12 +5,12 @@ import { toast } from "sonner";
 import { Sparkles, Lock, Eye } from "lucide-react";
 
 const GALLERY = [
-  "https://images.unsplash.com/photo-1511862190988-d7dd089c60e0?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
-  "https://images.pexels.com/photos/1884500/pexels-photo-1884500.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  "https://images.unsplash.com/photo-1549665611-985efeea9f39?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
-  "https://images.unsplash.com/photo-1629755725339-efd38b8253bb?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
-  "https://images.unsplash.com/photo-1629757257537-62cedbcffbe6?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=600",
-  "https://images.pexels.com/photos/3609068/pexels-photo-3609068.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/hx8owqo5__0b33bdf6-ff6f-4e81-b054-8864266da936.jfif",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/dlqanw32__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/8722rrxo__19eae00a-c32d-4598-8368-2b9a2cea09f5.jfif",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/ehdeto17__22f76edb-e23d-4bcb-8f0d-2dcbf2d49f75.jfif",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/jx1varuz__330ee0eb-9f7e-4e7c-8eb6-4e3508d2dca4.jfif",
+  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/lbpfaqyq__767efd96-bade-40da-a2e8-e10982c35987.jfif",
 ];
 
 const RARITIES = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];

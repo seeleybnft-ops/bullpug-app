@@ -18,52 +18,10 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
-# Import routers
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
-from routers import (
-    betting_router,
-    auth_router,
-    email_router,
-    leaderboard_router,
-    skins_router,
-    forum_router,
-    messages_router,
-    journal_router,
-    showcase_router,
-    notifications_router,
-    reflections_router,
-    pot_router,
-    admin_router,
-    newsletter_router,
-    checkout_router,
-    governance_router,
-    staking_router,
-    wallet_router,
-    escrow_router,
-    tokenomics_router
-)
-from routers.prize_pool import router as prize_pool_router
-from routers.profile import router as profile_router
-from routers.ai_suggestions import router as ai_suggestions_router
-from routers.badges import router as badges_router
-from routers.wallet_trades import router as wallet_trades_router
-from routers.portfolio import router as portfolio_router
-from routers.achievements import router as achievements_router
-from routers.ai_chat import router as ai_chat_router
-from routers.watchlist import router as watchlist_router
-from routers.ai_trader import router as ai_trader_router
-from routers.pugburn import router as pugburn_router
-from routers.simulator import router as simulator_router
-from routers.telegram import router as telegram_router
-from routers.custodial_wallet import router as custodial_wallet_router
-from routers.social_trading import router as social_trading_router
-from routers.push_notifications import router as push_notifications_router
-from routers.signal_analytics import router as signal_analytics_router
-from routers.multichain_copy import router as multichain_copy_router
-from routers.runner_alerts import router as runner_alerts_router
-from routers.trading_competitions import router as trading_competitions_router
+from routers import ALL_ROUTERS
 from routers.pot import get_pot_data
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
 from utils.database import db
@@ -105,46 +63,8 @@ async def root():
 
 
 # ========== Register All Routers ==========
-api_router.include_router(betting_router)
-api_router.include_router(auth_router)
-api_router.include_router(email_router)
-api_router.include_router(leaderboard_router)
-api_router.include_router(skins_router)
-api_router.include_router(forum_router)
-api_router.include_router(messages_router)
-api_router.include_router(journal_router)
-api_router.include_router(showcase_router)
-api_router.include_router(notifications_router)
-api_router.include_router(reflections_router)
-api_router.include_router(pot_router)
-api_router.include_router(admin_router)
-api_router.include_router(newsletter_router)
-api_router.include_router(checkout_router)
-api_router.include_router(governance_router)
-api_router.include_router(staking_router)
-api_router.include_router(wallet_router)
-api_router.include_router(escrow_router)
-api_router.include_router(tokenomics_router)
-api_router.include_router(prize_pool_router)
-api_router.include_router(profile_router)
-api_router.include_router(ai_suggestions_router)
-api_router.include_router(badges_router)
-api_router.include_router(wallet_trades_router)
-api_router.include_router(portfolio_router)
-api_router.include_router(achievements_router)
-api_router.include_router(ai_chat_router)
-api_router.include_router(watchlist_router)
-api_router.include_router(ai_trader_router)
-api_router.include_router(pugburn_router)
-api_router.include_router(simulator_router)
-api_router.include_router(telegram_router)
-api_router.include_router(custodial_wallet_router)
-api_router.include_router(social_trading_router)
-api_router.include_router(push_notifications_router)
-api_router.include_router(signal_analytics_router)
-api_router.include_router(multichain_copy_router)
-api_router.include_router(runner_alerts_router)
-api_router.include_router(trading_competitions_router)
+for r in ALL_ROUTERS:
+    api_router.include_router(r)
 
 # Register the complete api_router with the app
 app.include_router(api_router)
