@@ -55,6 +55,11 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Navigation: dot indicators, prev/next arrows, 8-second auto-rotation
 - Uses live data from `/api/leaderboard` and `/api/ai-trader/platform-stats`
 
+### Bug Fixes (March 25, 2026 — Session 2)
+- **Tab Title & Favicon:** Changed title from "Emergent | Fullstack App" to "Bullpug" and added custom favicon pointing to Bullpug logo
+- **"Made with Emergent" badge:** Removed floating badge from bottom-right corner (was in index.html)
+- **Trading Mode not reflecting choice:** ROOT CAUSE: `save_settings` saved to `trading_mode` field but auto-trade status endpoint read from `auto_trade_mode` field. FIX: `save_settings` now syncs both fields, and status endpoint reads `trading_mode` first with fallback
+
 ### Bug Fixes (March 25, 2026)
 - **Gallery Images:** Replaced stock Unsplash/Pexels photos with user's original Bullpug branding images in HomePage.js and NFTGallery.js
 - **Logo:** Verified correct display in Navbar and Footer using user's artifact URLs
