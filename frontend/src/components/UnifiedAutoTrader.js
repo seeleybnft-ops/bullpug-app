@@ -58,9 +58,6 @@ export default function UnifiedAutoTrader({
   const [activeSection, setActiveSection] = useState('controls');
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
   
   // Analytics state
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -374,95 +371,6 @@ export default function UnifiedAutoTrader({
       {/* Controls & Wallet Section */}
       {activeSection === 'controls' && (
         <div className="space-y-4">
-          {/* Custodial Wallet Card */}
-          <div className="glass-card rounded-xl p-5 border border-[#00FFA3]/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#00FFA3]" />
-                <h3 className="font-bold text-white">Trading Wallet</h3>
-                <Badge className="bg-[#00FFA3]/20 text-[#00FFA3] text-[10px]">SECURE</Badge>
-              </div>
-              <Button
-                onClick={onRefreshCustodial}
-                variant="outline"
-                size="sm"
-                className="border-white/10"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {custodialWallet ? (
-              <div className="space-y-4">
-                {/* Wallet Info */}
-                <div className="flex items-center justify-between p-3 bg-black/30 rounded-xl">
-                  <div>
-                    <p className="text-xs text-slate-500">Wallet Address</p>
-                    <p className="font-mono text-sm text-white truncate max-w-[200px]">
-                      {custodialWallet.wallet_address?.slice(0, 8)}...{custodialWallet.wallet_address?.slice(-6)}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => {
-                      safeCopyToClipboard(custodialWallet.wallet_address);
-                      toast.success('Address copied!');
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="border-white/10"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Balance */}
-                <div className="p-4 bg-gradient-to-r from-[#00FFA3]/10 to-[#00C2FF]/10 rounded-xl border border-[#00FFA3]/20">
-                  <p className="text-xs text-slate-400 mb-1">Available Balance</p>
-                  <p className="text-3xl font-bold text-white">
-                    {custodialWallet.balance_sol?.toFixed(4) || '0.0000'} <span className="text-lg text-slate-400">SOL</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    ≈ ${(custodialWallet.balance_sol * 150).toFixed(2)} USD
-                  </p>
-                </div>
-
-                {/* Deposit/Withdraw Buttons */}
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => setShowDepositModal(true)}
-                    className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
-                  >
-                    <ArrowRight className="w-4 h-4 mr-2 rotate-90" />
-                    Deposit
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const amount = prompt('Enter amount to withdraw (SOL):');
-                      if (amount && parseFloat(amount) > 0) {
-                        onWithdraw(parseFloat(amount));
-                      }
-                    }}
-                    variant="outline"
-                    className="flex-1 border-white/20"
-                    disabled={!custodialWallet.balance_sol || custodialWallet.balance_sol <= 0}
-                  >
-                    <ArrowRight className="w-4 h-4 mr-2 -rotate-90" />
-                    Withdraw
-                  </Button>
-                </div>
-
-                <p className="text-[10px] text-slate-500">
-                  <span className="text-[#D946EF]">Hybrid Mode:</span> Funds in this wallet can be used for automated trades. 
-                  Your main wallet remains untouched.
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-slate-500 text-sm">Loading trading wallet...</p>
-              </div>
-            )}
-          </div>
-
           {/* Today's Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard
@@ -558,56 +466,6 @@ export default function UnifiedAutoTrader({
       {/* Adaptive Learning Section */}
       {activeSection === 'adaptive' && (
         <AdaptiveLearning />
-      )}
-
-      {/* Deposit Modal */}
-      {showDepositModal && custodialWallet && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDepositModal(false)}>
-          <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-[#00FFA3]/30" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-[#00FFA3]" />
-                Deposit SOL
-              </h3>
-              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-4 bg-black/30 rounded-xl">
-                <p className="text-xs text-slate-500 mb-2">Send SOL to this address:</p>
-                <code className="block p-3 bg-black/50 rounded-lg text-sm font-mono text-[#00FFA3] break-all">
-                  {custodialWallet.wallet_address}
-                </code>
-              </div>
-
-              <p className="text-[10px] text-slate-500">
-                After sending, the balance will update automatically within a few seconds.
-              </p>
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowDepositModal(false)}
-                  variant="outline"
-                  className="flex-1 border-white/20"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    await safeCopyToClipboard(custodialWallet.wallet_address);
-                    toast.success('Address copied!');
-                  }}
-                  className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Address
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

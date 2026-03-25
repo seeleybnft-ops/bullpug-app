@@ -17,7 +17,7 @@ import {
   History, Info, AlertTriangle,
   Rocket, CheckCircle, AlertCircle, Timer, Trash2, Bell,
   Cpu, Users, Globe,
-  RotateCcw, X
+  RotateCcw, X, Wallet, Copy
 } from "lucide-react";
 import { ShareButton } from "../components/SocialShare";
 import SocialTrading from "../components/SocialTrading";
@@ -27,7 +27,7 @@ import UnifiedAutoTrader from "../components/UnifiedAutoTrader";
 import RunnerTokens from "../components/RunnerTokens";
 import RunnerAlertManager from "../components/RunnerAlertManager";
 import {
-  StatCard, RiskCalculator, SignalCard, PositionCard,
+  RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
   IntelligenceDashboard, TradingModeSelector, PerformanceScorecard,
   FundLedger,
@@ -52,6 +52,7 @@ export default function AITrader() {
   const [scanning, setScanning] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showSettings, setShowSettings] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
   const [lastScan, setLastScan] = useState(null);
   const [autoScanEnabled, setAutoScanEnabled] = useState(true);
   
@@ -1206,35 +1207,13 @@ export default function AITrader() {
           />
         )}
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-8">
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />}
-            label="Win Rate"
-            value={loading ? "..." : `${history.stats.win_rate?.toFixed(1) || 0}%`}
-            color={history.stats.win_rate >= 50 ? "#00FFA3" : "#FF6B6B"}
-            testId="stat-win-rate"
-          />
-          <StatCard
-            icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />}
-            label="Total P&L"
-            value={loading ? "..." : `${history.stats.total_pnl_sol >= 0 ? '+' : ''}${history.stats.total_pnl_sol?.toFixed(4) || 0} SOL`}
-            color={history.stats.total_pnl_sol >= 0 ? "#00FFA3" : "#FF6B6B"}
-            testId="stat-pnl"
-          />
-          <StatCard
-            icon={<History className="w-4 h-4 sm:w-5 sm:h-5" />}
-            label="Total Trades"
-            value={loading ? "..." : history.stats.total_trades || 0}
-            color="#D946EF"
-            testId="stat-trades"
-          />
-          <StatCard
-            icon={<Target className="w-4 h-4 sm:w-5 sm:h-5" />}
-            label="Open Positions"
-            value={loading ? "..." : positions.length}
-            color="#00C2FF"
-            testId="stat-positions"
+        {/* Fund Ledger — Always visible at top */}
+        <div className="mb-6 sm:mb-8">
+          <FundLedger
+            walletAddress={walletAddress}
+            custodialWallet={custodialWallet}
+            onDeposit={() => setShowDepositModal(true)}
+            onWithdraw={withdrawFromCustodial}
           />
         </div>
         
@@ -1348,9 +1327,6 @@ export default function AITrader() {
                     autoTradeStatus={autoTradeStatus}
                     onUpdateSettings={updateAutoTradeSettings}
                   />
-
-                  {/* Fund Ledger — Per-user balance tracking */}
-                  <FundLedger walletAddress={walletAddress} />
 
                   {/* Performance Scorecard */}
                   <PerformanceScorecard walletAddress={walletAddress} />
@@ -2011,6 +1987,58 @@ export default function AITrader() {
           </>
         )}
       </div>
+
+      {/* Deposit Modal — lifted from UnifiedAutoTrader for global access */}
+      {showDepositModal && custodialWallet && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDepositModal(false)}>
+          <div className="bg-[#12121A] rounded-2xl p-6 max-w-md w-full border border-[#00FFA3]/30" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-[#00FFA3]" />
+                Deposit SOL
+              </h3>
+              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-black/30 rounded-xl">
+                <p className="text-xs text-slate-500 mb-2">Send SOL to this address:</p>
+                <code className="block p-3 bg-black/50 rounded-lg text-sm font-mono text-[#00FFA3] break-all">
+                  {custodialWallet.wallet_address}
+                </code>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                After sending, the balance will update automatically within a few seconds.
+              </p>
+              <div className="flex gap-3">
+                <Button onClick={() => setShowDepositModal(false)} variant="outline" className="flex-1 border-white/20">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    try {
+                      navigator.clipboard.writeText(custodialWallet.wallet_address);
+                    } catch {
+                      const ta = document.createElement("textarea");
+                      ta.value = custodialWallet.wallet_address;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand("copy");
+                      document.body.removeChild(ta);
+                    }
+                    toast.success("Address copied!");
+                  }}
+                  className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Address
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
