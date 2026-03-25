@@ -83,6 +83,48 @@ async def api_reset_fresh_start():
     }
 
 
+@router.post("/admin/sync-open-positions/{user_wallet}")
+async def api_sync_open_positions(user_wallet: str):
+    """
+    One-time admin operation: create trade_open ledger entries for existing open
+    positions that were opened before the ledger system existed.
+    """
+    from services.ledger import record_entry
+
+    # Find open positions without corresponding ledger entries
+    positions = await db.ai_trader_positions.find(
+        {"wallet_address": user_wallet, "status": "open"},
+        {"_id": 0}
+    ).to_list(100)
+
+    synced = []
+    for pos in positions:
+        pid = pos.get("position_id", "")
+        amt = pos.get("amount_sol", 0)
+        if amt <= 0:
+            continue
+
+        # Check if a trade_open entry already exists for this position
+        existing = await db.user_ledger.find_one({
+            "user_wallet": user_wallet,
+            "type": "trade_open",
+            "metadata.position_id": pid,
+        })
+        if existing:
+            continue
+
+        await record_entry(
+            user_wallet, "trade_open", -abs(amt),
+            reference_id=pid,
+            reference_type="position",
+            description=f"Trade open: {pos.get('token_symbol', '?')} ({amt} SOL) [retroactive sync]",
+            metadata={"position_id": pid, "token_symbol": pos.get("token_symbol", ""), "retroactive": True}
+        )
+        synced.append({"position_id": pid, "token": pos.get("token_symbol"), "amount_sol": amt})
+
+    return {"success": True, "synced_count": len(synced), "synced": synced}
+
+
 @router.get("/admin/reconciliation")
 async def api_admin_reconciliation():
     """
@@ -114,13 +156,24 @@ async def api_admin_reconciliation():
 
     total_on_chain_sol = round(total_on_chain_lamports / 1_000_000_000, 6)
 
-    # 2. Get all user virtual balances from ledger
+    # 2. Get all user virtual balances from ledger (total_balance = deposits - withdrawals + PnL)
+    # We need total deposits minus withdrawals to know total user entitlement
     pipeline = [
         {"$match": {"user_wallet": {"$ne": "__platform__"}}},
-        {"$group": {"_id": "$user_wallet", "ledger_balance": {"$sum": "$amount_sol"}}},
+        {"$group": {
+            "_id": "$user_wallet",
+            "ledger_net": {"$sum": "$amount_sol"},
+        }},
     ]
     ledger_rows = await db.user_ledger.aggregate(pipeline).to_list(500)
-    ledger_map = {r["_id"]: round(r["ledger_balance"], 6) for r in ledger_rows}
+
+    # For each user, compute total_balance (available + locked_in_trades)
+    ledger_map = {}
+    for r in ledger_rows:
+        uw = r["_id"]
+        # Get full breakdown including locked
+        breakdown = await get_balance_breakdown(uw)
+        ledger_map[uw] = round(breakdown.get("total_balance_sol", 0), 6)
 
     total_virtual_sol = round(sum(ledger_map.values()), 6)
 

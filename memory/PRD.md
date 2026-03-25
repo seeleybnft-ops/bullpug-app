@@ -26,26 +26,34 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **User Wallet:** `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
 - **Custodial Wallet:** `B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC`
 
-## Completed Features (as of March 2026)
+## Completed Features (as of March 25, 2026)
 - Full AI Trading Bot with A-Tier features (signal intelligence, MEV protection, trailing stops, DCA exits, sniper mode)
 - Internal Fund Ledger with per-user virtual balance tracking
-- Rake Back system (2.5% on profitable trades)
-- Deposit auto-detection (on-chain balance comparison)
+- Deposit auto-detection with 5-second polling in deposit modal
 - Withdrawal modal with ledger balance validation
 - Admin Reconciliation Dashboard (on-chain vs virtual balance, drift detection, per-user breakdown)
-- Trading Mode Selector (conservative/normal/aggressive/sniper)
+- Admin endpoint to sync pre-existing open positions into ledger
+- Rake Back system (2.5% on profitable trades)
+- Trading Mode Selector (conservative/normal/aggressive/sniper) — all modes work
 - Private Access Gate for testing period
 - Bot Performance Scorecard
 - Community Spotlight section
-- Clipboard copy with async error handling
+- Clipboard copy with async error handling (Promise .then/.catch pattern)
 - Custom branding with user-provided images
 - Deployment-ready (no native dependencies, cleaned requirements.txt)
 
 ## Key Architecture
 - **Fund Ledger:** `user_ledger` collection is source of truth for per-user balances
-- **Platform Rake:** Pre-existing on-chain balance (0.008767 SOL) attributed to `__platform__` wallet as rake
-- **Deposit Flow:** User sends SOL to custodial address → clicks "Confirm Deposit" → `detect-deposit` endpoint compares on-chain vs stored balance → records difference in ledger
+- **Platform Rake:** Pre-existing on-chain balance (0.008767 SOL) attributed to `__platform__` wallet
+- **Deposit Flow:** User sends SOL → modal auto-polls every 5s → `detect-deposit` endpoint compares on-chain vs stored → records difference in ledger
 - **Withdrawal Flow:** User requests withdrawal → validated against virtual `available_sol` → on-chain transfer + ledger debit
+- **Reconciliation:** Compares on-chain SOL with total_balance (available + locked) per user + platform rake. Drift = on_chain - virtual - rake.
+
+## Current User Ledger State (qdegDg...7Rjs)
+- Available: 0.016951 SOL
+- Locked in trades: 0.033049 SOL (4 open positions: RENDER, PYTH, JUP x2)
+- Total balance: 0.05 SOL
+- Reconciliation: Healthy (drift = 0)
 
 ## Backlog (Prioritized)
 ### P1 - Upcoming

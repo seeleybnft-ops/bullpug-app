@@ -38,6 +38,22 @@ function DepositModal({ custodialWallet, walletAddress, onClose, onDepositDetect
   const [detecting, setDetecting] = useState(false);
   const [detected, setDetected] = useState(null);
 
+  // Auto-poll for deposits every 5 seconds
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      if (detected) return;
+      try {
+        const { data } = await axios.post(`${API}/custodial-wallet/detect-deposit/${walletAddress}`);
+        if (data.detected) {
+          setDetected(data);
+          toast.success(`Deposit of ${data.deposit_sol} SOL detected!`);
+          onDepositDetected();
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [walletAddress, detected, onDepositDetected]);
+
   const safeCopyAddr = () => {
     const addr = custodialWallet.wallet_address;
     const fallback = () => {
