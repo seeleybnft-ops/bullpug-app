@@ -46,6 +46,18 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Trading Mode Selector (conservative/normal/aggressive/sniper)
 - Trailing Stop-Losses
 
+### Internal Fund Ledger (March 25, 2026)
+- **New `services/ledger.py`** — Core double-entry bookkeeping service
+- **New `routers/ledger.py`** — API endpoints: `/ledger/balance/{wallet}`, `/ledger/history/{wallet}`, `/ledger/reconciliation`, `/ledger/migrate`
+- **DB collection:** `user_ledger` with indexes on `(user_wallet, created_at)` and `(user_wallet, entry_type)`
+- **Entry types:** deposit (credit), withdrawal (debit), trade_open (debit/lock), trade_close (credit/unlock), fee, adjustment
+- **Balance computed from ledger:** `available_sol = SUM(all entries)`, `locked_in_trades = trade_opens - trade_closes`
+- **Integrated into:** `custodial_wallet.py` (deposits/withdrawals), `ai_trader.py` (all position opens/closes including auto-trade, manual, runner, sniper)
+- **Withdrawal validation:** Now checks against ledger balance before on-chain withdrawal
+- **Migration endpoint:** One-time migration from existing custodial wallet records and open positions
+- **Frontend:** `FundLedger.js` component on AI Trader page showing balance breakdown + transaction history
+- **Reconciliation endpoint:** Compares total virtual balances vs. custodial wallet records for admin auditing
+
 ### Community Spotlight (March 25, 2026)
 - **New component:** `CommunitySpotlight.js` — auto-rotating carousel on homepage
 - Placed below Trading Bot Live Stats section
