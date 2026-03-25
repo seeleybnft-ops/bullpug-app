@@ -46,6 +46,15 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Trading Mode Selector (conservative/normal/aggressive/sniper)
 - Trailing Stop-Losses
 
+### UI Restructure — Fund Ledger at Top (March 25, 2026)
+- **Fund Ledger moved to top** of AI Trader page, replacing the 4 stat cards (Win Rate, Total P&L, etc.)
+- **Persistent across all tabs** — always visible regardless of which tab is active
+- **Wallet address shown** in Fund Ledger header with copy-to-clipboard button
+- **Deposit/Withdraw buttons** integrated into Fund Ledger (deposit modal lifted to AITrader.js)
+- **"Trading Wallet" section removed** from Auto Trade Engine controls tab
+- **Horizontal layout** — Total Balance | Breakdown Grid | Deposit/Withdraw buttons
+- **Test data cleaned up** — Removed all TEST/RAKETEST positions, history, and ledger entries from DB
+
 ### Rake Back System (March 25, 2026)
 - **2.5% platform rake on profitable trades** — only applied to the profit portion, never the original investment
 - **`apply_rake()` helper** in `ai_trader.py` — calculates rake and records `fee` ledger entry
