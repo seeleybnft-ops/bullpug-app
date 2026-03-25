@@ -573,6 +573,10 @@ async def save_settings(settings: TraderSettings):
         settings_dict = settings.dict()
         settings_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
         
+        # Keep auto_trade_mode in sync with trading_mode
+        if "trading_mode" in settings_dict:
+            settings_dict["auto_trade_mode"] = settings_dict["trading_mode"]
+        
         if existing:
             await db.ai_trader_settings.update_one(
                 {"wallet_address": settings.wallet_address},
@@ -2382,7 +2386,7 @@ async def get_auto_trade_status(wallet_address: str):
             "auto_paused": auto_paused,
             "pause_reason": pause_reason,
             "settings": {
-                "mode": settings.get("auto_trade_mode", "conservative"),
+                "mode": settings.get("trading_mode", settings.get("auto_trade_mode", "conservative")),
                 "min_confidence": settings.get("auto_min_confidence", 0.65),
                 "max_daily_trades": settings.get("auto_max_daily_trades", 3),
                 "max_position_sol": settings.get("auto_max_position_sol", 0.2),
