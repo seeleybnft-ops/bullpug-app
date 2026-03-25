@@ -10,6 +10,7 @@ import axios from "axios";
 import RecentWinners from "@/components/RecentWinners";
 import MarketDashboard from "@/components/MarketDashboard";
 import BotQuickStats from "@/components/BotQuickStats";
+import CommunitySpotlight from "@/components/CommunitySpotlight";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -141,6 +142,9 @@ export default function HomePage() {
 
       {/* TRADING BOT LIVE STATS */}
       <BotQuickStats />
+
+      {/* COMMUNITY SPOTLIGHT */}
+      <CommunitySpotlight />
 
       {/* LORE */}
       <section className="py-24 md:py-32" data-testid="lore-section">
