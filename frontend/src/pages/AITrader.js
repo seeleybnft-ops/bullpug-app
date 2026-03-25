@@ -2018,10 +2018,8 @@ export default function AITrader() {
                 <Button
                   onClick={() => {
                     const addr = custodialWallet.wallet_address;
-                    try {
-                      if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(addr);
-                      } else {
+                    const fallback = () => {
+                      try {
                         const ta = document.createElement("textarea");
                         ta.value = addr;
                         ta.style.position = "fixed";
@@ -2030,11 +2028,15 @@ export default function AITrader() {
                         ta.select();
                         document.execCommand("copy");
                         document.body.removeChild(ta);
-                      }
-                      toast.success("Address copied!");
-                    } catch {
-                      toast.error("Copy failed — please copy manually");
-                    }
+                        toast.success("Address copied!");
+                      } catch { toast.error("Copy failed — please copy manually"); }
+                    };
+                    if (navigator.clipboard && window.isSecureContext) {
+                      navigator.clipboard.writeText(addr).then(
+                        () => toast.success("Address copied!"),
+                        () => fallback()
+                      );
+                    } else { fallback(); }
                   }}
                   className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
                 >

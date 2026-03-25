@@ -82,10 +82,9 @@ export default function PortfolioDashboard() {
 
   // Copy address to clipboard
   const copyAddress = (address, type) => {
-    navigator.clipboard.writeText(address);
-    setCopied(type);
-    setTimeout(() => setCopied(null), 2000);
-    toast.success('Address copied');
+    const done = () => { setCopied(type); setTimeout(() => setCopied(null), 2000); toast.success('Address copied'); };
+    const fallback = () => { try { const ta = document.createElement("textarea"); ta.value = address; ta.style.position = "fixed"; ta.style.left = "-9999px"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); } catch { toast.error("Copy failed"); } };
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(address).then(done, fallback); } else { fallback(); }
   };
 
   // Format currency

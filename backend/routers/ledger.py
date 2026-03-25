@@ -17,24 +17,15 @@ router = APIRouter(prefix="/ledger", tags=["ledger"])
 
 @router.get("/balance/{user_wallet}")
 async def api_get_balance(user_wallet: str):
-    """Get the user's balance — on-chain balance is the source of truth."""
+    """Get the user's virtual balance from the internal ledger (source of truth)."""
     breakdown = await get_balance_breakdown(user_wallet)
 
-    # Get actual on-chain custodial wallet balance as the source of truth
+    # Attach custodial address for display purposes only
     wallet_doc = await db.custodial_wallets.find_one(
         {"user_wallet": user_wallet}, {"_id": 0}
     )
     if wallet_doc:
-        on_chain_sol = wallet_doc.get("balance_lamports", 0) / 1_000_000_000
-        breakdown["on_chain_balance_sol"] = round(on_chain_sol, 6)
         breakdown["custodial_address"] = wallet_doc.get("custodial_address", "")
-        # Total deposits/withdrawals from custodial wallet records (source of truth)
-        breakdown["total_deposited_sol"] = round(
-            wallet_doc.get("total_deposits_lamports", 0) / 1_000_000_000, 6
-        )
-        breakdown["total_withdrawn_sol"] = round(
-            wallet_doc.get("total_withdrawals_lamports", 0) / 1_000_000_000, 6
-        )
 
     return breakdown
 
@@ -60,6 +51,121 @@ async def api_reconcile():
 async def api_migrate():
     """One-time migration from existing custodial wallet data into the ledger."""
     return await migrate_existing_data()
+
+
+@router.post("/reset-fresh-start")
+async def api_reset_fresh_start():
+    """
+    Clear all ledger entries and account for existing on-chain balance as platform rake.
+    This is a one-time admin operation to start fresh.
+    """
+    from services.ledger import record_entry
+
+    # Clear all existing ledger entries
+    result = await db.user_ledger.delete_many({})
+    deleted = result.deleted_count
+
+    # Record the existing on-chain balance as platform rake
+    PLATFORM_WALLET = "__platform__"
+    existing_balance_sol = 0.008767
+    await record_entry(
+        PLATFORM_WALLET, "adjustment", existing_balance_sol,
+        reference_type="platform_rake",
+        description="Pre-existing on-chain balance attributed to platform rake (fresh start)",
+        metadata={"reason": "fresh_start_reset", "original_balance_sol": existing_balance_sol}
+    )
+
+    return {
+        "success": True,
+        "deleted_entries": deleted,
+        "platform_attribution_sol": existing_balance_sol,
+        "message": f"Ledger reset. {deleted} entries cleared. {existing_balance_sol} SOL attributed to platform rake."
+    }
+
+
+@router.get("/admin/reconciliation")
+async def api_admin_reconciliation():
+    """
+    Admin endpoint: Compare total virtual balances (from ledger) against
+    the actual on-chain custodial wallet balance. Returns drift and per-user breakdown.
+    """
+    from routers.custodial_wallet import get_wallet_balance
+
+    # 1. Get all custodial wallets and their on-chain balances
+    wallets = await db.custodial_wallets.find(
+        {}, {"_id": 0, "user_wallet": 1, "custodial_address": 1, "balance_lamports": 1}
+    ).to_list(500)
+
+    total_on_chain_lamports = 0
+    wallet_map = {}
+    for w in wallets:
+        addr = w.get("custodial_address", "")
+        if addr:
+            try:
+                balance = await get_wallet_balance(addr)
+            except Exception:
+                balance = w.get("balance_lamports", 0)
+            total_on_chain_lamports += balance
+            wallet_map[w["user_wallet"]] = {
+                "custodial_address": addr,
+                "on_chain_lamports": balance,
+                "on_chain_sol": round(balance / 1_000_000_000, 6),
+            }
+
+    total_on_chain_sol = round(total_on_chain_lamports / 1_000_000_000, 6)
+
+    # 2. Get all user virtual balances from ledger
+    pipeline = [
+        {"$match": {"user_wallet": {"$ne": "__platform__"}}},
+        {"$group": {"_id": "$user_wallet", "ledger_balance": {"$sum": "$amount_sol"}}},
+    ]
+    ledger_rows = await db.user_ledger.aggregate(pipeline).to_list(500)
+    ledger_map = {r["_id"]: round(r["ledger_balance"], 6) for r in ledger_rows}
+
+    total_virtual_sol = round(sum(ledger_map.values()), 6)
+
+    # 3. Platform rake balance
+    platform_pipeline = [
+        {"$match": {"user_wallet": "__platform__"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount_sol"}}},
+    ]
+    platform_result = await db.user_ledger.aggregate(platform_pipeline).to_list(1)
+    platform_rake_sol = round(platform_result[0]["total"], 6) if platform_result else 0
+
+    # 4. Compute drift
+    drift_sol = round(total_on_chain_sol - total_virtual_sol - platform_rake_sol, 6)
+
+    # 5. Per-user breakdown (exclude zero-balance noise)
+    users = []
+    all_wallets = set(list(wallet_map.keys()) + list(ledger_map.keys()))
+    for uw in sorted(all_wallets):
+        if uw == "__platform__":
+            continue
+        w_info = wallet_map.get(uw, {})
+        on_chain = w_info.get("on_chain_sol", 0)
+        virtual = ledger_map.get(uw, 0)
+        # Skip wallets with zero everywhere
+        if on_chain == 0 and virtual == 0:
+            continue
+        users.append({
+            "user_wallet": uw,
+            "short_wallet": f"{uw[:6]}...{uw[-4:]}" if len(uw) > 10 else uw,
+            "custodial_address": w_info.get("custodial_address", "N/A"),
+            "on_chain_sol": on_chain,
+            "virtual_balance_sol": virtual,
+            "drift_sol": round(on_chain - virtual, 6),
+        })
+
+    return {
+        "total_on_chain_sol": total_on_chain_sol,
+        "total_virtual_sol": total_virtual_sol,
+        "platform_rake_sol": platform_rake_sol,
+        "drift_sol": drift_sol,
+        "healthy": abs(drift_sol) < 0.001,
+        "users": users,
+        "user_count": len(users),
+        "checked_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+    }
 
 
 @router.get("/rake-stats/{user_wallet}")
