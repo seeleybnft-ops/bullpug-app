@@ -46,6 +46,14 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Trading Mode Selector (conservative/normal/aggressive/sniper)
 - Trailing Stop-Losses
 
+### Rake Back System (March 25, 2026)
+- **2.5% platform rake on profitable trades** — only applied to the profit portion, never the original investment
+- **`apply_rake()` helper** in `ai_trader.py` — calculates rake and records `fee` ledger entry
+- **Integrated into all close paths:** close_position, manual_close_position, auto_trade_check_exits (including DCA partial exits)
+- **Close responses include rake object:** `{ applied: bool, amount_sol: float, percent: 2.5 }`
+- **Rake stats endpoint:** `GET /api/ledger/rake-stats/{wallet}` — total rake collected, gross profit, count
+- **Fee entries in ledger** — stored with `reference_type: "rake"` and metadata including `gross_pnl_sol`, `rake_percent`, `rake_sol`
+
 ### Internal Fund Ledger (March 25, 2026)
 - **New `services/ledger.py`** — Core double-entry bookkeeping service
 - **New `routers/ledger.py`** — API endpoints: `/ledger/balance/{wallet}`, `/ledger/history/{wallet}`, `/ledger/reconciliation`, `/ledger/migrate`
