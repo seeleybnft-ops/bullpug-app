@@ -2017,17 +2017,24 @@ export default function AITrader() {
                 </Button>
                 <Button
                   onClick={() => {
+                    const addr = custodialWallet.wallet_address;
                     try {
-                      navigator.clipboard.writeText(custodialWallet.wallet_address);
+                      if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(addr);
+                      } else {
+                        const ta = document.createElement("textarea");
+                        ta.value = addr;
+                        ta.style.position = "fixed";
+                        ta.style.left = "-9999px";
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
+                      toast.success("Address copied!");
                     } catch {
-                      const ta = document.createElement("textarea");
-                      ta.value = custodialWallet.wallet_address;
-                      document.body.appendChild(ta);
-                      ta.select();
-                      document.execCommand("copy");
-                      document.body.removeChild(ta);
+                      toast.error("Copy failed — please copy manually");
                     }
-                    toast.success("Address copied!");
                   }}
                   className="flex-1 bg-[#00FFA3] text-black hover:bg-[#00FFA3]/80"
                 >

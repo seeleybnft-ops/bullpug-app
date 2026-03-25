@@ -17,8 +17,25 @@ router = APIRouter(prefix="/ledger", tags=["ledger"])
 
 @router.get("/balance/{user_wallet}")
 async def api_get_balance(user_wallet: str):
-    """Get the user's available balance and full breakdown."""
+    """Get the user's balance — on-chain balance is the source of truth."""
     breakdown = await get_balance_breakdown(user_wallet)
+
+    # Get actual on-chain custodial wallet balance as the source of truth
+    wallet_doc = await db.custodial_wallets.find_one(
+        {"user_wallet": user_wallet}, {"_id": 0}
+    )
+    if wallet_doc:
+        on_chain_sol = wallet_doc.get("balance_lamports", 0) / 1_000_000_000
+        breakdown["on_chain_balance_sol"] = round(on_chain_sol, 6)
+        breakdown["custodial_address"] = wallet_doc.get("custodial_address", "")
+        # Total deposits/withdrawals from custodial wallet records (source of truth)
+        breakdown["total_deposited_sol"] = round(
+            wallet_doc.get("total_deposits_lamports", 0) / 1_000_000_000, 6
+        )
+        breakdown["total_withdrawn_sol"] = round(
+            wallet_doc.get("total_withdrawals_lamports", 0) / 1_000_000_000, 6
+        )
+
     return breakdown
 
 
