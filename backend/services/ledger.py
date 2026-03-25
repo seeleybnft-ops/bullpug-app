@@ -110,25 +110,48 @@ async def get_balance_breakdown(user_wallet: str) -> dict:
     fees = abs(buckets.get("fee", {}).get("sum", 0))
     adjustments = buckets.get("adjustment", {}).get("sum", 0)
 
-    # Locked = SOL currently committed to open positions
-    # = total debited for opens − total credited from closes
-    locked = max(0, trade_opens - trade_closes)
+    # Locked = live current value of open positions (not static entry cost)
+    open_positions = await db.ai_trader_positions.find(
+        {"wallet_address": user_wallet, "status": "open"},
+        {"_id": 0, "amount_sol": 1, "entry_price": 1, "current_price": 1, "trade_type": 1},
+    ).to_list(100)
 
-    # Available = everything that isn't locked
+    locked_live = 0
+    for p in open_positions:
+        amt = p.get("amount_sol", 0)
+        entry_px = p.get("entry_price", 0)
+        cur_px = p.get("current_price", 0)
+        if cur_px and entry_px > 0:
+            if p.get("trade_type") == "buy":
+                pnl_pct = (cur_px - entry_px) / entry_px
+            else:
+                pnl_pct = (entry_px - cur_px) / entry_px
+            locked_live += amt + (amt * pnl_pct)
+        else:
+            locked_live += amt
+
+    # Entry-cost locked (from ledger) — used for P&L calc
+    locked_entry_cost = max(0, trade_opens - trade_closes)
+
+    # Available = everything that isn't locked (based on ledger net)
     available = await get_available_balance(user_wallet)
 
     # Realised P&L = (close credits) - (open debits that were closed)
-    # Simpler: trade_closes - (trade_opens - locked) = trade_closes - trade_opens + locked
-    realised_pnl = trade_closes - (trade_opens - locked)
+    realised_pnl = trade_closes - (trade_opens - locked_entry_cost)
+
+    # Unrealised P&L = live value - entry cost
+    unrealised_pnl = locked_live - locked_entry_cost
 
     return {
         "available_sol": round(available, 6),
-        "locked_in_trades_sol": round(locked, 6),
-        "total_balance_sol": round(available + locked, 6),
+        "locked_in_trades_sol": round(locked_live, 6),
+        "locked_entry_cost_sol": round(locked_entry_cost, 6),
+        "total_balance_sol": round(available + locked_live, 6),
         "total_deposited_sol": round(deposits, 6),
         "total_withdrawn_sol": round(withdrawals, 6),
         "total_fees_sol": round(fees, 6),
         "realised_pnl_sol": round(realised_pnl, 6),
+        "unrealised_pnl_sol": round(unrealised_pnl, 6),
         "adjustments_sol": round(adjustments, 6),
         "entry_counts": {t: buckets.get(t, {}).get("count", 0) for t in ENTRY_TYPES},
     }

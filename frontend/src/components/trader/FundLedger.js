@@ -80,14 +80,16 @@ export default function FundLedger({ walletAddress, custodialWallet, onDeposit, 
 
   if (!walletAddress) return null;
 
-  // Per-user balance from ledger (NOT on-chain)
+  // Per-user balance from ledger — locked reflects live pricing
   const available = balance?.available_sol ?? 0;
   const locked = balance?.locked_in_trades_sol ?? 0;
-  const totalBalance = available + locked;
+  const lockedEntryCost = balance?.locked_entry_cost_sol ?? 0;
+  const totalBalance = balance?.total_balance_sol ?? (available + locked);
   const deposited = balance?.total_deposited_sol ?? 0;
   const withdrawn = balance?.total_withdrawn_sol ?? 0;
   const fees = balance?.total_fees_sol ?? 0;
   const pnl = balance?.realised_pnl_sol ?? 0;
+  const unrealisedPnl = balance?.unrealised_pnl_sol ?? 0;
 
   const custodialAddr = custodialWallet?.wallet_address || balance?.custodial_address || "";
   const shortAddr = custodialAddr ? `${custodialAddr.slice(0, 6)}...${custodialAddr.slice(-4)}` : "";
@@ -169,6 +171,11 @@ export default function FundLedger({ walletAddress, custodialWallet, onDeposit, 
                 {locked > 0 && (
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     {available.toFixed(6)} available · {locked.toFixed(6)} in trades
+                    {unrealisedPnl !== 0 && (
+                      <span className={unrealisedPnl >= 0 ? " text-[#00FFA3]" : " text-[#FF4444]"}>
+                        {" "}({unrealisedPnl >= 0 ? "+" : ""}{unrealisedPnl.toFixed(6)} P&L)
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
@@ -179,9 +186,10 @@ export default function FundLedger({ walletAddress, custodialWallet, onDeposit, 
               <div className="grid grid-cols-2 gap-x-6 gap-y-0">
                 <BalanceStat label="Deposited" value={deposited} color="#00C2FF" />
                 <BalanceStat label="Withdrawn" value={withdrawn} color="#FF4444" />
-                <BalanceStat label="Locked" value={locked} color="#FFB800" />
+                <BalanceStat label="In Trades (Live)" value={locked} color="#FFB800" />
                 <BalanceStat label="Fees" value={fees} color="#D946EF" />
                 <BalanceStat label="Realised P&L" value={pnl} color={pnl >= 0 ? "#00FFA3" : "#FF4444"} />
+                <BalanceStat label="Unrealised P&L" value={unrealisedPnl} color={unrealisedPnl >= 0 ? "#00FFA3" : "#FF4444"} />
               </div>
 
               <div className="hidden md:block bg-white/[0.06] self-stretch" />
