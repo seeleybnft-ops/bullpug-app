@@ -3176,6 +3176,15 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             if burn_result.get("burned_accounts", 0) > 0:
                                 logger.info(f"Auto-burn before signal buy: reclaimed {burn_result.get('reclaimed_sol', 0):.4f} SOL from {burn_result['burned_accounts']} accounts")
                             
+                            # CRITICAL: Check ledger available balance FIRST
+                            from services.ledger import get_available_balance
+                            ledger_available = await get_available_balance(wallet_address)
+                            if ledger_available < position_sol:
+                                execution_error = f"Insufficient ledger balance: {ledger_available:.6f} SOL available, need {position_sol:.4f} SOL"
+                                logger.warning(execution_error)
+                                skipped.append({"symbol": symbol, "reason": execution_error})
+                                continue
+                            
                             # Check if user has custodial wallet with sufficient balance
                             from routers.custodial_wallet import get_wallet_balance, get_or_create_custodial_wallet, execute_auto_trade
                             

@@ -276,6 +276,42 @@ async def scan_runner_alerts():
         logger.error(f"Error in runner alerts scheduler: {e}")
 
 
+async def auto_trade_scan_cycle():
+    """
+    Periodic scan: find all wallets with auto-trading enabled and run
+    auto_trade_scan_and_execute for each one.
+    """
+    try:
+        from utils.database import db
+
+        enabled_settings = await db.ai_trader_settings.find({
+            "auto_trade_enabled": True
+        }).to_list(100)
+
+        if not enabled_settings:
+            logger.debug("Auto-trade scan: No wallets with auto-trading enabled")
+            return
+
+        for settings in enabled_settings:
+            wallet_address = settings.get("wallet_address")
+            if not wallet_address:
+                continue
+            try:
+                from routers.ai_trader import auto_trade_scan_and_execute
+                result = await auto_trade_scan_and_execute(wallet_address)
+                trades = result.get("trades", [])
+                if trades:
+                    logger.info(f"Auto-trade scan for {wallet_address[:8]}…: {len(trades)} trades executed")
+                else:
+                    msg = result.get("message", "no opportunities")
+                    logger.debug(f"Auto-trade scan for {wallet_address[:8]}…: {msg}")
+            except Exception as e:
+                logger.error(f"Auto-trade scan error for {wallet_address[:8]}…: {e}")
+
+    except Exception as e:
+        logger.error(f"Error in auto-trade scan cycle: {e}")
+
+
 async def check_auto_trade_exits():
     """
     CRITICAL: Check all open positions for take-profit and stop-loss triggers.
@@ -407,6 +443,15 @@ def start_scheduler():
         max_instances=1
     )
     
+    # CRITICAL: Auto-trade scan & execute — find and open new positions every 5 minutes
+    scheduler.add_job(
+        auto_trade_scan_cycle,
+        trigger=IntervalTrigger(minutes=5),
+        id="auto_trade_scan",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     # CRITICAL: Real OHLCV price data collection - every 1 minute
     scheduler.add_job(
         collect_real_prices,
@@ -438,7 +483,7 @@ def start_scheduler():
     logger.info(
         "Background scheduler started - prize pool (5 min), signal tracking (1 hour), "
         "journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min), "
-        "PRICE COLLECTOR (5 min), SMART MONEY SCANNER (10 min)"
+        "AUTO-TRADE SCAN (5 min), PRICE COLLECTOR (5 min), SMART MONEY SCANNER (10 min)"
     )
 
 
