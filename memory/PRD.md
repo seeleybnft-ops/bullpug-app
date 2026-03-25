@@ -46,6 +46,15 @@ Full-stack, responsive website for the memecoin "Bullpug" featuring:
 - Trading Mode Selector (conservative/normal/aggressive/sniper)
 - Trailing Stop-Losses
 
+### Community Spotlight (March 25, 2026)
+- **New component:** `CommunitySpotlight.js` — auto-rotating carousel on homepage
+- Placed below Trading Bot Live Stats section
+- Slide 1 (Runners): Cosmic Runner Leaderboard, Top Moon Cheese Collectors, Hall of Fame
+- Slide 2 (Activity): Live Platform Stats, Competitions (Coming Soon), Join the Community (X, Telegram, Forum)
+- Dynamic slide 3 (Traders): Appears when social trading leaderboard has entries
+- Navigation: dot indicators, prev/next arrows, 8-second auto-rotation
+- Uses live data from `/api/leaderboard` and `/api/ai-trader/platform-stats`
+
 ### Bug Fixes (March 25, 2026)
 - **Gallery Images:** Replaced stock Unsplash/Pexels photos with user's original Bullpug branding images in HomePage.js and NFTGallery.js
 - **Logo:** Verified correct display in Navbar and Footer using user's artifact URLs
