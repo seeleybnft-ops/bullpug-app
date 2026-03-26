@@ -90,7 +90,7 @@ async def get_bot_info() -> dict:
 # WEBHOOK SETUP & TEST ENDPOINTS
 # ============================================================================
 
-@router.post("/setup-webhook")
+@router.api_route("/setup-webhook", methods=["GET", "POST"])
 async def setup_webhook(webhook_url: str = None):
     """Set the Telegram webhook URL so the bot can receive messages."""
     if not TELEGRAM_BOT_TOKEN:
