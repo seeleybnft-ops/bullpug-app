@@ -18,51 +18,66 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 ## Tech Stack
 - **Frontend:** React + Tailwind + Shadcn UI
 - **Backend:** FastAPI + MongoDB
-- **Blockchain:** Solana (Public RPC + Helius fallback, Jupiter DEX, Jito MEV protection)
+- **Blockchain:** Solana (Public RPC primary, Helius fallback), Jupiter DEX, Jito MEV protection
 - **AI:** OpenAI GPT-4o via Emergent LLM Key
-- **Market Data:** CoinGecko (primary) + DexScreener (fallback with rate-limit protection)
+- **Market Data:** CoinGecko batch API (primary) + DexScreener (cached fallback with rate-limit protection)
 
 ## Access & Credentials
 - **Private Access Gate:** `bullpug2026`
 - **User Wallet:** `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
-- **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg` (NEW - generated after previous key loss)
+- **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Note:** Helius API key is invalid. System uses public Solana RPC as primary.
 
-## Completed Features (as of March 27, 2026)
-- Full AI Trading Bot with A-Tier features (multi-layer signals, trailing stops, DCA, MEV protection)
-- **Multi-source market data:** CoinGecko batch API (primary) + DexScreener (cached fallback with rate limit protection)
-- **Auto-trade scan scheduler** — scans every 5 minutes via APScheduler
-- **First live trade executed:** PYTH buy 0.044 SOL @ $0.03912 (TX: 4h7E6PJm...)
-- Internal Fund Ledger with per-user virtual balance tracking
-- **Deposit detection fixed:** Compares on-chain vs ledger totals (not stored balance_lamports)
-- **Position sizing capped** to available balance minus 0.006 SOL reserve (covers sell reserve + tx fees)
-- Live pricing on locked-in-trades positions
-- Deposit auto-detection with 5-second polling
+## Architecture After Refactoring
+
+### Backend Code Organization
+```
+/app/backend/
+├── routers/
+│   ├── ai_trader.py          (2320 lines) — Settings, analysis, signals, positions, swaps
+│   ├── price_alerts.py       (306 lines)  — NEW: Price alert CRUD + breakout scanning
+│   ├── custodial_wallet.py   — Wallet management, deposit detection, trade execution
+│   └── ledger.py             — Balance, history, admin reconciliation
+├── services/
+│   ├── auto_trader_engine.py (1606 lines) — NEW: Scan-and-execute + exit monitoring
+│   ├── market_data.py        — NEW: Multi-source CoinGecko batch + DexScreener cached
+│   ├── runner_detector.py    — CoinGecko meme coins + DexScreener discovery
+│   ├── token_price.py        — Multi-source price resolution (DexScreener→CoinGecko→fallback)
+│   ├── ledger.py             — Balance math and P&L calculations
+│   └── post_deploy_init.py   — Safe DB initialization (never drops custodial_wallets)
+└── utils/
+    ├── database.py            — MongoDB connection (single source of truth)
+    └── scheduler.py           — APScheduler (5-min scan, 1-min exits, etc.)
+```
+
+### Key Data Flow
+1. **Deposit:** On-chain SOL → detect-deposit → ledger `deposit` entry
+2. **Trade:** Scanner → CoinGecko/DexScreener data → TA + AI signals → Jupiter swap → ledger `trade_open` + `fee` entries
+3. **Exit:** Price monitor → TP/SL/trailing check → Jupiter sell → ledger `trade_close` + `rake` entries
+4. **Balance:** `available = SUM(deposits) - SUM(trade_opens) - SUM(fees) + SUM(trade_closes)`
+
+## Completed Features
+- Full AI Trading Bot with A-Tier features
+- **Multi-source market data** (CoinGecko primary + DexScreener cached fallback)
+- **First live trade:** PYTH buy 0.044 SOL @ $0.03912 (TX confirmed on-chain)
+- **Transaction fee tracking:** Ledger auto-deducts fee gap after each trade
+- **Live position pricing:** Positions show current market price via CoinGecko/DexScreener
+- Internal Fund Ledger with per-user tracking
+- Deposit auto-detection (compares on-chain vs ledger totals)
 - Admin Reconciliation Dashboard
-- Post-deploy initialization script (idempotent)
 - Rake Back system (2.5% on profitable trades)
-- Trading Mode Selector (conservative/normal/aggressive/sniper)
-- Private Access Gate for testing period
-- Runner detection via CoinGecko Solana meme coins category
-- Exit monitor with stop-loss, take-profit, and trailing stop
+- **Code refactoring:** ai_trader.py 4261→2320 lines (45% reduction)
+- Runner detection via CoinGecko Solana meme coins
+- Exit monitor with stop-loss, take-profit, trailing stop
+- Private Access Gate for testing
 
-## Key Architecture
-- **Market Data Service:** `services/market_data.py` — CoinGecko batch prefetch (single API call for all known tokens) + DexScreener with 2-min backoff on 429
-- **Runner Detector:** `services/runner_detector.py` — CoinGecko meme coins + DexScreener boosted tokens (with shared rate limit backoff)
-- **Fund Ledger:** `user_ledger` collection is source of truth for per-user balances
-- **Balance Check Chain:** Position sizing caps → Ledger balance check → Custodial balance check → Execute
-- **RPC Fallback:** Public Solana RPC (primary) → Helius (secondary, currently invalid key)
-
-## Current Ledger State (qdegDg...7Rjs)
-- Available: 0.006 SOL
-- Locked in trades: 0.044 SOL (PYTH position)
-- Total balance: 0.05 SOL
-- On-chain: ~0.004 SOL + 97.73 PYTH tokens
+## Current Ledger State
+- Available: 0.003956 SOL (matches on-chain)
+- Locked: 0.044 SOL (PYTH position, live value ~0.044022)
+- Fees: 0.002044 SOL (transaction fees tracked)
+- Total: ~0.048 SOL (from 0.05 deposited)
 
 ## Backlog (Prioritized)
-### P0 - Immediate
-- Refactor `ai_trader.py` (4200+ lines → modular services)
-
 ### P1 - Upcoming
 - Trading Competitions with leaderboards
 - Plushie Sales & interactive NFT Gallery
