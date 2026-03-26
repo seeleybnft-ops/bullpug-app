@@ -27,11 +27,15 @@ TOKENS = {
     "RNDR": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
     "RAY": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
     "ORCA": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+    "HNT": "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux",
+    "JTO": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+    "TENSOR": "TNSRxcUxoT9xBG3de7PiJyTDYu7kskLqcpddxnEJAS6",
+    "DRIFT": "DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7",
 }
 
 # Risk Categories
-SAFER_TOKENS = ["SOL", "USDC", "USDT", "JUP", "PYTH", "RNDR"]
-HIGH_RISK_TOKENS = ["BONK", "WIF", "RAY", "ORCA"]
+SAFER_TOKENS = ["SOL", "USDC", "USDT", "JUP", "PYTH", "RNDR", "HNT", "JTO"]
+HIGH_RISK_TOKENS = ["BONK", "WIF", "RAY", "ORCA", "TENSOR", "DRIFT"]
 
 # Runner Detection Settings
 RUNNER_MIN_LIQUIDITY = 10000

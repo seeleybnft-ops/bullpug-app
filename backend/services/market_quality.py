@@ -10,8 +10,8 @@ from typing import Dict, Any, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # Minimum thresholds for auto-trading
-MIN_VOLUME_24H = 50_000      # $50K minimum 24h volume
-MIN_LIQUIDITY_USD = 20_000   # $20K minimum liquidity
+MIN_VOLUME_24H = 10_000      # $10K minimum 24h volume (established tokens have reliable data above this)
+MIN_LIQUIDITY_USD = 10_000   # $10K minimum liquidity
 MIN_PRICE_HISTORY_POINTS = 10  # Minimum real data points for reliable indicators
 
 
@@ -110,5 +110,5 @@ def confidence_penalty_for_synthetic_data(confidence: float) -> float:
     Apply a confidence penalty when trading on synthetic/reconstructed price data.
     Synthetic data means RSI/MACD/BB are approximations, not exact.
     """
-    SYNTHETIC_PENALTY = 0.10  # Reduce confidence by 10% 
+    SYNTHETIC_PENALTY = 0.05  # Reduce confidence by 5% for synthetic data
     return max(0.0, confidence - SYNTHETIC_PENALTY)

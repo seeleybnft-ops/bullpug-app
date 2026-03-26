@@ -163,21 +163,10 @@ async def run_post_deploy_init():
         })
     logger.info(f"  Recorded {len(OPEN_POSITIONS)} trade_open entries")
 
-    # 5. Restore custodial wallet record
-    existing_wallet = await db.custodial_wallets.find_one({"user_wallet": USER_WALLET})
-    if not existing_wallet:
-        await db.custodial_wallets.insert_one({
-            "user_wallet": USER_WALLET,
-            "custodial_address": CUSTODIAL_ADDRESS,
-            "balance_lamports": 58767339,  # 0.058767339 SOL on-chain at deploy time
-            "total_deposits_lamports": 83049000,
-            "total_withdrawals_lamports": 0,
-            "created_at": "2026-03-22T00:00:00+00:00",
-            "last_activity": now,
-            "transaction_history": [],
-            "status": "active",
-        })
-        logger.info(f"  Restored custodial wallet: {CUSTODIAL_ADDRESS}")
+    # 5. Custodial wallet is NOT created here — let get_or_create_custodial_wallet()
+    # handle it on first access so it generates a proper keypair.
+    # The user will get a new custodial address and must deposit to it.
+    logger.info("  Custodial wallet will be created on first access with proper keypair")
 
     # 6. Restore open positions in ai_trader_positions
     for pos in OPEN_POSITIONS:

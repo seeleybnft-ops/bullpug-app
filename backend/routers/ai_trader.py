@@ -2800,8 +2800,10 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     opt_settings = optimal["settings"]
                     auto_trade_opt = opt_settings.get("auto_trade", {})
                     
-                    # Apply optimal settings to current settings
-                    settings["auto_min_confidence"] = auto_trade_opt.get("recommended_min_confidence", settings.get("auto_min_confidence", 0.6))
+                    # Apply optimal settings — but never raise confidence above user's own setting
+                    user_min_conf = settings.get("auto_min_confidence", 0.55)
+                    recommended = auto_trade_opt.get("recommended_min_confidence", 0.55)
+                    settings["auto_min_confidence"] = min(user_min_conf, recommended)
                     settings["auto_max_daily_trades"] = auto_trade_opt.get("recommended_max_daily_trades", settings.get("auto_max_daily_trades", 3))
                     settings["auto_cooldown_minutes"] = auto_trade_opt.get("recommended_cooldown_minutes", settings.get("auto_cooldown_minutes", 45))
                     settings["auto_require_multiple_signals"] = auto_trade_opt.get("require_multiple_signals", True)
@@ -2892,7 +2894,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         runner_tokens = []  # Will store runner data separately
         
         if risk_level in ["safer", "both"]:
-            tokens_to_scan.extend(["JUP", "PYTH", "RNDR", "BONK", "RAY", "WIF", "HNT", "JITO"])
+            tokens_to_scan.extend(["JUP", "PYTH", "RNDR", "BONK", "RAY", "WIF", "HNT", "JTO", "TENSOR", "DRIFT"])
         if risk_level in ["high_risk", "both"]:
             tokens_to_scan.extend(["BONK", "WIF", "RAY"])
             
@@ -2997,7 +2999,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     # Apply synthetic data penalty
                     if should_trade and is_synthetic:
                         trade_confidence = confidence_penalty_for_synthetic_data(trade_confidence)
-                        trade_reason = f"[SYNTHETIC DATA -10%] {trade_reason}"
+                        trade_reason = f"[SYNTHETIC DATA -5%] {trade_reason}"
                         if trade_confidence < min_confidence:
                             should_trade = False
                             skipped.append({"symbol": symbol, "reason": f"Confidence {trade_confidence:.2f} below threshold after synthetic penalty"})
@@ -3069,17 +3071,18 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             skipped.append({"symbol": symbol, "reason": f"Daily trade limit reached ({max_daily}/{max_daily})"})
                             continue
                         
-                        # Check if we already have an OPEN position
-                        existing_position = await db.ai_trader_positions.find_one({
+                        # Check how many OPEN positions we have for this token
+                        existing_count = await db.ai_trader_positions.count_documents({
                             "wallet_address": wallet_address,
                             "token_mint": token_mint,
                             "status": "open"
                         })
                         
-                        if existing_position:
+                        # Allow up to 2 positions per token (DCA-style)
+                        if existing_count >= 2:
                             skipped.append({
                                 "symbol": symbol,
-                                "reason": "Already have open position"
+                                "reason": f"Max positions for {symbol} reached ({existing_count}/2)"
                             })
                             continue
                         
@@ -3402,7 +3405,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         # Apply synthetic data penalty for runners too
                         if should_trade and is_synthetic:
                             trade_confidence = confidence_penalty_for_synthetic_data(trade_confidence)
-                            trade_reason = f"[SYNTHETIC DATA -10%] {trade_reason}"
+                            trade_reason = f"[SYNTHETIC DATA -5%] {trade_reason}"
                             if trade_confidence < min_confidence:
                                 should_trade = False
                                 skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Confidence {trade_confidence:.2f} below threshold after synthetic penalty"})

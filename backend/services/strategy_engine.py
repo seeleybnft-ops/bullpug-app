@@ -27,10 +27,10 @@ class StrategyEngine:
     """
     
     # Minimum confidence threshold to generate a signal
-    MIN_SIGNAL_CONFIDENCE = 0.55
+    MIN_SIGNAL_CONFIDENCE = 0.45
     
     # Minimum confidence for individual strategies to contribute to combined
-    MIN_INDIVIDUAL_CONFIDENCE = 0.50
+    MIN_INDIVIDUAL_CONFIDENCE = 0.40
     
     @staticmethod
     def momentum_strategy(indicators: Dict[str, Any]) -> Dict[str, Any]:
@@ -325,11 +325,11 @@ class StrategyEngine:
             }
         
         # Single strong breakout signal
-        if breakout["signal"] and breakout["confidence"] >= 0.58:
+        if breakout["signal"] and breakout["confidence"] >= 0.48:
             return breakout
         
         # Single strong signal from momentum
-        if momentum["signal"] and momentum["confidence"] >= 0.58:
+        if momentum["signal"] and momentum["confidence"] >= 0.48:
             return momentum
         
         # Single strong signal from any strategy
