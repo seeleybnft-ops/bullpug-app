@@ -2867,8 +2867,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         # Backtest shows 0.55 is optimal (72.5% win rate, +2.87% PnL)
         if mode == "aggressive":
             min_confidence = max(0.50, min_confidence - 0.15)  # More aggressive: 0.50 floor
-        elif mode == "moderate":
-            min_confidence = max(0.55, min_confidence - 0.05)  # Moderate: 0.55-0.60
+        elif mode in ("moderate", "normal"):
+            pass  # Use the user's stored auto_min_confidence as-is
         else:  # conservative
             min_confidence = min(0.75, min_confidence + 0.05)  # Conservative: 0.70-0.75
         
@@ -2892,7 +2892,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         runner_tokens = []  # Will store runner data separately
         
         if risk_level in ["safer", "both"]:
-            tokens_to_scan.extend(["JUP", "PYTH", "RNDR"])  # Removed SOL
+            tokens_to_scan.extend(["JUP", "PYTH", "RNDR", "BONK", "RAY", "WIF", "HNT", "JITO"])
         if risk_level in ["high_risk", "both"]:
             tokens_to_scan.extend(["BONK", "WIF", "RAY"])
             

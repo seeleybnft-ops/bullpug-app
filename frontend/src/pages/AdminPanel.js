@@ -402,34 +402,41 @@ function ReconciliationDashboard({ data, loading, onRefresh }) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">On-Chain Total</p>
+          <p className="text-[10px] text-slate-500 uppercase mb-1">On-Chain SOL</p>
           <p className="text-xl font-black text-[#00C2FF]" style={{ fontFamily: "Orbitron" }}>
             {data.total_on_chain_sol?.toFixed(6)}
           </p>
-          <p className="text-[10px] text-slate-600">SOL (all custodial wallets)</p>
+          <p className="text-[10px] text-slate-600">Custodial wallet balance</p>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">Virtual Total</p>
+          <p className="text-[10px] text-slate-500 uppercase mb-1">Available SOL</p>
           <p className="text-xl font-black text-[#00FFA3]" style={{ fontFamily: "Orbitron" }}>
-            {data.total_virtual_sol?.toFixed(6)}
+            {(data.total_available_sol ?? 0).toFixed(6)}
           </p>
-          <p className="text-[10px] text-slate-600">SOL (user ledger balances)</p>
+          <p className="text-[10px] text-slate-600">User funds (idle)</p>
+        </div>
+        <div className="glass-card rounded-xl p-4 text-center">
+          <p className="text-[10px] text-slate-500 uppercase mb-1">In Token Positions</p>
+          <p className="text-xl font-black text-[#FFB800]" style={{ fontFamily: "Orbitron" }}>
+            {(data.total_locked_in_tokens_sol ?? 0).toFixed(6)}
+          </p>
+          <p className="text-[10px] text-slate-600">SOL converted to tokens</p>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase mb-1">Platform Rake</p>
           <p className="text-xl font-black text-[#D946EF]" style={{ fontFamily: "Orbitron" }}>
             {data.platform_rake_sol?.toFixed(6)}
           </p>
-          <p className="text-[10px] text-slate-600">SOL (collected fees)</p>
+          <p className="text-[10px] text-slate-600">Collected fees</p>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase mb-1">Drift</p>
           <p className={`text-xl font-black ${healthy ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: "Orbitron" }}>
             {drift >= 0 ? "+" : ""}{drift.toFixed(6)}
           </p>
-          <p className="text-[10px] text-slate-600">SOL (on-chain − virtual − rake)</p>
+          <p className="text-[10px] text-slate-600">On-chain − available − rake</p>
         </div>
       </div>
 
@@ -446,9 +453,10 @@ function ReconciliationDashboard({ data, loading, onRefresh }) {
                 <tr className="text-[10px] text-slate-500 uppercase border-b border-white/10">
                   <th className="text-left p-3">User Wallet</th>
                   <th className="text-left p-3">Custodial</th>
-                  <th className="text-right p-3">On-Chain</th>
-                  <th className="text-right p-3">Virtual Balance</th>
-                  <th className="text-right p-3">Drift</th>
+                  <th className="text-right p-3">On-Chain SOL</th>
+                  <th className="text-right p-3">Available</th>
+                  <th className="text-right p-3">In Tokens</th>
+                  <th className="text-right p-3">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -462,12 +470,13 @@ function ReconciliationDashboard({ data, loading, onRefresh }) {
                       {u.on_chain_sol?.toFixed(6)}
                     </td>
                     <td className="p-3 text-xs text-right font-mono text-[#00FFA3]">
-                      {u.virtual_balance_sol?.toFixed(6)}
+                      {(u.available_sol ?? 0).toFixed(6)}
                     </td>
-                    <td className="p-3 text-xs text-right font-mono">
-                      <span className={Math.abs(u.drift_sol) < 0.001 ? "text-slate-500" : "text-red-400"}>
-                        {u.drift_sol >= 0 ? "+" : ""}{u.drift_sol?.toFixed(6)}
-                      </span>
+                    <td className="p-3 text-xs text-right font-mono text-[#FFB800]">
+                      {(u.locked_in_tokens_sol ?? 0).toFixed(6)}
+                    </td>
+                    <td className="p-3 text-xs text-right font-mono text-white">
+                      {u.virtual_balance_sol?.toFixed(6)}
                     </td>
                   </tr>
                 ))}

@@ -128,12 +128,16 @@ async def api_sync_open_positions(user_wallet: str):
 @router.get("/admin/reconciliation")
 async def api_admin_reconciliation():
     """
-    Admin endpoint: Compare total virtual balances (from ledger) against
-    the actual on-chain custodial wallet balance. Returns drift and per-user breakdown.
+    Admin endpoint: Compare on-chain SOL against the SOL portions of the ledger.
+    Funds locked in token positions are accounted separately (they left the wallet as SOL
+    and now exist on-chain as tokens).
+    
+    Formula: drift = on_chain_SOL - available_SOL_all_users - platform_rake
+    (locked_in_trades is excluded because that SOL was spent buying tokens)
     """
     from routers.custodial_wallet import get_wallet_balance
 
-    # 1. Get all custodial wallets and their on-chain balances
+    # 1. Get all custodial wallets and their on-chain SOL balances
     wallets = await db.custodial_wallets.find(
         {}, {"_id": 0, "user_wallet": 1, "custodial_address": 1, "balance_lamports": 1}
     ).to_list(500)
@@ -156,26 +160,25 @@ async def api_admin_reconciliation():
 
     total_on_chain_sol = round(total_on_chain_lamports / 1_000_000_000, 6)
 
-    # 2. Get all user virtual balances from ledger (total_balance = deposits - withdrawals + PnL)
-    # We need total deposits minus withdrawals to know total user entitlement
+    # 2. Get per-user breakdown from ledger (available + locked separately)
     pipeline = [
         {"$match": {"user_wallet": {"$ne": "__platform__"}}},
-        {"$group": {
-            "_id": "$user_wallet",
-            "ledger_net": {"$sum": "$amount_sol"},
-        }},
+        {"$group": {"_id": "$user_wallet", "ledger_net": {"$sum": "$amount_sol"}}},
     ]
     ledger_rows = await db.user_ledger.aggregate(pipeline).to_list(500)
 
-    # For each user, compute total_balance (available + locked_in_trades)
-    ledger_map = {}
+    user_available_map = {}
+    user_locked_map = {}
+    user_total_map = {}
     for r in ledger_rows:
         uw = r["_id"]
-        # Get full breakdown including locked
         breakdown = await get_balance_breakdown(uw)
-        ledger_map[uw] = round(breakdown.get("total_balance_sol", 0), 6)
+        user_available_map[uw] = round(breakdown.get("available_sol", 0), 6)
+        user_locked_map[uw] = round(breakdown.get("locked_entry_cost_sol", 0), 6)
+        user_total_map[uw] = round(breakdown.get("total_balance_sol", 0), 6)
 
-    total_virtual_sol = round(sum(ledger_map.values()), 6)
+    total_available_sol = round(sum(user_available_map.values()), 6)
+    total_locked_sol = round(sum(user_locked_map.values()), 6)
 
     # 3. Platform rake balance
     platform_pipeline = [
@@ -185,33 +188,40 @@ async def api_admin_reconciliation():
     platform_result = await db.user_ledger.aggregate(platform_pipeline).to_list(1)
     platform_rake_sol = round(platform_result[0]["total"], 6) if platform_result else 0
 
-    # 4. Compute drift
-    drift_sol = round(total_on_chain_sol - total_virtual_sol - platform_rake_sol, 6)
+    # 4. Compute drift: on-chain SOL should equal (available SOL + platform rake)
+    # Locked SOL has been converted to tokens and is no longer in the wallet as SOL
+    expected_sol = round(total_available_sol + platform_rake_sol, 6)
+    drift_sol = round(total_on_chain_sol - expected_sol, 6)
 
     # 5. Per-user breakdown (exclude zero-balance noise)
     users = []
-    all_wallets = set(list(wallet_map.keys()) + list(ledger_map.keys()))
+    all_wallets = set(list(wallet_map.keys()) + list(user_available_map.keys()))
     for uw in sorted(all_wallets):
         if uw == "__platform__":
             continue
         w_info = wallet_map.get(uw, {})
         on_chain = w_info.get("on_chain_sol", 0)
-        virtual = ledger_map.get(uw, 0)
-        # Skip wallets with zero everywhere
-        if on_chain == 0 and virtual == 0:
+        available = user_available_map.get(uw, 0)
+        locked = user_locked_map.get(uw, 0)
+        total = user_total_map.get(uw, 0)
+        if on_chain == 0 and total == 0:
             continue
         users.append({
             "user_wallet": uw,
             "short_wallet": f"{uw[:6]}...{uw[-4:]}" if len(uw) > 10 else uw,
             "custodial_address": w_info.get("custodial_address", "N/A"),
             "on_chain_sol": on_chain,
-            "virtual_balance_sol": virtual,
-            "drift_sol": round(on_chain - virtual, 6),
+            "available_sol": available,
+            "locked_in_tokens_sol": locked,
+            "virtual_balance_sol": total,
+            "drift_sol": round(on_chain - available, 6),
         })
 
     return {
         "total_on_chain_sol": total_on_chain_sol,
-        "total_virtual_sol": total_virtual_sol,
+        "total_available_sol": total_available_sol,
+        "total_locked_in_tokens_sol": total_locked_sol,
+        "total_virtual_sol": round(total_available_sol + total_locked_sol, 6),
         "platform_rake_sol": platform_rake_sol,
         "drift_sol": drift_sol,
         "healthy": abs(drift_sol) < 0.001,

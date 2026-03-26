@@ -26,33 +26,33 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **User Wallet:** `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
 - **Custodial Wallet:** `B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC`
 
-## Completed Features (as of March 25, 2026)
-- Full AI Trading Bot with A-Tier features (signal intelligence, MEV protection, trailing stops, DCA exits, sniper mode)
+## Completed Features (as of March 27, 2026)
+- Full AI Trading Bot with A-Tier features
+- **Auto-trade scan scheduler** — scans every 5 minutes for new trade opportunities
 - Internal Fund Ledger with per-user virtual balance tracking
+- **Live pricing** on locked-in-trades positions (computed from current_price vs entry_price)
 - Deposit auto-detection with 5-second polling in deposit modal
 - Withdrawal modal with ledger balance validation
-- Admin Reconciliation Dashboard (on-chain vs virtual balance, drift detection, per-user breakdown)
+- **Ledger balance check** before executing any trade (prevents overspending)
+- **Admin Reconciliation Dashboard** — correctly accounts for SOL in token positions separately from available SOL
+- Post-deploy initialization script (idempotent, restores ledger on fresh DB)
 - Admin endpoint to sync pre-existing open positions into ledger
 - Rake Back system (2.5% on profitable trades)
 - Trading Mode Selector (conservative/normal/aggressive/sniper) — all modes work
+- Expanded safer token scan list (JUP, PYTH, RNDR, BONK, RAY, WIF, HNT, JITO)
+- "Normal" mode correctly uses user's stored confidence threshold without adjustment
 - Private Access Gate for testing period
-- Bot Performance Scorecard
-- Community Spotlight section
-- Clipboard copy with async error handling (Promise .then/.catch pattern)
-- Custom branding with user-provided images
-- Deployment-ready (no native dependencies, cleaned requirements.txt)
 
 ## Key Architecture
 - **Fund Ledger:** `user_ledger` collection is source of truth for per-user balances
-- **Platform Rake:** Pre-existing on-chain balance (0.008767 SOL) attributed to `__platform__` wallet
-- **Deposit Flow:** User sends SOL → modal auto-polls every 5s → `detect-deposit` endpoint compares on-chain vs stored → records difference in ledger
-- **Withdrawal Flow:** User requests withdrawal → validated against virtual `available_sol` → on-chain transfer + ledger debit
-- **Reconciliation:** Compares on-chain SOL with total_balance (available + locked) per user + platform rake. Drift = on_chain - virtual - rake.
+- **Reconciliation Formula:** drift = on_chain_SOL - available_SOL - platform_rake (token positions excluded since SOL was converted to tokens)
+- **Auto-trade Scheduler:** `auto_trade_scan_cycle` runs every 5 min, iterates all wallets with auto_trade_enabled=true
+- **Post-deploy Init:** `services/post_deploy_init.py` runs once on fresh DB, restores all known ledger state
 
 ## Current User Ledger State (qdegDg...7Rjs)
-- Available: 0.016951 SOL
+- Available: 0.05 SOL
 - Locked in trades: 0.033049 SOL (4 open positions: RENDER, PYTH, JUP x2)
-- Total balance: 0.05 SOL
+- Total balance: 0.083049 SOL
 - Reconciliation: Healthy (drift = 0)
 
 ## Backlog (Prioritized)
