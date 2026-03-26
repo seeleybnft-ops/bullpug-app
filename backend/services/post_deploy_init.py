@@ -1,62 +1,76 @@
 """
-Post-deploy ledger initialization.
+Post-deploy database initialization.
 
-Runs once on first startup with a fresh database to restore the known-good
-ledger state and open positions that existed before the deploy.
+Runs once on first startup with a fresh database to restore the critical
+wallet, ledger, positions, settings, and Telegram linkages from the
+preview environment.
 
-This is idempotent — if the ledger already has entries, it skips entirely.
+This is idempotent — if the custodial_wallets collection already has entries,
+it skips entirely to avoid overwriting a live database.
 """
 
+import json
 import logging
-from datetime import datetime, timezone
+from pathlib import Path
 from utils.database import db
 
 logger = logging.getLogger(__name__)
 
-USER_WALLET = "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"
-# NOTE: Custodial wallet is NOT created by this script. It is created by
-# get_or_create_custodial_wallet() on first access, which generates a proper
-# keypair. NEVER manually insert custodial wallet records without a keypair.
-
-# Platform rake (pre-existing on-chain balance before any user deposits)
-PLATFORM_RAKE_SOL = 0.008767
-
-# No pre-existing deposits or positions for fresh deploy
-# User will deposit to the new custodial wallet after deploy
+SEED_FILE = Path(__file__).parent.parent / "seed_data.json"
 
 
 async def run_post_deploy_init():
     """
-    Idempotent initializer. Only runs if the database is empty (fresh deploy).
-    Records platform rake. User deposits and positions start fresh.
+    Idempotent initializer. Only runs if the database has no custodial wallet
+    (fresh deploy). Seeds all critical data from seed_data.json.
     """
-    # Guard: skip if ledger already has entries
-    existing = await db.user_ledger.count_documents({})
-    if existing > 0:
-        logger.info(f"Post-deploy init: ledger already has {existing} entries — skipping.")
+    # Guard: skip if custodial wallets already exist (not a fresh deploy)
+    existing_wallets = await db.custodial_wallets.count_documents({})
+    if existing_wallets > 0:
+        logger.info(f"Post-deploy init: {existing_wallets} custodial wallet(s) found — skipping seed.")
         return
 
-    logger.info("Post-deploy init: fresh database detected — recording platform rake...")
+    if not SEED_FILE.exists():
+        logger.warning("Post-deploy init: seed_data.json not found — skipping.")
+        return
 
-    now = datetime.now(timezone.utc).isoformat()
+    logger.info("Post-deploy init: fresh database detected — seeding critical data...")
 
-    # 1. Platform rake entry
-    await db.user_ledger.insert_one({
-        "entry_id": "init_platform_rake",
-        "user_wallet": "__platform__",
-        "entry_type": "adjustment",
-        "amount_sol": PLATFORM_RAKE_SOL,
-        "balance_after": PLATFORM_RAKE_SOL,
-        "reference_id": "",
-        "reference_type": "platform_rake",
-        "description": "Pre-existing on-chain balance attributed to platform rake (deploy init)",
-        "metadata": {"reason": "deploy_init", "original_balance_sol": PLATFORM_RAKE_SOL},
-        "created_at": now,
-    })
-    logger.info(f"  Recorded platform rake: {PLATFORM_RAKE_SOL} SOL")
+    try:
+        with open(SEED_FILE) as f:
+            data = json.load(f)
+    except Exception as e:
+        logger.error(f"Post-deploy init: failed to read seed_data.json: {e}")
+        return
 
-    logger.info(
-        "Post-deploy init COMPLETE: Platform rake recorded. "
-        "Custodial wallet will be created on first user access with proper keypair. "
-        "User deposits and trades start fresh."
-    )
+    collections = [
+        "custodial_wallets",
+        "user_ledger",
+        "ai_trader_positions",
+        "ai_trader_settings",
+        "trader_settings",
+        "telegram_accounts",
+        "auto_trade_logs",
+        "trading_journal",
+    ]
+
+    total_seeded = 0
+    for col_name in collections:
+        docs = data.get(col_name, [])
+        if not docs:
+            continue
+
+        collection = db[col_name]
+        existing = await collection.count_documents({})
+        if existing > 0:
+            logger.info(f"  {col_name}: already has {existing} docs — skipping.")
+            continue
+
+        try:
+            await collection.insert_many(docs)
+            total_seeded += len(docs)
+            logger.info(f"  {col_name}: seeded {len(docs)} docs")
+        except Exception as e:
+            logger.error(f"  {col_name}: seed failed: {e}")
+
+    logger.info(f"Post-deploy init COMPLETE: seeded {total_seeded} documents across {len(collections)} collections.")
