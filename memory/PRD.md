@@ -66,7 +66,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Private Access Gate
 - Deposit auto-detection
 
-### Session 2 (Current) 
+### Session 2
 - **Multi-source market data** — CoinGecko batch API + DexScreener cached fallback
 - **First live trade:** PYTH buy 0.044 SOL @ $0.03912 (TX confirmed on-chain)
 - **Transaction fee tracking** — Auto-deducts fee gap after each trade
@@ -77,6 +77,15 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Extracted `services/auto_trader_engine.py`
   - Extracted `routers/price_alerts.py`
   - Created `services/market_data.py`
+
+### Session 3 (Feb 2026)
+- **Telegram Trade Alerts** — Wired `send_trade_alert()` into auto_trader_engine.py
+  - Buy alerts (known tokens, runners, snipers)
+  - Exit alerts (TP, SL, trailing stop, DCA stages) with P&L data
+  - Webhook set to deployed URL for receiving Telegram commands
+  - Test alert endpoint: `POST /api/telegram/test-alert/{wallet}`
+  - User @Seeleyb (chat_id: 6118851473) verified and receiving alerts
+  - 21/21 tests passed (iteration_91)
 
 ## Current Ledger State
 - Available: 0.003956 SOL (matches on-chain)
@@ -91,9 +100,9 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ### P2 - Future
 - P2P Betting Arena
-- Push Notifications
+- Web/Mobile Push Notifications
 - Achievement badges & "Share on X"
-- Daily Trading Digest via Telegram
+- Daily Trading Digest via Telegram (bot infrastructure in place)
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
