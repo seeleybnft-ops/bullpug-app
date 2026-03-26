@@ -75,17 +75,71 @@ async def get_jupiter_quote(
 
 
 async def get_token_price(token_symbol: str) -> Optional[float]:
-    """Get current token price in USD"""
+    """Get current token price in USD — multi-source with fallback"""
     token_mint = TOKENS.get(token_symbol)
     if not token_mint:
         return None
-    return await get_token_price_by_mint(token_mint)
+    return await get_token_price_by_mint(token_mint, symbol=token_symbol)
 
 
-async def get_token_price_by_mint(token_mint: str) -> Optional[float]:
-    """Get current token price in USD by mint address"""
+async def get_token_price_by_mint(token_mint: str, symbol: str = None) -> Optional[float]:
+    """
+    Get current token price in USD by mint address.
+    Priority: DexScreener (cached) -> CoinGecko batch cache -> CoinGecko single -> None
+    """
     if not token_mint:
         return None
+    
+    # Source 1: DexScreener (with cache + rate limit protection)
+    try:
+        from services.market_data import get_dexscreener_pair_data
+        dex_pair = await get_dexscreener_pair_data(token_mint)
+        if dex_pair:
+            price = float(dex_pair.get("priceUsd", 0) or 0)
+            if price > 0:
+                return price
+    except Exception:
+        pass
+    
+    # Source 2: CoinGecko batch cache (already prefetched by scanner)
+    if symbol:
+        try:
+            from services.market_data import _coingecko_batch_cache
+            import time
+            cached = _coingecko_batch_cache.get(symbol)
+            if cached:
+                ts, data = cached
+                if (time.time() - ts) < 1200:  # 20 min cache for price
+                    price = data.get("price_usd", 0)
+                    if price > 0:
+                        return price
+        except Exception:
+            pass
+    
+    # Source 3: CoinGecko single lookup (if we know the CoinGecko ID)
+    if symbol:
+        try:
+            from services.market_data import COINGECKO_IDS, _COINGECKO_BACKOFF_UNTIL
+            import time as _time
+            cg_id = COINGECKO_IDS.get(symbol)
+            if cg_id and _time.time() >= _COINGECKO_BACKOFF_UNTIL:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(
+                        "https://api.coingecko.com/api/v3/simple/price",
+                        params={"ids": cg_id, "vs_currencies": "usd"}
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        price = data.get(cg_id, {}).get("usd", 0)
+                        if price > 0:
+                            return float(price)
+                    elif resp.status_code == 429:
+                        import services.market_data as md
+                        md._COINGECKO_BACKOFF_UNTIL = _time.time() + 90
+        except Exception:
+            pass
+    
+    # Source 4: Direct DexScreener (no cache, last resort)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
