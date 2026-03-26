@@ -706,6 +706,21 @@ async def run_scan_and_execute(wallet_address: str):
                             
                             logger.info(f"Position saved: {symbol} @ {current_price} - TX: {tx_signature}")
                             
+                            # Send Telegram trade alert
+                            try:
+                                from routers.telegram import send_trade_alert
+                                await send_trade_alert(wallet_address, {
+                                    "action": "buy",
+                                    "symbol": symbol,
+                                    "amount_sol": position_sol,
+                                    "price": current_price,
+                                    "confidence": trade_confidence,
+                                    "reason": trade_reason,
+                                    "tx_signature": tx_signature
+                                })
+                            except Exception as tg_err:
+                                logger.debug(f"Telegram buy alert failed: {tg_err}")
+                            
                             # Only execute one trade per scan in conservative mode
                             if mode == "conservative":
                                 break
@@ -1001,6 +1016,22 @@ async def run_scan_and_execute(wallet_address: str):
                                 remaining_daily_trades -= 1
                                 
                                 logger.info(f"Runner position saved: {symbol} @ {current_price} - TX: {tx_signature}")
+                                
+                                # Send Telegram runner trade alert
+                                try:
+                                    from routers.telegram import send_trade_alert
+                                    await send_trade_alert(wallet_address, {
+                                        "action": "buy",
+                                        "symbol": symbol,
+                                        "amount_sol": position_sol,
+                                        "price": current_price,
+                                        "confidence": trade_confidence,
+                                        "reason": trade_reason,
+                                        "tx_signature": tx_signature,
+                                        "is_runner": True
+                                    })
+                                except Exception as tg_err:
+                                    logger.debug(f"Telegram runner alert failed: {tg_err}")
                                 
                                 # Limit runner trades
                                 if len([t for t in executed_trades if t.get("is_runner")]) >= 2:
@@ -1561,6 +1592,24 @@ async def run_check_exits(wallet_address: str):
                                 sell_frac = 0.50 if exit_action == "dca_tp1" else 0.25
                                 actual_pnl = position.get("amount_sol", 0) * sell_frac * (pnl_pct / 100)
                             await apply_rake(wallet_address, actual_pnl, position.get("position_id", ""), symbol)
+                            
+                            # Send Telegram exit alert
+                            try:
+                                from routers.telegram import send_trade_alert
+                                await send_trade_alert(wallet_address, {
+                                    "action": exit_action,
+                                    "symbol": symbol,
+                                    "amount_sol": position.get("amount_sol", 0),
+                                    "price": current_price,
+                                    "confidence": 1.0,
+                                    "reason": exit_reason,
+                                    "tx_signature": tx_signature,
+                                    "pnl_percent": pnl_pct,
+                                    "pnl_sol": pnl_sol,
+                                    "peak_price": peak_price
+                                })
+                            except Exception as tg_err:
+                                logger.debug(f"Telegram exit alert failed: {tg_err}")
                         
                         exits.append({
                             "symbol": symbol,

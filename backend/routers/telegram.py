@@ -87,6 +87,92 @@ async def get_bot_info() -> dict:
 
 
 # ============================================================================
+# WEBHOOK SETUP & TEST ENDPOINTS
+# ============================================================================
+
+@router.post("/setup-webhook")
+async def setup_webhook(webhook_url: str = None):
+    """Set the Telegram webhook URL so the bot can receive messages."""
+    if not TELEGRAM_BOT_TOKEN:
+        raise HTTPException(status_code=500, detail="Bot token not configured")
+
+    if not webhook_url:
+        # Auto-detect from REACT_APP_BACKEND_URL or a provided base
+        webhook_url = os.environ.get("WEBHOOK_BASE_URL", "")
+
+    if not webhook_url:
+        raise HTTPException(status_code=400, detail="webhook_url is required")
+
+    full_url = f"{webhook_url.rstrip('/')}/api/telegram/webhook"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{TELEGRAM_API_URL}/setWebhook",
+                json={"url": full_url}
+            )
+            result = response.json()
+            return {
+                "success": result.get("ok", False),
+                "webhook_url": full_url,
+                "description": result.get("description", "")
+            }
+    except Exception as e:
+        logger.error(f"Set webhook error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhook-info")
+async def get_webhook_info():
+    """Get current webhook info from Telegram."""
+    if not TELEGRAM_BOT_TOKEN:
+        return {"error": "Bot token not configured"}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{TELEGRAM_API_URL}/getWebhookInfo")
+            if response.status_code == 200:
+                return response.json().get("result", {})
+    except Exception as e:
+        logger.error(f"Get webhook info error: {e}")
+    return {}
+
+
+@router.post("/test-alert/{wallet_address}")
+async def test_trade_alert(wallet_address: str):
+    """Send a test trade alert to verify Telegram integration works."""
+    account = await db.telegram_accounts.find_one(
+        {"wallet_address": wallet_address, "active": True},
+        {"_id": 0}
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="No linked Telegram account found")
+
+    chat_id = account.get("chat_id")
+    if not chat_id:
+        raise HTTPException(status_code=404, detail="No chat_id found")
+
+    msg = (
+        "<b>Bullpug Trade Alert Test</b>\n\n"
+        "If you see this, your Telegram trade alerts are working!\n\n"
+        "You will receive real-time notifications for:\n"
+        "  Buy executions\n"
+        "  Take-profit exits\n"
+        "  Stop-loss triggers\n"
+        "  Trailing stop exits\n"
+        "  DCA partial sells\n\n"
+        "<i>Bullpug AI Trading Bot</i>"
+    )
+
+    success = await send_telegram_message(chat_id, msg)
+    return {
+        "success": success,
+        "chat_id": chat_id,
+        "telegram_username": account.get("telegram_username")
+    }
+
+
+# ============================================================================
 # LINKING ENDPOINTS
 # ============================================================================
 
@@ -1198,6 +1284,93 @@ async def handle_trending_command(chat_id: int):
         except Exception as e:
             logger.error(f"Trending command error: {e}")
             await send_telegram_message(chat_id, "❌ Error fetching trending tokens.")
+
+
+# ============================================================================
+# TRADE EXECUTION ALERTS (Called from auto_trader_engine.py)
+# ============================================================================
+
+async def send_trade_alert(wallet_address: str, trade_data: dict) -> bool:
+    """Send a trade execution alert (buy/sell/TP/SL/trailing) to Telegram."""
+    try:
+        account = await db.telegram_accounts.find_one({
+            "wallet_address": wallet_address,
+            "active": True,
+            "alerts_enabled": True
+        })
+
+        if not account or not account.get("chat_id"):
+            return False
+
+        chat_id = account["chat_id"]
+        action = trade_data.get("action", "trade")
+        symbol = trade_data.get("symbol", "???")
+        amount_sol = trade_data.get("amount_sol", 0)
+        price = trade_data.get("price", 0)
+        confidence = trade_data.get("confidence", 0)
+        reason = trade_data.get("reason", "")
+        tx_signature = trade_data.get("tx_signature", "")
+        pnl_pct = trade_data.get("pnl_percent", 0)
+        pnl_sol = trade_data.get("pnl_sol", 0)
+        is_runner = trade_data.get("is_runner", False)
+
+        tx_link = f'<a href="https://solscan.io/tx/{tx_signature}">View TX</a>' if tx_signature else ""
+
+        if action in ("buy", "auto_buy", "auto_buy_runner", "sniper_buy"):
+            tag = "RUNNER " if is_runner else "SNIPER " if action == "sniper_buy" else ""
+            msg = (
+                f"<b>{tag}BUY Executed</b>\n\n"
+                f"<b>{symbol}</b> @ <code>${price:.8f}</code>\n"
+                f"Size: <code>{amount_sol:.4f} SOL</code>\n"
+                f"Confidence: <code>{confidence*100:.0f}%</code>\n"
+                f"Signal: {reason[:120]}\n\n"
+                f"{tx_link}"
+            )
+        elif action in ("take_profit", "auto_take_profit"):
+            msg = (
+                f"<b>TAKE-PROFIT Hit</b>\n\n"
+                f"<b>{symbol}</b> sold @ <code>${price:.8f}</code>\n"
+                f"P&L: <code>{pnl_sol:+.4f} SOL ({pnl_pct:+.1f}%)</code>\n"
+                f"Size: <code>{amount_sol:.4f} SOL</code>\n\n"
+                f"{tx_link}"
+            )
+        elif action in ("stop_loss", "auto_stop_loss"):
+            msg = (
+                f"<b>STOP-LOSS Triggered</b>\n\n"
+                f"<b>{symbol}</b> sold @ <code>${price:.8f}</code>\n"
+                f"P&L: <code>{pnl_sol:+.4f} SOL ({pnl_pct:+.1f}%)</code>\n"
+                f"Size: <code>{amount_sol:.4f} SOL</code>\n\n"
+                f"{tx_link}"
+            )
+        elif action in ("trailing_stop", "auto_trailing_stop"):
+            peak = trade_data.get("peak_price", 0)
+            msg = (
+                f"<b>TRAILING STOP Triggered</b>\n\n"
+                f"<b>{symbol}</b> sold @ <code>${price:.8f}</code>\n"
+                f"Peak: <code>${peak:.8f}</code>\n"
+                f"P&L: <code>{pnl_sol:+.4f} SOL ({pnl_pct:+.1f}%)</code>\n\n"
+                f"{tx_link}"
+            )
+        elif action in ("dca_tp1", "dca_tp2"):
+            stage = "1 (50%)" if "tp1" in action else "2 (25%)"
+            msg = (
+                f"<b>DCA Stage {stage} Sold</b>\n\n"
+                f"<b>{symbol}</b> partial sell @ <code>${price:.8f}</code>\n"
+                f"P&L: <code>{pnl_pct:+.1f}%</code>\n\n"
+                f"{tx_link}"
+            )
+        else:
+            msg = (
+                f"<b>Trade Alert</b>\n\n"
+                f"<b>{symbol}</b> — {action}\n"
+                f"Price: <code>${price:.8f}</code>\n\n"
+                f"{tx_link}"
+            )
+
+        return await send_telegram_message(chat_id, msg)
+    except Exception as e:
+        logger.error(f"Send trade alert error: {e}")
+        return False
 
 
 # ============================================================================

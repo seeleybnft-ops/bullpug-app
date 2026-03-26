@@ -1,0 +1,132 @@
+{
+  "summary": "Iteration 91: Verified Telegram Trade Alerts wiring. All 21 tests pass. The send_trade_alert function exists in telegram.py (line 1293) and handles buy/sell/TP/SL/trailing/DCA actions. auto_trader_engine.py correctly imports and calls send_trade_alert at buy execution (line 711), runner buy (line 1022), and exit/sell (line 1598). Bot username is 'Bullpugbot', user wallet is linked (username: Seeleyb), and test alert was sent successfully.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. GET /api/ - API health check (200)",
+    "2. GET /api/telegram/bot-info - returns bot_username='Bullpugbot', link='https://t.me/Bullpugbot'",
+    "3. GET /api/telegram/status/{wallet} - returns linked=true, telegram_username='Seeleyb', alerts_enabled=true",
+    "4. POST /api/telegram/test-alert/{wallet} - sends real test message, returns success=true",
+    "5. GET /api/telegram/webhook-info - returns current webhook URL",
+    "6. POST /api/telegram/setup-webhook - sets webhook correctly to preview URL",
+    "7. send_trade_alert function exists in telegram.py with correct signature",
+    "8. send_trade_alert handles buy/auto_buy actions",
+    "9. send_trade_alert handles take_profit actions",
+    "10. send_trade_alert handles stop_loss actions",
+    "11. send_trade_alert handles trailing_stop actions",
+    "12. send_trade_alert handles DCA partial sell actions (dca_tp1, dca_tp2)",
+    "13. send_trade_alert handles runner buy actions (is_runner flag)",
+    "14. auto_trader_engine.py imports send_trade_alert from routers.telegram",
+    "15. auto_trader_engine.py calls send_trade_alert on buy (3 total calls)",
+    "16. auto_trader_engine.py calls send_trade_alert on exit with PnL data",
+    "17. send_trade_alert call found at line 711 for known token buys",
+    "18. send_trade_alert call found at line 1022 for runner buys",
+    "19. send_trade_alert call found at line 1598 for exit sells",
+    "20. Telegram account has alerts_enabled field",
+    "21. Telegram username verified as 'Seeleyb'"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "telegram_bot_info_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/telegram/bot-info",
+      "details": "Returns bot_username='Bullpugbot', link='https://t.me/Bullpugbot'"
+    },
+    "telegram_status_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/telegram/status/{wallet}",
+      "details": "Returns linked=true for wallet qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"
+    },
+    "telegram_test_alert_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "POST /api/telegram/test-alert/{wallet}",
+      "details": "Sends real test message to linked Telegram account, returns success=true"
+    },
+    "telegram_setup_webhook_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "POST /api/telegram/setup-webhook",
+      "details": "Sets webhook to https://cosmic-runner-hub.preview.emergentagent.com/api/telegram/webhook"
+    },
+    "telegram_webhook_info_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/telegram/webhook-info",
+      "details": "Returns current webhook URL from Telegram API"
+    },
+    "send_trade_alert_function": {
+      "status": "VERIFIED",
+      "file": "/app/backend/routers/telegram.py",
+      "line": 1293,
+      "details": "Handles buy, auto_buy, auto_buy_runner, sniper_buy, take_profit, stop_loss, trailing_stop, dca_tp1, dca_tp2 actions"
+    },
+    "auto_trader_buy_alert_wiring": {
+      "status": "VERIFIED",
+      "file": "/app/backend/services/auto_trader_engine.py",
+      "line": 711,
+      "details": "Calls send_trade_alert after successful known token buy execution"
+    },
+    "auto_trader_runner_alert_wiring": {
+      "status": "VERIFIED",
+      "file": "/app/backend/services/auto_trader_engine.py",
+      "line": 1022,
+      "details": "Calls send_trade_alert after successful runner buy execution"
+    },
+    "auto_trader_exit_alert_wiring": {
+      "status": "VERIFIED",
+      "file": "/app/backend/services/auto_trader_engine.py",
+      "line": 1598,
+      "details": "Calls send_trade_alert after exit/sell execution with PnL data (pnl_percent, pnl_sol, peak_price)"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration91_telegram_alerts.py",
+    "/app/test_reports/pytest/pytest_iteration91_telegram_alerts.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: send_trade_alert function is comprehensive - handles all trade action types (buy, sell, TP, SL, trailing, DCA)",
+    "POSITIVE: auto_trader_engine.py correctly imports and calls send_trade_alert at all execution points",
+    "POSITIVE: Telegram alerts include tx_signature for on-chain verification links",
+    "POSITIVE: Exit alerts include PnL data (pnl_percent, pnl_sol, peak_price for trailing stops)",
+    "POSITIVE: Runner buys are tagged with is_runner flag for differentiated alert messages",
+    "POSITIVE: All alert calls are wrapped in try/except to prevent trade execution failures from Telegram errors"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration91_telegram_alerts.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "test_credentials": {
+    "access_code": "bullpug2026",
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "telegram_username": "Seeleyb",
+    "telegram_chat_id": 6118851473,
+    "bot_username": "Bullpugbot",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing linked Telegram account",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 91 verified Telegram trade alerts wiring. The send_trade_alert function in telegram.py (line 1293) handles all trade types. auto_trader_engine.py calls it at: line 711 (known token buy), line 1022 (runner buy), line 1598 (exit/sell). User wallet qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs is linked to Telegram username Seeleyb (chat_id: 6118851473). Test alert was sent successfully. All 21 tests pass.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All Telegram API calls are live (bot-info, webhook-info, test-alert)"
+  },
+  "telegram_wiring_summary": {
+    "send_trade_alert_location": "/app/backend/routers/telegram.py:1293",
+    "buy_alert_location": "/app/backend/services/auto_trader_engine.py:711",
+    "runner_alert_location": "/app/backend/services/auto_trader_engine.py:1022",
+    "exit_alert_location": "/app/backend/services/auto_trader_engine.py:1598",
+    "supported_actions": ["buy", "auto_buy", "auto_buy_runner", "sniper_buy", "take_profit", "auto_take_profit", "stop_loss", "auto_stop_loss", "trailing_stop", "auto_trailing_stop", "dca_tp1", "dca_tp2"],
+    "alert_data_fields": ["action", "symbol", "amount_sol", "price", "confidence", "reason", "tx_signature", "pnl_percent", "pnl_sol", "peak_price", "is_runner"]
+  }
+}
