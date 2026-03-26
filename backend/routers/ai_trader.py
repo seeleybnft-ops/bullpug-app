@@ -2897,7 +2897,13 @@ async def auto_trade_scan_and_execute(wallet_address: str):
             tokens_to_scan.extend(["JUP", "PYTH", "RNDR", "BONK", "RAY", "WIF", "HNT", "JTO", "TENSOR", "DRIFT"])
         if risk_level in ["high_risk", "both"]:
             tokens_to_scan.extend(["BONK", "WIF", "RAY"])
-            
+        
+        # IMPORTANT: Prefetch ALL token data from CoinGecko FIRST (single API call)
+        # This must happen BEFORE runner detection to avoid rate limit conflicts
+        from services.market_data import get_token_market_data_multi, prefetch_coingecko_batch
+        await prefetch_coingecko_batch(tokens_to_scan[:10])
+        
+        if risk_level in ["high_risk", "both"]:
             # Fetch runner tokens (new pairs with momentum) - only for high_risk or both
             try:
                 runners = await RunnerDetector.get_best_runners(max_runners=5)
@@ -2910,8 +2916,13 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         skipped = []
         remaining_daily_trades = max_daily - today_completed_trades  # Track how many trades we can still do
         
+        # Get available ledger balance ONCE for the entire scan
+        ledger_available = await ledger_balance(wallet_address)
+        logger.info(f"Scan starting: ledger available = {ledger_available:.6f} SOL")
+        
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # First scan known tokens
+            # Scan known tokens using multi-source market data
+            
             for symbol in tokens_to_scan[:10]:  # Scan up to 10 known tokens per cycle
                 try:
                     token_mint = TOKENS.get(symbol)
@@ -2922,39 +2933,33 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     if token_mint == SOL_MINT:
                         continue
                     
-                    # Rate-limit DexScreener requests (max ~30/min)
-                    await asyncio.sleep(2)
+                    # Use multi-source market data (DexScreener cached -> CoinGecko fallback)
+                    market_data = await get_token_market_data_multi(symbol, token_mint)
                     
-                    # Get price data
-                    response = await client.get(
-                        f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
-                    )
-                    
-                    if response.status_code == 429:
-                        logger.warning(f"DexScreener rate limit hit at {symbol} — pausing scan")
-                        skipped.append({"symbol": symbol, "reason": "API rate limited (429)"})
-                        await asyncio.sleep(10)
+                    if not market_data:
+                        skipped.append({"symbol": symbol, "reason": "No market data available from any source"})
                         continue
                     
-                    if response.status_code != 200:
-                        skipped.append({"symbol": symbol, "reason": f"API error ({response.status_code})"})
-                        continue
-                    
-                    pairs = response.json().get("pairs", [])
-                    if not pairs:
-                        continue
-                    
-                    best_pair = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd", 0) or 0))
+                    data_source_name = market_data.get("source", "unknown")
+                    best_pair = market_data.get("pair_data")  # May be None for CoinGecko source
                     
                     # === QUALITY CHECK: Volume + Liquidity filter ===
                     from services.market_quality import extract_market_quality, build_price_history_from_dex, confidence_penalty_for_synthetic_data
-                    quality = extract_market_quality(best_pair)
-                    if not quality["passes_quality_check"]:
-                        skipped.append({"symbol": symbol, "reason": f"Market quality: {', '.join(quality['rejection_reasons'])}"})
-                        continue
+                    
+                    if best_pair:
+                        # Full quality check with DexScreener pair data
+                        quality = extract_market_quality(best_pair)
+                        if not quality["passes_quality_check"]:
+                            skipped.append({"symbol": symbol, "reason": f"Market quality: {', '.join(quality['rejection_reasons'])}"})
+                            continue
+                    else:
+                        # Simplified quality check for CoinGecko data (no pair data)
+                        if market_data["volume_24h"] < 1_000_000:
+                            skipped.append({"symbol": symbol, "reason": f"Low volume: ${market_data['volume_24h']:,.0f}"})
+                            continue
                     
                     # Get price history for analysis
-                    current_price = float(best_pair.get("priceUsd", 0) or 0)
+                    current_price = market_data["price_usd"]
                     
                     if current_price <= 0:
                         continue
@@ -2964,10 +2969,10 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     prices, is_synthetic = await get_real_price_history(token_mint)
                     
                     if is_synthetic:
-                        # Fall back to synthetic price history from DexScreener % changes
-                        price_change_24h = float(best_pair.get("priceChange", {}).get("h24", 0) or 0)
-                        price_change_6h = float(best_pair.get("priceChange", {}).get("h6", 0) or 0)
-                        price_change_1h = float(best_pair.get("priceChange", {}).get("h1", 0) or 0)
+                        # Fall back to synthetic price history from market data % changes
+                        price_change_24h = market_data.get("price_change_24h", 0)
+                        price_change_6h = market_data.get("price_change_6h", 0)
+                        price_change_1h = market_data.get("price_change_1h", 0)
                         prices, is_synthetic = build_price_history_from_dex(current_price, price_change_24h, price_change_6h, price_change_1h)
                         # Ensure this token is tracked for future real data
                         await add_runner_to_tracking(symbol, token_mint)
@@ -3035,7 +3040,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     sentiment_adj = 0.0
                     try:
                         from services.social_sentiment import get_confidence_adjustment as sentiment_confidence
-                        sentiment_adj = await sentiment_confidence(token_mint, pair_data=best_pair)
+                        sentiment_adj = await sentiment_confidence(token_mint, pair_data=best_pair if best_pair else {})
                         if abs(sentiment_adj) > 0.01:
                             trade_confidence = max(0.0, min(0.95, trade_confidence + sentiment_adj))
                             trade_reason = f"[SENT {'+'  if sentiment_adj > 0 else ''}{sentiment_adj:.0%}] {trade_reason}"
@@ -3050,11 +3055,11 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     
                     # === MULTI-TIMEFRAME CONFIRMATION ===
                     if should_trade and settings.get("multi_timeframe_enabled", True):
-                        price_changes = best_pair.get("priceChange", {})
-                        change_5m = float(price_changes.get("m5", 0) or 0)
-                        change_1h = float(price_changes.get("h1", 0) or 0)
-                        change_6h = float(price_changes.get("h6", 0) or 0)
-                        change_24h = float(price_changes.get("h24", 0) or 0)
+                        # Use market_data for price changes (works with any source)
+                        change_5m = market_data.get("price_change_5m", 0)
+                        change_1h = market_data.get("price_change_1h", 0)
+                        change_6h = market_data.get("price_change_6h", 0)
+                        change_24h = market_data.get("price_change_24h", 0)
                         
                         # Count how many timeframes agree with the signal direction
                         tf_bullish = sum(1 for c in [change_5m, change_1h, change_6h, change_24h] if c > 0)
@@ -3153,6 +3158,13 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                         else:
                             position_sol = base_position
                         
+                        # Cap position to available ledger balance minus fee reserve
+                        fee_reserve = 0.006  # Keep 0.006 SOL for tx fees + sell reserve
+                        position_sol = round(min(position_sol, max(0, ledger_available - fee_reserve)), 6)
+                        if position_sol < 0.002:  # Minimum viable trade
+                            skipped.append({"symbol": symbol, "reason": f"Insufficient balance (avail: {ledger_available:.4f} SOL, need: {base_position:.4f})"})
+                            continue
+                        
                         # Create position record
                         position_id = str(uuid.uuid4())[:8]
                         execution_id = f"auto_{str(uuid.uuid4())[:6]}"
@@ -3189,9 +3201,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                             if burn_result.get("burned_accounts", 0) > 0:
                                 logger.info(f"Auto-burn before signal buy: reclaimed {burn_result.get('reclaimed_sol', 0):.4f} SOL from {burn_result['burned_accounts']} accounts")
                             
-                            # CRITICAL: Check ledger available balance FIRST
-                            from services.ledger import get_available_balance
-                            ledger_available = await get_available_balance(wallet_address)
+                            # Refresh ledger balance (may have changed from burns/other trades)
+                            ledger_available = await ledger_balance(wallet_address)
                             if ledger_available < position_sol:
                                 execution_error = f"Insufficient ledger balance: {ledger_available:.6f} SOL available, need {position_sol:.4f} SOL"
                                 logger.warning(execution_error)
@@ -3207,7 +3218,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 custodial_balance = await get_wallet_balance(custodial_wallet["custodial_address"])
                                 required_lamports = int(position_sol * LAMPORTS_PER_SOL)
                                 
-                                if custodial_balance >= required_lamports + 50000:  # Extra for fees
+                                if custodial_balance >= required_lamports + 5050000:  # 0.005 sell reserve + 0.00005 tx fee
                                     # Execute actual trade via custodial wallet
                                     logger.info(f"Executing auto-trade via custodial wallet: {position_sol} SOL for {symbol}")
                                     
@@ -3463,7 +3474,16 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                                 continue
                             
                             # Use smaller position for runners (higher risk)
-                            position_sol = min(max_position * 0.5, 0.1)  # Max 0.1 SOL for runners
+                            # Cap to available balance minus fee reserve
+                            from services.ledger import get_available_balance as ledger_avail_fn
+                            ledger_avail = await ledger_avail_fn(wallet_address)
+                            fee_reserve = 0.006  # Keep 0.006 SOL for tx fees + sell reserve
+                            max_runner_position = min(max_position * 0.5, 0.1, max(0, ledger_avail - fee_reserve))
+                            position_sol = round(max_runner_position, 6)
+                            
+                            if position_sol < 0.002:  # Minimum viable trade
+                                skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Insufficient balance for runner trade (avail: {ledger_avail:.4f} SOL)"})
+                                continue
                             
                             position_id = str(uuid.uuid4())[:8]
                             execution_id = f"runner_{str(uuid.uuid4())[:6]}"

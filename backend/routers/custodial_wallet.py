@@ -221,23 +221,21 @@ async def get_custodial_keypair(user_wallet: str) -> Keypair:
 
 async def get_wallet_balance(address: str) -> int:
     """Get SOL balance of a wallet in lamports"""
-    try:
-        async with AsyncClient(SOLANA_RPC_URL) as client:
-            response = await client.get_balance(Pubkey.from_string(address))
-            logger.info(f"Balance for {address}: {response.value} lamports")
-            return response.value
-    except Exception as e:
-        logger.error(f"Failed to get balance for {address}: {type(e).__name__}: {e}")
-        # Try fallback RPC
+    # Try public RPC first (Helius key may be invalid)
+    rpcs = [
+        os.environ.get("ALCHEMY_SOLANA_RPC", "https://api.mainnet-beta.solana.com"),
+        SOLANA_RPC_URL,
+    ]
+    for rpc_url in rpcs:
         try:
-            fallback_rpc = os.environ.get("ALCHEMY_SOLANA_RPC", "https://api.mainnet-beta.solana.com")
-            async with AsyncClient(fallback_rpc) as fallback_client:
-                response = await fallback_client.get_balance(Pubkey.from_string(address))
-                logger.info(f"Fallback balance for {address}: {response.value} lamports")
+            async with AsyncClient(rpc_url) as client:
+                response = await client.get_balance(Pubkey.from_string(address))
                 return response.value
-        except Exception as fallback_e:
-            logger.error(f"Fallback balance also failed for {address}: {type(fallback_e).__name__}: {fallback_e}")
-        return 0
+        except Exception:
+            continue
+    
+    logger.warning(f"All RPCs failed for balance of {address}")
+    return 0
 
 
 async def update_wallet_balance(user_wallet: str):
@@ -327,11 +325,8 @@ async def get_wallet_info(user_wallet: str) -> CustodialWalletResponse:
     # Get current on-chain balance
     balance_lamports = await get_wallet_balance(wallet_doc["custodial_address"])
     
-    # Update stored balance
-    await db.custodial_wallets.update_one(
-        {"user_wallet": user_wallet},
-        {"$set": {"balance_lamports": balance_lamports}}
-    )
+    # NOTE: Do NOT update balance_lamports here — that's the job of detect_deposit.
+    # Updating it here defeats deposit detection (which compares on-chain vs stored).
     
     balance_sol = balance_lamports / LAMPORTS_PER_SOL
     available_deposit = max(0, MAX_DEPOSIT_SOL - balance_sol)
@@ -460,27 +455,45 @@ async def detect_deposit(user_wallet: str):
     on_chain_lamports = await get_wallet_balance(custodial_address)
     on_chain_sol = on_chain_lamports / LAMPORTS_PER_SOL
 
-    # Get previously stored balance
-    stored_lamports = wallet_doc.get("balance_lamports", 0)
+    # Compare against the ledger total, not stored balance_lamports.
+    # The /info endpoint used to overwrite balance_lamports, defeating detection.
+    from services.ledger import get_available_balance
+    ledger_balance_sol = await get_available_balance(user_wallet)
+    
+    # Also count locked trades (they're still real SOL in the system)
+    locked_docs = await db.ai_trader_positions.find(
+        {"wallet_address": user_wallet, "status": "open"}
+    ).to_list(100)
+    locked_sol = sum(float(d.get("amount_sol", 0)) for d in locked_docs)
+    
+    total_ledger_sol = ledger_balance_sol + locked_sol
+    
+    # Account for fees already taken
+    fee_entries = await db.user_ledger.find(
+        {"wallet_address": user_wallet, "entry_type": "fee"}
+    ).to_list(1000)
+    total_fees_sol = abs(sum(float(e.get("amount_sol", 0)) for e in fee_entries))
+    total_ledger_sol += total_fees_sol
+    
+    # The deposit diff is what's on-chain minus what the ledger already knows about
+    # (with a small buffer for rent/fees)
+    diff_sol = on_chain_sol - total_ledger_sol
+    diff_lamports = int(diff_sol * LAMPORTS_PER_SOL)
 
-    # Calculate new deposit amount
-    diff_lamports = on_chain_lamports - stored_lamports
-    diff_sol = diff_lamports / LAMPORTS_PER_SOL
-
-    if diff_lamports <= 0:
-        # Update balance in case it decreased
-        await db.custodial_wallets.update_one(
-            {"user_wallet": user_wallet},
-            {"$set": {"balance_lamports": on_chain_lamports}}
-        )
+    # Minimum detection threshold: 0.001 SOL (1M lamports) to avoid rounding noise
+    if diff_lamports < 1_000_000:
         return {
             "success": True,
             "detected": False,
             "on_chain_sol": round(on_chain_sol, 6),
+            "ledger_sol": round(total_ledger_sol, 6),
             "message": "No new deposit detected"
         }
 
     # New SOL detected! Record it
+    deposit_sol = round(diff_sol, 6)
+    deposit_lamports = int(deposit_sol * LAMPORTS_PER_SOL)
+    
     await db.custodial_wallets.update_one(
         {"user_wallet": user_wallet},
         {
@@ -488,12 +501,12 @@ async def detect_deposit(user_wallet: str):
                 "balance_lamports": on_chain_lamports,
                 "last_activity": datetime.now(timezone.utc).isoformat(),
             },
-            "$inc": {"total_deposits_lamports": diff_lamports},
+            "$inc": {"total_deposits_lamports": deposit_lamports},
             "$push": {
                 "transaction_history": {
                     "tx_type": "deposit",
-                    "amount_lamports": diff_lamports,
-                    "amount_sol": round(diff_sol, 6),
+                    "amount_lamports": deposit_lamports,
+                    "amount_sol": deposit_sol,
                     "tx_signature": "auto_detected",
                     "status": "confirmed",
                     "created_at": datetime.now(timezone.utc).isoformat(),
@@ -506,20 +519,20 @@ async def detect_deposit(user_wallet: str):
     await ledger_record(
         user_wallet,
         "deposit",
-        round(diff_sol, 6),
+        deposit_sol,
         reference_type="auto_detected_deposit",
-        description=f"Deposit detected: {diff_sol:.6f} SOL",
-        metadata={"on_chain_lamports": on_chain_lamports, "previous_lamports": stored_lamports},
+        description=f"Deposit detected: {deposit_sol:.6f} SOL",
+        metadata={"on_chain_lamports": on_chain_lamports, "ledger_sol": total_ledger_sol},
     )
 
-    logger.info(f"Auto-detected deposit of {diff_sol:.6f} SOL for {user_wallet[:8]}…")
+    logger.info(f"Auto-detected deposit of {deposit_sol:.6f} SOL for {user_wallet[:8]}…")
 
     return {
         "success": True,
         "detected": True,
-        "deposit_sol": round(diff_sol, 6),
+        "deposit_sol": deposit_sol,
         "new_balance_sol": round(on_chain_sol, 6),
-        "message": f"Deposit of {diff_sol:.6f} SOL detected and recorded",
+        "message": f"Deposit of {deposit_sol:.6f} SOL detected and recorded",
     }
 
 
