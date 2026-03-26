@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +397,20 @@ async def evaluate_whale_profits():
         logger.error(f"Error in whale profit scoring: {e}")
 
 
+async def send_daily_trading_digest():
+    """Send the daily P&L digest to all linked Telegram users. Runs once at 20:00 UTC."""
+    try:
+        from routers.telegram import run_daily_digest_all
+        result = await run_daily_digest_all()
+        sent = result.get("sent", 0)
+        if sent > 0:
+            logger.info(f"Daily trading digest sent to {sent} users")
+        else:
+            logger.debug("Daily trading digest: no messages sent")
+    except Exception as e:
+        logger.error(f"Error in daily trading digest: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -479,11 +494,21 @@ def start_scheduler():
         max_instances=1
     )
     
+    # NEW: Daily trading digest via Telegram - 20:00 UTC daily
+    scheduler.add_job(
+        send_daily_trading_digest,
+        trigger=CronTrigger(hour=20, minute=0, timezone="UTC"),
+        id="daily_trading_digest",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
     logger.info(
         "Background scheduler started - prize pool (5 min), signal tracking (1 hour), "
         "journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min), "
-        "AUTO-TRADE SCAN (5 min), PRICE COLLECTOR (5 min), SMART MONEY SCANNER (10 min)"
+        "AUTO-TRADE SCAN (5 min), PRICE COLLECTOR (5 min), SMART MONEY SCANNER (10 min), "
+        "DAILY DIGEST (20:00 UTC)"
     )
 
 

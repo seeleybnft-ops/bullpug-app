@@ -172,6 +172,164 @@ async def test_trade_alert(wallet_address: str):
     }
 
 
+@router.post("/daily-digest/{wallet_address}")
+async def trigger_daily_digest(wallet_address: str):
+    """Manually trigger the daily P&L digest for a wallet."""
+    result = await send_daily_digest_for_wallet(wallet_address)
+    return result
+
+
+# ============================================================================
+# DAILY P&L DIGEST
+# ============================================================================
+
+async def send_daily_digest_for_wallet(wallet_address: str) -> dict:
+    """Build and send a daily trading summary to a single wallet's linked Telegram."""
+    account = await db.telegram_accounts.find_one(
+        {"wallet_address": wallet_address, "active": True, "alerts_enabled": True},
+        {"_id": 0}
+    )
+    if not account or not account.get("chat_id"):
+        return {"success": False, "reason": "no_linked_telegram"}
+
+    chat_id = account["chat_id"]
+
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    # --- Gather today's auto-trade logs ---
+    today_logs = await db.auto_trade_logs.find(
+        {"wallet_address": wallet_address, "created_at": {"$gte": day_start}},
+        {"_id": 0}
+    ).to_list(100)
+
+    buys = [log for log in today_logs if log.get("action") in ("auto_buy", "auto_buy_runner", "sniper_buy")]
+    sells = [log for log in today_logs if "sell" in log.get("action", "") or "take_profit" in log.get("action", "") or "stop_loss" in log.get("action", "")]
+
+    buy_count = len(buys)
+    sell_count = len(sells)
+    total_sol_bought = sum(log.get("amount_sol", 0) for log in buys)
+    total_pnl_sol = sum(log.get("pnl_sol", 0) for log in sells)
+    wins = len([s for s in sells if s.get("pnl_sol", 0) > 0])
+    losses = len([s for s in sells if s.get("pnl_sol", 0) < 0])
+
+    # --- Current balance ---
+    from services.ledger import get_balance_breakdown
+    balance = await get_balance_breakdown(wallet_address)
+
+    available = balance.get("available_sol", 0)
+    locked = balance.get("locked_in_trades_sol", 0)
+    total = balance.get("total_balance_sol", 0)
+    unrealised = balance.get("unrealised_pnl_sol", 0)
+    fees = balance.get("total_fees_sol", 0)
+
+    # --- Open positions ---
+    open_positions = await db.ai_trader_positions.find(
+        {"wallet_address": wallet_address, "status": "open"},
+        {"_id": 0, "token_symbol": 1, "amount_sol": 1, "entry_price": 1, "current_price": 1}
+    ).to_list(20)
+
+    # --- Build message ---
+    pnl_emoji = "+" if total_pnl_sol >= 0 else ""
+    unreal_emoji = "+" if unrealised >= 0 else ""
+
+    msg = "<b>Daily Trading Digest</b>\n"
+    msg += f"<i>{now.strftime('%B %d, %Y')}</i>\n\n"
+
+    # Activity section
+    if buy_count + sell_count > 0:
+        msg += "<b>Today's Activity</b>\n"
+        msg += f"  Buys: {buy_count} ({total_sol_bought:.4f} SOL)\n"
+        msg += f"  Sells: {sell_count}"
+        if sell_count > 0:
+            msg += f" (W: {wins} / L: {losses})"
+        msg += "\n"
+        if total_pnl_sol != 0:
+            msg += f"  Realised P&L: <code>{pnl_emoji}{total_pnl_sol:.4f} SOL</code>\n"
+        msg += "\n"
+    else:
+        msg += "<b>Today's Activity</b>\n  No trades executed today.\n\n"
+
+    # Balance section
+    msg += "<b>Portfolio</b>\n"
+    msg += f"  Available: <code>{available:.4f} SOL</code>\n"
+    msg += f"  Locked: <code>{locked:.4f} SOL</code>\n"
+    msg += f"  Total: <code>{total:.4f} SOL</code>\n"
+    if unrealised != 0:
+        msg += f"  Unrealised: <code>{unreal_emoji}{unrealised:.4f} SOL</code>\n"
+    msg += f"  Fees paid: <code>{fees:.4f} SOL</code>\n\n"
+
+    # Open positions
+    if open_positions:
+        msg += f"<b>Open Positions ({len(open_positions)})</b>\n"
+        for p in open_positions[:5]:
+            sym = p.get("token_symbol", "???")
+            amt = p.get("amount_sol", 0)
+            entry_px = p.get("entry_price", 0)
+            cur_px = p.get("current_price", 0)
+            if entry_px > 0 and cur_px > 0:
+                pos_pnl = ((cur_px - entry_px) / entry_px) * 100
+                pnl_icon = "+" if pos_pnl >= 0 else ""
+                msg += f"  <b>{sym}</b> {amt:.4f} SOL ({pnl_icon}{pos_pnl:.1f}%)\n"
+            else:
+                msg += f"  <b>{sym}</b> {amt:.4f} SOL\n"
+        if len(open_positions) > 5:
+            msg += f"  <i>+{len(open_positions) - 5} more...</i>\n"
+        msg += "\n"
+
+    # Top trade highlight
+    if sells:
+        best = max(sells, key=lambda s: s.get("pnl_sol", 0))
+        worst = min(sells, key=lambda s: s.get("pnl_sol", 0))
+        if best.get("pnl_sol", 0) > 0:
+            msg += f"<b>Best Trade:</b> {best.get('token_symbol', '???')} <code>+{best['pnl_sol']:.4f} SOL</code>\n"
+        if worst.get("pnl_sol", 0) < 0:
+            msg += f"<b>Worst Trade:</b> {worst.get('token_symbol', '???')} <code>{worst['pnl_sol']:.4f} SOL</code>\n"
+        msg += "\n"
+
+    msg += "<i>Bullpug AI Trading Bot</i>"
+
+    success = await send_telegram_message(chat_id, msg)
+    return {
+        "success": success,
+        "wallet_address": wallet_address,
+        "buy_count": buy_count,
+        "sell_count": sell_count,
+        "total_pnl_sol": total_pnl_sol
+    }
+
+
+async def run_daily_digest_all():
+    """
+    Send the daily trading digest to ALL users with linked Telegram.
+    Called by the scheduler once daily.
+    """
+    try:
+        accounts = await db.telegram_accounts.find(
+            {"active": True, "alerts_enabled": True},
+            {"_id": 0, "wallet_address": 1}
+        ).to_list(500)
+
+        sent = 0
+        for acc in accounts:
+            wallet = acc.get("wallet_address")
+            if not wallet:
+                continue
+            try:
+                result = await send_daily_digest_for_wallet(wallet)
+                if result.get("success"):
+                    sent += 1
+            except Exception as e:
+                logger.error(f"Daily digest failed for {wallet[:8]}...: {e}")
+
+        logger.info(f"Daily digest sent to {sent}/{len(accounts)} users")
+        return {"sent": sent, "total_users": len(accounts)}
+    except Exception as e:
+        logger.error(f"Daily digest batch error: {e}")
+        return {"sent": 0, "error": str(e)}
+
+
 # ============================================================================
 # LINKING ENDPOINTS
 # ============================================================================
@@ -447,6 +605,7 @@ Get real-time price alerts and breakout notifications directly in Telegram.
 /status - Check connection
 /wallet - View auto-trade balance
 /profit - View current P&L
+/digest - Daily trading summary
 /autotrade - Auto-trade status
 /alerts - View active alerts
 /help - Show all commands
@@ -469,6 +628,7 @@ Get real-time price alerts and breakout notifications directly in Telegram.
 /profit - View current P&L on all positions
 /positions - View open positions
 /autotrade - Auto-trade bot status
+/digest - Get your daily trading summary
 
 <b>Trading:</b>
 /trade - Open trading menu
@@ -594,6 +754,9 @@ Linked: {account.get("linked_at", "Unknown")[:10]}
     elif cmd == "/trending":
         await handle_trending_command(chat_id)
     
+    elif cmd == "/digest":
+        await handle_digest_command(chat_id)
+    
     else:
         await send_telegram_message(chat_id, "❓ Unknown command. Use /help to see available commands.")
 
@@ -601,6 +764,20 @@ Linked: {account.get("linked_at", "Unknown")[:10]}
 # ============================================================================
 # TRADING COMMANDS
 # ============================================================================
+
+async def handle_digest_command(chat_id: int):
+    """Send the daily trading digest on demand."""
+    account = await db.telegram_accounts.find_one({"chat_id": chat_id, "active": True})
+    if not account:
+        await send_telegram_message(chat_id, "❌ No linked wallet. Please link your wallet first.")
+        return
+
+    wallet_address = account.get("wallet_address")
+    await send_telegram_message(chat_id, "Generating your daily digest...")
+    result = await send_daily_digest_for_wallet(wallet_address)
+    if not result.get("success"):
+        await send_telegram_message(chat_id, "❌ Could not generate digest. Please try again.")
+
 
 async def handle_trade_command(chat_id: int, command: str):
     """Show trading menu with quick actions."""

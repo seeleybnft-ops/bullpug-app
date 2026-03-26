@@ -86,6 +86,13 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Test alert endpoint: `POST /api/telegram/test-alert/{wallet}`
   - User @Seeleyb (chat_id: 6118851473) verified and receiving alerts
   - 21/21 tests passed (iteration_91)
+- **Daily P&L Digest** — Automated Telegram summary at 20:00 UTC daily
+  - Aggregates today's buys, sells, wins/losses, realised P&L
+  - Shows portfolio balance (available, locked, total, unrealised)
+  - Lists open positions with live P&L %
+  - Highlights best/worst trade of the day
+  - On-demand via `/digest` Telegram command or `POST /api/telegram/daily-digest/{wallet}`
+  - Scheduled via APScheduler CronTrigger (20:00 UTC)
 
 ## Current Ledger State
 - Available: 0.003956 SOL (matches on-chain)
@@ -102,7 +109,6 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - P2P Betting Arena
 - Web/Mobile Push Notifications
 - Achievement badges & "Share on X"
-- Daily Trading Digest via Telegram (bot infrastructure in place)
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
