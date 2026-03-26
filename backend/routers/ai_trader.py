@@ -2867,8 +2867,8 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         # Adjust confidence based on mode
         # Backtest shows 0.55 is optimal (72.5% win rate, +2.87% PnL)
-        if mode == "aggressive":
-            min_confidence = max(0.50, min_confidence - 0.15)  # More aggressive: 0.50 floor
+        if mode == "aggressive" or mode == "sniper":
+            min_confidence = max(0.45, min_confidence - 0.15)  # Aggressive/sniper: 0.45 floor
         elif mode in ("moderate", "normal"):
             pass  # Use the user's stored auto_min_confidence as-is
         else:  # conservative
@@ -2912,7 +2912,7 @@ async def auto_trade_scan_and_execute(wallet_address: str):
         
         async with httpx.AsyncClient(timeout=20.0) as client:
             # First scan known tokens
-            for symbol in tokens_to_scan[:5]:  # Limit to 5 known tokens per scan
+            for symbol in tokens_to_scan[:10]:  # Scan up to 10 known tokens per cycle
                 try:
                     token_mint = TOKENS.get(symbol)
                     if not token_mint:
@@ -2922,12 +2922,22 @@ async def auto_trade_scan_and_execute(wallet_address: str):
                     if token_mint == SOL_MINT:
                         continue
                     
+                    # Rate-limit DexScreener requests (max ~30/min)
+                    await asyncio.sleep(2)
+                    
                     # Get price data
                     response = await client.get(
                         f"https://api.dexscreener.com/latest/dex/tokens/{token_mint}"
                     )
                     
+                    if response.status_code == 429:
+                        logger.warning(f"DexScreener rate limit hit at {symbol} — pausing scan")
+                        skipped.append({"symbol": symbol, "reason": "API rate limited (429)"})
+                        await asyncio.sleep(10)
+                        continue
+                    
                     if response.status_code != 200:
+                        skipped.append({"symbol": symbol, "reason": f"API error ({response.status_code})"})
                         continue
                     
                     pairs = response.json().get("pairs", [])
