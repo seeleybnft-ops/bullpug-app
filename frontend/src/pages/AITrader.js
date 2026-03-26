@@ -26,6 +26,7 @@ import MultiChainCopyTrading from "../components/MultiChainCopyTrading";
 import UnifiedAutoTrader from "../components/UnifiedAutoTrader";
 import RunnerTokens from "../components/RunnerTokens";
 import RunnerAlertManager from "../components/RunnerAlertManager";
+import TradeHistoryDashboard from "../components/trader/TradeHistoryDashboard";
 import {
   RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
@@ -1332,6 +1333,11 @@ export default function AITrader() {
             onDeposit={() => setShowDepositModal(true)}
             onWithdraw={withdrawFromCustodial}
           />
+        </div>
+
+        {/* Trade History Dashboard */}
+        <div className="mb-6 sm:mb-8">
+          <TradeHistoryDashboard walletAddress={walletAddress} />
         </div>
         
         {/* Share Performance & Reset Stats Buttons */}

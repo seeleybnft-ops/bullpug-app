@@ -1,0 +1,130 @@
+{
+  "summary": "Iteration 90: Verified Trade History Dashboard addition and Helius API key update. All 16 backend tests pass. TradeHistoryDashboard.js component exists with proper data-testid attributes and is correctly imported/rendered in AITrader.js. Helius RPC is working (balance_sol=0.003956). PYTH position has live pricing (current_price=$0.03906). Frontend compiles without errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. GET /api/ai-trader/history/{wallet} - endpoint exists (200)",
+    "2. GET /api/ai-trader/history/{wallet} - has trades and stats fields",
+    "3. GET /api/ai-trader/history/{wallet} - trades have required fields (token_symbol, trade_type, amount_sol, entry_price, status)",
+    "4. GET /api/ledger/balance/{wallet} - endpoint exists (200)",
+    "5. GET /api/ledger/balance/{wallet} - has all required fields (available_sol, locked_in_trades_sol, total_fees_sol, unrealised_pnl_sol, total_balance_sol)",
+    "6. GET /api/ledger/balance/{wallet} - values are reasonable (non-negative)",
+    "7. GET /api/ai-trader/positions/{wallet} - endpoint exists (200)",
+    "8. GET /api/ai-trader/positions/{wallet} - has positions and count fields",
+    "9. GET /api/ai-trader/positions/{wallet} - PYTH has live current_price=$0.03906 (non-zero)",
+    "10. GET /api/custodial-wallet/info/{wallet} - endpoint exists (200)",
+    "11. GET /api/custodial-wallet/info/{wallet} - balance_sol=0.003956 (Helius RPC working)",
+    "12. POST /api/ai-trader/auto-trade/check-exits/{wallet} - endpoint exists (200)",
+    "13. POST /api/ai-trader/auto-trade/check-exits/{wallet} - has success and exits fields",
+    "14. GET /api/ai-trader/settings/{wallet} - endpoint exists (200)",
+    "15. GET /api/ai-trader/settings/{wallet} - has required fields (wallet_address, auto_trade_enabled, trading_mode)",
+    "16. Helius RPC key is valid (balance fetched successfully)"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "trade_history_dashboard_component": {
+      "status": "VERIFIED",
+      "file": "/app/frontend/src/components/trader/TradeHistoryDashboard.js",
+      "details": "Component exists with 272 lines, has data-testid='trade-history-dashboard', shows available_sol, locked_in_trades_sol, total_fees_sol, unrealised_pnl_sol, and scrollable trade list with TX links"
+    },
+    "trade_history_dashboard_integration": {
+      "status": "VERIFIED",
+      "file": "/app/frontend/src/pages/AITrader.js",
+      "details": "TradeHistoryDashboard imported (line 29) and rendered after FundLedger (line 1340)"
+    },
+    "helius_api_key_update": {
+      "status": "VERIFIED",
+      "file": "/app/backend/.env",
+      "details": "HELIUS_RPC_URL updated to c7c37557-61df-4b9d-9661-b3d9c5be3aa8, balance fetch works (0.003956 SOL)"
+    },
+    "trade_history_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ai-trader/history/{wallet}",
+      "details": "Returns trades list with token_symbol, trade_type, amount_sol, entry_price, tx_signature, status fields"
+    },
+    "ledger_balance_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ledger/balance/{wallet}",
+      "details": "Returns available_sol=0.003956, locked_in_trades_sol=0.043933, total_fees_sol=0.002044, unrealised_pnl_sol=-0.000067"
+    },
+    "positions_with_live_pricing": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ai-trader/positions/{wallet}",
+      "details": "PYTH position has live current_price=$0.03906 from multi-source pricing"
+    },
+    "check_exits_refactored": {
+      "status": "VERIFIED",
+      "endpoint": "POST /api/ai-trader/auto-trade/check-exits/{wallet}",
+      "details": "Uses run_check_exits() from services/auto_trader_engine.py"
+    },
+    "settings_endpoint": {
+      "status": "VERIFIED",
+      "endpoint": "GET /api/ai-trader/settings/{wallet}",
+      "details": "Returns auto_trade_enabled=true, trading_mode='normal'"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration90_trade_history.py",
+    "/app/test_reports/pytest/pytest_iteration90_trade_history.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: TradeHistoryDashboard.js is well-structured with proper data-testid attributes for testing",
+    "POSITIVE: Component correctly fetches from /api/ai-trader/history and /api/ledger/balance endpoints",
+    "POSITIVE: Helius API key update is working - balance fetch returns correct value",
+    "POSITIVE: Multi-source pricing (CoinGecko + DexScreener) provides live prices for PYTH position",
+    "POSITIVE: All previous fixes (fee tracking, refactored code) still working correctly",
+    "INFO: Frontend has webpack warnings (missing optional dependencies) but no errors"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration90_trade_history.py"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "100% (component exists, imports correctly, no build errors)"
+  },
+  "test_credentials": {
+    "access_code": "bullpug2026",
+    "test_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "custodial_wallet": "CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing PYTH position from previous trade",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 90 verified TradeHistoryDashboard component and Helius API key update. PYTH position is still open (0.044 SOL, entry $0.03912, current $0.03906). Ledger shows available_sol=0.003956, total_fees_sol=0.002044. TradeHistoryDashboard requires wallet connection to display - this is expected behavior. All 16 backend tests pass.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All integrations are live (Helius RPC, CoinGecko, Jupiter, DexScreener)"
+  },
+  "live_data_verification": {
+    "ledger_balance": {
+      "available_sol": 0.003956,
+      "locked_in_trades_sol": 0.043933,
+      "total_fees_sol": 0.002044,
+      "unrealised_pnl_sol": -0.000067,
+      "total_balance_sol": 0.047889
+    },
+    "pyth_position": {
+      "token_symbol": "PYTH",
+      "amount_sol": 0.044,
+      "entry_price": 0.03912,
+      "current_price": 0.03906,
+      "status": "open"
+    },
+    "custodial_wallet": {
+      "wallet_address": "CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg",
+      "balance_sol": 0.003956,
+      "balance_lamports": 3955720,
+      "helius_rpc_working": true
+    }
+  }
+}

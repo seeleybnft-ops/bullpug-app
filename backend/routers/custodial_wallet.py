@@ -221,10 +221,10 @@ async def get_custodial_keypair(user_wallet: str) -> Keypair:
 
 async def get_wallet_balance(address: str) -> int:
     """Get SOL balance of a wallet in lamports"""
-    # Try public RPC first (Helius key may be invalid)
+    # Try Helius first (valid API key), fallback to public RPC
     rpcs = [
-        os.environ.get("ALCHEMY_SOLANA_RPC", "https://api.mainnet-beta.solana.com"),
         SOLANA_RPC_URL,
+        os.environ.get("ALCHEMY_SOLANA_RPC", "https://api.mainnet-beta.solana.com"),
     ]
     for rpc_url in rpcs:
         try:
