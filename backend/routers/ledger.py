@@ -57,11 +57,11 @@ async def api_migrate():
 async def api_reset_fresh_start():
     """
     Clear all ledger entries and account for existing on-chain balance as platform rake.
-    This is a one-time admin operation to start fresh.
+    SAFETY: This ONLY touches the user_ledger collection. NEVER custodial_wallets.
     """
     from services.ledger import record_entry
 
-    # Clear all existing ledger entries
+    # ONLY clear ledger entries — nothing else
     result = await db.user_ledger.delete_many({})
     deleted = result.deleted_count
 
