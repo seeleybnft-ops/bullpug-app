@@ -18,44 +18,51 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 ## Tech Stack
 - **Frontend:** React + Tailwind + Shadcn UI
 - **Backend:** FastAPI + MongoDB
-- **Blockchain:** Solana (Helius/Alchemy RPC, Jupiter DEX, jito MEV protection)
+- **Blockchain:** Solana (Public RPC + Helius fallback, Jupiter DEX, Jito MEV protection)
 - **AI:** OpenAI GPT-4o via Emergent LLM Key
+- **Market Data:** CoinGecko (primary) + DexScreener (fallback with rate-limit protection)
 
 ## Access & Credentials
 - **Private Access Gate:** `bullpug2026`
 - **User Wallet:** `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
-- **Custodial Wallet:** `B2ykf4kaFpvHJPT6XRoBeEnjaTqLSzo3n9eZSNRVuMVC`
+- **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg` (NEW - generated after previous key loss)
+- **Note:** Helius API key is invalid. System uses public Solana RPC as primary.
 
 ## Completed Features (as of March 27, 2026)
-- Full AI Trading Bot with A-Tier features
-- **Auto-trade scan scheduler** — scans every 5 minutes for new trade opportunities
+- Full AI Trading Bot with A-Tier features (multi-layer signals, trailing stops, DCA, MEV protection)
+- **Multi-source market data:** CoinGecko batch API (primary) + DexScreener (cached fallback with rate limit protection)
+- **Auto-trade scan scheduler** — scans every 5 minutes via APScheduler
+- **First live trade executed:** PYTH buy 0.044 SOL @ $0.03912 (TX: 4h7E6PJm...)
 - Internal Fund Ledger with per-user virtual balance tracking
-- **Live pricing** on locked-in-trades positions (computed from current_price vs entry_price)
-- Deposit auto-detection with 5-second polling in deposit modal
-- Withdrawal modal with ledger balance validation
-- **Ledger balance check** before executing any trade (prevents overspending)
-- **Admin Reconciliation Dashboard** — correctly accounts for SOL in token positions separately from available SOL
-- Post-deploy initialization script (idempotent, restores ledger on fresh DB)
-- Admin endpoint to sync pre-existing open positions into ledger
+- **Deposit detection fixed:** Compares on-chain vs ledger totals (not stored balance_lamports)
+- **Position sizing capped** to available balance minus 0.006 SOL reserve (covers sell reserve + tx fees)
+- Live pricing on locked-in-trades positions
+- Deposit auto-detection with 5-second polling
+- Admin Reconciliation Dashboard
+- Post-deploy initialization script (idempotent)
 - Rake Back system (2.5% on profitable trades)
-- Trading Mode Selector (conservative/normal/aggressive/sniper) — all modes work
-- Expanded safer token scan list (JUP, PYTH, RNDR, BONK, RAY, WIF, HNT, JITO)
-- "Normal" mode correctly uses user's stored confidence threshold without adjustment
+- Trading Mode Selector (conservative/normal/aggressive/sniper)
 - Private Access Gate for testing period
+- Runner detection via CoinGecko Solana meme coins category
+- Exit monitor with stop-loss, take-profit, and trailing stop
 
 ## Key Architecture
+- **Market Data Service:** `services/market_data.py` — CoinGecko batch prefetch (single API call for all known tokens) + DexScreener with 2-min backoff on 429
+- **Runner Detector:** `services/runner_detector.py` — CoinGecko meme coins + DexScreener boosted tokens (with shared rate limit backoff)
 - **Fund Ledger:** `user_ledger` collection is source of truth for per-user balances
-- **Reconciliation Formula:** drift = on_chain_SOL - available_SOL - platform_rake (token positions excluded since SOL was converted to tokens)
-- **Auto-trade Scheduler:** `auto_trade_scan_cycle` runs every 5 min, iterates all wallets with auto_trade_enabled=true
-- **Post-deploy Init:** `services/post_deploy_init.py` runs once on fresh DB, restores all known ledger state
+- **Balance Check Chain:** Position sizing caps → Ledger balance check → Custodial balance check → Execute
+- **RPC Fallback:** Public Solana RPC (primary) → Helius (secondary, currently invalid key)
 
-## Current User Ledger State (qdegDg...7Rjs)
-- Available: 0.05 SOL
-- Locked in trades: 0.033049 SOL (4 open positions: RENDER, PYTH, JUP x2)
-- Total balance: 0.083049 SOL
-- Reconciliation: Healthy (drift = 0)
+## Current Ledger State (qdegDg...7Rjs)
+- Available: 0.006 SOL
+- Locked in trades: 0.044 SOL (PYTH position)
+- Total balance: 0.05 SOL
+- On-chain: ~0.004 SOL + 97.73 PYTH tokens
 
 ## Backlog (Prioritized)
+### P0 - Immediate
+- Refactor `ai_trader.py` (4200+ lines → modular services)
+
 ### P1 - Upcoming
 - Trading Competitions with leaderboards
 - Plushie Sales & interactive NFT Gallery
@@ -68,3 +75,4 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ### Administrative
 - Remove private access gate when testing period ends
+- Get valid Helius API key (current one is invalid)
