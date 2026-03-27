@@ -505,7 +505,7 @@ async def detect_deposit(user_wallet: str):
         deposit_sol,
         reference_type="auto_detected_deposit",
         description=f"Deposit detected: {deposit_sol:.6f} SOL",
-        metadata={"on_chain_lamports": on_chain_lamports, "ledger_sol": total_ledger_sol},
+        metadata={"on_chain_lamports": on_chain_lamports, "ledger_available_sol": ledger_balance_sol},
     )
 
     logger.info(f"Auto-detected deposit of {deposit_sol:.6f} SOL for {user_wallet[:8]}…")
@@ -516,6 +516,60 @@ async def detect_deposit(user_wallet: str):
         "deposit_sol": deposit_sol,
         "new_balance_sol": round(on_chain_sol, 6),
         "message": f"Deposit of {deposit_sol:.6f} SOL detected and recorded",
+    }
+
+
+@router.post("/reconcile/{user_wallet}")
+async def reconcile_ledger(user_wallet: str):
+    """
+    One-time reconciliation: ensures ledger deposits + debits match on-chain state.
+    Calculates: expected_deposits = on_chain_sol + abs(all debits from ledger)
+    If ledger deposits are short, adds a correction entry.
+    """
+    wallet_doc = await db.custodial_wallets.find_one(
+        {"user_wallet": user_wallet}, {"_id": 0}
+    )
+    if not wallet_doc:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    custodial_address = wallet_doc["custodial_address"]
+    on_chain_lamports = await get_wallet_balance(custodial_address)
+    on_chain_sol = on_chain_lamports / LAMPORTS_PER_SOL
+
+    # Get all ledger entries
+    entries = await db.user_ledger.find(
+        {"user_wallet": user_wallet}, {"_id": 0}
+    ).to_list(1000)
+
+    total_deposits = sum(e["amount_sol"] for e in entries if e.get("entry_type") == "deposit")
+    total_debits = sum(abs(e["amount_sol"]) for e in entries if e.get("amount_sol", 0) < 0)
+
+    # Expected deposits = what's on-chain + what was spent
+    expected_deposits = on_chain_sol + total_debits
+    gap = round(expected_deposits - total_deposits, 6)
+
+    if gap < 0.0005:
+        return {
+            "success": True, "reconciled": False,
+            "message": "Ledger is already balanced",
+            "total_deposits": round(total_deposits, 6),
+            "expected_deposits": round(expected_deposits, 6),
+        }
+
+    # Add correction entry
+    await ledger_record(
+        user_wallet, "deposit", gap,
+        reference_type="reconciliation",
+        description=f"Ledger reconciliation: +{gap:.6f} SOL (correcting prior detection gap)",
+        metadata={"on_chain_sol": on_chain_sol, "total_debits": total_debits}
+    )
+
+    return {
+        "success": True, "reconciled": True,
+        "correction_sol": gap,
+        "new_total_deposits": round(total_deposits + gap, 6),
+        "on_chain_sol": round(on_chain_sol, 6),
+        "message": f"Added {gap:.6f} SOL correction. Deposits now balanced."
     }
 
 
