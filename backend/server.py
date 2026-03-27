@@ -62,6 +62,14 @@ async def root():
     return {"message": "Bullpug API - Guardian of the Memecoin Universe"}
 
 
+@api_router.get("/admin/force-seed")
+async def admin_force_seed():
+    """Force re-seed the database with correct wallet data. Hit this URL after deploy."""
+    from services.post_deploy_init import force_seed
+    result = await force_seed()
+    return result
+
+
 # ========== Register All Routers ==========
 for r in ALL_ROUTERS:
     api_router.include_router(r)
