@@ -455,29 +455,12 @@ async def detect_deposit(user_wallet: str):
     on_chain_lamports = await get_wallet_balance(custodial_address)
     on_chain_sol = on_chain_lamports / LAMPORTS_PER_SOL
 
-    # Compare against the ledger total, not stored balance_lamports.
-    # The /info endpoint used to overwrite balance_lamports, defeating detection.
+    # The ledger available balance = sum of all entries (deposits - trades - fees).
+    # Any SOL on-chain that exceeds this is a new unrecorded deposit.
     from services.ledger import get_available_balance
     ledger_balance_sol = await get_available_balance(user_wallet)
-    
-    # Also count locked trades (they're still real SOL in the system)
-    locked_docs = await db.ai_trader_positions.find(
-        {"wallet_address": user_wallet, "status": "open"}
-    ).to_list(100)
-    locked_sol = sum(float(d.get("amount_sol", 0)) for d in locked_docs)
-    
-    total_ledger_sol = ledger_balance_sol + locked_sol
-    
-    # Account for fees already taken
-    fee_entries = await db.user_ledger.find(
-        {"wallet_address": user_wallet, "entry_type": "fee"}
-    ).to_list(1000)
-    total_fees_sol = abs(sum(float(e.get("amount_sol", 0)) for e in fee_entries))
-    total_ledger_sol += total_fees_sol
-    
-    # The deposit diff is what's on-chain minus what the ledger already knows about
-    # (with a small buffer for rent/fees)
-    diff_sol = on_chain_sol - total_ledger_sol
+
+    diff_sol = on_chain_sol - ledger_balance_sol
     diff_lamports = int(diff_sol * LAMPORTS_PER_SOL)
 
     # Minimum detection threshold: 0.001 SOL (1M lamports) to avoid rounding noise
@@ -486,7 +469,7 @@ async def detect_deposit(user_wallet: str):
             "success": True,
             "detected": False,
             "on_chain_sol": round(on_chain_sol, 6),
-            "ledger_sol": round(total_ledger_sol, 6),
+            "ledger_sol": round(ledger_balance_sol, 6),
             "message": "No new deposit detected"
         }
 
