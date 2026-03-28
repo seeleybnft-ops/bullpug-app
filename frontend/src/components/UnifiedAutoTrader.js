@@ -70,7 +70,7 @@ export default function UnifiedAutoTrader({
     auto_trade_mode: status?.settings?.mode || 'conservative',
     auto_min_confidence: status?.settings?.min_confidence || 0.60,
     auto_max_position_sol: status?.settings?.max_position_sol || 0.1,
-    auto_total_daily_limit_sol: status?.settings?.daily_limit_sol || 1.0,
+    auto_total_daily_limit_sol: status?.settings?.total_daily_limit_sol || 1.0,
     auto_max_daily_trades: status?.settings?.max_daily_trades || 3,
     auto_cooldown_minutes: status?.settings?.cooldown_minutes || 30,
     auto_stop_loss_percent: status?.settings?.stop_loss_percent || 15,
@@ -94,13 +94,20 @@ export default function UnifiedAutoTrader({
         auto_trade_mode: status.settings.mode || prev.auto_trade_mode,
         auto_min_confidence: status.settings.min_confidence || prev.auto_min_confidence,
         auto_max_position_sol: status.settings.max_position_sol || prev.auto_max_position_sol,
-        auto_total_daily_limit_sol: status.settings.daily_limit_sol || prev.auto_total_daily_limit_sol,
+        auto_total_daily_limit_sol: status.settings.total_daily_limit_sol || prev.auto_total_daily_limit_sol,
         auto_max_daily_trades: status.settings.max_daily_trades || prev.auto_max_daily_trades,
         auto_cooldown_minutes: status.settings.cooldown_minutes || prev.auto_cooldown_minutes,
         auto_stop_loss_percent: status.settings.stop_loss_percent || prev.auto_stop_loss_percent,
         auto_take_profit_percent: status.settings.take_profit_percent || prev.auto_take_profit_percent,
         auto_require_multiple_signals: status.settings.require_multiple_signals ?? prev.auto_require_multiple_signals,
-        auto_pause_on_loss: status.settings.pause_on_loss ?? prev.auto_pause_on_loss
+        auto_pause_on_loss: status.settings.pause_on_loss ?? prev.auto_pause_on_loss,
+        auto_trailing_stop_enabled: status.settings.trailing_stop_enabled ?? prev.auto_trailing_stop_enabled,
+        auto_trailing_stop_percent: status.settings.trailing_stop_percent || prev.auto_trailing_stop_percent,
+        auto_scale_in_enabled: status.settings.scale_in_enabled ?? prev.auto_scale_in_enabled,
+        auto_scale_in_threshold: status.settings.scale_in_threshold || prev.auto_scale_in_threshold,
+        auto_scale_in_max_adds: status.settings.scale_in_max_adds || prev.auto_scale_in_max_adds,
+        auto_avoid_volatile_hours: status.settings.avoid_volatile_hours ?? prev.auto_avoid_volatile_hours,
+        auto_profit_target_alert: status.settings.profit_target_alert ?? prev.auto_profit_target_alert
       }));
     }
   }, [status]);

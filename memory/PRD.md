@@ -78,7 +78,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Extracted `routers/price_alerts.py`
   - Created `services/market_data.py`
 
-### Session 3 (Feb 2026)
+### Session 3 (Mar 2026)
 - **Telegram Trade Alerts** — Wired `send_trade_alert()` into auto_trader_engine.py
   - Buy alerts (known tokens, runners, snipers)
   - Exit alerts (TP, SL, trailing stop, DCA stages) with P&L data
@@ -93,6 +93,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Highlights best/worst trade of the day
   - On-demand via `/digest` Telegram command or `POST /api/telegram/daily-digest/{wallet}`
   - Scheduled via APScheduler CronTrigger (20:00 UTC)
+
+
+### Session 4 (Mar 28, 2026)
+- **Settings Save Bug Fix (P0)** — Fixed auto-trade settings not persisting on page reload
+  - Root cause: Status endpoint (`GET /auto-trade/status/{wallet}`) was missing 7 advanced fields (trailing stop, scale-in, volatile hours, profit target alert)
+  - Frontend `useEffect` sync also missing advanced fields, and had field name mismatch (`daily_limit_sol` vs `total_daily_limit_sol`)
+  - Fix: Added all 7 missing fields to status response + synced frontend field names + updated useEffect
+  - 13/13 settings fields verified via round-trip API test
 
 ## Current Ledger State
 - Available: 0.003956 SOL (matches on-chain)

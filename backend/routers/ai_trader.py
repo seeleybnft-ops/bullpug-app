@@ -2011,7 +2011,14 @@ async def get_auto_trade_status(wallet_address: str):
                 "pause_on_loss": settings.get("auto_pause_on_loss", True),
                 "total_daily_limit_sol": settings.get("auto_total_daily_limit_sol", 1.0),
                 "stop_loss_percent": settings.get("auto_stop_loss_percent", settings.get("stop_loss_percent", 10)),
-                "take_profit_percent": settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20))
+                "take_profit_percent": settings.get("auto_take_profit_percent", settings.get("take_profit_percent", 20)),
+                "trailing_stop_enabled": settings.get("auto_trailing_stop_enabled", False),
+                "trailing_stop_percent": settings.get("auto_trailing_stop_percent", 5.0),
+                "scale_in_enabled": settings.get("auto_scale_in_enabled", False),
+                "scale_in_threshold": settings.get("auto_scale_in_threshold", 5.0),
+                "scale_in_max_adds": settings.get("auto_scale_in_max_adds", 2),
+                "avoid_volatile_hours": settings.get("auto_avoid_volatile_hours", True),
+                "profit_target_alert": settings.get("auto_profit_target_alert", True)
             },
             "today_stats": today_stats
         }
