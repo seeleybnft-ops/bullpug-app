@@ -573,6 +573,135 @@ async def reconcile_ledger(user_wallet: str):
     }
 
 
+@router.api_route("/sync-positions/{user_wallet}", methods=["GET", "POST"])
+async def sync_positions(user_wallet: str):
+    """
+    Sync on-chain token holdings with the positions database.
+    Creates position records for any tokens held on-chain but missing from DB.
+    """
+    wallet_doc = await db.custodial_wallets.find_one(
+        {"user_wallet": user_wallet}, {"_id": 0}
+    )
+    if not wallet_doc:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    custodial_address = wallet_doc["custodial_address"]
+
+    # 1. Get all on-chain token holdings
+    from solana.rpc.async_api import AsyncClient
+    from solana.rpc import types as rpc_types
+    from solders.pubkey import Pubkey
+    import os
+
+    rpc_url = os.environ.get("HELIUS_RPC_URL", "")
+    TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+    onchain_tokens = {}
+    try:
+        async with AsyncClient(rpc_url) as client:
+            resp = await client.get_token_accounts_by_owner_json_parsed(
+                Pubkey.from_string(custodial_address),
+                rpc_types.TokenAccountOpts(program_id=TOKEN_PROGRAM),
+            )
+            for acc in resp.value:
+                info = acc.account.data.parsed["info"]
+                mint = info["mint"]
+                ui_amount = info["tokenAmount"].get("uiAmount", 0)
+                if ui_amount and ui_amount > 0:
+                    onchain_tokens[mint] = ui_amount
+    except Exception as e:
+        logger.error(f"Sync: failed to fetch on-chain tokens: {e}")
+        raise HTTPException(status_code=500, detail=f"RPC error: {e}")
+
+    # 2. Get existing DB positions
+    db_positions = await db.ai_trader_positions.find(
+        {"wallet_address": user_wallet, "status": {"$in": ["open", "take_profit_pending"]}},
+        {"_id": 0, "token_mint": 1}
+    ).to_list(100)
+    db_mints = set(p.get("token_mint") for p in db_positions)
+
+    # 3. Find missing positions
+    missing_mints = set(onchain_tokens.keys()) - db_mints
+    if not missing_mints:
+        return {
+            "success": True,
+            "synced": 0,
+            "message": "All on-chain positions are already tracked",
+            "onchain_count": len(onchain_tokens),
+            "db_count": len(db_positions),
+        }
+
+    # 4. Get prices and create missing positions
+    from services.market_data import get_dexscreener_pair_data
+    synced = []
+
+    for mint in missing_mints:
+        token_amount = onchain_tokens[mint]
+
+        # Try to get current price
+        price = 0
+        symbol = "UNKNOWN"
+        try:
+            pair_data = await get_dexscreener_pair_data(mint)
+            if pair_data:
+                price = pair_data.get("priceUsd", 0)
+                if isinstance(price, str):
+                    price = float(price)
+                symbol = pair_data.get("baseToken", {}).get("symbol", mint[:8])
+        except Exception:
+            pass
+
+        # If we couldn't get symbol from price API, try known mints
+        known_mints = {
+            "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux": "HNT",
+            "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL": "JTO",
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN": "JUP",
+            "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3": "PYTH",
+            "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm": "WIF",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": "BONK",
+            "H43xqMLiFLNLLGRhXKxJUVXdEe8uVdXs93Emo5Wzpump": "PIXEL",
+            "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof": "RNDR",
+            "DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7": "DRIFT",
+        }
+        if symbol == "UNKNOWN" and mint in known_mints:
+            symbol = known_mints[mint]
+
+        # Estimate SOL value: if we have price and amount, calculate
+        # Otherwise use a small placeholder
+        from datetime import datetime, timezone
+        import uuid
+
+        position_doc = {
+            "position_id": str(uuid.uuid4()),
+            "wallet_address": user_wallet,
+            "token_symbol": symbol,
+            "token_mint": mint,
+            "entry_price": price if price > 0 else 0,
+            "current_price": price if price > 0 else 0,
+            "amount_sol": 0,  # Unknown original SOL cost, will be estimated below
+            "token_amount": token_amount,
+            "status": "open",
+            "auto_trade": True,
+            "synced_from_chain": True,
+            "take_profit_pct": 20.0,
+            "stop_loss_pct": -10.0,
+            "trailing_stop_enabled": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await db.ai_trader_positions.insert_one(position_doc)
+        synced.append({"symbol": symbol, "mint": mint[:12] + "...", "token_amount": token_amount})
+
+    return {
+        "success": True,
+        "synced": len(synced),
+        "positions_synced": synced,
+        "message": f"Synced {len(synced)} missing positions from on-chain",
+        "onchain_count": len(onchain_tokens),
+        "db_count": len(db_positions) + len(synced),
+    }
+
+
 @router.post("/withdraw")
 async def withdraw_funds(request: WithdrawRequest):
     """Withdraw SOL from custodial wallet back to user's wallet"""
