@@ -1366,6 +1366,7 @@ async def run_check_exits(wallet_address: str):
                             # Get the custodial wallet's token balance for this token
                             from solana.rpc.async_api import AsyncClient
                             from solders.pubkey import Pubkey
+                            from routers.custodial_wallet import execute_auto_trade
                             import os
                             
                             # RPC fallback list for reliability

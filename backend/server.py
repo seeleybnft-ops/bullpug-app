@@ -97,12 +97,15 @@ async def startup_event():
         await db.ai_trader_positions.create_index([("wallet_address", 1), ("status", 1)])
         await db.user_ledger.create_index([("user_wallet", 1), ("created_at", -1)])
         await db.user_ledger.create_index([("user_wallet", 1), ("entry_type", 1)])
-        # Drop legacy smart_money_signals indexes that conflict with v2
+        # Clean up legacy smart_money_signals (v1 had signature_1 unique index)
         try:
-            await db.smart_money_signals.drop_index("signature_1")
+            indexes = await db.smart_money_signals.index_information()
+            if "signature_1" in indexes:
+                await db.smart_money_signals.drop()
+                await db.smart_money_signals.create_index("token_mint", unique=True)
+                logger.info("Rebuilt smart_money_signals with v2 schema")
         except Exception:
             pass
-        await db.smart_money_signals.create_index("token_mint", unique=True)
         logger.info("MongoDB indexes created for intelligence collections")
     except Exception as e:
         logger.warning(f"Index creation (non-fatal): {e}")
