@@ -519,7 +519,7 @@ async def detect_deposit(user_wallet: str):
     }
 
 
-@router.post("/reconcile/{user_wallet}")
+@router.api_route("/reconcile/{user_wallet}", methods=["GET", "POST"])
 async def reconcile_ledger(user_wallet: str):
     """
     One-time reconciliation: ensures ledger deposits + debits match on-chain state.
