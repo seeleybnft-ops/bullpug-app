@@ -281,6 +281,10 @@ async def run_scan_and_execute(wallet_address: str):
         ledger_available = await ledger_balance(wallet_address)
         logger.info(f"Scan starting: ledger available = {ledger_available:.6f} SOL")
         
+        if ledger_available < 0.005:
+            logger.warning(f"INSUFFICIENT BALANCE for trading: {ledger_available:.6f} SOL (need >0.005). Skipping scan.")
+            return {"success": True, "executed": [], "skipped": [{"symbol": "*", "reason": f"Insufficient balance: {ledger_available:.6f} SOL"}]}
+        
         async with httpx.AsyncClient(timeout=20.0) as client:
             # Scan known tokens using multi-source market data
             
@@ -520,7 +524,7 @@ async def run_scan_and_execute(wallet_address: str):
                             position_sol = base_position
                         
                         # Cap position to available ledger balance minus fee reserve
-                        fee_reserve = 0.006  # Keep 0.006 SOL for tx fees + sell reserve
+                        fee_reserve = 0.003  # Keep 0.003 SOL for tx fees + sell reserve
                         position_sol = round(min(position_sol, max(0, ledger_available - fee_reserve)), 6)
                         if position_sol < 0.002:  # Minimum viable trade
                             skipped.append({"symbol": symbol, "reason": f"Insufficient balance (avail: {ledger_available:.4f} SOL, need: {base_position:.4f})"})
