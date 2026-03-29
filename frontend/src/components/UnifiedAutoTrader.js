@@ -677,7 +677,7 @@ function TradeSettingsPanel({
           <input
             type="range"
             min="1"
-            max="10"
+            max="20"
             step="1"
             value={settingsForm.auto_max_daily_trades}
             onChange={(e) => setSettingsForm(f => ({ ...f, auto_max_daily_trades: parseInt(e.target.value) }))}
