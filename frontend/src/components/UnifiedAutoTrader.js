@@ -445,11 +445,10 @@ export default function UnifiedAutoTrader({
           handleSaveSettings={handleSaveSettings}
           recommendedConfidence={recommendedConfidence}
           optimalSettings={optimalSettings}
-          tradingMode={traderSettings?.trading_mode || "normal"}
+          tradingMode={traderSettings?.trading_mode || settingsForm.auto_trade_mode || "normal"}
           onTradingModeChange={async (mode) => {
-            if (onSaveSettings) {
-              await onSaveSettings({ ...(traderSettings || {}), trading_mode: mode });
-            }
+            setSettingsForm(f => ({ ...f, auto_trade_mode: mode }));
+            await onUpdateSettings({ auto_trade_mode: mode });
           }}
         />
       )}
