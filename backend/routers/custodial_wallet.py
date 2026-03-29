@@ -577,7 +577,9 @@ async def reconcile_ledger(user_wallet: str):
 async def sync_positions(user_wallet: str):
     """
     Sync on-chain token holdings with the positions database.
-    Creates position records for any tokens held on-chain but missing from DB.
+    - Queries BOTH legacy Token program AND Token-2022 program
+    - Creates position records for tokens held on-chain but missing from DB
+    - Auto-closes DB positions whose on-chain balance is zero
     """
     wallet_doc = await db.custodial_wallets.find_one(
         {"user_wallet": user_wallet}, {"_id": 0}
@@ -587,59 +589,106 @@ async def sync_positions(user_wallet: str):
 
     custodial_address = wallet_doc["custodial_address"]
 
-    # 1. Get all on-chain token holdings
-    from solana.rpc.async_api import AsyncClient
-    from solana.rpc import types as rpc_types
-    from solders.pubkey import Pubkey
+    # 1. Get all on-chain token holdings (both Token programs)
     import os
+    import httpx
 
     rpc_url = os.environ.get("HELIUS_RPC_URL", "")
-    TOKEN_PROGRAM = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+    TOKEN_PROGRAM_LEGACY = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    TOKEN_PROGRAM_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+
     onchain_tokens = {}
     try:
-        async with AsyncClient(rpc_url) as client:
-            resp = await client.get_token_accounts_by_owner_json_parsed(
-                Pubkey.from_string(custodial_address),
-                rpc_types.TokenAccountOpts(program_id=TOKEN_PROGRAM),
-            )
-            for acc in resp.value:
-                info = acc.account.data.parsed["info"]
-                mint = info["mint"]
-                ui_amount = info["tokenAmount"].get("uiAmount", 0)
-                if ui_amount and ui_amount > 0:
-                    onchain_tokens[mint] = ui_amount
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            for program_id in [TOKEN_PROGRAM_LEGACY, TOKEN_PROGRAM_2022]:
+                resp = await client.post(rpc_url, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getTokenAccountsByOwner",
+                    "params": [
+                        custodial_address,
+                        {"programId": program_id},
+                        {"encoding": "jsonParsed"}
+                    ]
+                })
+                data = resp.json()
+                if "error" in data:
+                    logger.warning(f"Sync RPC error for {program_id[:12]}: {data['error']}")
+                    continue
+                for acc in data.get("result", {}).get("value", []):
+                    info = acc["account"]["data"]["parsed"]["info"]
+                    mint = info["mint"]
+                    ui_amount = info["tokenAmount"].get("uiAmount", 0)
+                    if ui_amount and ui_amount > 0:
+                        onchain_tokens[mint] = ui_amount
     except Exception as e:
         logger.error(f"Sync: failed to fetch on-chain tokens: {e}")
         raise HTTPException(status_code=500, detail=f"RPC error: {e}")
 
-    # 2. Get existing DB positions
+    # 2. Get existing DB positions (open or pending)
     db_positions = await db.ai_trader_positions.find(
-        {"wallet_address": user_wallet, "status": {"$in": ["open", "take_profit_pending"]}},
-        {"_id": 0, "token_mint": 1}
+        {"wallet_address": user_wallet, "status": {"$in": ["open", "take_profit_pending", "pending_stop_loss", "pending_take_profit"]}},
+        {"_id": 0, "token_mint": 1, "position_id": 1}
     ).to_list(100)
     db_mints = set(p.get("token_mint") for p in db_positions)
 
-    # 3. Find missing positions
-    missing_mints = set(onchain_tokens.keys()) - db_mints
-    if not missing_mints:
-        return {
-            "success": True,
-            "synced": 0,
-            "message": "All on-chain positions are already tracked",
-            "onchain_count": len(onchain_tokens),
-            "db_count": len(db_positions),
-        }
+    # 3. Auto-close DB positions with zero on-chain balance
+    #    AND update token amounts for positions that exist on-chain
+    from datetime import datetime, timezone
+    import uuid
+    closed_stale = []
+    updated_amounts = []
+    for pos in db_positions:
+        mint = pos.get("token_mint")
+        if not mint:
+            continue
+        if mint not in onchain_tokens:
+            # Zero balance on-chain — close the position
+            await db.ai_trader_positions.update_one(
+                {"position_id": pos["position_id"]},
+                {"$set": {
+                    "status": "closed_sync",
+                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                    "close_reason": "Zero balance on-chain (auto-sync)"
+                }}
+            )
+            closed_stale.append(mint[:12] + "...")
+        else:
+            # Update token amount to match on-chain reality
+            onchain_amount = onchain_tokens[mint]
+            await db.ai_trader_positions.update_one(
+                {"position_id": pos["position_id"]},
+                {"$set": {
+                    "token_amount": onchain_amount,
+                    "amount_tokens": onchain_amount,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            updated_amounts.append(mint[:12] + "...")
 
-    # 4. Get prices and create missing positions
+    # 4. Find missing positions (on-chain but not in DB)
+    missing_mints = set(onchain_tokens.keys()) - db_mints
+
+    # 5. Get prices and create missing positions
     from services.market_data import get_dexscreener_pair_data
+    known_mints = {
+        "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux": "HNT",
+        "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL": "JTO",
+        "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN": "JUP",
+        "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3": "PYTH",
+        "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm": "WIF",
+        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": "BONK",
+        "H43xqMLiFLNLLGRhXKxJUVXdEe8uVdXs93Emo5Wzpump": "PIXEL",
+        "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof": "RNDR",
+        "DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7": "DRIFT",
+        "34q2KmCvapecJgR6ZrtbCTrzZVtkt3a5mHEA3TuEsWYb": "LOL",
+    }
     synced = []
 
     for mint in missing_mints:
         token_amount = onchain_tokens[mint]
-
-        # Try to get current price
         price = 0
         symbol = "UNKNOWN"
+
         try:
             pair_data = await get_dexscreener_pair_data(mint)
             if pair_data:
@@ -650,25 +699,8 @@ async def sync_positions(user_wallet: str):
         except Exception:
             pass
 
-        # If we couldn't get symbol from price API, try known mints
-        known_mints = {
-            "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux": "HNT",
-            "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL": "JTO",
-            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN": "JUP",
-            "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3": "PYTH",
-            "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm": "WIF",
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": "BONK",
-            "H43xqMLiFLNLLGRhXKxJUVXdEe8uVdXs93Emo5Wzpump": "PIXEL",
-            "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof": "RNDR",
-            "DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7": "DRIFT",
-        }
         if symbol == "UNKNOWN" and mint in known_mints:
             symbol = known_mints[mint]
-
-        # Estimate SOL value: if we have price and amount, calculate
-        # Otherwise use a small placeholder
-        from datetime import datetime, timezone
-        import uuid
 
         position_doc = {
             "position_id": str(uuid.uuid4()),
@@ -677,7 +709,7 @@ async def sync_positions(user_wallet: str):
             "token_mint": mint,
             "entry_price": price if price > 0 else 0,
             "current_price": price if price > 0 else 0,
-            "amount_sol": 0,  # Unknown original SOL cost, will be estimated below
+            "amount_sol": 0,
             "token_amount": token_amount,
             "status": "open",
             "auto_trade": True,
@@ -695,10 +727,13 @@ async def sync_positions(user_wallet: str):
     return {
         "success": True,
         "synced": len(synced),
+        "closed_stale": len(closed_stale),
+        "updated_amounts": len(updated_amounts),
         "positions_synced": synced,
-        "message": f"Synced {len(synced)} missing positions from on-chain",
+        "stale_closed": closed_stale,
+        "message": f"Synced {len(synced)} new, closed {len(closed_stale)} stale, updated {len(updated_amounts)} amounts",
         "onchain_count": len(onchain_tokens),
-        "db_count": len(db_positions) + len(synced),
+        "db_count": len(db_mints) - len(closed_stale) + len(synced),
     }
 
 
