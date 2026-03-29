@@ -1247,6 +1247,20 @@ async def run_check_exits(wallet_address: str):
                     
                     entry_price = position.get("entry_price", 0)
                     
+                    # CRITICAL GUARD: Skip positions with no valid entry price
+                    # Synced-from-chain positions may have entry_price=0 until prices are fetched
+                    if not entry_price or entry_price <= 0:
+                        # Try to set entry_price to current price so future checks work
+                        if current_price and current_price > 0:
+                            await db.ai_trader_positions.update_one(
+                                {"position_id": position.get("position_id")},
+                                {"$set": {"entry_price": current_price, "peak_price": current_price}}
+                            )
+                            logger.info(f"Position {symbol}: set entry_price to current market ${current_price:.8f} (was 0)")
+                        else:
+                            logger.warning(f"Skipping exit check for {symbol}: entry_price=0 and no current price available")
+                        continue
+                    
                     # === TRAILING STOP-LOSS LOGIC ===
                     # Track the highest price seen since entry
                     peak_price = position.get("peak_price", entry_price)

@@ -727,17 +727,22 @@ async def sync_positions(user_wallet: str):
         if symbol == "UNKNOWN" and mint in known_mints:
             symbol = known_mints[mint]
 
+        # CRITICAL: entry_price MUST be > 0 to prevent auto-TP at $0
+        # If we can't get a price, mark as manual-only (no auto exit)
+        entry_price = price if price > 0 else 0
+        auto_trade_flag = price > 0  # Only allow auto-exit if we have a valid price
+
         position_doc = {
             "position_id": str(uuid.uuid4()),
             "wallet_address": user_wallet,
             "token_symbol": symbol,
             "token_mint": mint,
-            "entry_price": price if price > 0 else 0,
-            "current_price": price if price > 0 else 0,
+            "entry_price": entry_price,
+            "current_price": entry_price,
             "amount_sol": 0,
             "token_amount": token_amount,
             "status": "open",
-            "auto_trade": True,
+            "auto_trade": auto_trade_flag,
             "synced_from_chain": True,
             "take_profit_pct": 20.0,
             "stop_loss_pct": -10.0,

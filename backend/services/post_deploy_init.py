@@ -132,22 +132,38 @@ async def _sync_positions_from_chain():
                 {"$set": {"token_amount": onchain[mint], "amount_tokens": onchain[mint], "updated_at": now}}
             )
 
-    # Create missing positions
+    # Create missing positions — fetch prices from DexScreener
     missing = set(onchain.keys()) - existing_mints
     for mint in missing:
         symbol = KNOWN_MINTS.get(mint, mint[:8])
+        price = 0
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"https://api.dexscreener.com/latest/dex/tokens/{mint}")
+                pairs = resp.json().get("pairs", [])
+                if pairs:
+                    price = float(pairs[0].get("priceUsd", 0) or 0)
+                    if symbol == mint[:8]:
+                        symbol = pairs[0].get("baseToken", {}).get("symbol", symbol)
+        except Exception:
+            pass
+
+        # CRITICAL: entry_price MUST be > 0 to prevent auto-TP at $0
+        entry_price = price if price > 0 else 0
+        auto_trade_flag = price > 0
+
         doc = {
             "position_id": str(uuid.uuid4()),
             "wallet_address": USER_WALLET,
             "token_symbol": symbol,
             "token_mint": mint,
-            "entry_price": 0,
-            "current_price": 0,
+            "entry_price": entry_price,
+            "current_price": entry_price,
             "amount_sol": 0,
             "token_amount": onchain[mint],
             "amount_tokens": onchain[mint],
             "status": "open",
-            "auto_trade": True,
+            "auto_trade": auto_trade_flag,
             "synced_from_chain": True,
             "take_profit_pct": 20.0,
             "stop_loss_pct": -10.0,
@@ -156,7 +172,7 @@ async def _sync_positions_from_chain():
             "updated_at": now,
         }
         await db.ai_trader_positions.insert_one(doc)
-        logger.info(f"  Created position: {symbol} ({onchain[mint]} tokens)")
+        logger.info(f"  Created position: {symbol} ({onchain[mint]} tokens, entry=${entry_price:.8f})")
 
     total = len(onchain)
     logger.info(f"Position sync complete: {total} on-chain, {len(missing)} created, {len(existing_mints) - len(existing_mints & set(onchain.keys()))} closed")

@@ -73,7 +73,8 @@ async def admin_force_seed():
 @api_router.get("/admin/rpc-diagnostic")
 async def rpc_diagnostic():
     """Diagnostic: test RPC connectivity and env vars for debugging sync issues."""
-    import os, httpx
+    import os
+    import httpx
     helius = os.environ.get("HELIUS_RPC_URL", "")
     alchemy = os.environ.get("ALCHEMY_RPC_URL", "")
     custodial = "CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg"
@@ -146,18 +147,22 @@ async def force_sync_positions(payload: dict):
         if not mint or not amount:
             continue
 
+        # CRITICAL: entry_price MUST be > 0 to prevent auto-TP at $0
+        entry_price = price if price > 0 else 0
+        auto_trade_flag = price > 0
+
         doc = {
             "position_id": str(uuid.uuid4()),
             "wallet_address": user_wallet,
             "token_symbol": symbol,
             "token_mint": mint,
-            "entry_price": price,
-            "current_price": price,
+            "entry_price": entry_price,
+            "current_price": entry_price,
             "amount_sol": 0,
             "token_amount": amount,
             "amount_tokens": amount,
             "status": "open",
-            "auto_trade": True,
+            "auto_trade": auto_trade_flag,
             "synced_from_chain": True,
             "take_profit_pct": 20.0,
             "stop_loss_pct": -10.0,
