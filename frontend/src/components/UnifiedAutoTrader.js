@@ -393,11 +393,11 @@ export default function UnifiedAutoTrader({
             <StatCard
               icon={<Target className="w-4 h-4" />}
               label="Mode"
-              value={(traderSettings?.trading_mode || status?.settings?.mode || 'normal').charAt(0).toUpperCase() + (traderSettings?.trading_mode || status?.settings?.mode || 'normal').slice(1)}
+              value={(settingsForm.auto_trade_mode || status?.settings?.mode || 'normal').charAt(0).toUpperCase() + (settingsForm.auto_trade_mode || status?.settings?.mode || 'normal').slice(1)}
               color={
-                (traderSettings?.trading_mode || status?.settings?.mode) === 'aggressive' ? '#FF6B6B' : 
-                (traderSettings?.trading_mode || status?.settings?.mode) === 'sniper' ? '#FF6B6B' :
-                (traderSettings?.trading_mode || status?.settings?.mode) === 'normal' ? '#F5D300' : '#00FFA3'
+                (settingsForm.auto_trade_mode || status?.settings?.mode) === 'aggressive' ? '#FF6B6B' : 
+                (settingsForm.auto_trade_mode || status?.settings?.mode) === 'sniper' ? '#FF6B6B' :
+                (settingsForm.auto_trade_mode || status?.settings?.mode) === 'normal' ? '#F5D300' : '#00FFA3'
               }
             />
             <StatCard
@@ -445,7 +445,7 @@ export default function UnifiedAutoTrader({
           handleSaveSettings={handleSaveSettings}
           recommendedConfidence={recommendedConfidence}
           optimalSettings={optimalSettings}
-          tradingMode={traderSettings?.trading_mode || settingsForm.auto_trade_mode || "normal"}
+          tradingMode={settingsForm.auto_trade_mode || status?.settings?.mode || "normal"}
           onTradingModeChange={async (mode) => {
             setSettingsForm(f => ({ ...f, auto_trade_mode: mode }));
             await onUpdateSettings({ auto_trade_mode: mode });
