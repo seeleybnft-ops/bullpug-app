@@ -70,6 +70,112 @@ async def admin_force_seed():
     return result
 
 
+@api_router.get("/admin/rpc-diagnostic")
+async def rpc_diagnostic():
+    """Diagnostic: test RPC connectivity and env vars for debugging sync issues."""
+    import os, httpx
+    helius = os.environ.get("HELIUS_RPC_URL", "")
+    alchemy = os.environ.get("ALCHEMY_RPC_URL", "")
+    custodial = "CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg"
+
+    results = {}
+    for label, url in [("helius", helius), ("alchemy", alchemy)]:
+        if not url:
+            results[label] = {"status": "NOT_SET", "url_preview": ""}
+            continue
+        results[label] = {"url_preview": url[:50] + "..."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getTokenAccountsByOwner",
+                    "params": [
+                        custodial,
+                        {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
+                        {"encoding": "jsonParsed"}
+                    ]
+                })
+                data = resp.json()
+                if "error" in data:
+                    results[label]["status"] = "RPC_ERROR"
+                    results[label]["error"] = str(data["error"])
+                else:
+                    accounts = data.get("result", {}).get("value", [])
+                    nonzero = [a for a in accounts if a["account"]["data"]["parsed"]["info"]["tokenAmount"].get("uiAmount", 0) > 0]
+                    results[label]["status"] = "OK"
+                    results[label]["total_accounts"] = len(accounts)
+                    results[label]["nonzero_accounts"] = len(nonzero)
+                    results[label]["tokens"] = [
+                        {"mint": a["account"]["data"]["parsed"]["info"]["mint"][:16] + "...",
+                         "amount": a["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmount"]}
+                        for a in nonzero
+                    ]
+        except Exception as e:
+            results[label]["status"] = "EXCEPTION"
+            results[label]["error"] = str(e)
+
+    return {"diagnostic": results, "custodial_wallet": custodial}
+
+
+@api_router.post("/admin/force-sync-positions")
+async def force_sync_positions(payload: dict):
+    """
+    Force-create position records from externally-provided on-chain data.
+    Accepts: {"user_wallet": "...", "tokens": [{"mint": "...", "symbol": "...", "amount": 0.0, "price_usd": 0.0}]}
+    """
+    from datetime import datetime, timezone
+    import uuid
+
+    user_wallet = payload.get("user_wallet")
+    tokens = payload.get("tokens", [])
+    if not user_wallet or not tokens:
+        return {"success": False, "error": "user_wallet and tokens[] required"}
+
+    # Clear any existing open/pending positions for this wallet first
+    cleared = await db.ai_trader_positions.update_many(
+        {"wallet_address": user_wallet, "status": {"$in": ["open", "pending_stop_loss", "pending_take_profit"]}},
+        {"$set": {"status": "closed_force_sync", "closed_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    created = []
+    for t in tokens:
+        mint = t.get("mint", "")
+        symbol = t.get("symbol", mint[:8])
+        amount = t.get("amount", 0)
+        price = t.get("price_usd", 0)
+        if not mint or not amount:
+            continue
+
+        doc = {
+            "position_id": str(uuid.uuid4()),
+            "wallet_address": user_wallet,
+            "token_symbol": symbol,
+            "token_mint": mint,
+            "entry_price": price,
+            "current_price": price,
+            "amount_sol": 0,
+            "token_amount": amount,
+            "amount_tokens": amount,
+            "status": "open",
+            "auto_trade": True,
+            "synced_from_chain": True,
+            "take_profit_pct": 20.0,
+            "stop_loss_pct": -10.0,
+            "trailing_stop_enabled": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.ai_trader_positions.insert_one(doc)
+        created.append({"symbol": symbol, "amount": amount})
+
+    return {
+        "success": True,
+        "cleared_old": cleared.modified_count,
+        "created": len(created),
+        "positions": created
+    }
+
+
 # ========== Register All Routers ==========
 for r in ALL_ROUTERS:
     api_router.include_router(r)

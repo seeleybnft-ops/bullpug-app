@@ -594,35 +594,60 @@ async def sync_positions(user_wallet: str):
     import httpx
 
     rpc_url = os.environ.get("HELIUS_RPC_URL", "")
+    alchemy_url = os.environ.get("ALCHEMY_RPC_URL", "")
     TOKEN_PROGRAM_LEGACY = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
     TOKEN_PROGRAM_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
     onchain_tokens = {}
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            for program_id in [TOKEN_PROGRAM_LEGACY, TOKEN_PROGRAM_2022]:
-                resp = await client.post(rpc_url, json={
-                    "jsonrpc": "2.0", "id": 1,
-                    "method": "getTokenAccountsByOwner",
-                    "params": [
-                        custodial_address,
-                        {"programId": program_id},
-                        {"encoding": "jsonParsed"}
-                    ]
-                })
-                data = resp.json()
-                if "error" in data:
-                    logger.warning(f"Sync RPC error for {program_id[:12]}: {data['error']}")
-                    continue
-                for acc in data.get("result", {}).get("value", []):
-                    info = acc["account"]["data"]["parsed"]["info"]
-                    mint = info["mint"]
-                    ui_amount = info["tokenAmount"].get("uiAmount", 0)
-                    if ui_amount and ui_amount > 0:
-                        onchain_tokens[mint] = ui_amount
-    except Exception as e:
-        logger.error(f"Sync: failed to fetch on-chain tokens: {e}")
-        raise HTTPException(status_code=500, detail=f"RPC error: {e}")
+    rpc_errors = []
+
+    # Try primary RPC, then fallback
+    rpc_endpoints = [url for url in [rpc_url, alchemy_url] if url]
+    if not rpc_endpoints:
+        raise HTTPException(status_code=500, detail="No RPC URLs configured (HELIUS_RPC_URL / ALCHEMY_RPC_URL)")
+
+    for rpc_endpoint in rpc_endpoints:
+        if onchain_tokens:
+            break  # Already got results from a previous endpoint
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                for program_id in [TOKEN_PROGRAM_LEGACY, TOKEN_PROGRAM_2022]:
+                    resp = await client.post(rpc_endpoint, json={
+                        "jsonrpc": "2.0", "id": 1,
+                        "method": "getTokenAccountsByOwner",
+                        "params": [
+                            custodial_address,
+                            {"programId": program_id},
+                            {"encoding": "jsonParsed"}
+                        ]
+                    })
+                    data = resp.json()
+                    if "error" in data:
+                        err_msg = f"RPC {rpc_endpoint[:40]}... program {program_id[:12]}: {data['error']}"
+                        logger.warning(f"Sync: {err_msg}")
+                        rpc_errors.append(err_msg)
+                        continue
+                    for acc in data.get("result", {}).get("value", []):
+                        info = acc["account"]["data"]["parsed"]["info"]
+                        mint = info["mint"]
+                        ui_amount = info["tokenAmount"].get("uiAmount", 0)
+                        if ui_amount and ui_amount > 0:
+                            onchain_tokens[mint] = ui_amount
+        except Exception as e:
+            err_msg = f"RPC {rpc_endpoint[:40]}... exception: {e}"
+            logger.error(f"Sync: {err_msg}")
+            rpc_errors.append(err_msg)
+
+    # If all RPCs failed and no tokens found, return diagnostic info
+    if not onchain_tokens and rpc_errors:
+        return {
+            "success": False,
+            "synced": 0,
+            "message": "All RPC endpoints failed to return token data",
+            "rpc_errors": rpc_errors,
+            "rpc_urls_tried": len(rpc_endpoints),
+            "custodial_address": custodial_address
+        }
 
     # 2. Get existing DB positions (open or pending)
     db_positions = await db.ai_trader_positions.find(
