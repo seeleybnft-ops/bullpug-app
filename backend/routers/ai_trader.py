@@ -2002,7 +2002,7 @@ async def get_auto_trade_status(wallet_address: str):
             "auto_paused": auto_paused,
             "pause_reason": pause_reason,
             "settings": {
-                "mode": settings.get("trading_mode", settings.get("auto_trade_mode", "conservative")),
+                "mode": settings.get("auto_trade_mode", settings.get("trading_mode", "conservative")),
                 "min_confidence": settings.get("auto_min_confidence", 0.65),
                 "max_daily_trades": settings.get("auto_max_daily_trades", 3),
                 "max_position_sol": settings.get("auto_max_position_sol", 0.2),
@@ -2072,6 +2072,10 @@ async def update_auto_trade_settings(wallet_address: str, settings: AutoTradeSet
     try:
         update_data = {k: v for k, v in settings.dict().items() if v is not None}
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # Keep trading_mode in sync with auto_trade_mode
+        if "auto_trade_mode" in update_data:
+            update_data["trading_mode"] = update_data["auto_trade_mode"]
         
         await db.ai_trader_settings.update_one(
             {"wallet_address": wallet_address},

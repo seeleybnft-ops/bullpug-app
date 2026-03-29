@@ -50,9 +50,10 @@ KNOWN_MINTS = {
 
 async def _fetch_onchain_tokens():
     """Query both Token programs via RPC to discover all on-chain holdings."""
+    # Try Alchemy first (more reliable on production), then Helius
     rpc_urls = [
-        os.environ.get("HELIUS_RPC_URL", ""),
         os.environ.get("ALCHEMY_RPC_URL", ""),
+        os.environ.get("HELIUS_RPC_URL", ""),
     ]
     rpc_urls = [u for u in rpc_urls if u]
 

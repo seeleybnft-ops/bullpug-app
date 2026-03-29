@@ -601,8 +601,8 @@ async def sync_positions(user_wallet: str):
     onchain_tokens = {}
     rpc_errors = []
 
-    # Try primary RPC, then fallback
-    rpc_endpoints = [url for url in [rpc_url, alchemy_url] if url]
+    # Try Alchemy first (more reliable on production), then Helius as fallback
+    rpc_endpoints = [url for url in [alchemy_url, rpc_url] if url]
     if not rpc_endpoints:
         raise HTTPException(status_code=500, detail="No RPC URLs configured (HELIUS_RPC_URL / ALCHEMY_RPC_URL)")
 
