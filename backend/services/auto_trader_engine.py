@@ -89,9 +89,16 @@ async def create_pending_journal_entry(
     pnl_percent: float = None,
     pnl_sol: float = None,
     strategy: str = None,
-    trigger_reason: str = None
+    trigger_reason: str = None,
+    confidence: float = None,
+    data_source: str = None,
+    smart_money_adj: float = None,
+    sentiment_adj: float = None,
+    agreement_count: int = None,
+    sizing_mult: float = None,
+    token_mint: str = None
 ):
-    """Create a pending journal entry for an auto-trade."""
+    """Create a pending journal entry for an auto-trade with full signal metadata."""
     try:
         trade_id = f"AT{str(uuid.uuid4())[:8].upper()}"
         
@@ -129,11 +136,20 @@ async def create_pending_journal_entry(
             "auto_logged_at": datetime.now(timezone.utc).isoformat(),
             "status": "open" if trade_type == "buy" else "closed",
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            # Signal metadata for analytics
+            "confidence": confidence,
+            "data_source": data_source,
+            "smart_money_adj": smart_money_adj,
+            "sentiment_adj": sentiment_adj,
+            "agreement_count": agreement_count,
+            "sizing_mult": sizing_mult,
+            "token_mint": token_mint,
+            "signal_reason": trigger_reason
         }
         
         await db.trading_journal.insert_one(pending_trade)
-        logger.info(f"Created pending journal entry {trade_id} for {asset} {trade_type}")
+        logger.info(f"Created pending journal entry {trade_id} for {asset} {trade_type} (conf={confidence}, src={data_source})")
         return trade_id
     except Exception as e:
         logger.error(f"Failed to create pending journal entry: {e}")
@@ -190,7 +206,7 @@ async def run_scan_and_execute(wallet_address: str):
             "status": {"$regex": "^closed"}
         })
         
-        max_daily = settings.get("auto_max_daily_trades", 3)
+        max_daily = settings.get("auto_max_daily_trades", 10)  # Default 10 (was 3)
         if today_completed_trades >= max_daily:
             return {
                 "success": False,
@@ -208,7 +224,7 @@ async def run_scan_and_execute(wallet_address: str):
             sort=[("created_at", -1)]
         )
         
-        cooldown_minutes = settings.get("auto_cooldown_minutes", 30)
+        cooldown_minutes = settings.get("auto_cooldown_minutes", 15)  # Default 15min (was 30)
         if last_trade:
             last_trade_time = datetime.fromisoformat(last_trade["created_at"].replace("Z", "+00:00"))
             time_since = (datetime.now(timezone.utc) - last_trade_time).total_seconds() / 60
@@ -221,19 +237,19 @@ async def run_scan_and_execute(wallet_address: str):
         
         # Get auto-trade mode settings
         mode = settings.get("auto_trade_mode", "conservative")
-        min_confidence = settings.get("auto_min_confidence", 0.65)
+        min_confidence = settings.get("auto_min_confidence", 0.55)  # Default 0.55 (was 0.65)
         max_position = settings.get("auto_max_position_sol", 0.2)
         # Note: require_multiple is no longer used - combined strategy handles multi-strategy logic internally
         risk_level = settings.get("risk_level", "safer")
         
         # Adjust confidence based on mode
-        # Backtest shows 0.55 is optimal (72.5% win rate, +2.87% PnL)
+        # Lower floors for testing phase — gather more data points
         if mode == "aggressive" or mode == "sniper":
-            min_confidence = max(0.45, min_confidence - 0.15)  # Aggressive/sniper: 0.45 floor
+            min_confidence = max(0.35, min_confidence - 0.15)  # Aggressive/sniper: 0.35 floor (was 0.45)
         elif mode in ("moderate", "normal"):
-            pass  # Use the user's stored auto_min_confidence as-is
+            min_confidence = max(0.45, min_confidence - 0.05)  # Normal: 0.45-0.50
         else:  # conservative
-            min_confidence = min(0.75, min_confidence + 0.05)  # Conservative: 0.70-0.75
+            min_confidence = min(0.70, min_confidence + 0.05)  # Conservative: 0.60-0.70
         
         # Log effective settings
         trading_mode = settings.get("trading_mode", "normal")
@@ -467,8 +483,8 @@ async def run_scan_and_execute(wallet_address: str):
                             continue
                         
                         # CRITICAL: Check if we recently hit stop-loss on this token
-                        # Don't re-buy a token within 60 minutes of a stop-loss
-                        stop_loss_cooldown_minutes = 60
+                        # Don't re-buy a token within 30 minutes of a stop-loss
+                        stop_loss_cooldown_minutes = 30
                         stop_loss_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=stop_loss_cooldown_minutes)).isoformat()
                         
                         recent_stop_loss = await db.ai_trader_positions.find_one({
@@ -659,7 +675,14 @@ async def run_scan_and_execute(wallet_address: str):
                                 position_size_sol=position_sol,
                                 tx_signature=tx_signature,
                                 strategy=combined.get("strategy"),
-                                trigger_reason=trade_reason
+                                trigger_reason=trade_reason,
+                                confidence=trade_confidence,
+                                data_source="synthetic" if is_synthetic else "real_ohlcv",
+                                smart_money_adj=smart_money_adj,
+                                sentiment_adj=sentiment_adj,
+                                agreement_count=agreement_count,
+                                sizing_mult=sizing_mult if settings.get("conviction_sizing_enabled", True) else 1.0,
+                                token_mint=token_mint
                             )
                             
                             # Record in internal ledger (debit — lock funds)
@@ -856,7 +879,7 @@ async def run_scan_and_execute(wallet_address: str):
                                 continue
                             
                             # CRITICAL: Check if we recently hit stop-loss on this token
-                            stop_loss_cooldown_minutes = 60
+                            stop_loss_cooldown_minutes = 30
                             stop_loss_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=stop_loss_cooldown_minutes)).isoformat()
                             
                             recent_stop_loss = await db.ai_trader_positions.find_one({
@@ -1583,7 +1606,12 @@ async def run_check_exits(wallet_address: str):
                                 tx_signature=tx_signature,
                                 pnl_percent=pnl_pct,
                                 pnl_sol=pnl_sol,
-                                trigger_reason=exit_action  # "take_profit" or "stop_loss"
+                                trigger_reason=exit_action,  # "take_profit" or "stop_loss"
+                                confidence=position.get("confidence"),
+                                data_source=position.get("data_source"),
+                                smart_money_adj=position.get("smart_money_adj"),
+                                sentiment_adj=position.get("sentiment_adj"),
+                                token_mint=position.get("token_mint")
                             )
                             
                             # Record in internal ledger (credit — return funds + P&L)

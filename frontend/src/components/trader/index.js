@@ -10,5 +10,6 @@ export { QuickSettings } from "./QuickSettings";
 export { default as IntelligenceDashboard } from "./IntelligenceDashboard";
 export { default as TradingModeSelector } from "./TradingModeSelector";
 export { PerformanceScorecard } from "./PerformanceScorecard";
+export { StrategyAnalytics } from "./StrategyAnalytics";
 export { default as FundLedger } from "./FundLedger";
 export { API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS, RISK_COLORS } from "./constants";

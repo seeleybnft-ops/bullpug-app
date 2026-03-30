@@ -2125,6 +2125,144 @@ async def get_auto_trade_logs(wallet_address: str, limit: int = 50):
         return {"logs": [], "count": 0, "error": str(e)}
 
 
+@router.get("/analytics/performance/{wallet_address}")
+async def get_strategy_performance(wallet_address: str, days: int = 30):
+    """
+    Aggregated strategy performance analytics.
+    Pulls from auto_trade_logs and trading_journal for a comprehensive view.
+    """
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        # Get all auto-trade logs
+        logs = await db.auto_trade_logs.find(
+            {"wallet_address": wallet_address, "created_at": {"$gte": cutoff}},
+            {"_id": 0}
+        ).sort("created_at", 1).to_list(500)
+
+        # Get journal entries with signal metadata
+        journal = await db.trading_journal.find(
+            {"wallet_address": wallet_address, "created_at": {"$gte": cutoff}},
+            {"_id": 0}
+        ).sort("created_at", 1).to_list(500)
+
+        # Get closed positions for PnL data
+        positions = await db.ai_trader_positions.find(
+            {"wallet_address": wallet_address, "created_at": {"$gte": cutoff}},
+            {"_id": 0}
+        ).to_list(500)
+
+        # === Strategy Performance ===
+        strategy_stats = {}
+        for pos in positions:
+            strat = pos.get("strategy", "unknown")
+            if strat not in strategy_stats:
+                strategy_stats[strat] = {"trades": 0, "wins": 0, "losses": 0, "total_pnl_sol": 0, "total_pnl_pct": 0}
+            s = strategy_stats[strat]
+            s["trades"] += 1
+            status = pos.get("status", "")
+            pnl = pos.get("realized_pnl_sol", pos.get("pnl_sol", 0)) or 0
+            if "closed" in status:
+                s["total_pnl_sol"] += pnl
+                if pnl > 0:
+                    s["wins"] += 1
+                elif pnl < 0:
+                    s["losses"] += 1
+
+        for strat, s in strategy_stats.items():
+            completed = s["wins"] + s["losses"]
+            s["win_rate"] = round(s["wins"] / completed * 100, 1) if completed > 0 else 0
+            s["avg_pnl_sol"] = round(s["total_pnl_sol"] / s["trades"], 6) if s["trades"] > 0 else 0
+
+        # === Signal Metadata Analytics (from journal + logs) ===
+        sm_data = []  # Smart money correlation
+        sent_data = []  # Sentiment correlation
+        confidence_data = []  # Confidence vs outcome
+
+        for entry in journal:
+            conf = entry.get("confidence")
+            sm = entry.get("smart_money_adj")
+            sent = entry.get("sentiment_adj")
+            pnl = entry.get("pnl", 0) or 0
+            strategy = entry.get("strategy", "unknown")
+            trade_type = entry.get("trade_type", "")
+
+            if conf is not None:
+                confidence_data.append({"confidence": conf, "pnl": pnl, "strategy": strategy, "type": trade_type})
+            if sm is not None:
+                sm_data.append({"adjustment": sm, "pnl": pnl, "strategy": strategy})
+            if sent is not None:
+                sent_data.append({"adjustment": sent, "pnl": pnl, "strategy": strategy})
+
+        # Parse signal metadata from auto-trade log reasons (for older entries without journal metadata)
+        for log in logs:
+            reason = log.get("reason", "")
+            action = log.get("action", "")
+            conf = log.get("confidence", 0)
+            
+            if conf and conf > 0 and "buy" in action.lower():
+                sm_adj = 0
+                sent_adj = 0
+                try:
+                    if "[SM " in reason:
+                        sm_adj = float(reason.split("[SM ")[1].split("]")[0].replace("%", "").replace("+", ""))
+                    if "[SENT " in reason:
+                        sent_adj = float(reason.split("[SENT ")[1].split("]")[0].replace("%", "").replace("+", ""))
+                except (ValueError, IndexError):
+                    pass
+                
+                confidence_data.append({"confidence": conf, "pnl": 0, "strategy": log.get("strategy", "unknown"), "type": "buy", "from_log": True})
+                if sm_adj:
+                    sm_data.append({"adjustment": sm_adj, "pnl": 0, "strategy": log.get("strategy", "unknown")})
+                if sent_adj:
+                    sent_data.append({"adjustment": sent_adj, "pnl": 0, "strategy": log.get("strategy", "unknown")})
+
+        # === Trade Frequency Timeline ===
+        daily_trades = {}
+        for log in logs:
+            if "buy" in log.get("action", "").lower() and log.get("success"):
+                day = log.get("created_at", "")[:10]
+                if day:
+                    daily_trades[day] = daily_trades.get(day, 0) + 1
+
+        # === Confidence Buckets ===
+        confidence_buckets = {"0.3-0.5": {"count": 0, "wins": 0}, "0.5-0.7": {"count": 0, "wins": 0}, "0.7-0.9": {"count": 0, "wins": 0}, "0.9+": {"count": 0, "wins": 0}}
+        for pos in positions:
+            conf = pos.get("confidence", 0) or 0
+            pnl = pos.get("realized_pnl_sol", 0) or 0
+            bucket = "0.9+" if conf >= 0.9 else "0.7-0.9" if conf >= 0.7 else "0.5-0.7" if conf >= 0.5 else "0.3-0.5"
+            confidence_buckets[bucket]["count"] += 1
+            if pnl > 0:
+                confidence_buckets[bucket]["wins"] += 1
+
+        for b in confidence_buckets.values():
+            b["win_rate"] = round(b["wins"] / b["count"] * 100, 1) if b["count"] > 0 else 0
+
+        return {
+            "strategy_performance": strategy_stats,
+            "smart_money_signals": {
+                "data_points": len(sm_data),
+                "avg_adjustment": round(sum(d["adjustment"] for d in sm_data) / len(sm_data), 2) if sm_data else 0,
+                "samples": sm_data[:20]
+            },
+            "sentiment_signals": {
+                "data_points": len(sent_data),
+                "avg_adjustment": round(sum(d["adjustment"] for d in sent_data) / len(sent_data), 2) if sent_data else 0,
+                "samples": sent_data[:20]
+            },
+            "confidence_buckets": confidence_buckets,
+            "trade_frequency": daily_trades,
+            "total_logs": len(logs),
+            "total_journal_entries": len(journal),
+            "total_positions": len(positions),
+            "period_days": days
+        }
+    except Exception as e:
+        logger.error(f"Strategy analytics error: {e}")
+        return {"error": str(e), "strategy_performance": {}, "confidence_buckets": {}, "trade_frequency": {}}
+
+
+
 @router.post("/auto-trade/update-trailing-stops/{wallet_address}")
 async def update_trailing_stops(wallet_address: str):
     """

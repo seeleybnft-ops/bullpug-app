@@ -97,16 +97,27 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ### Session 4 (Mar 28, 2026)
 - **Settings Save Bug Fix (P0)** — Fixed auto-trade settings not persisting on page reload
-  - Root cause: Status endpoint (`GET /auto-trade/status/{wallet}`) was missing 7 advanced fields (trailing stop, scale-in, volatile hours, profit target alert)
-  - Frontend `useEffect` sync also missing advanced fields, and had field name mismatch (`daily_limit_sol` vs `total_daily_limit_sol`)
-  - Fix: Added all 7 missing fields to status response + synced frontend field names + updated useEffect
-  - 13/13 settings fields verified via round-trip API test
+  - Root cause: Status endpoint missing 7 advanced fields + field name mismatch
+  - Fix: Added all fields to status response + synced frontend field names
+
+### Session 5 (Mar 29, 2026)
+- **Position Sync Overhaul** — Added Token-2022 support, auto-close stale positions, amount refresh
+- **Entry Price Zero Guard (CRITICAL)** — Added 3-layer safety: engine skips entry_price=0 positions, sync fetches DexScreener prices, startup sync fetches prices
+- **Trading Mode Fix** — Mode selector was calling wrong endpoint (`POST /settings` instead of `PUT /auto-trade/settings`) and reading from stale `trading_mode` field. Fixed data flow: save writes both `auto_trade_mode` + `trading_mode`, status reads `auto_trade_mode` first
+- **Helius RPC Invalid on Production** — Production Helius API key is expired/invalid. Switched all RPC calls to try Alchemy first (working), Helius as fallback
+- **Data Pipeline Fix** — Wired signal metadata (confidence, data_source, smart_money_adj, sentiment_adj, agreement_count, sizing_mult, token_mint) into `create_pending_journal_entry` for proper analytics
+- **Trade Frequency Increase** — Lowered defaults: min_confidence 0.65→0.55, cooldown 30→15min, max_daily 3→10, SL cooldown 60→30min, aggressive floor 0.45→0.35
+- **Strategy Performance Dashboard** — New "Analytics" tab on AI Trader page with:
+  - Strategy breakdown (win rate, PnL by strategy)
+  - Confidence vs outcome buckets
+  - Smart Money & Sentiment signal effectiveness
+  - Trade frequency timeline
+  - New endpoint: `GET /api/ai-trader/analytics/performance/{wallet}`
 
 ## Current Ledger State
-- Available: 0.003956 SOL (matches on-chain)
-- Locked: ~0.044 SOL (PYTH position, live value)
-- Fees: 0.002044 SOL (tracked)
-- Total: ~0.048 SOL (from 0.05 deposited)
+- Available: ~0.129 SOL
+- Positions: WIF, JUP, RAY, PYTH (4 open, all with valid entry prices)
+- Total deposited: 0.310 SOL
 
 ## Backlog (Prioritized)
 ### P1 - Upcoming
@@ -119,4 +130,5 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Achievement badges & "Share on X"
 
 ### Administrative
+- Fix Helius API key on production (currently expired)
 - Remove private access gate when user confirms testing is complete

@@ -16,7 +16,7 @@ import {
   DollarSign, Target,
   History, Info, AlertTriangle,
   Rocket, CheckCircle, AlertCircle, Timer, Trash2, Bell,
-  Cpu, Users, Globe,
+  Cpu, Users, Globe, BarChart3,
   RotateCcw, X, Wallet, Copy
 } from "lucide-react";
 import { ShareButton } from "../components/SocialShare";
@@ -31,7 +31,7 @@ import {
   RiskCalculator, SignalCard, PositionCard,
   TradeHistoryCard, SettingsModal, TopPickCard, AlertCard, QuickSettings,
   IntelligenceDashboard, TradingModeSelector, PerformanceScorecard,
-  FundLedger,
+  FundLedger, StrategyAnalytics,
   API, TRADING_BOT_IMAGE, AUTO_SCAN_INTERVAL, TOKENS
 } from "../components/trader";
 
@@ -1367,6 +1367,7 @@ export default function AITrader() {
             {[
               { id: "dashboard", label: "Dashboard", icon: <Target className="w-3 h-3 sm:w-4 sm:h-4" />, count: positions.length || undefined },
               { id: "autotrade", label: "Auto-Trade", icon: <Cpu className="w-3 h-3 sm:w-4 sm:h-4" />, badge: autoTradeStatus?.auto_trade_enabled ? "ON" : null },
+              { id: "analytics", label: "Analytics", icon: <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" /> },
               { id: "discover", label: "Signals", icon: <Zap className="w-3 h-3 sm:w-4 sm:h-4" />, badge: "HOT" },
               { id: "social", label: "Social & Alerts", icon: <Users className="w-3 h-3 sm:w-4 sm:h-4" /> },
             ].map(tab => (
@@ -2001,6 +2002,12 @@ export default function AITrader() {
                 onSaveSettings={saveSettings}
               />
             )}
+
+            {/* ===== ANALYTICS TAB ===== */}
+            {activeTab === "analytics" && (
+              <StrategyAnalytics walletAddress={walletAddress} />
+            )}
+
             
             {/* ===== SOCIAL & ALERTS TAB ===== */}
             {activeTab === "social" && (
