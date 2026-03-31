@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import axios from "axios";
 import {
   Shield, Users, DollarSign, BarChart3, Trophy, AlertTriangle,
-  RefreshCw, Play, Ban, Clock, Wallet, CheckCircle, XCircle, ArrowDownRight, ArrowUpRight
+  RefreshCw, Play, Ban, Clock, Wallet, CheckCircle, XCircle, ArrowDownRight, ArrowUpRight,
+  Activity
 } from "lucide-react";
+import BotHealthDashboard from "../components/admin/BotHealthDashboard";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -192,8 +194,11 @@ export default function AdminPanel() {
           </>
         )}
 
-        <Tabs defaultValue="fund-health">
+        <Tabs defaultValue="bot-health">
           <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6">
+            <TabsTrigger value="bot-health" className="data-[state=active]:bg-[#00C2FF]/10 data-[state=active]:text-[#00C2FF]">
+              Bot Health
+            </TabsTrigger>
             <TabsTrigger value="fund-health" className="data-[state=active]:bg-[#FFB800]/10 data-[state=active]:text-[#FFB800]">
               Fund Health
             </TabsTrigger>
@@ -207,6 +212,10 @@ export default function AdminPanel() {
               Escrow
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="bot-health">
+            <BotHealthDashboard adminWallet={publicKey?.toBase58()} />
+          </TabsContent>
 
           <TabsContent value="fund-health">
             <ReconciliationDashboard
