@@ -10,12 +10,25 @@ export function TradeHistoryCard({ trade }) {
   const exitPrice = trade.exit_price || trade.current_price || 0;
 
   const getTimeHeld = () => {
+    // Use backend-calculated time if available
+    if (trade.time_held_minutes != null && trade.time_held_minutes > 0) {
+      const mins = trade.time_held_minutes;
+      const days = Math.floor(mins / (60 * 24));
+      const hours = Math.floor((mins % (60 * 24)) / 60);
+      const minutes = Math.floor(mins % 60);
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+    // Fallback: calculate from timestamps
     if (!trade.created_at) return null;
     const closeTime = trade.closed_at || trade.executed_at;
     if (!closeTime && !isSell) return null;
-    const start = new Date(trade.created_at);
+    const openTime = trade.position_opened_at || trade.created_at;
+    const start = new Date(openTime);
     const end = closeTime ? new Date(closeTime) : new Date();
     const diffMs = end - start;
+    if (diffMs <= 0) return null;
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));

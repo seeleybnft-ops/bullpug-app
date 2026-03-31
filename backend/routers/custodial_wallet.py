@@ -667,13 +667,33 @@ async def sync_positions(user_wallet: str):
         if not mint:
             continue
         if mint not in onchain_tokens:
-            # Zero balance on-chain — close the position
+            # Zero balance on-chain — close the position with P&L calculation
+            entry_price = pos.get("entry_price", 0)
+            exit_price = 0
+            pnl_pct = None
+            pnl_sol_val = None
+
+            # Try to get current market price for P&L calculation
+            if entry_price and entry_price > 0:
+                try:
+                    from services.market_data import get_dexscreener_pair_data
+                    pair_data = await get_dexscreener_pair_data(mint)
+                    if pair_data and pair_data.get("priceUsd"):
+                        exit_price = float(pair_data["priceUsd"])
+                        pnl_pct = ((exit_price - entry_price) / entry_price) * 100
+                        pnl_sol_val = round(pos.get("amount_sol", 0) * (pnl_pct / 100), 6)
+                except Exception as price_err:
+                    logger.debug(f"Could not fetch exit price for {mint}: {price_err}")
+
             await db.ai_trader_positions.update_one(
                 {"position_id": pos["position_id"]},
                 {"$set": {
                     "status": "closed_sync",
                     "closed_at": datetime.now(timezone.utc).isoformat(),
-                    "close_reason": "Zero balance on-chain (auto-sync)"
+                    "close_reason": "Zero balance on-chain (auto-sync)",
+                    "exit_price": exit_price if exit_price > 0 else None,
+                    "pnl_percent": pnl_pct,
+                    "pnl_sol": pnl_sol_val,
                 }}
             )
             closed_stale.append(mint[:12] + "...")
@@ -1207,17 +1227,37 @@ async def sync_positions_from_chain(user_wallet: str):
                 "value_usd": position_value_usd
             })
     
-    # Mark positions as closed if tokens no longer on-chain
+    # Mark positions as closed if tokens no longer on-chain (with P&L)
     for position in existing_positions:
         mint = position.get("token_mint")
         if mint and mint not in on_chain_mints:
+            entry_price = position.get("entry_price", 0)
+            exit_price = 0
+            pnl_pct = None
+            pnl_sol_val = None
+
+            # Try to get current market price for P&L
+            if entry_price and entry_price > 0:
+                try:
+                    from services.market_data import get_dexscreener_pair_data
+                    pair_data = await get_dexscreener_pair_data(mint)
+                    if pair_data and pair_data.get("priceUsd"):
+                        exit_price = float(pair_data["priceUsd"])
+                        pnl_pct = ((exit_price - entry_price) / entry_price) * 100
+                        pnl_sol_val = round(position.get("amount_sol", 0) * (pnl_pct / 100), 6)
+                except Exception:
+                    pass
+
             await ai_db.ai_trader_positions.update_one(
                 {"position_id": position.get("position_id")},
                 {
                     "$set": {
                         "status": "closed_synced",
                         "closed_at": datetime.now(timezone.utc).isoformat(),
-                        "close_reason": "Token no longer in wallet"
+                        "close_reason": "Token no longer in wallet",
+                        "exit_price": exit_price if exit_price > 0 else None,
+                        "pnl_percent": pnl_pct,
+                        "pnl_sol": pnl_sol_val,
                     }
                 }
             )

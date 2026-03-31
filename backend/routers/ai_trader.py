@@ -848,8 +848,10 @@ async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only:
     closed_positions = await db.ai_trader_positions.find({
         "wallet_address": wallet_address,
         "status": {"$regex": "^closed"},
-        "sell_executed_on_chain": True,  # Must have successful on-chain sell
-        "sell_tx_signature": {"$exists": True, "$ne": None}
+        "$or": [
+            {"sell_executed_on_chain": True, "sell_tx_signature": {"$exists": True, "$ne": None}},
+            {"status": {"$in": ["closed_sync", "closed_synced"]}}
+        ]
     }, {"_id": 0}).sort("closed_at", -1).limit(limit).to_list(limit)
     
     for pos in closed_positions:
@@ -873,6 +875,7 @@ async def get_trade_history(wallet_address: str, limit: int = 50, on_chain_only:
                 "pnl_percent": pos.get("pnl_percent"),
                 "created_at": pos.get("closed_at"),
                 "executed_at": pos.get("closed_at"),
+                "position_opened_at": pos.get("created_at"),
                 "tx_signature": pos.get("sell_tx_signature"),
                 "status": "closed",
                 "source": "auto" if pos.get("auto_trade") or pos.get("custodial") else "position",
@@ -965,6 +968,58 @@ def _calculate_time_held(start_time: str, end_time: str) -> int:
         return int((end - start).total_seconds() / 60)
     except Exception:
         return 0
+
+
+@router.post("/backfill-pnl/{wallet_address}")
+async def backfill_closed_position_pnl(wallet_address: str):
+    """One-time backfill: Calculate P&L for closed positions that are missing it."""
+    from services.market_data import get_dexscreener_pair_data
+
+    positions = await db.ai_trader_positions.find({
+        "wallet_address": wallet_address,
+        "status": {"$regex": "^closed"},
+        "entry_price": {"$gt": 0},
+        "$or": [
+            {"pnl_percent": None},
+            {"pnl_percent": {"$exists": False}},
+            {"exit_price": None},
+            {"exit_price": {"$exists": False}},
+            {"exit_price": 0},
+        ]
+    }, {"_id": 0}).to_list(100)
+
+    updated = []
+    for pos in positions:
+        mint = pos.get("token_mint")
+        entry = pos.get("entry_price", 0)
+        if not mint or entry <= 0:
+            continue
+        try:
+            pair_data = await get_dexscreener_pair_data(mint)
+            if pair_data and pair_data.get("priceUsd"):
+                exit_price = float(pair_data["priceUsd"])
+                pnl_pct = ((exit_price - entry) / entry) * 100
+                pnl_sol = round(pos.get("amount_sol", 0) * (pnl_pct / 100), 6)
+                await db.ai_trader_positions.update_one(
+                    {"position_id": pos["position_id"]},
+                    {"$set": {
+                        "exit_price": exit_price,
+                        "pnl_percent": round(pnl_pct, 4),
+                        "pnl_sol": pnl_sol,
+                    }}
+                )
+                updated.append({
+                    "symbol": pos.get("token_symbol"),
+                    "entry": entry,
+                    "exit": exit_price,
+                    "pnl_pct": round(pnl_pct, 2),
+                    "pnl_sol": pnl_sol,
+                })
+        except Exception as e:
+            logger.debug(f"Backfill failed for {pos.get('token_symbol')}: {e}")
+
+    return {"updated": len(updated), "details": updated}
+
 
 
 @router.post("/reset-statistics/{wallet_address}")
