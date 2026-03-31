@@ -128,6 +128,17 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Now successfully finds real targets (verified: HYBRIDS @ 73% conf, 12min old, $14k liq)
 - **Helius RPC Key Updated** — New key `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (verified working, balance fetch successful)
 - 27/27 tests passed (iteration_92)
+- **Bot Health Dashboard (Admin Panel)** — New "Bot Health" tab (default) on admin panel:
+  - Funding alert banner (green/yellow/red based on available SOL)
+  - Quick stats: on-chain balance, available SOL, today/7d buys & exits, open positions
+  - Bot configuration table (mode, confidence, limits, TP/SL)
+  - Open positions with confidence, strategy, type (signal/snipe/runner)
+  - Expandable recent auto-trade activity log with TX links
+  - Sniper scan history table
+  - PugBurn auto-reclaim event log
+  - Test wallet filtering (excludes test_ / TEST_ prefixed wallets)
+  - New endpoint: `GET /api/admin/bot-health?admin_wallet={wallet}`
+  - 24/24 tests passed (iteration_93)
 
 
 ## Current Ledger State
