@@ -317,6 +317,24 @@ async def proxy_rpc_call(request: RpcRequest):
 
 
 @router.post("/custodial-burn/{user_wallet}")
+async def auto_close_empty_accounts(custodial_address: str, max_accounts: int = 10):
+    """
+    Wrapper for auto-trader: closes empty token accounts by custodial address.
+    Looks up the user_wallet from the custodial address and delegates to burn_custodial_accounts.
+    """
+    from utils.database import db as _db
+    wallet_doc = await _db.custodial_wallets.find_one(
+        {"custodial_address": custodial_address}, {"_id": 0, "user_wallet": 1}
+    )
+    if not wallet_doc:
+        return {"burned_accounts": 0, "reclaimed_sol": 0}
+    result = await burn_custodial_accounts(wallet_doc["user_wallet"], max_accounts)
+    return {
+        "burned_accounts": result.get("accounts_closed", 0),
+        "reclaimed_sol": result.get("sol_reclaimed", 0),
+    }
+
+
 async def burn_custodial_accounts(user_wallet: str, max_accounts: int = 10):
     """
     Close empty token accounts in the user's custodial wallet and reclaim SOL.

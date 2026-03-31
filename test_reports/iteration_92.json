@@ -1,0 +1,131 @@
+{
+  "summary": "Iteration 92: Verified all 10 trading bot fixes. All 27 tests pass. Backend starts cleanly, Helius RPC key works (balance fetch successful), Token Sniper uses 2-step DexScreener approach, auto_close_empty_accounts exists and is importable, MIN_POSITION_SOL=0.001, fee_reserve=0.001, pre-scan auto-burn runs BEFORE balance check, sniper mode has on-chain execution flow (no paper trades), and auto-trade settings endpoint responds.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. Backend starts cleanly - API root responds with 'Bullpug API - Guardian of the Memecoin Universe'",
+    "2. auto_trader_engine.py imports successfully (run_scan_and_execute, run_check_exits, MIN_POSITION_SOL)",
+    "3. token_sniper.py imports successfully (scan_new_pairs, record_snipe)",
+    "4. pugburn.py imports successfully with auto_close_empty_accounts function",
+    "5. HELIUS_RPC_URL is set in backend/.env with correct API key (93caf7e7-7ab2-49bb-b298-35e6ad3f4765)",
+    "6. Helius RPC balance fetch successful for custodial wallet CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg",
+    "7. scan_new_pairs() returns results using 2-step DexScreener approach (token-profiles + token-boosts → batch lookup)",
+    "8. DexScreener token-profiles endpoint accessible",
+    "9. DexScreener token-boosts endpoint accessible",
+    "10. auto_close_empty_accounts function exists with correct signature (custodial_address param)",
+    "11. auto_close_empty_accounts is imported in auto_trader_engine.py",
+    "12. MIN_POSITION_SOL = 0.001 (defined at line 31)",
+    "13. fee_reserve = 0.001 SOL (changed from 0.003)",
+    "14. Balance threshold uses MIN_POSITION_SOL (0.001) instead of 0.005",
+    "15. Pre-scan auto-burn triggers when balance < 0.01 SOL",
+    "16. Pre-scan burn (line 302) runs BEFORE balance check (line 314)",
+    "17. Sniper mode calls execute_auto_trade for on-chain execution",
+    "18. Sniper execution flow has proper on-chain structure (tx_signature, executed_on_chain)",
+    "19. Sniper mode only saves positions on successful on-chain execution (no paper trades)",
+    "20. Settings endpoint is PUT-only (GET returns 405 as expected)",
+    "21. Auto-trade status endpoint responds with settings (mode=sniper, max_position=0.2)",
+    "22. Sniper execution section found at line 1103",
+    "23. token_sniper.py uses 2-step DexScreener approach (profiles + boosts → batch lookup)",
+    "24. auto_close_empty_accounts function found at line 320 in pugburn.py",
+    "25. Helius RPC URL format correct: https://mainnet.helius-rpc.com/?api-key=...",
+    "26. Auto-trade enabled for user wallet with sniper mode active",
+    "27. 3 open positions tracked ($WIF, JUP, PYTH)"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "backend_startup": {
+      "status": "VERIFIED",
+      "details": "All imports work without errors, API responds correctly"
+    },
+    "helius_rpc_key": {
+      "status": "VERIFIED",
+      "details": "Balance fetch via Helius RPC successful for custodial wallet"
+    },
+    "token_sniper_scan": {
+      "status": "VERIFIED",
+      "details": "scan_new_pairs() uses 2-step DexScreener approach (token-profiles + token-boosts → batch lookup)"
+    },
+    "auto_close_empty_accounts": {
+      "status": "VERIFIED",
+      "details": "Function exists at line 320 in pugburn.py, imported in auto_trader_engine.py"
+    },
+    "min_position_sol": {
+      "status": "VERIFIED",
+      "details": "MIN_POSITION_SOL = 0.001 defined at line 31"
+    },
+    "fee_reserve": {
+      "status": "VERIFIED",
+      "details": "fee_reserve = 0.001 SOL (changed from 0.003)"
+    },
+    "balance_threshold": {
+      "status": "VERIFIED",
+      "details": "Uses MIN_POSITION_SOL (0.001) instead of 0.005"
+    },
+    "pre_scan_auto_burn": {
+      "status": "VERIFIED",
+      "details": "Auto-burn runs BEFORE balance check (line 302 before line 314)"
+    },
+    "sniper_on_chain_execution": {
+      "status": "VERIFIED",
+      "details": "Sniper mode calls execute_auto_trade, only saves positions on successful execution (no paper trades)"
+    },
+    "auto_trade_settings_endpoint": {
+      "status": "VERIFIED",
+      "details": "PUT /api/ai-trader/auto-trade/settings/{wallet} works, GET /api/ai-trader/auto-trade/status/{wallet} returns settings"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration92_trading_fixes.py",
+    "/app/test_reports/pytest/pytest_iteration92_trading_fixes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: All 10 requested features are correctly implemented",
+    "POSITIVE: Helius RPC key is valid and balance fetch works",
+    "POSITIVE: Token Sniper uses robust 2-step DexScreener approach (profiles + boosts → batch lookup)",
+    "POSITIVE: auto_close_empty_accounts wrapper function correctly delegates to burn_custodial_accounts",
+    "POSITIVE: MIN_POSITION_SOL = 0.001 allows trading with minimal balance",
+    "POSITIVE: fee_reserve = 0.001 SOL is appropriate for Solana base fees (~0.000005)",
+    "POSITIVE: Pre-scan auto-burn runs BEFORE balance check to reclaim SOL from empty accounts",
+    "POSITIVE: Sniper mode has full on-chain execution flow with no paper trades",
+    "POSITIVE: Bot is actively trading with 3 open positions ($WIF, JUP, PYTH) and trailing stops active"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration92_trading_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27 tests passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "test_credentials": {
+    "access_code": "bullpug2026",
+    "custodial_wallet": "CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg",
+    "user_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "helius_rpc_url": "https://mainnet.helius-rpc.com/?api-key=93caf7e7-7ab2-49bb-b298-35e6ad3f4765",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing production data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 92 verified all 10 trading bot fixes. Key findings: (1) Backend starts cleanly with all imports working, (2) Helius RPC key is valid and balance fetch works, (3) Token Sniper uses 2-step DexScreener approach (token-profiles + token-boosts → batch lookup), (4) auto_close_empty_accounts exists at line 320 in pugburn.py, (5) MIN_POSITION_SOL = 0.001, (6) fee_reserve = 0.001 SOL, (7) Pre-scan auto-burn runs BEFORE balance check, (8) Sniper mode has on-chain execution flow (no paper trades), (9) Auto-trade settings endpoint works. Bot is actively trading with 3 open positions ($WIF, JUP, PYTH) with trailing stops active. All 27 tests pass.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All API calls are live (Helius RPC, DexScreener, backend endpoints)"
+  },
+  "trading_bot_status": {
+    "auto_trade_enabled": true,
+    "trading_mode": "sniper",
+    "open_positions": 3,
+    "positions": ["$WIF", "JUP", "PYTH"],
+    "trailing_stops_active": true,
+    "note": "Bot is LIVE and trading real funds - DO NOT execute actual trades in tests"
+  }
+}

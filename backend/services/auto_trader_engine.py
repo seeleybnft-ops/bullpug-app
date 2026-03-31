@@ -28,6 +28,7 @@ from services.technical_analyzer import TechnicalAnalyzer
 logger = logging.getLogger(__name__)
 
 RAKE_PERCENT = 2.5
+MIN_POSITION_SOL = 0.001  # Absolute minimum viable trade size (1M lamports)
 
 
 async def apply_rake(wallet_address: str, profit_sol: float, position_id: str, symbol: str):
@@ -63,7 +64,7 @@ async def ensure_sufficient_sol_for_trade(wallet_address: str, required_sol: flo
         balance = await get_wallet_balance(wallet_doc["custodial_address"])
         balance_sol = balance / LAMPORTS_PER_SOL
         
-        if balance_sol >= required_sol + 0.005:
+        if balance_sol >= required_sol + 0.002:
             return {"burned_accounts": 0, "reclaimed_sol": 0}
         
         # Try to reclaim SOL from empty token accounts (pugburn)
@@ -297,8 +298,21 @@ async def run_scan_and_execute(wallet_address: str):
         ledger_available = await ledger_balance(wallet_address)
         logger.info(f"Scan starting: ledger available = {ledger_available:.6f} SOL")
         
-        if ledger_available < 0.005:
-            logger.warning(f"INSUFFICIENT BALANCE for trading: {ledger_available:.6f} SOL (need >0.005). Skipping scan.")
+        # If balance is low, try auto-burn empty token accounts FIRST to reclaim SOL
+        if ledger_available < 0.01:
+            try:
+                burn_result = await ensure_sufficient_sol_for_trade(wallet_address, 0.01)
+                if burn_result.get("burned_accounts", 0) > 0:
+                    reclaimed = burn_result.get("reclaimed_sol", 0)
+                    logger.info(f"Pre-scan auto-burn: reclaimed {reclaimed:.4f} SOL from {burn_result['burned_accounts']} accounts")
+                    # Refresh balance after burn
+                    ledger_available = await ledger_balance(wallet_address)
+                    logger.info(f"Post-burn ledger available = {ledger_available:.6f} SOL")
+            except Exception as burn_err:
+                logger.warning(f"Pre-scan auto-burn failed: {burn_err}")
+        
+        if ledger_available < MIN_POSITION_SOL:
+            logger.warning(f"INSUFFICIENT BALANCE for trading: {ledger_available:.6f} SOL (need >{MIN_POSITION_SOL}). Skipping scan.")
             return {"success": True, "executed": [], "skipped": [{"symbol": "*", "reason": f"Insufficient balance: {ledger_available:.6f} SOL"}]}
         
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -540,9 +554,9 @@ async def run_scan_and_execute(wallet_address: str):
                             position_sol = base_position
                         
                         # Cap position to available ledger balance minus fee reserve
-                        fee_reserve = 0.003  # Keep 0.003 SOL for tx fees + sell reserve
+                        fee_reserve = 0.001  # Keep 0.001 SOL for tx fees (Solana base fee is ~0.000005)
                         position_sol = round(min(position_sol, max(0, ledger_available - fee_reserve)), 6)
-                        if position_sol < 0.002:  # Minimum viable trade
+                        if position_sol < MIN_POSITION_SOL:
                             skipped.append({"symbol": symbol, "reason": f"Insufficient balance (avail: {ledger_available:.4f} SOL, need: {base_position:.4f})"})
                             continue
                         
@@ -902,11 +916,11 @@ async def run_scan_and_execute(wallet_address: str):
                             # Cap to available balance minus fee reserve
                             from services.ledger import get_available_balance as ledger_avail_fn
                             ledger_avail = await ledger_avail_fn(wallet_address)
-                            fee_reserve = 0.006  # Keep 0.006 SOL for tx fees + sell reserve
+                            fee_reserve = 0.001  # Keep 0.001 SOL for tx fees
                             max_runner_position = min(max_position * 0.5, 0.1, max(0, ledger_avail - fee_reserve))
                             position_sol = round(max_runner_position, 6)
                             
-                            if position_sol < 0.002:  # Minimum viable trade
+                            if position_sol < MIN_POSITION_SOL:
                                 skipped.append({"symbol": f"{symbol} (RUNNER)", "reason": f"Insufficient balance for runner trade (avail: {ledger_avail:.4f} SOL)"})
                                 continue
                             
@@ -1110,7 +1124,12 @@ async def run_scan_and_execute(wallet_address: str):
                         elif sniper_conf < 0.65:
                             sniper_position = round(sniper_position * 0.5, 4)
                     
+                    # Cap to available balance
+                    sniper_ledger = await ledger_balance(wallet_address)
+                    sniper_position = round(min(sniper_position, max(0, sniper_ledger - 0.001)), 6)
+                    
                     if sniper_position < MIN_POSITION_SOL:
+                        skipped.append({"symbol": target["token_symbol"], "reason": f"Insufficient balance for sniper (avail: {sniper_ledger:.4f} SOL)"})
                         continue
                     
                     # Check duplicate position
@@ -1131,50 +1150,141 @@ async def run_scan_and_execute(wallet_address: str):
                     sniper_position_id = f"snipe_{target['token_symbol']}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
                     sniper_execution_id = f"exec_snipe_{datetime.now(timezone.utc).timestamp()}"
                     
-                    position_doc = {
-                        "position_id": sniper_position_id,
-                        "execution_id": sniper_execution_id,
-                        "wallet_address": wallet_address,
-                        "token_symbol": target["token_symbol"],
-                        "token_mint": target["token_mint"],
-                        "amount_sol": sniper_position,
-                        "entry_price": target["price_usd"],
-                        "stop_loss_price": target["price_usd"] * (1 - settings.get("auto_stop_loss_percent", 10) / 100),
-                        "take_profit_price": target["price_usd"] * (1 + settings.get("auto_take_profit_percent", 20) / 100),
-                        "trade_type": "buy",
-                        "status": "open",
-                        "auto_trade": True,
-                        "is_snipe": True,
-                        "confidence": sniper_conf,
-                        "strategy": "sniper",
-                        "data_source": "dexscreener_new_pair",
-                        "pair_age_minutes": target["pair_age_minutes"],
-                        "created_at": datetime.now(timezone.utc).isoformat()
-                    }
+                    # Execute on-chain via custodial wallet (same as regular trades)
+                    tx_signature = None
+                    execution_success = False
+                    execution_error = None
                     
-                    await db.ai_trader_positions.insert_one(position_doc)
-                    
-                    # Record in internal ledger (debit — lock funds for sniper trade)
                     try:
-                        await ledger_record(
-                            wallet_address, "trade_open", -sniper_position,
-                            reference_id=position_doc.get("position_id", ""),
-                            reference_type="sniper_buy",
-                            description=f"Sniper buy {target['token_symbol']} — {sniper_position:.6f} SOL",
-                            metadata={"token_symbol": target["token_symbol"], "pair_age_minutes": target["pair_age_minutes"]}
-                        )
-                    except Exception as le:
-                        logger.warning(f"Ledger record failed for sniper buy: {le}")
+                        # Auto-burn empty accounts to reclaim SOL before sniper buy
+                        burn_result = await ensure_sufficient_sol_for_trade(wallet_address, sniper_position)
+                        if burn_result.get("burned_accounts", 0) > 0:
+                            logger.info(f"Auto-burn before sniper buy: reclaimed {burn_result.get('reclaimed_sol', 0):.4f} SOL")
+                        
+                        from routers.custodial_wallet import get_wallet_balance, execute_auto_trade
+                        
+                        custodial_wallet = await db.custodial_wallets.find_one({"user_wallet": wallet_address})
+                        
+                        if custodial_wallet:
+                            custodial_balance = await get_wallet_balance(custodial_wallet["custodial_address"])
+                            required_lamports = int(sniper_position * LAMPORTS_PER_SOL)
+                            
+                            if custodial_balance >= required_lamports + 50000:
+                                logger.info(f"SNIPER: Executing on-chain trade: {sniper_position} SOL for {target['token_symbol']}")
+                                
+                                trade_result = await execute_auto_trade(
+                                    user_wallet=wallet_address,
+                                    input_mint=SOL_MINT,
+                                    output_mint=target["token_mint"],
+                                    amount_lamports=required_lamports
+                                )
+                                
+                                if trade_result.get("success"):
+                                    tx_signature = trade_result.get("tx_signature")
+                                    execution_success = True
+                                    logger.info(f"SNIPER: Trade executed successfully: {tx_signature}")
+                                else:
+                                    execution_error = f"Swap failed: {trade_result.get('error', 'unknown')}"
+                            else:
+                                execution_error = f"Insufficient custodial balance: {custodial_balance/LAMPORTS_PER_SOL:.4f} SOL"
+                        else:
+                            execution_error = "No custodial wallet"
+                            
+                    except Exception as exec_error:
+                        execution_error = f"Sniper execution failed: {str(exec_error)}"
+                        logger.error(f"Sniper trade execution error: {exec_error}")
                     
-                    executed_trades.append({
-                        "symbol": target["token_symbol"],
-                        "action": "sniper_buy",
-                        "amount_sol": sniper_position,
-                        "confidence": sniper_conf,
-                        "reason": f"Sniper: new pair ({target['pair_age_minutes']}min old), liq ${target['liquidity_usd']:,.0f}"
-                    })
-                    sniper_trades += 1
-                    today_completed_trades += 1
+                    # ONLY save position if execution was successful (no paper trades)
+                    if execution_success:
+                        position_doc = {
+                            "position_id": sniper_position_id,
+                            "execution_id": sniper_execution_id,
+                            "wallet_address": wallet_address,
+                            "token_symbol": target["token_symbol"],
+                            "token_mint": target["token_mint"],
+                            "amount_sol": sniper_position,
+                            "entry_price": target["price_usd"],
+                            "stop_loss_price": target["price_usd"] * (1 - settings.get("auto_stop_loss_percent", 10) / 100),
+                            "take_profit_price": target["price_usd"] * (1 + settings.get("auto_take_profit_percent", 20) / 100),
+                            "trade_type": "buy",
+                            "status": "open",
+                            "auto_trade": True,
+                            "is_snipe": True,
+                            "confidence": sniper_conf,
+                            "strategy": "sniper",
+                            "data_source": "dexscreener_new_pair",
+                            "pair_age_minutes": target["pair_age_minutes"],
+                            "executed_on_chain": True,
+                            "tx_signature": tx_signature,
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        await db.ai_trader_positions.insert_one(position_doc)
+                        
+                        # Record in internal ledger (debit — lock funds for sniper trade)
+                        try:
+                            await ledger_record(
+                                wallet_address, "trade_open", -sniper_position,
+                                reference_id=sniper_position_id,
+                                reference_type="sniper_buy",
+                                description=f"Sniper buy {target['token_symbol']} — {sniper_position:.6f} SOL",
+                                metadata={"token_symbol": target["token_symbol"], "pair_age_minutes": target["pair_age_minutes"], "tx_signature": tx_signature}
+                            )
+                        except Exception as le:
+                            logger.warning(f"Ledger record failed for sniper buy: {le}")
+                        
+                        # Create journal entry for sniper trade
+                        await create_pending_journal_entry(
+                            wallet_address=wallet_address,
+                            asset=target["token_symbol"],
+                            trade_type="buy",
+                            entry_price=target["price_usd"],
+                            position_size_sol=sniper_position,
+                            tx_signature=tx_signature,
+                            strategy="sniper",
+                            trigger_reason=f"Sniper: new pair ({target['pair_age_minutes']}min old), liq ${target['liquidity_usd']:,.0f}",
+                            confidence=sniper_conf,
+                            data_source="dexscreener_new_pair",
+                            token_mint=target["token_mint"]
+                        )
+                        
+                        executed_trades.append({
+                            "symbol": target["token_symbol"],
+                            "action": "sniper_buy",
+                            "amount_sol": sniper_position,
+                            "confidence": sniper_conf,
+                            "reason": f"Sniper: new pair ({target['pair_age_minutes']}min old), liq ${target['liquidity_usd']:,.0f}",
+                            "executed_on_chain": True,
+                            "tx_signature": tx_signature
+                        })
+                        sniper_trades += 1
+                        today_completed_trades += 1
+                        
+                        # Send Telegram sniper alert
+                        try:
+                            from routers.telegram import send_trade_alert
+                            await send_trade_alert(wallet_address, {
+                                "action": "sniper_buy",
+                                "symbol": target["token_symbol"],
+                                "amount_sol": sniper_position,
+                                "price": target["price_usd"],
+                                "confidence": sniper_conf,
+                                "reason": f"Sniper: {target['pair_age_minutes']}min old, ${target['liquidity_usd']:,.0f} liq",
+                                "tx_signature": tx_signature,
+                                "is_snipe": True
+                            })
+                        except Exception as tg_err:
+                            logger.debug(f"Telegram sniper alert failed: {tg_err}")
+                        
+                        logger.info(f"SNIPER position saved: {target['token_symbol']} @ {target['price_usd']} - TX: {tx_signature}")
+                    else:
+                        skipped.append({
+                            "symbol": target["token_symbol"],
+                            "reason": execution_error or "On-chain sniper execution failed",
+                            "confidence": sniper_conf,
+                            "would_have_traded": True
+                        })
+                        logger.warning(f"SNIPER skipped (execution failed): {target['token_symbol']} - {execution_error}")
                     
                 except Exception as e:
                     logger.warning(f"Sniper execution error for {target.get('token_symbol')}: {e}")

@@ -35,29 +35,69 @@ RUG_INDICATORS = [
 async def scan_new_pairs() -> List[Dict]:
     """
     Scan DexScreener for brand-new Solana token pairs.
+    Uses a 2-step approach:
+      1. Fetch latest token profiles + boosts on Solana
+      2. Batch-lookup pair data for those tokens
+      3. Apply sniper criteria (age, liquidity, volume, buys)
     Returns list of potential snipe targets.
     """
     targets = []
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            # DexScreener new pairs endpoint
+            # Step 1: Get fresh token addresses from profiles AND boosts
+            solana_addresses = set()
+
+            # Source 1: Latest token profiles
+            try:
+                profiles_resp = await client.get("https://api.dexscreener.com/token-profiles/latest/v1")
+                if profiles_resp.status_code == 200:
+                    profiles = profiles_resp.json()
+                    for t in profiles:
+                        if t.get("chainId") == "solana" and t.get("tokenAddress"):
+                            solana_addresses.add(t["tokenAddress"])
+            except Exception as e:
+                logger.debug(f"Token profiles fetch failed: {e}")
+
+            # Source 2: Latest token boosts
+            try:
+                boosts_resp = await client.get("https://api.dexscreener.com/token-boosts/latest/v1")
+                if boosts_resp.status_code == 200:
+                    boosts = boosts_resp.json()
+                    for t in boosts:
+                        if t.get("chainId") == "solana" and t.get("tokenAddress"):
+                            solana_addresses.add(t["tokenAddress"])
+            except Exception as e:
+                logger.debug(f"Token boosts fetch failed: {e}")
+
+            if not solana_addresses:
+                logger.warning("Sniper: No Solana token addresses found from profiles/boosts")
+                return []
+
+            logger.info(f"Sniper: Fetched {len(solana_addresses)} Solana token addresses from profiles+boosts")
+
+            # Step 2: Batch lookup pair data (DexScreener supports comma-separated, max ~30)
+            addr_list = list(solana_addresses)[:30]
+            batch_query = ",".join(addr_list)
+
             response = await client.get(
-                "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112",
-                params={"order": "newest"}
+                f"https://api.dexscreener.com/latest/dex/tokens/{batch_query}"
             )
 
             if response.status_code != 200:
-                logger.warning(f"DexScreener new pairs returned {response.status_code}")
+                logger.warning(f"DexScreener batch lookup returned {response.status_code}")
                 return []
 
             pairs = response.json().get("pairs", [])
-
             now = datetime.now(timezone.utc)
 
+            # Step 3: Apply sniper criteria
+            seen_mints = set()  # Dedupe by token mint
             for pair in pairs:
                 try:
-                    # Check pair age
+                    if pair.get("chainId") != "solana":
+                        continue
+
                     created_at = pair.get("pairCreatedAt")
                     if not created_at:
                         continue
@@ -65,11 +105,6 @@ async def scan_new_pairs() -> List[Dict]:
                     pair_age_minutes = (now - datetime.fromtimestamp(created_at / 1000, tz=timezone.utc)).total_seconds() / 60
 
                     if pair_age_minutes > SNIPER_MAX_PAIR_AGE_MINUTES:
-                        continue
-
-                    # Check chain
-                    chain = pair.get("chainId", "")
-                    if chain != "solana":
                         continue
 
                     # Basic safety checks
@@ -87,11 +122,15 @@ async def scan_new_pairs() -> List[Dict]:
                     if buys_5m < SNIPER_MIN_BUYS_5M:
                         continue
 
+                    token_mint = pair.get("baseToken", {}).get("address", "")
+                    if not token_mint or token_mint in seen_mints:
+                        continue
+                    seen_mints.add(token_mint)
+
                     # Calculate sniper confidence
                     confidence = _calculate_sniper_confidence(pair, pair_age_minutes, buys_5m, sells_5m, liquidity_usd, volume_5m)
 
                     token_symbol = pair.get("baseToken", {}).get("symbol", "???")
-                    token_mint = pair.get("baseToken", {}).get("address", "")
                     price_usd = float(pair.get("priceUsd", 0) or 0)
 
                     # Check if we already sniped this token recently
