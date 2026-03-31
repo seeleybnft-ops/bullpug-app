@@ -1,0 +1,109 @@
+{
+  "summary": "Iteration 95: Rake Withdrawal Feature - All 15 backend tests pass. Verified: rake_withdrawal.py module imports correctly, COMMUNITY_WALLET=we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT, RAKE_WITHDRAW_THRESHOLD=0.01 SOL, track_rake() increments pending_sol and total_collected_sol, get_rake_stats() returns correct structure, bot-health endpoint includes rake field, apply_rake calls track_rake, rake_events collection gets entries. Frontend BotHealthDashboard.jsx has no lint errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. rake_withdrawal module importable without errors",
+    "2. COMMUNITY_WALLET = we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
+    "3. RAKE_WITHDRAW_THRESHOLD = 0.01 SOL",
+    "4. track_rake() correctly increments pending_sol and total_collected_sol",
+    "5. track_rake() creates individual rake_events entries with amount_sol, symbol, created_at",
+    "6. track_rake() ignores zero or negative amounts",
+    "7. get_rake_stats() returns correct structure with all required fields",
+    "8. GET /api/admin/bot-health returns 200 for admin",
+    "9. bot-health response includes 'rake' field",
+    "10. rake stats in bot-health have correct structure (total_collected_sol, pending_sol, community_wallet, threshold_sol)",
+    "11. apply_rake function exists in auto_trader_engine",
+    "12. apply_rake imports and calls track_rake from rake_withdrawal",
+    "13. admin.py imports get_rake_stats from rake_withdrawal",
+    "14. bot-health endpoint calls get_rake_stats for each wallet",
+    "15. Test data cleanup successful"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "rake_withdrawal_module": {
+      "status": "VERIFIED",
+      "details": "Module imports correctly with track_rake, get_rake_stats, COMMUNITY_WALLET, RAKE_WITHDRAW_THRESHOLD"
+    },
+    "community_wallet_constant": {
+      "status": "VERIFIED",
+      "details": "COMMUNITY_WALLET = we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT"
+    },
+    "rake_threshold_constant": {
+      "status": "VERIFIED",
+      "details": "RAKE_WITHDRAW_THRESHOLD = 0.01 SOL"
+    },
+    "track_rake_function": {
+      "status": "VERIFIED",
+      "details": "Correctly increments pending_sol and total_collected_sol in rake_tracker collection, creates rake_events entries"
+    },
+    "get_rake_stats_function": {
+      "status": "VERIFIED",
+      "details": "Returns correct structure: total_collected_sol, total_withdrawn_sol, pending_sol, withdrawal_count, community_wallet, threshold_sol"
+    },
+    "bot_health_rake_integration": {
+      "status": "VERIFIED",
+      "details": "GET /api/admin/bot-health includes 'rake' field with stats for each wallet"
+    },
+    "apply_rake_track_rake_integration": {
+      "status": "VERIFIED",
+      "details": "apply_rake in auto_trader_engine.py imports and calls track_rake after ledger_record"
+    },
+    "frontend_lint": {
+      "status": "VERIFIED",
+      "details": "BotHealthDashboard.jsx has no lint errors, includes Rake Tracker section"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration95_rake_withdrawal.py",
+    "/app/test_reports/pytest/pytest_iteration95_rake_withdrawal.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: rake_withdrawal.py correctly implements track_rake() with upsert pattern for rake_tracker collection",
+    "POSITIVE: track_rake() correctly ignores zero/negative amounts (early return)",
+    "POSITIVE: get_rake_stats() returns sensible defaults for non-existent wallets",
+    "POSITIVE: _execute_rake_withdrawal() is properly guarded and only triggers when threshold is met",
+    "POSITIVE: admin.py bot-health endpoint correctly iterates over wallets and calls get_rake_stats",
+    "POSITIVE: apply_rake in auto_trader_engine.py correctly imports track_rake inside the function to avoid circular imports",
+    "POSITIVE: Frontend BotHealthDashboard.jsx has proper Rake Tracker UI section with data-testid='rake-tracker'"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration95_rake_withdrawal.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% (lint clean)"
+  },
+  "test_credentials": {
+    "admin_wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "community_wallet": "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "Created and cleaned up TEST_ prefixed data in rake_tracker and rake_events collections",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 95 verified the rake auto-withdrawal feature. Key findings: (1) rake_withdrawal.py module imports correctly, (2) COMMUNITY_WALLET=we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT, (3) RAKE_WITHDRAW_THRESHOLD=0.01 SOL, (4) track_rake() correctly increments pending_sol and total_collected_sol, (5) rake_events collection gets individual entries, (6) get_rake_stats() returns correct structure, (7) bot-health endpoint includes rake field, (8) apply_rake calls track_rake. NOTE: Actual on-chain withdrawals were NOT tested (as requested). The rake data in bot-health is currently empty {} because no profitable trades with rake have occurred yet.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All API calls are live (backend endpoints). On-chain withdrawal was NOT tested as requested."
+  },
+  "rake_feature_summary": {
+    "auto_withdrawal_threshold": "0.01 SOL",
+    "community_wallet": "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
+    "collections_used": ["rake_tracker", "rake_events", "rake_withdrawals"],
+    "integration_points": [
+      "apply_rake() in auto_trader_engine.py calls track_rake()",
+      "bot-health endpoint in admin.py calls get_rake_stats()",
+      "BotHealthDashboard.jsx displays Rake Tracker section"
+    ]
+  }
+}

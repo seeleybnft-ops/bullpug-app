@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import {
   Activity, Zap, Flame, Target, TrendingUp, AlertTriangle,
-  RefreshCw, Crosshair, Bot, Fuel, Clock, ChevronDown, ChevronUp
+  RefreshCw, Crosshair, Bot, Fuel, Clock, ChevronDown, ChevronUp, DollarSign
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -261,6 +261,62 @@ export default function BotHealthDashboard({ adminWallet }) {
           </p>
         )}
       </div>
+
+      {/* Rake Tracker */}
+      {data.rake && Object.keys(data.rake).length > 0 && (
+        <div className="glass-card rounded-xl p-4" data-testid="rake-tracker">
+          <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-[#00FFA3]" /> Rake Tracker (Community Wallet)
+          </h4>
+          {Object.entries(data.rake).map(([wallet, r]) => (
+            <div key={wallet} className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white/[0.03] rounded-lg p-3">
+                  <p className="text-[10px] text-slate-500 uppercase">Total Collected</p>
+                  <p className="text-lg font-black text-[#00FFA3] font-mono">{r.total_collected_sol?.toFixed(6)}</p>
+                  <p className="text-[9px] text-slate-600">SOL</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-3">
+                  <p className="text-[10px] text-slate-500 uppercase">Withdrawn</p>
+                  <p className="text-lg font-black text-[#00C2FF] font-mono">{r.total_withdrawn_sol?.toFixed(6)}</p>
+                  <p className="text-[9px] text-slate-600">SOL ({r.withdrawal_count || 0} transfers)</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-3">
+                  <p className="text-[10px] text-slate-500 uppercase">Pending</p>
+                  <p className="text-lg font-black text-[#FFB800] font-mono">{r.pending_sol?.toFixed(6)}</p>
+                  <p className="text-[9px] text-slate-600">auto-sends at {r.threshold_sol} SOL</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-3">
+                  <p className="text-[10px] text-slate-500 uppercase">Community Wallet</p>
+                  <p className="text-xs font-mono text-slate-300 break-all">{r.community_wallet?.slice(0, 12)}...{r.community_wallet?.slice(-6)}</p>
+                  <a href={`https://solscan.io/account/${r.community_wallet}`} target="_blank" rel="noreferrer" className="text-[10px] text-[#00C2FF] hover:underline">View on Solscan</a>
+                </div>
+              </div>
+              {r.recent_withdrawals?.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-500 uppercase">Recent Withdrawals</p>
+                  {r.recent_withdrawals.map((w, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded bg-white/[0.02]">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-3 h-3 text-[#00FFA3]" />
+                        <span className="text-xs font-mono text-[#00FFA3]">{w.amount_sol?.toFixed(6)} SOL</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {w.tx_signature && (
+                          <a href={`https://solscan.io/tx/${w.tx_signature}`} target="_blank" rel="noreferrer" className="text-[10px] text-[#00C2FF] hover:underline">
+                            {w.tx_signature.slice(0, 12)}...
+                          </a>
+                        )}
+                        <span className="text-[10px] text-slate-500">{timeAgo(w.created_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Last check */}
       {data.checked_at && (

@@ -346,6 +346,14 @@ async def admin_bot_health(admin_wallet: str):
             "take_profit": s.get("auto_take_profit_percent") or s.get("take_profit_percent", 20),
         })
 
+    # --- Rake tracking stats ---
+    from services.rake_withdrawal import get_rake_stats
+    rake_stats = {}
+    for w in wallets:
+        rs = await get_rake_stats(w["user_wallet"])
+        if rs.get("total_collected_sol", 0) > 0 or rs.get("pending_sol", 0) > 0:
+            rake_stats[f"{w['user_wallet'][:6]}...{w['user_wallet'][-4:]}"] = rs
+
     return {
         "checked_at": now.isoformat(),
         "funding": {
@@ -365,4 +373,5 @@ async def admin_bot_health(admin_wallet: str):
         "sniper_history": sniper_hits,
         "burn_logs": burn_logs,
         "bot_configs": bot_configs,
+        "rake": rake_stats,
     }

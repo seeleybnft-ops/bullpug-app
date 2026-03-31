@@ -47,6 +47,11 @@ async def apply_rake(wallet_address: str, profit_sol: float, position_id: str, s
             metadata={"profit_sol": profit_sol, "rake_percent": RAKE_PERCENT}
         )
         logger.info(f"Rake applied: {rake_amount:.6f} SOL on {symbol} profit of {profit_sol:.6f}")
+
+        # Track rake and auto-withdraw to community wallet when threshold is met
+        from services.rake_withdrawal import track_rake
+        await track_rake(wallet_address, rake_amount, position_id, symbol)
+
         return rake_amount
     except Exception as e:
         logger.error(f"Rake application failed: {e}")
