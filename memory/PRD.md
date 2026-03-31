@@ -137,6 +137,12 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   5. Created `POST /api/ai-trader/backfill-pnl/{wallet}` to retroactively calculate P&L for historical positions
   - Backfilled 7 positions: WIF +1.83%, PYTH +5.06%, RAY +12.28%, HNT -7.76%, JTO -6.56%, JUP +8.95%, LOL +23.40%
   - 11/11 tests passed (iteration_94)
+- **Rake Auto-Withdrawal to Community Wallet** — New `rake_withdrawal.py` service:
+  - Tracks every rake fee in `rake_tracker` and `rake_events` collections
+  - When accumulated rake hits 0.01 SOL, auto-transfers from custodial → community wallet (`we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`)
+  - Rake Tracker section added to Bot Health Dashboard (collected, pending, withdrawn, TX links)
+  - 15/15 tests passed (iteration_95)
+
 
   - Funding alert banner (green/yellow/red based on available SOL)
   - Quick stats: on-chain balance, available SOL, today/7d buys & exits, open positions
