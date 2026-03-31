@@ -129,6 +129,15 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Helius RPC Key Updated** — New key `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (verified working, balance fetch successful)
 - 27/27 tests passed (iteration_92)
 - **Bot Health Dashboard (Admin Panel)** — New "Bot Health" tab (default) on admin panel:
+- **P&L and Time Held Bug Fix** — Three root causes fixed:
+  1. Sync-closed positions never calculated P&L or exit price — now fetches market price at close time
+  2. Frontend `getTimeHeld()` used wrong timestamps for sell trades (closed_at → closed_at = 0m) — now uses backend `time_held_minutes` field
+  3. History endpoint excluded sync-closed positions — now includes `closed_sync` and `closed_synced` via `$or` query
+  4. Added `position_opened_at` field to sell trade responses for accurate time-held display
+  5. Created `POST /api/ai-trader/backfill-pnl/{wallet}` to retroactively calculate P&L for historical positions
+  - Backfilled 7 positions: WIF +1.83%, PYTH +5.06%, RAY +12.28%, HNT -7.76%, JTO -6.56%, JUP +8.95%, LOL +23.40%
+  - 11/11 tests passed (iteration_94)
+
   - Funding alert banner (green/yellow/red based on available SOL)
   - Quick stats: on-chain balance, available SOL, today/7d buys & exits, open positions
   - Bot configuration table (mode, confidence, limits, TP/SL)
