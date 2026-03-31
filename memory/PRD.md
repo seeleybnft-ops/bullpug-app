@@ -26,7 +26,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Private Access Gate:** `bullpug2026` (kept for testing)
 - **User Wallet:** `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
-- **Helius API Key:** `c7c37557-61df-4b9d-9661-b3d9c5be3aa8` (valid, free tier)
+- **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
 ## Architecture
 
@@ -114,9 +114,26 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Trade frequency timeline
   - New endpoint: `GET /api/ai-trader/analytics/performance/{wallet}`
 
+### Session 6 (Apr 1, 2026)
+- **Bot Not Trading Fix (P0)** — Five root causes identified and fixed:
+  1. **PugBurn missing function** — `auto_close_empty_accounts` was imported but never defined in pugburn.py. Created wrapper that delegates to `burn_custodial_accounts`
+  2. **PugBurn runs too late** — Pre-scan auto-burn now runs BEFORE the balance check (triggers when balance < 0.01 SOL)
+  3. **Fee reserve too aggressive** — Reduced from 0.003 SOL to 0.001 SOL (Solana base fee is ~0.000005)
+  4. **Minimum trade size** — Lowered `MIN_POSITION_SOL` to 0.001 SOL (was implicit 0.002/0.005)
+  5. **Sniper mode was paper trading** — Was creating positions without on-chain execution. Now uses same `execute_auto_trade` flow as regular trades
+- **Token Sniper Rewrite** — DexScreener endpoint was wrong (returning old SOL pairs, not new tokens). Rewrote to 2-step approach:
+  1. Fetch latest token profiles + boosts from DexScreener
+  2. Batch-lookup pair data for those tokens
+  3. Apply sniper criteria (age <= 30min, liq >= $10k, vol5m >= $5k, buys >= 10)
+  - Now successfully finds real targets (verified: HYBRIDS @ 73% conf, 12min old, $14k liq)
+- **Helius RPC Key Updated** — New key `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (verified working, balance fetch successful)
+- 27/27 tests passed (iteration_92)
+
+
 ## Current Ledger State
-- Available: ~0.129 SOL
-- Positions: WIF, JUP, RAY, PYTH (4 open, all with valid entry prices)
+- Available: ~0.003 SOL (bot needs more SOL deposited to custodial wallet)
+- On-chain balance: ~0.039 SOL (custodial wallet CFzZRc76y...)
+- Positions: WIF, JUP, PYTH (3 open, all with valid entry prices)
 - Total deposited: 0.310 SOL
 
 ## Backlog (Prioritized)
@@ -130,5 +147,4 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Achievement badges & "Share on X"
 
 ### Administrative
-- Fix Helius API key on production (currently expired)
 - Remove private access gate when user confirms testing is complete
