@@ -141,6 +141,16 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
   - Tracks every rake fee in `rake_tracker` and `rake_events` collections
   - When accumulated rake hits 0.01 SOL, auto-transfers from custodial → community wallet (`we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`)
   - Rake Tracker section added to Bot Health Dashboard (collected, pending, withdrawn, TX links)
+- **6 Data-Driven Trading Improvements** (from 8-day live analysis):
+  1. **Pre-buy liquidity filter** — Rejects honeypot/illiquid tokens: requires 5+ sells/24h and min 0.1 sell/buy ratio
+  2. **Sell retry cap** — Max 5 retries then force-close (was unlimited — PIXEL had 17 retries)
+  3. **Trailing stop widened** — Activation 5%→8%, distance fallback now 5% fixed (was 10% stop_loss_pct)
+  4. **Conviction sizing recalibrated** — Flattened curve: 0.85+=1.3x (was 0.90+=1.5x), multi-agreement boost 0.05→0.03
+  5. **Signal pipeline verified** — Data was in `trading_journal` collection (not `journal_entries` — query confirmed 26 entries)
+  6. **15-min minimum holding period** — Prevents premature exits on new positions
+  - MIN_LIQUIDITY_USD lowered $10k→$5k to allow more opportunities
+  - 19/19 tests passed (iteration_96)
+
   - 15/15 tests passed (iteration_95)
 
 
