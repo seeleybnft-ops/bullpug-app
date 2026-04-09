@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 
 # Minimum thresholds for auto-trading
 MIN_VOLUME_24H = 10_000      # $10K minimum 24h volume (established tokens have reliable data above this)
-MIN_LIQUIDITY_USD = 10_000   # $10K minimum liquidity
+MIN_LIQUIDITY_USD = 5_000    # $5K minimum liquidity (lowered from $10K — data showed $10K too restrictive)
 MIN_PRICE_HISTORY_POINTS = 10  # Minimum real data points for reliable indicators
+MIN_SELL_TXNS_24H = 5        # Minimum sell transactions in 24h (liquidity exit filter)
+MIN_BUY_SELL_RATIO = 0.1     # Minimum sells/buys ratio (filters honeypots where sells are near zero)
 
 
 def extract_market_quality(pair_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -38,7 +40,9 @@ def extract_market_quality(pair_data: Dict[str, Any]) -> Dict[str, Any]:
 
     volume_ok = volume_24h >= MIN_VOLUME_24H
     liquidity_ok = liquidity_usd >= MIN_LIQUIDITY_USD
-    passes_all = volume_ok and liquidity_ok
+    sells_ok = sells_24h >= MIN_SELL_TXNS_24H
+    ratio_ok = (sells_24h / max(buys_24h, 1)) >= MIN_BUY_SELL_RATIO if buys_24h > 0 else sells_24h > 0
+    passes_all = volume_ok and liquidity_ok and sells_ok and ratio_ok
 
     return {
         "volume_24h": volume_24h,
@@ -49,11 +53,15 @@ def extract_market_quality(pair_data: Dict[str, Any]) -> Dict[str, Any]:
         "pair_age_hours": pair_age_hours,
         "volume_ok": volume_ok,
         "liquidity_ok": liquidity_ok,
+        "sells_ok": sells_ok,
+        "ratio_ok": ratio_ok,
         "passes_quality_check": passes_all,
         "rejection_reasons": [
             r for r in [
                 f"Volume ${volume_24h:,.0f} < ${MIN_VOLUME_24H:,.0f}" if not volume_ok else None,
                 f"Liquidity ${liquidity_usd:,.0f} < ${MIN_LIQUIDITY_USD:,.0f}" if not liquidity_ok else None,
+                f"Only {sells_24h} sells in 24h (need {MIN_SELL_TXNS_24H}+) — possible honeypot" if not sells_ok else None,
+                f"Sell/buy ratio {sells_24h}/{buys_24h} too low — possible honeypot" if not ratio_ok else None,
             ] if r
         ]
     }

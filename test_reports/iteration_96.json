@@ -1,0 +1,115 @@
+{
+  "summary": "Iteration 96: All 19 backend tests pass. Verified 6 trading bot improvements based on 8 days of live data analysis: (1) Pre-buy liquidity filter with MIN_LIQUIDITY_USD=5000, MIN_SELL_TXNS_24H=5, MIN_BUY_SELL_RATIO=0.1, (2) Sell retry cap MAX_SELL_RETRIES=5 with closed_force status, (3) Trailing stop widened to trail_activation_pct=8, trail_distance_pct=0.05, (4) Conviction sizing recalibrated (0.85+=1.3x, 0.75+=1.1x, 0.65+=1.0x, 0.55+=0.8x, <0.55=0.6x), (5) Agreement boost reduced from 0.05 to 0.03, (6) MIN_HOLD_MINUTES=15 for minimum holding period. Backend starts cleanly and /api/ai-trader/analytics/performance endpoint works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "1. MIN_LIQUIDITY_USD = 5000 (lowered from 10K)",
+    "2. MIN_SELL_TXNS_24H = 5 defined",
+    "3. MIN_BUY_SELL_RATIO = 0.1 defined",
+    "4. extract_market_quality returns sells_ok flag (rejects tokens with < 5 sells/24h)",
+    "5. extract_market_quality returns ratio_ok flag (rejects low sell/buy ratio)",
+    "6. MAX_SELL_RETRIES = 5 constant exists",
+    "7. closed_force status used after 5 retries",
+    "8. sell_retry_count incremented via $inc when sell fails",
+    "9. trail_activation_pct default is 8 (was 5)",
+    "10. trail_distance_pct fallback is 0.05 (was stop_loss_pct)",
+    "11. Conviction sizing 0.85+ = 1.3x (was 0.90+ = 1.5x)",
+    "12. All conviction sizing bands recalibrated",
+    "13. Multi-agreement boost reduced from 0.05 to 0.03",
+    "14. MIN_HOLD_MINUTES = 15 exists",
+    "15. Exit check skipped for positions younger than MIN_HOLD_MINUTES",
+    "16. Backend modules import cleanly",
+    "17. Backend responds to requests",
+    "18. Performance endpoint returns 200",
+    "19. Performance endpoint returns valid JSON with expected fields"
+  ],
+  "failed_tests": [],
+  "features_verified": {
+    "pre_buy_liquidity_filter": {
+      "status": "VERIFIED",
+      "details": "MIN_LIQUIDITY_USD=5000, MIN_SELL_TXNS_24H=5, MIN_BUY_SELL_RATIO=0.1. extract_market_quality returns sells_ok and ratio_ok flags."
+    },
+    "sell_retry_cap": {
+      "status": "VERIFIED",
+      "details": "MAX_SELL_RETRIES=5, force-close logic sets status to 'closed_force' after 5 retries, sell_retry_count incremented via $inc"
+    },
+    "trailing_stop_widened": {
+      "status": "VERIFIED",
+      "details": "trail_activation_pct default=8 (was 5), trail_distance_pct fallback=0.05 (was stop_loss_pct)"
+    },
+    "conviction_sizing_recalibrated": {
+      "status": "VERIFIED",
+      "details": "0.85+=1.3x, 0.75+=1.1x, 0.65+=1.0x, 0.55+=0.8x, <0.55=0.6x (was 0.90+=1.5x)"
+    },
+    "agreement_boost_reduced": {
+      "status": "VERIFIED",
+      "details": "Multi-agreement boost reduced from 0.05 to 0.03"
+    },
+    "min_holding_period": {
+      "status": "VERIFIED",
+      "details": "MIN_HOLD_MINUTES=15, skips exit check for positions younger than 15 min with status 'open'"
+    },
+    "backend_health": {
+      "status": "VERIFIED",
+      "details": "Backend starts cleanly, modules import without errors"
+    },
+    "performance_endpoint": {
+      "status": "VERIFIED",
+      "details": "/api/ai-trader/analytics/performance/{wallet} returns 200 with valid JSON"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration96_trading_improvements.py",
+    "/app/test_reports/pytest/pytest_iteration96_trading_improvements.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: market_quality.py correctly implements pre-buy liquidity filter with sells_ok and ratio_ok flags",
+    "POSITIVE: auto_trader_engine.py correctly implements MAX_SELL_RETRIES=5 with force-close logic",
+    "POSITIVE: Trailing stop defaults widened appropriately (8% activation, 5% distance)",
+    "POSITIVE: Conviction sizing bands recalibrated with flatter curve (1.3x max instead of 1.5x)",
+    "POSITIVE: Agreement boost reduced from 0.05 to 0.03 with clear comment explaining the change",
+    "POSITIVE: MIN_HOLD_MINUTES=15 prevents premature exits on new positions"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration96_trading_improvements.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "test_credentials": {
+    "wallet": "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+    "backend_url": "https://cosmic-runner-hub.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - tests verify code structure and constants only, no actual trades executed",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 96 verified 6 trading bot improvements: (1) Pre-buy liquidity filter (MIN_LIQUIDITY_USD=5000, MIN_SELL_TXNS_24H=5, MIN_BUY_SELL_RATIO=0.1), (2) Sell retry cap (MAX_SELL_RETRIES=5, closed_force status), (3) Trailing stop widened (8% activation, 5% distance), (4) Conviction sizing recalibrated (0.85+=1.3x), (5) Agreement boost reduced (0.05→0.03), (6) Min holding period (MIN_HOLD_MINUTES=15). All tests pass. NO actual trades were executed as requested.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All API calls are live (backend endpoints). No trades executed as requested."
+  },
+  "code_locations_verified": {
+    "market_quality.py": {
+      "lines_13_16": "MIN_VOLUME_24H, MIN_LIQUIDITY_USD=5000, MIN_PRICE_HISTORY_POINTS, MIN_SELL_TXNS_24H=5, MIN_BUY_SELL_RATIO=0.1",
+      "lines_39_58": "extract_market_quality with sells_ok and ratio_ok flags"
+    },
+    "auto_trader_engine.py": {
+      "lines_1487": "MAX_SELL_RETRIES = 5",
+      "lines_1490_1550": "Force-close logic after 5 retries with closed_force status",
+      "lines_1345_1355": "Trailing stop defaults (trail_activation_pct=8, trail_distance_pct=0.05)",
+      "lines_543_555": "Conviction sizing bands (0.85+=1.3x, 0.75+=1.1x, etc.)",
+      "lines_423_425": "Agreement boost reduced to 0.03",
+      "lines_1405_1420": "MIN_HOLD_MINUTES=15 with age check"
+    }
+  }
+}

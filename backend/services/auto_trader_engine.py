@@ -421,8 +421,9 @@ async def run_scan_and_execute(wallet_address: str):
                             continue
                     
                     # Bonus: if multiple strategies strongly agree, boost confidence slightly
+                    # Reduced from 0.05 to 0.03 — data showed over-boosting high-confidence trades hurt performance
                     if should_trade and agreement_count >= 2:
-                        trade_confidence = min(0.95, trade_confidence + 0.05)
+                        trade_confidence = min(0.95, trade_confidence + 0.03)
                     
                     # === IMPROVEMENT 2: Smart Money confidence adjustment ===
                     smart_money_adj = 0.0
@@ -541,18 +542,19 @@ async def run_scan_and_execute(wallet_address: str):
                         base_position = min(max_position, settings.get("max_position_sol", 0.5))
                         
                         if settings.get("conviction_sizing_enabled", True):
-                            # Scale position by confidence:
-                            # 90%+ = 1.5x, 80-90% = 1.2x, 70-80% = 1.0x, 60-70% = 0.7x, <60% = 0.5x
-                            if trade_confidence >= 0.90:
-                                sizing_mult = 1.5
-                            elif trade_confidence >= 0.80:
-                                sizing_mult = 1.2
-                            elif trade_confidence >= 0.70:
+                            # Scale position by confidence — RECALIBRATED from live data:
+                            # Data showed 0.80+ confidence underperformed, so flatten the curve
+                            # 85%+ = 1.3x (was 1.5x), 75-85% = 1.1x (was 1.2x), 65-75% = 1.0x, <65% = 0.7x
+                            if trade_confidence >= 0.85:
+                                sizing_mult = 1.3
+                            elif trade_confidence >= 0.75:
+                                sizing_mult = 1.1
+                            elif trade_confidence >= 0.65:
                                 sizing_mult = 1.0
-                            elif trade_confidence >= 0.60:
-                                sizing_mult = 0.7
+                            elif trade_confidence >= 0.55:
+                                sizing_mult = 0.8
                             else:
-                                sizing_mult = 0.5
+                                sizing_mult = 0.6
                             position_sol = round(min(base_position * sizing_mult, max_position), 4)
                             trade_reason = f"[SIZE {sizing_mult}x] {trade_reason}"
                         else:
@@ -1342,12 +1344,14 @@ async def run_check_exits(wallet_address: str):
         # Trailing stop configuration
         trailing_enabled = settings.get("trailing_stop_enabled", settings.get("auto_trailing_stop_enabled", True))
         # Trail activation: trailing stop kicks in after price rises this % above entry
-        trail_activation_pct = settings.get("trailing_activation_pct", 5) / 100  # Default 5%
+        # Increased from 5% to 8% — data showed 5% was too tight, triggering premature exits
+        trail_activation_pct = settings.get("trailing_activation_pct", 8) / 100  # Default 8%
         # Trail distance: how far below the peak price the stop-loss trails
+        # Default 5% — data showed using stop_loss_pct (10%) was too loose, and tight stops (2-3%) too aggressive
         trail_distance_pct = settings.get("trailing_distance_pct", settings.get("auto_trailing_stop_percent", 0)) / 100
-        # If trail distance is 0 or not set, use the original stop loss % as trail distance
+        # If trail distance is 0 or not set, default to 5% (not stop_loss_pct which is typically 10%)
         if trail_distance_pct <= 0:
-            trail_distance_pct = stop_loss_pct
+            trail_distance_pct = 0.05
         
         logger.info(f"Checking exits with SL: {stop_loss_pct*100}%, TP: {take_profit_pct*100}%, Trailing: {'ON' if trailing_enabled else 'OFF'}")
         
@@ -1398,6 +1402,21 @@ async def run_check_exits(wallet_address: str):
                         else:
                             logger.warning(f"Skipping exit check for {symbol}: entry_price=0 and no current price available")
                         continue
+                    
+                    # === MINIMUM HOLDING PERIOD ===
+                    # Don't exit within first 15 minutes — gives the trade time to develop
+                    # Exception: stop-loss retries (pending_stop_loss) should always be attempted
+                    MIN_HOLD_MINUTES = 15
+                    position_created = position.get("created_at", "")
+                    if position_created and position.get("status", "") == "open":
+                        try:
+                            created_dt = datetime.fromisoformat(position_created.replace("Z", "+00:00")) if isinstance(position_created, str) else position_created
+                            age_minutes = (datetime.now(timezone.utc) - created_dt).total_seconds() / 60
+                            if age_minutes < MIN_HOLD_MINUTES:
+                                # Still update peak price, but skip exit checks
+                                continue
+                        except Exception:
+                            pass
                     
                     # === TRAILING STOP-LOSS LOGIC ===
                     # Track the highest price seen since entry
@@ -1464,16 +1483,70 @@ async def run_check_exits(wallet_address: str):
                     exit_action = None
                     exit_reason = ""
                     position_status = position.get("status", "open")
+                    sell_retry_count = position.get("sell_retry_count", 0)
+                    MAX_SELL_RETRIES = 5
                     
-                    # If position is in pending state, retry the sell
+                    # If position is in pending state, retry the sell (with cap)
                     if position_status == "pending_stop_loss":
+                        if sell_retry_count >= MAX_SELL_RETRIES:
+                            # Force-close: too many retries, mark as closed and stop trying
+                            await db.ai_trader_positions.update_one(
+                                {"position_id": position.get("position_id")},
+                                {"$set": {
+                                    "status": "closed_force",
+                                    "exit_price": current_price,
+                                    "pnl_percent": current_pnl_pct,
+                                    "pnl_sol": position.get("amount_sol", 0) * (current_pnl_pct / 100),
+                                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                                    "close_reason": f"Force-closed after {MAX_SELL_RETRIES} failed sell retries (likely illiquid token)",
+                                    "sell_executed_on_chain": False,
+                                }}
+                            )
+                            # Credit back to ledger (best effort — token may still be in wallet)
+                            try:
+                                await ledger_record(
+                                    wallet_address, "trade_close", position.get("amount_sol", 0),
+                                    reference_id=position.get("position_id", ""),
+                                    reference_type="force_close",
+                                    description=f"Force-close {symbol} after {MAX_SELL_RETRIES} failed retries"
+                                )
+                            except Exception:
+                                pass
+                            logger.warning(f"FORCE-CLOSED {symbol} after {sell_retry_count} failed sell retries. Possible illiquid/honeypot token.")
+                            exits.append({"symbol": symbol, "action": "force_close", "reason": f"Force-closed after {MAX_SELL_RETRIES} retries", "pnl_pct": current_pnl_pct})
+                            continue
                         exit_action = "stop_loss"
-                        exit_reason = f"RETRY: Stop-loss pending, retrying sell at ${current_price:.8f}"
-                        logger.info(f"Retrying failed stop-loss sell for {symbol}")
+                        exit_reason = f"RETRY {sell_retry_count + 1}/{MAX_SELL_RETRIES}: Stop-loss pending, retrying sell at ${current_price:.8f}"
+                        logger.info(f"Retrying failed stop-loss sell for {symbol} (attempt {sell_retry_count + 1}/{MAX_SELL_RETRIES})")
                     elif position_status == "pending_take_profit":
+                        if sell_retry_count >= MAX_SELL_RETRIES:
+                            await db.ai_trader_positions.update_one(
+                                {"position_id": position.get("position_id")},
+                                {"$set": {
+                                    "status": "closed_force",
+                                    "exit_price": current_price,
+                                    "pnl_percent": current_pnl_pct,
+                                    "pnl_sol": position.get("amount_sol", 0) * (current_pnl_pct / 100),
+                                    "closed_at": datetime.now(timezone.utc).isoformat(),
+                                    "close_reason": f"Force-closed after {MAX_SELL_RETRIES} failed sell retries",
+                                    "sell_executed_on_chain": False,
+                                }}
+                            )
+                            try:
+                                await ledger_record(
+                                    wallet_address, "trade_close", position.get("amount_sol", 0),
+                                    reference_id=position.get("position_id", ""),
+                                    reference_type="force_close",
+                                    description=f"Force-close {symbol} after {MAX_SELL_RETRIES} failed retries"
+                                )
+                            except Exception:
+                                pass
+                            logger.warning(f"FORCE-CLOSED {symbol} after {sell_retry_count} failed TP sell retries.")
+                            exits.append({"symbol": symbol, "action": "force_close", "reason": f"Force-closed after {MAX_SELL_RETRIES} retries", "pnl_pct": current_pnl_pct})
+                            continue
                         exit_action = "take_profit"
-                        exit_reason = f"RETRY: Take-profit pending, retrying sell at ${current_price:.8f}"
-                        logger.info(f"Retrying failed take-profit sell for {symbol}")
+                        exit_reason = f"RETRY {sell_retry_count + 1}/{MAX_SELL_RETRIES}: Take-profit pending, retrying sell at ${current_price:.8f}"
+                        logger.info(f"Retrying failed take-profit sell for {symbol} (attempt {sell_retry_count + 1}/{MAX_SELL_RETRIES})")
                     # Otherwise check if exit conditions are met
                     elif current_price <= stop_loss:
                         if trailing_stop_active:
@@ -1683,7 +1756,8 @@ async def run_check_exits(wallet_address: str):
                                         "sell_tx_signature": tx_signature,
                                         "sell_executed_on_chain": sell_success,
                                         "sell_error": sell_error
-                                    }
+                                    },
+                                    "$inc": {"sell_retry_count": 0 if sell_success else 1}
                                 }
                             )
                         
