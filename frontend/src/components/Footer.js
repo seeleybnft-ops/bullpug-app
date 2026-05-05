@@ -22,9 +22,6 @@ export default function Footer() {
             <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Ecosystem</h4>
             <div className="flex flex-col gap-2">
               {[
-                {t:"My Journal", p:"/journal"},
-                {t:"AI Trading Bot", p:"/ai-trader"},
-                {t:"PugBurn", p:"/pugburn"},
                 {t:"Cosmic Runner", p:"/game"},
                 {t:"Skin Store", p:"/skins"},
                 {t:"Forum", p:"/forum"}

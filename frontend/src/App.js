@@ -16,11 +16,9 @@ import PrivateAccessGate from "@/components/PrivateAccessGate";
 import HomePage from "@/pages/HomePage";
 import BettingArena from "@/pages/BettingArena";
 import Shop from "@/pages/Shop";
-import ExitSimulator from "@/pages/ExitSimulator";
 import NFTGallery from "@/pages/NFTGallery";
 import WalletDashboard from "@/pages/WalletDashboard";
 import SpeedRunGame from "@/pages/SpeedRunGame";
-import TradingJournal from "@/pages/TradingJournal";
 import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
@@ -28,8 +26,6 @@ import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
-import AITrader from "@/pages/AITrader";
-import PugBurn from "@/pages/PugBurn";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -123,9 +119,6 @@ function App() {
                   <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
-                  <Route path="/journal" element={<TradingJournal />} />
-                  <Route path="/portfolio" element={<TradingJournal />} /> {/* Redirect to combined page */}
-                  <Route path="/exit-simulator" element={<TradingJournal />} /> {/* Redirect to combined page */}
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/betting" element={<BettingArena />} />
                   <Route path="/forum" element={<Forum />} />
@@ -137,8 +130,6 @@ function App() {
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />
                   <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/ai-trader" element={<AITrader />} />
-                  <Route path="/pugburn" element={<PugBurn />} />
                 </Routes>
                 <Footer />
                 <EnhancedAIAssistant />

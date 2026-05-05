@@ -439,23 +439,24 @@ def start_scheduler():
         max_instances=1
     )
     
-    # CRITICAL: Auto-trade exit monitoring - check every 1 minute for TP/SL triggers
-    scheduler.add_job(
-        check_auto_trade_exits,
-        trigger=IntervalTrigger(minutes=1),
-        id="auto_trade_exit_check",
-        replace_existing=True,
-        max_instances=1
-    )
+    # === TRADING BOT HIBERNATED ===
+    # Auto-trade exit monitoring — DISABLED (bot hibernated)
+    # scheduler.add_job(
+    #     check_auto_trade_exits,
+    #     trigger=IntervalTrigger(minutes=1),
+    #     id="auto_trade_exit_check",
+    #     replace_existing=True,
+    #     max_instances=1
+    # )
     
-    # CRITICAL: Auto-trade scan & execute — find and open new positions every 5 minutes
-    scheduler.add_job(
-        auto_trade_scan_cycle,
-        trigger=IntervalTrigger(minutes=5),
-        id="auto_trade_scan",
-        replace_existing=True,
-        max_instances=1
-    )
+    # Auto-trade scan & execute — DISABLED (bot hibernated)
+    # scheduler.add_job(
+    #     auto_trade_scan_cycle,
+    #     trigger=IntervalTrigger(minutes=5),
+    #     id="auto_trade_scan",
+    #     replace_existing=True,
+    #     max_instances=1
+    # )
     
     # CRITICAL: Real OHLCV price data collection - every 1 minute
     scheduler.add_job(

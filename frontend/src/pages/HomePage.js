@@ -41,7 +41,7 @@ const TOKEN_DIST = [
 ];
 
 const ROADMAP = [
-  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Fair Launch via Blowfish", "Website launch", "Initial lore reveal", "Speed Run Game", "Bullpug Trading Bot"], status: "current" },
+  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Fair Launch via Blowfish", "Website launch", "Initial lore reveal", "Speed Run Game", "Coin Flip & Winner Pot"], status: "current" },
   { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Staking activation", "NFT collection", "Plushie store launch", "Governance implementation", "Full betting platform", "Strategic partnerships"], status: "upcoming" },
   { phase: "Phase 3", title: "Expansion", date: "Q4 2026", items: ["More to come"], status: "upcoming" },
 ];
@@ -87,9 +87,9 @@ export default function HomePage() {
               Meet Bullpug, the fearless and loyal guardian of the Memecoin Universe. Born from a cosmic mix-up when the stars of the Bull constellation collided with the energy of a pug-shaped nebula.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link to="/journal">
-                <Button data-testid="hero-journal-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
-                  <BarChart3 className="w-4 h-4 mr-2" /> My Journal
+              <Link to="/game">
+                <Button data-testid="hero-game-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
+                  <Rocket className="w-4 h-4 mr-2" /> Play Cosmic Runner
                 </Button>
               </Link>
             </div>
@@ -115,20 +115,20 @@ export default function HomePage() {
               </h3>
               <p className="text-slate-400 text-sm mb-6 leading-relaxed">
                 Bullpug AI monitors the crypto markets 24/7, tracking Fear & Greed sentiment, 
-                top movers on Solana, trading volumes, and global market conditions. 
-                Get the edge you need to make informed trading decisions.
+                top movers on Solana, and global market conditions. 
+                Stay informed with real-time cosmic intelligence.
               </p>
               <div className="flex flex-wrap gap-3">
-                <Link to="/journal">
+                <Link to="/lore">
                   <Button className="bg-gradient-to-r from-[#D946EF] to-[#00C2FF] text-white font-bold rounded-xl px-6 py-4 text-sm uppercase hover:scale-[1.02] transition-transform">
                     <Bot className="w-4 h-4 mr-2" />
-                    Chat with Bullpug AI
+                    Discover the Lore
                   </Button>
                 </Link>
-                <Link to="/journal">
+                <Link to="/game">
                   <Button variant="outline" className="border-white/20 text-slate-300 hover:text-white rounded-xl px-6 py-4 text-sm uppercase">
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Open Journal
+                    <Rocket className="w-4 h-4 mr-2" />
+                    Play the Game
                   </Button>
                 </Link>
               </div>
@@ -177,10 +177,7 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: <BarChart3 size={18} />, title: "My Journal", desc: "Trading journal with exit simulations & AI insights", link: "/journal", img: IMAGES.journal, color: "#00C2FF" },
               { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
-              { icon: <Bot size={18} />, title: "Bullpug AI Assistant", desc: "Your cosmic guardian for real-time trading insights & market analysis", link: "/journal", img: IMAGES.aiAssistant, color: "#D946EF" },
-              { icon: <Bot size={18} />, title: "Bullpug Trading Bot", desc: "Semi-automated trading with AI-powered signals & analysis", link: "/ai-trader", img: IMAGES.tradingBot, color: "#D946EF", isNew: true },
               { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
               { icon: <Zap size={18} />, title: "P2P Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.arena, color: "#00FFA3", comingSoon: true },
             ].map((f, i) => (
