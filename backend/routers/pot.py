@@ -22,15 +22,33 @@ logger = logging.getLogger(__name__)
 
 
 async def get_pot_data():
-    """Get pot data for broadcasts and API responses."""
+    """Get pot data for broadcasts and API responses (aggregated per player)."""
     pot = get_pot()
-    entries_display = []
+    # Aggregate stakes by wallet so stacked entries show as one player card
+    aggregated = {}
+    order = []
     for e in pot["entries"]:
-        prob = round(e["amount_sol"] / pot["total_amount_sol"] * 100, 1) if pot["total_amount_sol"] > 0 else 0
+        key = e.get("wallet_address") or f"anon-{e['id']}"
+        if key not in aggregated:
+            aggregated[key] = {
+                "display_name": e["display_name"],
+                "wallet_address": e["wallet_address"],
+                "amount_sol": 0.0,
+                "entry_count": 0
+            }
+            order.append(key)
+        aggregated[key]["amount_sol"] += e["amount_sol"]
+        aggregated[key]["entry_count"] += 1
+
+    entries_display = []
+    for key in order:
+        agg = aggregated[key]
+        prob = round(agg["amount_sol"] / pot["total_amount_sol"] * 100, 1) if pot["total_amount_sol"] > 0 else 0
         entries_display.append({
-            "display_name": e["display_name"],
-            "wallet_address": e["wallet_address"][:8] + "..." if e.get("wallet_address") else "???",
-            "amount_sol": e["amount_sol"],
+            "display_name": agg["display_name"],
+            "wallet_address": agg["wallet_address"][:8] + "..." if agg.get("wallet_address") else "???",
+            "amount_sol": round(agg["amount_sol"], 6),
+            "entry_count": agg["entry_count"],
             "probability": prob
         })
     
@@ -66,17 +84,31 @@ async def get_pot_status():
 @router.post("/join")
 @limiter.limit("10/minute")
 async def join_pot(request: Request, data: P2PPotJoinRequest):
-    """Join the P2P pot with SOL."""
+    """Join the P2P pot with SOL. Stacking allowed (cumulative ≤ 10 SOL per player per round)."""
     pot = get_pot()
     if pot["status"] != "open":
         raise HTTPException(status_code=400, detail="Pot is closed")
     if data.bet_amount_sol <= 0:
         raise HTTPException(status_code=400, detail="Bet must be positive")
-    if data.bet_amount_sol < 0.01:
-        raise HTTPException(status_code=400, detail="Minimum bet is 0.01 SOL")
+    if data.bet_amount_sol < 0.005:
+        raise HTTPException(status_code=400, detail="Minimum bet is 0.005 SOL")
+    if data.bet_amount_sol > 10.0:
+        raise HTTPException(status_code=400, detail="Maximum single entry is 10 SOL")
     if not data.wallet_address:
         raise HTTPException(status_code=400, detail="Wallet address required")
-    
+
+    # Enforce cumulative 10 SOL cap per player per round
+    existing_total = sum(
+        e["amount_sol"] for e in pot["entries"]
+        if e.get("wallet_address") == data.wallet_address
+    )
+    if existing_total + data.bet_amount_sol > 10.0:
+        remaining = max(0, round(10.0 - existing_total, 6))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Per-player cap is 10 SOL per round. You can add at most {remaining} SOL more."
+        )
+
     entry = {
         "id": str(uuid.uuid4()),
         "display_name": data.display_name,
@@ -87,9 +119,11 @@ async def join_pot(request: Request, data: P2PPotJoinRequest):
     }
     pot["entries"].append(entry)
     pot["total_amount_sol"] += data.bet_amount_sol
-    
+
+    # Countdown starts as soon as there are 2+ unique players
+    unique_players = len({e["wallet_address"] for e in pot["entries"] if e.get("wallet_address")})
     countdown_just_started = False
-    if len(pot["entries"]) == 2 and not pot["countdown_started"]:
+    if unique_players >= 2 and not pot["countdown_started"]:
         pot["countdown_started"] = True
         pot["draw_at"] = (datetime.now(timezone.utc) + timedelta(seconds=60)).isoformat()
         countdown_just_started = True

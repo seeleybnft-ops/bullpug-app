@@ -27,7 +27,7 @@ async def get_betting_config():
         "rake_percent": RAKE_PERCENT,
         "distribution_wallet": DISTRIBUTION_WALLET,
         "currency": "SOL",
-        "min_bet_sol": 0.01,
+        "min_bet_sol": 0.005,
         "max_bet_sol": 10.0
     }
 
@@ -38,8 +38,8 @@ async def create_challenge(request: Request, data: CreateChallengeRequest):
     """Create a P2P coin flip challenge."""
     if data.bet_amount_sol <= 0:
         raise HTTPException(status_code=400, detail="Bet must be positive")
-    if data.bet_amount_sol < 0.01:
-        raise HTTPException(status_code=400, detail="Minimum bet is 0.01 SOL")
+    if data.bet_amount_sol < 0.005:
+        raise HTTPException(status_code=400, detail="Minimum bet is 0.005 SOL")
     if data.bet_amount_sol > 10.0:
         raise HTTPException(status_code=400, detail="Maximum bet is 10 SOL")
     if data.choice.lower() not in ["heads", "tails"]:
