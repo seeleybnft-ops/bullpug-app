@@ -176,17 +176,45 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 ### P1 - Upcoming
 - **$BULLPUG token entries for pot** — need token mint address + price oracle (Jupiter quote). User confirmed both SOL + BULLPUG should be accepted; payouts stay in SOL.
 - **Lore expansion (Origins page)** — user will provide additional lore text; also train AI chatbot with full lore so users can Q&A.
+- **Escrow operating capital top-up** — User to send ~0.5–1 SOL to `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` so payouts have buffer for tx fees and timing-skew before flow self-funds. Current balance ~0.02 SOL.
 - Plushie Sales & interactive NFT Gallery
 
 ### P2 - Future
 - Web/Mobile Push Notifications
 - Achievement badges & "Share on X"
 - Trading Competitions with leaderboards
-- Persist pot_state to MongoDB so a crash doesn't wipe an in-flight round
-- Use Decimal or lamport-ints for bet amounts (guard against float edge cases)
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
+
+---
+## Iteration 98 — P2P Arena Hardening + Cosmic Runner Jackpot Ticker (May 6, 2026)
+### Persistence (crash-safety)
+- `state/pot_state.py` — pot is now mirrored to MongoDB collection `db.active_pot` (single doc with `_id="active"`). Mutations flow through `await persist_pot()`; startup calls `await load_pot()` before scheduler boots.
+- `server.py` startup loads pot before `start_scheduler()` so an in-flight round survives crashes/redeploys.
+- Defensive `load_pot()` rebuilds `total_lamports = sum(entries.amount_lamports)` if it ever drifts from stored total.
+
+### Float → integer lamports (accounting safety)
+- `pot_state.py`: added `sol_to_lamports`, `lamports_to_sol`, `LAMPORTS_PER_SOL`.
+- `routers/pot.py`: rewritten — `MIN_BET_LAMPORTS = 5_000_000`, `MAX_BET_LAMPORTS = 10_000_000_000`, all cumulative caps & weighted random in lamport space; rake = `(total_lamports * 250) // 10000` (basis points).
+- `routers/betting.py`: coinflip create_challenge uses lamport math; bet_amount_lamports / rake_lamports / payout_lamports all stored on the challenge doc.
+- `routers/admin.py`: admin force-draw uses the same lamport math.
+- Verified: 3 sequential 0.1 SOL joins produce exactly `300_000_000` lamports / `0.3 SOL`, no float drift.
+
+### Cosmic Runner Jackpot Ticker (homepage)
+- New component `frontend/src/components/JackpotTicker.js` — pulls `/api/prize-pool/status` every 15s, animated count-up of total SOL, live 1-second countdown to next payout, #1 prize card (25% share), funding-source explainer.
+- Replaced `BotQuickStats` on HomePage.js with `JackpotTicker` (final piece of bot UI removal).
+- Color story: yellow→green gradient on the jackpot total, glass-morphism cards with subtle grain overlay.
+
+### Tests (iteration 98)
+- 13/13 backend tests passed (`/app/backend/tests/test_arena_iteration98.py`)
+- Crash-recovery test: kill backend mid-round → entry survives restart with same id+lamports
+- Math test: 0.123 SOL coinflip → rake=6_150_000 lamports, payout=239_850_000 lamports, sum-check = 246_000_000 (= 0.246 SOL = 0.123 × 2)
+- Auto-draw e2e: scheduler fires at countdown end, `pot_results` doc has lamport fields, `prize_pool.total_sol` grows by exactly `rake × 0.25`
+
+### Escrow / payout reality check
+- DISTRIBUTION_WALLET (also escrow): `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`, balance ~**0.02 SOL** (low)
+- Self-funds via player deposits but needs operating capital for tx fees + timing-skew. Recommend top-up to 0.5–1 SOL before public launch.
 
 ---
 ## Iteration 97 — P2P Arena Restored + Hibernation Cleanup (May 6, 2026)

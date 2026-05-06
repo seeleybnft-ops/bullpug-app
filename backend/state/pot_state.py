@@ -84,6 +84,16 @@ async def load_pot():
             for e in doc.get("entries", []):
                 if "amount_lamports" not in e:
                     e["amount_lamports"] = sol_to_lamports(e.get("amount_sol", 0))
+            # Defensive: rebuild total_lamports from entries to guard against
+            # any historical drift between the stored total and the entry sum.
+            entries_sum = sum(int(e.get("amount_lamports", 0)) for e in doc.get("entries", []))
+            if entries_sum != int(doc.get("total_lamports", 0)):
+                logger.warning(
+                    f"Persisted pot total drift: stored={doc.get('total_lamports')} "
+                    f"vs entries sum={entries_sum}. Rebuilding."
+                )
+                doc["total_lamports"] = entries_sum
+                doc["total_amount_sol"] = lamports_to_sol(entries_sum)
             active_pot = doc
             logger.info(
                 f"Loaded persisted pot {active_pot['id'][:8]} from DB: "
