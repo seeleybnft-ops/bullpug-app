@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 98 - Hardening P2P Arena: 13/13 backend tests passed (100%). Verified (a) lamport-based math across pot + coinflip (no float drift on 3×0.1 SOL joins → exact 300_000_000 lamports / 0.3 SOL), (b) MongoDB persistence of active_pot doc (survives backend restart with same id + total_lamports), (c) stacking cap exact messages ('add at most 3.0/0.0 SOL more'), (d) coinflip 0.123 SOL → rake_lamports=6_150_000 + payout_lamports=239_850_000 sum-check, (e) end-to-end auto-draw after 60s countdown writes pot_results with rake_lamports/payout_lamports and grows prize pool by 25% of rake, (f) /api/prize-pool/status returns total_sol + next_payout_at + seconds_remaining + prize_breakdown (rank1=25%) + payout_interval_days=3.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_arena_iteration98.py",
+    "/app/test_reports/pytest/pytest_iteration98_arena.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "state/pot_state.persist_pot() swallows exceptions with only a log - a Mongo outage silently leaves the in-memory pot divergent from disk. Consider surfacing write failures to the caller or at least flagging a 'dirty' state so later reads can retry.",
+    "pot_state.load_pot() backfills missing amount_lamports from amount_sol on legacy docs, which is fine, but does NOT recompute total_lamports from entries - if a legacy doc has mismatched total_amount_sol vs sum(entries), the mismatch persists. Defensive: rebuild total_lamports = sum(e.amount_lamports) on load.",
+    "routers/pot.py MIN/MAX constants are computed at import time via sol_to_lamports(0.005)/(10.0) - safe, but if RAKE_PERCENT/constants ever become dynamic (from settings collection), these would go stale. Low risk, noted for future.",
+    "routers/pot.py draw_pot_winner still runs payout (send_sol_payout) synchronously inside the request; on slow RPC this blocks the endpoint. The scheduler calls it every 5s with max_instances=1 so it's OK, but a manual /draw from 2 admins could stack. Minor.",
+    "Route /api/betting/challenge/{challenge_id} strips server_seed only when status != 'completed' but still returns rake_lamports/payout_lamports/bet_amount_lamports for open challenges - this is what tests rely on and is acceptable, but be aware the internal lamport fields are now externally visible; OK as it matches the new API contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_arena_iteration98.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (per request)"},
+  "test_credentials": "Dummy base58-like wallet strings (WALLET_A/B/C). On-chain payout expectedly fails ('Invalid recipient wallet address') - tests only assert rake/payout/prize-pool MATH, not payout_sent=true.",
+  "seed_data_creation": "Tests write to db.active_pot (cleaned up at start and end of class), db.p2p_challenges (TEST_Alice display names), db.pot_results (auto-draw produced one doc for e2e), db.prize_pool (grew by ~0.0001875 SOL during e2e test).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 98 tests clean up MongoDB active_pot doc + restart backend before each TestClass to guarantee a fresh pot. Persistence test explicitly restarts backend mid-round and verifies the entry survives via both API and DB. Auto-draw e2e waits ~70s for scheduler (5s interval) to fire after 60s countdown. Prize pool grows by rake * 0.25 (verified exactly for 0.03 SOL pot = 0.0001875 SOL delta). No mocking used anywhere.",
+  "rca of the issue": "N/A - no issues found"
+}

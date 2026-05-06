@@ -1,4 +1,8 @@
-"""Betting routes for P2P coin flip and pot games."""
+"""Betting routes for P2P coin flip and pot games.
+
+Bet amounts are validated in lamports (integers) to avoid float drift; rake and
+payout are computed via integer basis-point math.
+"""
 
 from fastapi import APIRouter, Request, HTTPException
 from slowapi import Limiter
@@ -13,11 +17,15 @@ from models.schemas import CreateChallengeRequest, AcceptChallengeRequest
 from utils.database import db
 from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
 from utils.solana_payout import send_sol_payout, get_escrow_balance
+from state.pot_state import sol_to_lamports, lamports_to_sol
 from routers.prize_pool import add_to_prize_pool
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
+
+MIN_BET_LAMPORTS = sol_to_lamports(0.005)
+MAX_BET_LAMPORTS = sol_to_lamports(10.0)
 
 
 @router.get("/config")
@@ -38,27 +46,38 @@ async def create_challenge(request: Request, data: CreateChallengeRequest):
     """Create a P2P coin flip challenge."""
     if data.bet_amount_sol <= 0:
         raise HTTPException(status_code=400, detail="Bet must be positive")
-    if data.bet_amount_sol < 0.005:
+
+    bet_lamports = sol_to_lamports(data.bet_amount_sol)
+    if bet_lamports < MIN_BET_LAMPORTS:
         raise HTTPException(status_code=400, detail="Minimum bet is 0.005 SOL")
-    if data.bet_amount_sol > 10.0:
+    if bet_lamports > MAX_BET_LAMPORTS:
         raise HTTPException(status_code=400, detail="Maximum bet is 10 SOL")
     if data.choice.lower() not in ["heads", "tails"]:
         raise HTTPException(status_code=400, detail="Choice must be heads or tails")
-    
+
     server_seed = secrets.token_hex(32)
+    # Integer rake math: pot = bet * 2; rake_bps = RAKE_PERCENT * 100; rake = pot_lamports * rake_bps // 10000
+    pot_lamports = bet_lamports * 2
+    rake_basis_points = int(round(RAKE_PERCENT * 100))  # 250 for 2.5%
+    rake_lamports = (pot_lamports * rake_basis_points) // 10000
+    payout_lamports = pot_lamports - rake_lamports
+
     challenge = {
         "id": str(uuid.uuid4()),
         "creator_wallet": data.wallet_address,
         "creator_name": data.display_name,
         "creator_choice": data.choice.lower(),
-        "bet_amount_sol": data.bet_amount_sol,
+        "bet_amount_sol": lamports_to_sol(bet_lamports),
+        "bet_amount_lamports": bet_lamports,
         "status": "open",
         "opponent_wallet": None,
         "opponent_name": None,
         "winner_wallet": None,
         "result": None,
-        "rake_sol": round(data.bet_amount_sol * 2 * RAKE_PERCENT / 100, 6),
-        "payout_sol": round(data.bet_amount_sol * 2 * (1 - RAKE_PERCENT / 100), 6),
+        "rake_sol": lamports_to_sol(rake_lamports),
+        "rake_lamports": rake_lamports,
+        "payout_sol": lamports_to_sol(payout_lamports),
+        "payout_lamports": payout_lamports,
         "server_seed": server_seed,
         "server_seed_hash": hashlib.sha256(server_seed.encode()).hexdigest(),
         "created_at": datetime.now(timezone.utc).isoformat(),

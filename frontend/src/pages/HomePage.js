@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import RecentWinners from "@/components/RecentWinners";
 import MarketDashboard from "@/components/MarketDashboard";
-import BotQuickStats from "@/components/BotQuickStats";
+import JackpotTicker from "@/components/JackpotTicker";
 import CommunitySpotlight from "@/components/CommunitySpotlight";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -140,8 +140,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* TRADING BOT LIVE STATS */}
-      <BotQuickStats />
+      {/* COSMIC RUNNER JACKPOT — LIVE TICKER */}
+      <JackpotTicker />
 
       {/* COMMUNITY SPOTLIGHT */}
       <CommunitySpotlight />

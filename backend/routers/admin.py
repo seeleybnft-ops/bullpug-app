@@ -10,7 +10,7 @@ import logging
 from utils.database import db
 from utils.config import DISTRIBUTION_WALLET, is_admin
 from utils.websocket_managers import pot_ws_manager
-from state.pot_state import get_pot, reset_pot
+from state.pot_state import get_pot, reset_pot, persist_pot, lamports_to_sol
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -151,36 +151,47 @@ async def admin_draw_pot(data: AdminDrawPotRequest):
     pot = get_pot()
     if len(pot["entries"]) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 entries to draw")
-    
-    # Draw winner
-    total = pot["total_amount_sol"]
-    rand_value = secrets.randbelow(int(total * 1000000)) / 1000000
+
+    # Lamport-safe weighted random draw
+    total_lamports = int(pot.get("total_lamports", 0))
+    if total_lamports <= 0:
+        raise HTTPException(status_code=400, detail="Pot total is zero")
+
+    rand_lamports = secrets.randbelow(total_lamports)
     cumulative = 0
     winner = None
-    
     for entry in pot["entries"]:
-        cumulative += entry["amount_sol"]
-        if rand_value <= cumulative:
+        cumulative += int(entry.get("amount_lamports", 0))
+        if rand_lamports < cumulative:
             winner = entry
             break
     if not winner:
         winner = pot["entries"][-1]
-    
-    rake = round(total * pot["rake_percent"] / 100, 6)
-    payout = round(total - rake, 6)
-    
+
+    rake_basis_points = int(round(pot["rake_percent"] * 100))
+    rake_lamports = (total_lamports * rake_basis_points) // 10000
+    payout_lamports = total_lamports - rake_lamports
+
+    rake = lamports_to_sol(rake_lamports)
+    payout = lamports_to_sol(payout_lamports)
+    total = lamports_to_sol(total_lamports)
+
     result = {
         "winner_name": winner["display_name"],
-        "winner_wallet": winner["winner_wallet"] if "winner_wallet" in winner else winner["wallet_address"],
+        "winner_wallet": winner.get("wallet_address"),
         "payout_sol": payout,
+        "payout_lamports": payout_lamports,
         "total_pot_sol": total,
+        "total_lamports": total_lamports,
         "rake_sol": rake,
+        "rake_lamports": rake_lamports,
         "distribution_wallet": DISTRIBUTION_WALLET,
         "entry_count": len(pot["entries"])
     }
-    
+
     pot["winner"] = result
     pot["status"] = "completed"
+    await persist_pot()
     
     # Save to DB
     await db.pot_results.insert_one({
@@ -197,7 +208,7 @@ async def admin_draw_pot(data: AdminDrawPotRequest):
     logger.info(f"Admin {data.admin_wallet} force-drew pot. Winner: {winner['display_name']}")
     
     # Reset pot
-    reset_pot()
+    await reset_pot()
     
     return result
 

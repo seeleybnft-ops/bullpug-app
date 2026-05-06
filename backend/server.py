@@ -193,6 +193,14 @@ app.include_router(api_router)
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks and create indexes on app startup."""
+    # Restore in-flight pot from MongoDB before starting the scheduler so
+    # the auto-draw job sees the persisted state if the server crashed mid-round.
+    try:
+        from state.pot_state import load_pot
+        await load_pot()
+    except Exception as e:
+        logger.warning(f"Pot state restore (non-fatal): {e}")
+
     start_scheduler()
     logger.info("Prize pool scheduler started")
 
