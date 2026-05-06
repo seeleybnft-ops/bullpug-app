@@ -174,13 +174,51 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ## Backlog (Prioritized)
 ### P1 - Upcoming
-- Trading Competitions with leaderboards
+- **$BULLPUG token entries for pot** — need token mint address + price oracle (Jupiter quote). User confirmed both SOL + BULLPUG should be accepted; payouts stay in SOL.
+- **Lore expansion (Origins page)** — user will provide additional lore text; also train AI chatbot with full lore so users can Q&A.
 - Plushie Sales & interactive NFT Gallery
 
 ### P2 - Future
-- P2P Betting Arena
 - Web/Mobile Push Notifications
 - Achievement badges & "Share on X"
+- Trading Competitions with leaderboards
+- Persist pot_state to MongoDB so a crash doesn't wipe an in-flight round
+- Use Decimal or lamport-ints for bet amounts (guard against float edge cases)
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
+
+---
+## Iteration 97 — P2P Arena Restored + Hibernation Cleanup (May 6, 2026)
+### Trading Bot Hibernation Cleanup
+- Removed leftover `pendingEntryCount` state & `fetchPendingEntries` call from `Navbar.js`
+- Removed unused `BotHealthDashboard` import from `AdminPanel.js`
+- Confirmed App.js has no routes for TradingJournal / AITrader / PugBurn
+- Navbar `data-testid="nav-arena"` added; "SOON" badge removed from P2P Arena
+
+### P2P Arena Pivot (pot weighted lottery + coin flip)
+- **Restored** `BettingArena.js` (916 lines) from git commit `53d8738` — was downgraded to a "Coming Soon" waitlist
+- **Updated bet limits**: min 0.01 → **0.005 SOL** in `betting.py` + `pot.py`; max single-entry 10 SOL enforced in pot (already enforced in coinflip)
+- **Stacking enforced**: per-wallet cumulative cap of 10 SOL per pot round; multiple entries merge into one player card with entry_count in `get_pot_data()` aggregation
+- **Countdown trigger fixed**: now requires **2 unique wallets** (not 2 entries) to start the 60s countdown — prevents single player stacking from triggering premature draw
+- **`/draw` endpoint secured**: now rejects premature draws (403 unless admin `X-Admin-Wallet` header matches `DISTRIBUTION_WALLET` or `draw_at` has elapsed)
+- **Atomic challenge accept**: `accept_challenge` uses `find_one_and_update` to prevent concurrent double-accept races (409 on conflict)
+- **`randbelow` guard**: fixed ValueError risk when total_amount_sol < 1e-6
+- **New scheduler job `pot_auto_draw`**: runs every 5 seconds, auto-fires `draw_pot_winner` once countdown expires — pot now settles without manual intervention
+- **Prize-pool contribution confirmed live**: 25% of every rake (both coinflip and pot) flows into `prize_pool` collection → Cosmic Runner leader jackpot. Verified end-to-end:
+  - Pot run: 0.03 SOL total → 0.00075 rake → 0.000188 to prize pool ✅
+  - Coinflip: 0.02 pot → 0.0005 rake → 0.000125 to prize pool ✅
+- **Cleared 10 stale RateLimitTest challenges** cluttering the open-challenges list
+- **Frontend updates**: quick-bet chips (`0.005, 0.05, 0.1, 0.5, 1` for coinflip; `0.005, 0.1, 0.5, 1, 2` for pot), min/max hints, `<Badge>` "25% of rake → Cosmic Runner Jackpot"
+- **Backend tests**: iteration_97.json — 16/16 passed (100%) covering config, stacking caps, unique-player countdown, aggregation, coinflip boundaries, full e2e with prize-pool verification
+
+### New Pot/Coinflip Config (live)
+- Rake: 2.5% (`RAKE_PERCENT` in `utils/config.py`)
+- Min bet: 0.005 SOL
+- Max single bet: 10 SOL
+- Per-wallet cumulative pot cap: 10 SOL per round
+- Countdown: 60 seconds, starts at 2+ unique wallets
+- Auto-draw: every 5s by scheduler
+- Prize pool share: 25% of rake (→ Cosmic Runner top-10 leaderboard)
+- Distribution wallet: `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`
+

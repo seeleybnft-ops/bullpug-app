@@ -143,17 +143,36 @@ async def join_pot(request: Request, data: P2PPotJoinRequest):
 
 
 @router.post("/draw")
-async def draw_pot_winner():
-    """Draw pot winner - winner takes all minus rake."""
+async def draw_pot_winner(request: Request):
+    """Draw pot winner - winner takes all minus rake.
+
+    Gated: either the countdown must have expired (draw_at <= now) OR the caller
+    is the DISTRIBUTION_WALLET admin (via X-Admin-Wallet header).
+    """
     pot = get_pot()
     if len(pot["entries"]) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 entries")
-    
+
+    # Authorization: draw can only fire after the 60s countdown expires,
+    # unless an admin (distribution wallet) manually triggers it.
+    admin_header = request.headers.get("X-Admin-Wallet", "")
+    is_admin = admin_header == DISTRIBUTION_WALLET
+    if not is_admin:
+        if not pot.get("draw_at"):
+            raise HTTPException(status_code=403, detail="Countdown has not started")
+        draw_time = datetime.fromisoformat(pot["draw_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) < draw_time:
+            raise HTTPException(status_code=403, detail="Countdown has not finished")
+
     total = pot["total_amount_sol"]
-    rand_value = secrets.randbelow(int(total * 1000000)) / 1000000
+    if total <= 0:
+        raise HTTPException(status_code=400, detail="Pot total is zero")
+    # Guard randbelow(0) which would raise ValueError
+    range_units = max(1, int(total * 1_000_000))
+    rand_value = secrets.randbelow(range_units) / 1_000_000
     cumulative = 0
     winner = None
-    
+
     for entry in pot["entries"]:
         cumulative += entry["amount_sol"]
         if rand_value <= cumulative:

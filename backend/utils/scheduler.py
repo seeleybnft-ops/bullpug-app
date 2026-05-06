@@ -401,6 +401,32 @@ async def send_daily_trading_digest():
         logger.error(f"Error in daily trading digest: {e}")
 
 
+async def auto_draw_pot_check():
+    """Auto-draw the P2P pot when its 60s countdown expires."""
+    try:
+        from state.pot_state import get_pot
+        from routers.pot import draw_pot_winner
+        from fastapi import Request
+        from utils.config import DISTRIBUTION_WALLET
+
+        pot = get_pot()
+        if pot["status"] != "open" or not pot.get("draw_at") or len(pot["entries"]) < 2:
+            return
+        draw_time = datetime.fromisoformat(pot["draw_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) < draw_time:
+            return
+
+        logger.info("Pot countdown expired — auto-drawing winner")
+
+        # Build a minimal Request-like stub that carries the admin header so
+        # the authorization gate in draw_pot_winner lets us through.
+        class _Stub:
+            headers = {"X-Admin-Wallet": DISTRIBUTION_WALLET}
+        await draw_pot_winner(_Stub())
+    except Exception as e:
+        logger.error(f"Error in auto_draw_pot_check: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     # Check every 5 minutes if payout is due
@@ -484,13 +510,23 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1
     )
+
+    # P2P pot auto-draw — check every 5 seconds for expired countdown
+    scheduler.add_job(
+        auto_draw_pot_check,
+        trigger=IntervalTrigger(seconds=5),
+        id="pot_auto_draw",
+        replace_existing=True,
+        max_instances=1
+    )
     
     scheduler.start()
     logger.info(
         "Background scheduler started - prize pool (5 min), signal tracking (1 hour), "
-        "journal auto-complete (1 hour), runner alerts (5 min), AUTO-TRADE EXIT CHECK (1 min), "
-        "AUTO-TRADE SCAN (5 min), PRICE COLLECTOR (5 min), SMART MONEY v2 (10 min), "
-        "DAILY DIGEST (20:00 UTC)"
+        "journal auto-complete (1 hour), runner alerts (5 min), "
+        "PRICE COLLECTOR (1 min), SMART MONEY v2 (10 min), "
+        "DAILY DIGEST (20:00 UTC), POT AUTO-DRAW (5 sec). "
+        "[HIBERNATED: auto-trade exit check, auto-trade scan]"
     )
 
 

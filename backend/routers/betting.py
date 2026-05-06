@@ -103,13 +103,23 @@ async def get_challenge(challenge_id: str):
 @limiter.limit("20/minute")
 async def accept_challenge(request: Request, data: AcceptChallengeRequest):
     """Accept a P2P coin flip challenge and execute the flip."""
-    challenge = await db.p2p_challenges.find_one({"id": data.challenge_id})
-    if not challenge:
+    # Pre-check for friendlier errors (creator can't accept their own, challenge exists)
+    existing = await db.p2p_challenges.find_one({"id": data.challenge_id})
+    if not existing:
         raise HTTPException(status_code=404, detail="Challenge not found")
-    if challenge["status"] != "open":
+    if existing["status"] != "open":
         raise HTTPException(status_code=400, detail="Challenge is not open")
-    if challenge["creator_wallet"] == data.wallet_address:
+    if existing["creator_wallet"] == data.wallet_address:
         raise HTTPException(status_code=400, detail="Cannot accept your own challenge")
+
+    # Atomically claim the challenge to prevent concurrent accepts
+    claimed = await db.p2p_challenges.find_one_and_update(
+        {"id": data.challenge_id, "status": "open"},
+        {"$set": {"status": "matching", "opponent_wallet": data.wallet_address}}
+    )
+    if not claimed:
+        raise HTTPException(status_code=409, detail="Challenge was already accepted")
+    challenge = claimed
     
     # Execute the flip
     server_seed = challenge["server_seed"]
