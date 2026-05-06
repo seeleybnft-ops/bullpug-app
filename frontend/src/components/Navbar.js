@@ -21,7 +21,6 @@ const ADMIN_WALLETS = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
-  const [pendingEntryCount, setPendingEntryCount] = useState(0);
   const location = useLocation();
   const { publicKey, connected } = useWallet();
   const { t } = useTranslation();
@@ -32,23 +31,10 @@ export default function Navbar() {
   useEffect(() => {
     if (connected && publicKey) {
       fetchProfile();
-      fetchPendingEntries();
     } else {
       setProfileImage(null);
-      setPendingEntryCount(0);
     }
   }, [connected, publicKey]);
-  
-  // Fetch pending journal entries count
-  const fetchPendingEntries = async () => {
-    if (!publicKey) return;
-    try {
-      const { data } = await axios.get(`${API}/journal/pending/${publicKey.toBase58()}`);
-      setPendingEntryCount(data.count || 0);
-    } catch (e) {
-      console.error("Failed to fetch pending entries:", e);
-    }
-  };
 
   const fetchProfile = async () => {
     try {

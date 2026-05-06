@@ -10,8 +10,6 @@ import {
   RefreshCw, Play, Ban, Clock, Wallet, CheckCircle, XCircle, ArrowDownRight, ArrowUpRight,
   Activity
 } from "lucide-react";
-import BotHealthDashboard from "../components/admin/BotHealthDashboard";
-
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
