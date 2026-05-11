@@ -175,7 +175,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 ## Backlog (Prioritized)
 ### P1 - Upcoming
 - **$BULLPUG token entries for pot** — need token mint address + price oracle (Jupiter quote). User confirmed both SOL + BULLPUG should be accepted; payouts stay in SOL.
-- **AI chatbot lore training** — user will personally teach the chatbot the full Neuko-universe lore (8 chapters: Cosmic Birth, A Different Kind of Entity, Mindverse, Newpug City, Bullpughans, Festival of Barks, Signal in the Noise, Legacy). Offer to embed the canonical text into the chatbot system prompt when ready.
+- **Hidden lore reveals (chatbot)** — additional lore chapters will be supplied by the creator over time and added directly to `bullpug_knowledge` in `/app/backend/routers/ai_chat.py`. Until then, the bot uses the HIDDEN LORE PROTOCOL: acknowledges curiosity, drops atmospheric breadcrumbs, encourages user to come back. Never fabricates concrete new canon.
 - **Escrow operating capital top-up** — User to send ~0.5–1 SOL to `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` so payouts have buffer for tx fees and timing-skew before flow self-funds. Current balance ~0.02 SOL.
 - Plushie Sales & interactive NFT Gallery
 
@@ -186,6 +186,39 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
+
+---
+## Iteration 100 — Chatbot Lore Canonization + Lore Hero Images (May 12, 2026)
+
+### Chatbot full lore upgrade (`/app/backend/routers/ai_chat.py`)
+- Replaced the old 7-block `bullpug_knowledge` system prompt section with the new **Neuko Universe Canon** (8 chapters condensed but faithful to the canonical text):
+  1. The Cosmic Birth
+  2. A Different Kind of Entity
+  3. The Mindverse He Calls Home
+  4. Newpug City
+  5. The Bullpughans
+  6. The Festival of Barks
+  7. The Signal in the Noise
+  8. The Legacy
+  + Canon Anchor (Neuko universe / unmapped Mindverse)
+- Added a new **HIDDEN LORE PROTOCOL** instruction block. When users probe specific antagonist/canon terms (`G*BOY`, `Neuko`, `G-304`, `152 BPM`, `Saint Juniper`, `Harmony`, `IRIS`, or events not in canon), the bot:
+  - Acknowledges the question is the right one to ask
+  - Drops one small atmospheric, narratively-consistent breadcrumb (feelings/rumors only, never new concrete facts)
+  - Encourages the user to come back ("Mindverse rewards persistence")
+  - Uses the fallback phrase "That's a thread the Festival hasn't pulled on yet — come back. I'll tell you when the signal's clearer." when it genuinely doesn't know
+- Updated the **P2P ARENA** section from `COMING SOON` → `LIVE` with the new mechanics (coin flip + winner pot, min/max, 60s countdown, 25% rake → Cosmic Runner Jackpot, automatic on-chain payouts).
+- Updated the **AI TRADING BOT** section to `HIBERNATED` — bot lists itself as dormant and redirects users to the live products (Cosmic Runner, P2P Arena).
+- Verified live with three test prompts: origin story matches new canon ✅; G*BOY query triggers Hidden Lore Protocol response with breadcrumb ✅; P2P Arena correctly described as live with winner pot mechanics ✅.
+
+### Lore page hero images (`/app/frontend/public/lore/`)
+- One-shot generation script `/app/backend/scripts/generate_lore_images.py` using Gemini Nano Banana (`gemini-3.1-flash-image-preview`) via Emergent LLM Key.
+- Generated 3 images:
+  - `newpug-city.png` (1 MB) — pug-faced skyscrapers, green holographic aurora barks, pug nebula in the sky
+  - `snout-scanner.png` (740 KB) — close-up of the Guardians' titanium snout-shaped scanner with holographic blockchain lattice
+  - `festival-of-barks.png` (1 MB) — coin & bone fireworks over Newpug City, moon-cheese parade floats
+- `Lore.js` `<Chapter>` component extended with optional `image` + `imageAlt` props; aspect-[16/9] hero with bottom gradient fade for seamless blend into the chapter body.
+- Wired into chapters: Newpug City (#4), Bullpughans (#5), Festival of Barks (#6). `loading="lazy"` on each.
+- Each image has `data-testid="chapter-{slug}-image"` for QA.
 
 ---
 ## Iteration 99 — Origins Lore Rewrite (Neuko Universe Canon) (May 11, 2026)

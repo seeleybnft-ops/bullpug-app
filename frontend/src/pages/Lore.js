@@ -15,29 +15,43 @@ const LOGO =
   "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
 
 // Reusable chapter card — keeps visual rhythm consistent
-function Chapter({ icon: Icon, title, accent, gradient, children, testid }) {
+function Chapter({ icon: Icon, title, accent, gradient, image, imageAlt, children, testid }) {
   return (
     <section
-      className="glass-card rounded-2xl p-8 md:p-10 border border-white/10 transition-colors"
-      style={{ borderColor: undefined }}
+      className="glass-card rounded-2xl border border-white/10 transition-colors overflow-hidden"
       data-testid={testid}
     >
-      <div className="flex items-center gap-3 mb-6">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ background: gradient }}
-        >
-          <Icon className="w-5 h-5 text-black" />
+      {image && (
+        <div className="relative w-full aspect-[16/9] overflow-hidden">
+          <img
+            src={image}
+            alt={imageAlt || title}
+            loading="lazy"
+            className="w-full h-full object-cover"
+            data-testid={`${testid}-image`}
+          />
+          {/* Gradient fade at the bottom edge so the image blends into the card body */}
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0D0D15] to-transparent pointer-events-none" />
         </div>
-        <h2
-          className="text-2xl md:text-3xl font-bold tracking-tight"
-          style={{ fontFamily: "Orbitron, sans-serif", color: accent }}
-        >
-          {title}
-        </h2>
-      </div>
-      <div className="space-y-4 text-slate-300 leading-relaxed text-base md:text-lg">
-        {children}
+      )}
+      <div className="p-8 md:p-10">
+        <div className="flex items-center gap-3 mb-6">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: gradient }}
+          >
+            <Icon className="w-5 h-5 text-black" />
+          </div>
+          <h2
+            className="text-2xl md:text-3xl font-bold tracking-tight"
+            style={{ fontFamily: "Orbitron, sans-serif", color: accent }}
+          >
+            {title}
+          </h2>
+        </div>
+        <div className="space-y-4 text-slate-300 leading-relaxed text-base md:text-lg">
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -290,6 +304,8 @@ export default function Lore() {
             title="Newpug City"
             accent="#FFD700"
             gradient="linear-gradient(135deg, #FFD700 0%, #FF6B35 100%)"
+            image="/lore/newpug-city.png"
+            imageAlt="The skyline of Newpug City — pug-faced skyscrapers under a cosmic nebula, emitting holographic green soundwaves"
             testid="chapter-newpug-city"
           >
             <p>
@@ -329,6 +345,8 @@ export default function Lore() {
             title="The Bullpughans"
             accent="#00FFA3"
             gradient="linear-gradient(135deg, #00FFA3 0%, #00C2FF 100%)"
+            image="/lore/snout-scanner.png"
+            imageAlt="Close-up of a Snout Scanner — a sleek titanium handheld device shaped like a stylised dog snout, projecting a holographic blockchain lattice"
             testid="chapter-bullpughans"
           >
             <p>
@@ -370,6 +388,8 @@ export default function Lore() {
             title="The Festival of Barks"
             accent="#D946EF"
             gradient="linear-gradient(135deg, #D946EF 0%, #FFD700 100%)"
+            image="/lore/festival-of-barks.png"
+            imageAlt="The Festival of Barks — coin- and bone-shaped fireworks light up the sky above Newpug City as moon-cheese floats parade through the streets"
             testid="chapter-festival"
           >
             <p>
