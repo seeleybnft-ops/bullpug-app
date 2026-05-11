@@ -188,6 +188,34 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 101 — Origins Trailer + Moon Cheese Transparency Fix (May 12, 2026)
+
+### Cosmic Runner: moon cheese white-background bug fix
+- User reported a white square framing the moon cheese sprite in-game (visual defect screenshot supplied).
+- Root cause: `/app/frontend/public/moon-cheese.png` was stored as RGB (no alpha channel), with a near-white background `(237–254 RGB)` baked in.
+- Fix: Flood-fill from all four corners using a brightness>215 + grayscale-spread<35 mask, plus rim anti-aliasing for bright pixels (220<brightness<245). Cropped to bounding box (1024×1024 → 627×742) to remove dead space. New file is RGBA with alpha=0 at all corners and solid yellow centre. Original kept at `moon-cheese.original.png` as backup.
+
+### Origins Trailer (autoplays on first /lore visit)
+- New one-shot generator `/app/backend/scripts/generate_origins_trailer.py` produces a 15-second vertical (720×1280) trailer:
+  - 3 scenes × 5s each: Newpug City (zoom-in pan right) → Snout Scanner (zoom-out hold) → Festival of Barks (zoom-in pan left)
+  - 0.5s crossfades between scenes; 0.5s fade-in/fade-out on overall video
+  - Pillow-based Ken Burns rendering piped directly into a single ffmpeg invocation that tees into BOTH `origins-trailer.mp4` (H.264 Constrained Baseline, ~5 MB) and `origins-trailer.webm` (VP9, ~1.8 MB)
+- New component `/app/frontend/src/components/OriginsTrailer.js`:
+  - Auto-opens on first visit to `/lore` (localStorage key `bullpug_origins_trailer_seen_v1`)
+  - `<video>` element with both `<source>` tags so Chromium variants without H.264 licensing fall through to WebM automatically
+  - 9:16 aspect container (reserves space immediately even before metadata loads)
+  - Muted-autoplay (browser-friendly), with mute toggle, close X, ESC-to-skip, click-outside-to-dismiss, and "Enter the canon" CTA in the bottom overlay
+  - Footer hint: "TAP THE SPEAKER FOR SOUND · ESC TO SKIP"
+  - All elements have `data-testid` for QA
+- Wired into `/app/frontend/src/pages/Lore.js` (`<OriginsTrailer />` rendered as the first child).
+- Verified end-to-end: video reaches readyState=4 in <5s, playback advances at real time (6.06s → 8.57s after 2.5s wait), modal dismisses, localStorage flag set, second visit suppressed.
+
+### Next Action Items (rolling list)
+- 🔴 Top up escrow to 0.5–1 SOL on `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` (currently ~0.02 SOL)
+- 🟡 Provide $BULLPUG mint address so I can wire token entries to the pot with on-chain SOL conversion
+- 🟡 Drop new lore chapters whenever ready — paste them straight into the `bullpug_knowledge` block in `/app/backend/routers/ai_chat.py`
+
+---
 ## Iteration 100 — Chatbot Lore Canonization + Lore Hero Images (May 12, 2026)
 
 ### Chatbot full lore upgrade (`/app/backend/routers/ai_chat.py`)

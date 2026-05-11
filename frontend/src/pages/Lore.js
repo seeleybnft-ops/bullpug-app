@@ -10,6 +10,7 @@ import {
   ShieldOff,
   Lock,
 } from "lucide-react";
+import OriginsTrailer from "../components/OriginsTrailer";
 
 const LOGO =
   "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
@@ -118,6 +119,7 @@ export default function Lore() {
 
   return (
     <div className="min-h-screen pt-20 pb-16 relative" data-testid="lore-page">
+      <OriginsTrailer />
       <canvas
         ref={starsRef}
         className="fixed inset-0 pointer-events-none opacity-60"
