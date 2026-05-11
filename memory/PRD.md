@@ -175,7 +175,7 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 ## Backlog (Prioritized)
 ### P1 - Upcoming
 - **$BULLPUG token entries for pot** — need token mint address + price oracle (Jupiter quote). User confirmed both SOL + BULLPUG should be accepted; payouts stay in SOL.
-- **Lore expansion (Origins page)** — user will provide additional lore text; also train AI chatbot with full lore so users can Q&A.
+- **AI chatbot lore training** — user will personally teach the chatbot the full Neuko-universe lore (8 chapters: Cosmic Birth, A Different Kind of Entity, Mindverse, Newpug City, Bullpughans, Festival of Barks, Signal in the Noise, Legacy). Offer to embed the canonical text into the chatbot system prompt when ready.
 - **Escrow operating capital top-up** — User to send ~0.5–1 SOL to `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` so payouts have buffer for tx fees and timing-skew before flow self-funds. Current balance ~0.02 SOL.
 - Plushie Sales & interactive NFT Gallery
 
@@ -186,6 +186,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 
 ### Administrative
 - Remove private access gate when user confirms testing is complete
+
+---
+## Iteration 99 — Origins Lore Rewrite (Neuko Universe Canon) (May 11, 2026)
+### Changes
+- Replaced `/app/frontend/src/pages/Lore.js` entirely (previous fairy-tale style → new Neuko-universe canon).
+- New structure: 8 chapters + epilogue + canon anchor:
+  1. The Cosmic Birth
+  2. A Different Kind of Entity
+  3. The Mindverse He Calls Home
+  4. Newpug City
+  5. The Bullpughans
+  6. The Festival of Barks
+  7. The Signal in the Noise
+  8. The Legacy
+- Introduced antagonist canon: MITER-Corp, Aurelian Systems, Saint Juniper Research Campus, Harmony, IRIS, G*BOY, G-304 modulation trials (152 BPM). Highlighted in red to make them visually distinct from Bullpug-aligned concepts.
+- Refactored chapter rendering into a reusable `<Chapter>` component (icon + gradient + title + body) — reduces duplication and keeps visual rhythm consistent across all 8 sections.
+- Inline `<H color>` highlighter for in-text word emphasis (Mindverse, CryptoCanis, PugChain, Guardians, etc.).
+- Each chapter has a unique `data-testid` for QA (chapter-cosmic-birth, chapter-different-entity, chapter-mindverse, chapter-newpug-city, chapter-bullpughans, chapter-festival, chapter-signal, chapter-legacy, lore-canon-anchor).
+- Removed unused `useTranslation` import.
+- Kept the animated stars canvas + gradient overlay from the original.
+
+### Pending (user-driven)
+- AI chatbot must be taught the full Neuko-universe lore. User said they'd do it personally; offered to embed the canonical text into the chatbot system prompt when they're ready.
 
 ---
 ## Iteration 98 — P2P Arena Hardening + Cosmic Runner Jackpot Ticker (May 6, 2026)
