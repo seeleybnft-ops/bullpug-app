@@ -190,6 +190,47 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 105 — Per-User Daily Drops + Admin Gallery + Fullscreen Chat (May 12, 2026)
+
+### Per-user Daily Bullpug Drops
+- Each user (wallet OR anonymous session) now gets their **own unique image** every UTC day.
+- `daily_drops` collection re-keyed by `(user_key, date_utc)` with a unique compound index. Cleaned the legacy single-row cache.
+- `user_key` derivation in `routers/ai_chat.py`: `chat.wallet_address` if connected, else `f"anon-{chat.session_id}"` (session_id is already a stable per-device id from the frontend).
+- **Universe expansion via hybrid prompt pool** in `services/daily_drop.py`:
+  - 50% chance: pick from the 30 canonical themed scenes
+  - 50% chance: procedurally assemble a *fresh canon* scene from word banks of 30 subjects × 28 actions × 24 objects × 18 locations × 14 moods ≈ **5 million unique combinations**
+  - Selection seeded by `sha256(user_key + date_utc)` for deterministic same-user-same-day outputs (no re-rolling, locks for 24h)
+- Race-safe: per-(user, date) `asyncio.Lock` + MongoDB `$setOnInsert` upsert. Cache hit returns in ~295 ms.
+- Verified: 2 different anonymous users hitting the same day got `"A & the Liquidity"` (fresh) and `"First Scanner"` (canonical) — totally different images.
+
+### Admin gallery (creator-only access for future reference)
+- New endpoint **`GET /api/ai/daily-drops/admin?admin_wallet=…&limit=&offset=&date_utc=&include_images=`** — paginated, gated by an in-code allow-list of admin wallets (`we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`, `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`).
+  - `include_images=false` by default — keeps the gallery payload lean (just metadata)
+  - `include_images=true` returns full base64 data URLs
+- New endpoint **`GET /api/ai/daily-drops/admin/{drop_id}?admin_wallet=…&user_key=…&date_utc=…`** — fetches a single drop's full image_base64 for download/reuse.
+- New MongoDB indexes: `daily_drops((user_key, date_utc))` unique + `(created_at -1)` for fast pagination.
+- Non-admin wallets receive a clean 403.
+
+### Bullpug AI chatbot: fullscreen mode
+- New `Expand`/`Shrink` button in the chat header (next to Minimize / Close).
+- When toggled, the chat window expands to `inset-0` (mobile) / `inset-4 sm:inset-8` (desktop) — effectively 90%+ of the viewport. Rounded corners drop on mobile for an edge-to-edge feel.
+- ESC key exits fullscreen but keeps the chat open (only ESC inside fullscreen — doesn't close the modal).
+- The daily-drop card, image-generation outputs, and ReactMarkdown content all scale beautifully because they were already responsive (`max-w-[95%]`, `w-full h-auto`).
+- Verified: fullscreen mode reaches 1856×1016 on a 1920×900 viewport; ESC returns to 420×560 panel.
+
+### Files touched
+- `/app/backend/services/daily_drop.py` — full rewrite for per-user model + word-bank assembler
+- `/app/backend/routers/ai_chat.py` — `_maybe_attach_daily_drop` takes `user_key`; new `daily-drops/admin` endpoints
+- `/app/backend/server.py` — new `daily_drops` indexes on startup
+- `/app/frontend/src/components/EnhancedAIAssistant.js` — `isFullscreen` state, ESC handler, Expand/Shrink toggle, dynamic className for fullscreen layout
+
+### Today's verified drops
+- Active server records:
+  - `anon-user-A-session` → "A & the Liquidity" (fresh procedural)
+  - `anon-user-B-session` → "First Scanner" (canonical)
+  - `(current viewer)` → "Token Meditation" (canonical)
+
+---
 ## Iteration 104 — Daily Bullpug Drop (May 12, 2026)
 
 ### Concept

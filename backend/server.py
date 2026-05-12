@@ -216,6 +216,9 @@ async def startup_event():
         await db.ai_trader_positions.create_index([("wallet_address", 1), ("status", 1)])
         await db.user_ledger.create_index([("user_wallet", 1), ("created_at", -1)])
         await db.user_ledger.create_index([("user_wallet", 1), ("entry_type", 1)])
+        # Daily drop cache — unique per (user, day), indexed for admin gallery pagination
+        await db.daily_drops.create_index([("user_key", 1), ("date_utc", 1)], unique=True)
+        await db.daily_drops.create_index([("created_at", -1)])
         # Clean up legacy smart_money_signals (v1 had signature_1 unique index)
         try:
             indexes = await db.smart_money_signals.index_information()

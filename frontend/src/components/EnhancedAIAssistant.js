@@ -8,7 +8,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useAccount } from "wagmi";
 import { 
   Sparkles, X, Send, Loader2, 
-  Minimize2, Maximize2, ChevronDown, Trash2, Image, XCircle, Share2, Check
+  Minimize2, Maximize2, ChevronDown, Trash2, Image, XCircle, Share2, Check, Expand, Shrink
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
@@ -27,6 +27,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +35,16 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [hasLiveData, setHasLiveData] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  // ESC exits fullscreen (and only fullscreen, not the chat entirely)
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen]);
+
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [dropShared, setDropShared] = useState(false);
@@ -366,10 +377,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className={`fixed z-50 bg-[#0D0D15] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden transition-all duration-300 ${
+          className={`fixed z-50 bg-[#0D0D15] border border-white/10 shadow-2xl shadow-black/50 overflow-hidden transition-all duration-300 ${
             isMinimized 
-              ? 'bottom-24 right-6 w-72 h-14' 
-              : 'bottom-24 right-6 w-[380px] h-[500px] sm:w-[420px] sm:h-[560px]'
+              ? 'bottom-24 right-6 w-72 h-14 rounded-2xl' 
+              : isFullscreen
+                ? 'inset-0 sm:inset-4 lg:inset-8 rounded-none sm:rounded-3xl'
+                : 'bottom-24 right-6 w-[380px] h-[500px] sm:w-[420px] sm:h-[560px] rounded-2xl'
           }`}
           data-testid="ai-assistant-window"
         >
@@ -414,9 +427,21 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
               <button
                 onClick={toggleMinimize}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                title={isMinimized ? "Expand chat" : "Minimize chat"}
+                data-testid="ai-chat-minimize"
               >
                 {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
               </button>
+              {!isMinimized && (
+                <button
+                  onClick={() => setIsFullscreen(prev => !prev)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                  title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  data-testid="ai-chat-fullscreen"
+                >
+                  {isFullscreen ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
+                </button>
+              )}
               <button
                 onClick={toggleOpen}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"

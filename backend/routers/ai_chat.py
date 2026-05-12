@@ -11,7 +11,7 @@ import re
 from datetime import datetime, timezone
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
-from services.daily_drop import get_todays_drop, _today_utc
+from services.daily_drop import get_drop_for_user, get_todays_drop, _today_utc
 from utils.database import db
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -686,13 +686,13 @@ class EnhancedChatMessage(BaseModel):
 
 
 # === DAILY DROP HELPER ===
-async def _maybe_attach_daily_drop(payload: Dict, last_seen: Optional[str]) -> Dict:
-    """If the user hasn't seen today's drop, attach it to the response payload."""
+async def _maybe_attach_daily_drop(payload: Dict, last_seen: Optional[str], user_key: str) -> Dict:
+    """If the user hasn't seen today's drop, attach their unique-per-day drop."""
     today = _today_utc()
     if last_seen == today:
         return payload
     try:
-        drop = await get_todays_drop()
+        drop = await get_drop_for_user(user_key)
     except Exception:
         logger.exception("Failed to fetch daily drop")
         drop = None
@@ -701,6 +701,7 @@ async def _maybe_attach_daily_drop(payload: Dict, last_seen: Optional[str]) -> D
             "date_utc": drop["date_utc"],
             "theme": drop.get("theme"),
             "scene": drop.get("scene"),
+            "kind": drop.get("kind"),
             "image_base64": drop["image_base64"],
             "caption": drop.get("caption"),
         }
@@ -820,12 +821,16 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     if not EMERGENT_LLM_KEY:
         return {"response": "AI chat is currently unavailable. Please try again later.", "session_id": chat.session_id}
 
+    # Stable per-user identifier for daily drops: prefer the wallet address,
+    # fall back to the (frontend-stable) session_id for anonymous visitors.
+    user_key = (chat.wallet_address or "").strip() or f"anon-{chat.session_id}"
+
     # === IMAGE GENERATION INTENT DETECTION ===
     raw_msg = (chat.message or "").strip()
     image_prompt = _detect_image_prompt(raw_msg)
     if image_prompt:
         resp = await _generate_image_response(image_prompt, chat.session_id)
-        return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen)
+        return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen, user_key)
 
     try:
         # Get journal summary for context
@@ -1313,35 +1318,102 @@ Provide a helpful response using the real-time data above when relevant. Be spec
             "response": response, 
             "session_id": chat.session_id,
             "has_live_data": bool(real_time_data or specific_prices)
-        }, chat.daily_drop_last_seen)
+        }, chat.daily_drop_last_seen, user_key)
         
     except Exception as e:
         logger.error(f"Enhanced chat error: {e}")
         return await _maybe_attach_daily_drop(
             {"response": "I encountered an error. Please try again!", "session_id": chat.session_id},
             chat.daily_drop_last_seen,
+            user_key,
         )
 
 
 @router.get("/daily-drop")
-async def get_daily_drop():
-    """Return today's Bullpug Daily Drop — a fresh AI image rotated every UTC day.
+async def get_daily_drop(wallet_address: Optional[str] = None, session_id: Optional[str] = None):
+    """Return today's Bullpug Daily Drop for a specific user.
 
-    First call of the day triggers generation (~5-10s). All subsequent calls hit
-    the MongoDB cache for the rest of the UTC day.
+    Pass `wallet_address` (preferred) or `session_id` to identify the user.
+    First call of the day triggers generation (~5-10s) for that user; all
+    subsequent calls for the same user that UTC day hit the MongoDB cache.
     """
     from fastapi import HTTPException
-    drop = await get_todays_drop()
+    if not wallet_address and not session_id:
+        raise HTTPException(status_code=400, detail="wallet_address or session_id is required")
+    user_key = (wallet_address or "").strip() or f"anon-{session_id}"
+    drop = await get_drop_for_user(user_key)
     if not drop:
         raise HTTPException(status_code=503, detail="Daily drop is being prepared. Please try again shortly.")
     return {
+        "user_key": drop["user_key"],
         "date_utc": drop["date_utc"],
         "theme": drop.get("theme"),
         "scene": drop.get("scene"),
+        "kind": drop.get("kind"),
         "image_base64": drop["image_base64"],
         "caption": drop.get("caption"),
         "created_at": drop.get("created_at"),
     }
+
+
+# Admin wallets allowed to view the full daily-drop gallery
+_ADMIN_WALLETS = {
+    "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
+    "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
+}
+
+
+@router.get("/daily-drops/admin")
+async def list_all_daily_drops(
+    admin_wallet: str,
+    limit: int = 50,
+    offset: int = 0,
+    date_utc: Optional[str] = None,
+    include_images: bool = False,
+):
+    """Creator/admin gallery — every daily drop ever generated, paginated.
+
+    Pass `admin_wallet` (must match an allowed wallet) for auth.
+    By default `image_base64` is OMITTED to keep payloads small; pass
+    `include_images=true` to include them (useful for one-by-one fetches).
+    """
+    from fastapi import HTTPException
+    if admin_wallet not in _ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if limit > 200:
+        limit = 200
+    query: Dict = {}
+    if date_utc:
+        query["date_utc"] = date_utc
+
+    projection = {"_id": 0}
+    if not include_images:
+        projection["image_base64"] = 0
+
+    cursor = db.daily_drops.find(query, projection).sort("created_at", -1).skip(offset).limit(limit)
+    drops = await cursor.to_list(limit)
+    total = await db.daily_drops.count_documents(query)
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "include_images": include_images,
+        "drops": drops,
+    }
+
+
+@router.get("/daily-drops/admin/{drop_id}")
+async def get_admin_drop_image(admin_wallet: str, user_key: str, date_utc: str):
+    """Fetch a single drop's full image_base64. Admin-gated."""
+    from fastapi import HTTPException
+    if admin_wallet not in _ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    drop = await db.daily_drops.find_one(
+        {"user_key": user_key, "date_utc": date_utc}, {"_id": 0}
+    )
+    if not drop:
+        raise HTTPException(status_code=404, detail="Drop not found")
+    return drop
 
 
 @router.get("/prices")

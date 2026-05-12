@@ -1,14 +1,19 @@
-"""Daily Bullpug Drop — one AI-generated Neuko-universe image rotated every UTC day.
+"""Daily Bullpug Drop — one AI-generated Neuko-universe image per USER per UTC day.
 
-Cached in MongoDB so we only generate ONCE per day no matter how many users
-request it; an in-process asyncio lock prevents thundering-herd races on the
-first call of the day.
+Each user (wallet OR anonymous session) gets a unique drop deterministically
+seeded from `(user_key, date_utc)`. Variety comes from a hybrid prompt pool:
+30 canonical scenes + a dynamic word-bank assembler that generates fresh canon
+combinations on the fly (the Neuko universe is constantly expanding).
+
+Every generation is persisted to MongoDB (`db.daily_drops`) for creator/admin
+reference — keyed by `(user_key, date_utc)`, indexed for fast pagination.
 """
 
 import asyncio
 import hashlib
 import logging
 import os
+import random
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
@@ -20,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 
-# (theme_label, scene_prompt) — keep prompts evocative, on-canon, no text/logos.
+# ----- Canonical themed prompts -----
 THEMED_DROPS = [
     ("Cometside Vigil", "Guardian Bullpug riding a celestial comet through the rings of CryptoCanis, fur blowing back, eyes locked forward"),
     ("Moon-Cheese Float", "Bullpug presiding over a Festival of Barks parade float made entirely of glowing moon cheese, bone-shaped fireworks overhead"),
@@ -54,6 +59,69 @@ THEMED_DROPS = [
     ("The Address", "Bullpug giving a speech to a vast crowd of Bullpughans, holographic stars and barks of prosperity overhead"),
 ]
 
+# ----- Fresh-canon word banks for procedurally-assembled scenes -----
+# Combining these yields ~30 × 28 × 24 × 18 × 14 ≈ 5 million unique scenes,
+# more than enough variety for every user every day for years.
+_FRESH_SUBJECTS = [
+    "Bullpug", "a Guardian Bullpug", "a pack of Bullpughans", "an elder Bullpughan",
+    "a young Bullpughan acolyte", "the cosmic guardian Bullpug", "Bullpug himself",
+    "a robed Bullpughan oracle", "a courier Bullpughan with a token satchel",
+    "twin Guardian Bullpugs", "a Bullpug pup with oversized scanner ears",
+    "a Bullpughan rogue cloaked in static", "a champion Bullpug astronaut",
+    "a meditating Bullpug monk", "a Bullpug skywriter", "a holographic projection of Bullpug",
+    "an ancient Bullpughan ancestor", "a Bullpug bard with a soundwave lute",
+    "a Bullpughan engineer", "a Bullpughan archivist", "Bullpug, eyes closed in focus",
+    "a Bullpughan racer crouched at a starting line", "a Bullpug-shaped drone swarm",
+    "a Bullpughan dreamer asleep on a token throne", "Bullpug mid-bark",
+    "a stargazing Bullpughan child", "a Bullpughan gardener tending crypto-flora",
+    "Bullpug atop a moon-cheese boulder", "a Bullpug hologram phasing into reality",
+    "a courier Bullpughan delivering a glowing wallet",
+]
+_FRESH_ACTIONS = [
+    "barking sound-waves at", "leaping over", "shielding", "guarding", "racing across",
+    "meditating beside", "dancing around", "scanning", "decoding", "blessing",
+    "racing toward", "diving into", "summoning", "negotiating with", "challenging",
+    "saluting", "studying", "untangling", "weaving through", "exhaling smoke that becomes",
+    "hovering above", "watching over", "casting starlight onto", "reflecting in",
+    "carving symbols into", "leading a procession toward", "playing fetch with",
+    "sniffing out",
+]
+_FRESH_OBJECTS = [
+    "a swirling pug-shaped nebula", "the PugChain core crystal",
+    "a falling moon-cheese asteroid", "a rogue smart contract dripping ink",
+    "a shoal of mooncheese fish", "a holographic ledger floating in mid-air",
+    "a cluster of orbiting SOL coins", "a colossal stone pug-arch",
+    "a forest of token-blossom trees", "a ribbon of magenta liquidity",
+    "the Mindverse's heartbeat signal", "a fleet of MITER-Corp drone shadows",
+    "a candle-lit Festival lantern", "a glowing token vault",
+    "a wave of green soundwaves", "an obsidian Snout Scanner",
+    "a Newpug City rooftop garden", "a constellation map written in starlight",
+    "a wind-up bone-shaped firework", "a static-cloaked rug-pull artifact",
+    "a hovering courier bag", "a swirling vortex of stale FUD",
+    "a moon-cheese geyser",  "a Bullpug-shaped weather cloud",
+]
+_FRESH_LOCATIONS = [
+    "in the heart of Newpug City", "above CryptoCanis' icy rings",
+    "deep in the unmapped Mindverse", "atop the Bull constellation",
+    "inside a holographic PugChain ledger", "on the rooftop of the PugChain Tower",
+    "in the catacombs beneath the Festival grounds", "across the mooncheese plains",
+    "at the edge of the Mindverse map", "inside a frozen moment of trading time",
+    "below a sky raining moon-cheese crumbs", "in a hidden Newpug alley",
+    "on the steps of the Guardians' Hall", "above a glowing token reef",
+    "inside a memory crystal", "in a cosmic library of canon scrolls",
+    "atop the city's tallest pug-faced spire", "in the centre of a starlit plaza",
+]
+_FRESH_MOODS = [
+    "at twilight", "under a meteor shower", "during the Festival of Barks",
+    "at the crescendo of the 152 BPM signal", "with a pug nebula on the horizon",
+    "while green aurora ripples overhead", "amid floating golden ember-coins",
+    "at the exact moment of a market reversal", "in a hush of pre-dawn quiet",
+    "with confetti made of moon-cheese flakes drifting down", "during a Guardian's vigil",
+    "as midnight UTC strikes", "as a glitch ripples across the sky",
+    "as the PugChain core syncs",
+]
+
+
 _BULLPUG_STYLE_SUFFIX = (
     "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe aesthetic. "
     "Vivid neon-on-dark color palette with mint green (#00FFA3), magenta (#D946EF), "
@@ -61,7 +129,7 @@ _BULLPUG_STYLE_SUFFIX = (
     "no logos, no watermarks. Wide cinematic composition."
 )
 
-# Per-date asyncio locks so concurrent first-callers don't all trigger an LLM call.
+# Per-(user, date) asyncio locks so concurrent first-callers don't all trigger an LLM call.
 _generation_locks: Dict[str, asyncio.Lock] = {}
 _meta_lock = asyncio.Lock()
 
@@ -70,28 +138,61 @@ def _today_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _select_theme_for(date_utc: str):
-    """Deterministically pick today's theme from the date string."""
-    h = int(hashlib.sha256(date_utc.encode()).hexdigest(), 16)
-    idx = h % len(THEMED_DROPS)
-    return idx, THEMED_DROPS[idx]
+def _seed_rng(user_key: str, date_utc: str) -> random.Random:
+    """Stable per-(user, date) random.Random instance."""
+    seed = int(hashlib.sha256(f"{user_key}|{date_utc}".encode()).hexdigest(), 16)
+    return random.Random(seed)
 
 
-async def _lock_for(date_utc: str) -> asyncio.Lock:
+def _select_prompt_for(user_key: str, date_utc: str):
+    """Return (theme_label, scene_prompt, kind) for the given user+date.
+
+    50% chance: pick one of the canonical themed drops.
+    50% chance: procedurally assemble a 'fresh canon' scene from word banks —
+    universe-expansion variety so users see something new most days.
+    """
+    rng = _seed_rng(user_key, date_utc)
+    if rng.random() < 0.5:
+        idx = rng.randrange(len(THEMED_DROPS))
+        theme, scene = THEMED_DROPS[idx]
+        return theme, scene, "canonical"
+
+    # Fresh-canon assembler
+    subject = rng.choice(_FRESH_SUBJECTS)
+    action = rng.choice(_FRESH_ACTIONS)
+    obj = rng.choice(_FRESH_OBJECTS)
+    location = rng.choice(_FRESH_LOCATIONS)
+    mood = rng.choice(_FRESH_MOODS)
+    scene = f"{subject} {action} {obj} {location}, {mood}"
+    # Generate a short evocative theme label from the subject + a key noun in the object
+    key_noun = obj.split()[-1].rstrip(",.")
+    theme = f"{subject.split()[0].capitalize()} & the {key_noun.capitalize()}"
+    return theme, scene, "fresh"
+
+
+async def _lock_for(user_key: str, date_utc: str) -> asyncio.Lock:
+    key = f"{user_key}|{date_utc}"
     async with _meta_lock:
-        lock = _generation_locks.get(date_utc)
+        lock = _generation_locks.get(key)
         if lock is None:
             lock = asyncio.Lock()
-            _generation_locks[date_utc] = lock
+            _generation_locks[key] = lock
         return lock
 
 
-async def get_todays_drop() -> Optional[Dict]:
-    """Return today's drop dict, generating it if no cached row exists."""
+async def get_drop_for_user(user_key: str) -> Optional[Dict]:
+    """Return today's drop for the given user_key, generating + caching if missing.
+
+    user_key should be the user's wallet address if available, otherwise the
+    anonymous session_id. Each (user_key, date_utc) pair generates exactly one
+    image, then locks for 24h until the UTC date rolls over.
+    """
     date_utc = _today_utc()
 
-    # Fast path — check cache without acquiring any lock.
-    cached = await db.daily_drops.find_one({"date_utc": date_utc}, {"_id": 0})
+    # Fast path — already cached for this user/day
+    cached = await db.daily_drops.find_one(
+        {"user_key": user_key, "date_utc": date_utc}, {"_id": 0}
+    )
     if cached:
         return cached
 
@@ -99,20 +200,22 @@ async def get_todays_drop() -> Optional[Dict]:
         logger.warning("EMERGENT_LLM_KEY missing — cannot generate daily drop")
         return None
 
-    lock = await _lock_for(date_utc)
+    lock = await _lock_for(user_key, date_utc)
     async with lock:
-        # Re-check after acquiring the lock — another coroutine may have generated.
-        cached = await db.daily_drops.find_one({"date_utc": date_utc}, {"_id": 0})
+        # Re-check after acquiring lock
+        cached = await db.daily_drops.find_one(
+            {"user_key": user_key, "date_utc": date_utc}, {"_id": 0}
+        )
         if cached:
             return cached
 
-        idx, (theme, scene) = _select_theme_for(date_utc)
+        theme, scene, kind = _select_prompt_for(user_key, date_utc)
         full_prompt = f"{scene}. {_BULLPUG_STYLE_SUFFIX}"
         try:
             chat = (
                 LlmChat(
                     api_key=EMERGENT_LLM_KEY,
-                    session_id=f"daily-drop-{date_utc}",
+                    session_id=f"daily-drop-{date_utc}-{user_key[:12]}",
                     system_message=(
                         "You are Bullpug, the cosmic guardian. Generate ONE cinematic image "
                         "matching the user's scene description in the Neuko universe style."
@@ -124,27 +227,35 @@ async def get_todays_drop() -> Optional[Dict]:
             msg = UserMessage(text=full_prompt)
             text, images = await chat.send_message_multimodal_response(msg)
             if not images:
-                logger.error("Daily drop returned no images")
+                logger.error(f"Daily drop returned no images for {user_key}/{date_utc}")
                 return None
             img = images[0]
             mime = img.get("mime_type") or "image/png"
             data = img.get("data") or ""
             drop = {
+                "user_key": user_key,
                 "date_utc": date_utc,
                 "theme": theme,
                 "scene": scene,
-                "theme_index": idx,
+                "kind": kind,
                 "image_base64": f"data:{mime};base64,{data}",
                 "caption": (text or "").strip() or None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             await db.daily_drops.update_one(
-                {"date_utc": date_utc},
+                {"user_key": user_key, "date_utc": date_utc},
                 {"$setOnInsert": drop},
                 upsert=True,
             )
-            # Re-fetch (returns the persisted row whichever coroutine wrote first)
-            return await db.daily_drops.find_one({"date_utc": date_utc}, {"_id": 0})
+            return await db.daily_drops.find_one(
+                {"user_key": user_key, "date_utc": date_utc}, {"_id": 0}
+            )
         except Exception:
             logger.exception("Daily drop generation failed")
             return None
+
+
+# Backwards-compat alias for any callers that still reference the old API.
+async def get_todays_drop() -> Optional[Dict]:
+    """Legacy: returns a shared 'default' drop. Prefer get_drop_for_user(user_key)."""
+    return await get_drop_for_user("default")
