@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Eye,
@@ -9,6 +9,9 @@ import {
   Rocket,
   ShieldOff,
   Lock,
+  PlayCircle,
+  Share2,
+  Check,
 } from "lucide-react";
 import OriginsTrailer from "../components/OriginsTrailer";
 
@@ -116,6 +119,37 @@ export default function Lore() {
       window.removeEventListener("resize", onResize);
     };
   }, []);
+
+  // Share / replay handlers used by the bottom CTA block
+  const [shared, setShared] = useState(false);
+
+  const openTrailer = () => {
+    window.dispatchEvent(new CustomEvent("bullpug:open-trailer"));
+  };
+
+  const handleShare = async () => {
+    const shareText =
+      "I just entered the Neuko canon. The Bullpug Origins trailer hits different — pug-faced skyscrapers, Snout Scanners, and a 152 BPM signal in the noise. 🐾⚡";
+    const url = `${window.location.origin}/lore`;
+    try {
+      if (navigator.share && typeof navigator.share === "function") {
+        await navigator.share({ title: "Bullpug Origins", text: shareText, url });
+        setShared(true);
+        setTimeout(() => setShared(false), 2200);
+        return;
+      }
+    } catch (e) {
+      /* user cancelled the native sheet — fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${url}`);
+      setShared(true);
+      setTimeout(() => setShared(false), 2200);
+    } catch (e) {
+      const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`;
+      window.open(intent, "_blank", "noopener,noreferrer");
+    }
+  };
 
   return (
     <div className="min-h-screen pt-20 pb-16 relative" data-testid="lore-page">
@@ -511,6 +545,64 @@ export default function Lore() {
                 it all with a mix of <span className="text-[#FFD700]">bull's strength</span>{" "}
                 and a <span className="text-[#D946EF]">pug's heart</span>."
               </p>
+            </div>
+          </section>
+
+          {/* TRAILER REPLAY + SHARE CTA — between epilogue and canon anchor */}
+          <section
+            className="rounded-2xl border border-[#00FFA3]/20 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] p-6 md:p-8"
+            data-testid="lore-actions-block"
+          >
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex-1">
+                <p
+                  className="text-[10px] uppercase tracking-[0.3em] text-[#00FFA3] font-bold mb-2"
+                  style={{ fontFamily: "Space Grotesk, sans-serif" }}
+                >
+                  Carry it forward
+                </p>
+                <h3
+                  className="text-xl md:text-2xl font-black text-white tracking-tight leading-snug"
+                  style={{ fontFamily: "Orbitron, sans-serif" }}
+                >
+                  Spread the signal across the Mindverse.
+                </h3>
+                <p className="text-sm text-slate-400 mt-2 max-w-lg leading-relaxed">
+                  Re-watch the Origins trailer or share it with someone who's
+                  tired of being rugged. The Mindverse rewards persistence.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={openTrailer}
+                  data-testid="lore-replay-trailer-btn"
+                  className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#00FFA3] text-black font-bold text-xs uppercase tracking-wider hover:scale-[1.03] transition-transform shadow-[0_0_24px_rgba(0,255,163,0.30)]"
+                >
+                  <PlayCircle size={16} />
+                  Watch trailer
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  data-testid="lore-share-btn"
+                  aria-live="polite"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-white/20 text-white font-bold text-xs uppercase tracking-wider hover:bg-white/5 hover:border-white/30 transition-colors"
+                >
+                  {shared ? (
+                    <>
+                      <Check size={14} />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Share2 size={14} />
+                      Share the Origins
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </section>
 

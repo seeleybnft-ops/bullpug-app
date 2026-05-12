@@ -683,15 +683,125 @@ class EnhancedChatMessage(BaseModel):
     image: Optional[str] = None  # Base64 encoded image
 
 
+# === IMAGE GENERATION HELPERS ===
+# Detect when the user wants Bullpug to GENERATE (not analyse) an image.
+_IMAGE_NL_PATTERN = re.compile(
+    r"^\s*(?:please\s+)?"
+    r"(?:can\s+you\s+)?"
+    r"(?:draw|generate|create|make|render|design|paint|sketch|visualize)\s+"
+    r"(?:me\s+)?"
+    r"(?:an?|the)?\s*"
+    r"(?:image|picture|art|illustration|render|drawing|photo|portrait|pic)\s+"
+    r"(?:of|showing|with|featuring)\s+"
+    r"(.+)$",
+    re.IGNORECASE,
+)
+_IMAGE_SHORT_PATTERN = re.compile(
+    r"^\s*(?:draw|generate|create|render|paint|sketch)\s+(?:me\s+)?(.+)$",
+    re.IGNORECASE,
+)
+
+
+def _detect_image_prompt(message: str) -> Optional[str]:
+    """Return the image prompt if the message asks Bullpug to generate one, else None."""
+    if not message:
+        return None
+    # Slash-command takes priority — explicit, unambiguous.
+    if message.lower().startswith("/image "):
+        return message[len("/image "):].strip() or None
+    if message.lower().startswith("/img "):
+        return message[len("/img "):].strip() or None
+
+    # Natural-language intent. We avoid the bare "draw …" form because it's too
+    # broad — only match when an image keyword (image/picture/art/etc.) is present.
+    m = _IMAGE_NL_PATTERN.match(message)
+    if m:
+        prompt = m.group(1).strip().rstrip(".?!")
+        return prompt or None
+    return None
+
+
+_BULLPUG_IMAGE_STYLE = (
+    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe aesthetic. "
+    "Vivid neon-on-dark color palette with mint green (#00FFA3), magenta (#D946EF), "
+    "and gold (#FFD700) accents against deep midnight backgrounds. No readable text, "
+    "no logos, no watermarks."
+)
+
+
+async def _generate_image_response(prompt: str, session_id: str) -> Dict:
+    """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply."""
+    full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
+    try:
+        chat = (
+            LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"bullpug-image-{session_id}",
+                system_message=(
+                    "You are Bullpug, the cosmic guardian. Generate ONE cinematic "
+                    "image matching the user's prompt in the Neuko universe style."
+                ),
+            )
+            .with_model("gemini", "gemini-3.1-flash-image-preview")
+            .with_params(modalities=["image", "text"])
+        )
+        msg = UserMessage(text=full_prompt)
+        text, images = await chat.send_message_multimodal_response(msg)
+
+        if not images:
+            return {
+                "response": (
+                    f"My snout scanner picked up your request to render *“{prompt}”*, "
+                    "but the signal came back empty. Try rephrasing or be more specific — "
+                    "the Mindverse rewards persistence."
+                ),
+                "session_id": session_id,
+                "has_live_data": False,
+            }
+
+        img = images[0]
+        image_data = img.get("data") or ""
+        mime = img.get("mime_type") or "image/png"
+        caption = text.strip() if text else f"*“{prompt}”* — fresh from the PugChain canvas. 🐾"
+        return {
+            "response": caption,
+            "image_base64": f"data:{mime};base64,{image_data}",
+            "session_id": session_id,
+            "has_live_data": False,
+            "kind": "image",
+        }
+    except Exception as e:
+        logger.exception("Image generation failed")
+        return {
+            "response": (
+                "Something jammed the Snout Scanner mid-render. "
+                f"({type(e).__name__}). Try again in a moment, or rephrase your prompt."
+            ),
+            "session_id": session_id,
+            "has_live_data": False,
+        }
+
+
 @router.post("/chat")
 async def enhanced_ai_chat(chat: EnhancedChatMessage):
     """
     Enhanced AI chat with session-based memory and real-time market data.
     Provides context-aware responses with live prices, news, sentiment, and market insights.
+
+    Also supports inline IMAGE GENERATION via Gemini Nano Banana:
+    - Slash command:  `/image a pug astronaut on the moon`
+    - Natural language: "draw / generate / create / make an image of …"
+    The model returns a base64 PNG via the `image_base64` field.
     """
     if not EMERGENT_LLM_KEY:
         return {"response": "AI chat is currently unavailable. Please try again later.", "session_id": chat.session_id}
-    
+
+    # === IMAGE GENERATION INTENT DETECTION ===
+    raw_msg = (chat.message or "").strip()
+    image_prompt = _detect_image_prompt(raw_msg)
+    if image_prompt:
+        return await _generate_image_response(image_prompt, chat.session_id)
+
     try:
         # Get journal summary for context
         journal_summary = {"has_trades": False}

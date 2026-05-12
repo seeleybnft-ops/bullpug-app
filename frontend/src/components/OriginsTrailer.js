@@ -1,13 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Volume2, VolumeX, SkipForward } from "lucide-react";
+import { X, Volume2, VolumeX, SkipForward, Share2, Check } from "lucide-react";
 
 const STORAGE_KEY = "bullpug_origins_trailer_seen_v1";
+
+// Shareable text + URL — defined once so re-runs / re-opens use the same copy.
+const SHARE_TEXT = "I just entered the Neuko canon. The Bullpug Origins trailer hits different — pug-faced skyscrapers, Snout Scanners, and a 152 BPM signal in the noise. 🐾⚡";
+function getShareUrl() {
+  if (typeof window === "undefined") return "https://bullpug.io/lore";
+  return `${window.location.origin}/lore`;
+}
 
 export default function OriginsTrailer() {
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(true);
   const [ended, setEnded] = useState(false);
+  const [shared, setShared] = useState(false);
   const videoRef = useRef(null);
+
+  // Listen for global "open trailer" events so other components (Lore page replay
+  // button, future shareable links, etc.) can re-open this modal at any time.
+  useEffect(() => {
+    const onOpenEvent = () => {
+      setEnded(false);
+      setOpen(true);
+    };
+    window.addEventListener("bullpug:open-trailer", onOpenEvent);
+    return () => window.removeEventListener("bullpug:open-trailer", onOpenEvent);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +65,30 @@ export default function OriginsTrailer() {
       /* ignore */
     }
     setOpen(false);
+  };
+
+  const handleShare = async () => {
+    const url = getShareUrl();
+    const payload = { title: "Bullpug Origins", text: SHARE_TEXT, url };
+    try {
+      if (navigator.share && typeof navigator.share === "function") {
+        await navigator.share(payload);
+        setShared(true);
+        setTimeout(() => setShared(false), 2200);
+        return;
+      }
+    } catch (e) {
+      /* user dismissed the native sheet — fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(`${SHARE_TEXT}\n${url}`);
+      setShared(true);
+      setTimeout(() => setShared(false), 2200);
+    } catch (e) {
+      /* clipboard blocked — last resort: open X intent in a new tab */
+      const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(SHARE_TEXT)}&url=${encodeURIComponent(url)}`;
+      window.open(intent, "_blank", "noopener,noreferrer");
+    }
   };
 
   // ESC to close
@@ -131,7 +174,7 @@ export default function OriginsTrailer() {
             {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
 
-          {/* Bottom overlay: title + CTA */}
+          {/* Bottom overlay: title + CTAs */}
           <div className="absolute bottom-0 inset-x-0 p-5 text-center">
             <p
               className="text-[10px] uppercase tracking-[0.3em] text-[#F5D300] font-bold mb-1"
@@ -148,15 +191,36 @@ export default function OriginsTrailer() {
               </span>
             </h3>
 
-            <button
-              type="button"
-              onClick={dismiss}
-              data-testid="origins-trailer-cta"
-              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00FFA3] text-black font-bold text-xs uppercase tracking-wider hover:scale-[1.04] transition-transform shadow-[0_0_24px_rgba(0,255,163,0.35)]"
-            >
-              {ended ? "Read the lore" : "Enter the canon"}
-              <SkipForward size={14} />
-            </button>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={dismiss}
+                data-testid="origins-trailer-cta"
+                className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00FFA3] text-black font-bold text-xs uppercase tracking-wider hover:scale-[1.04] transition-transform shadow-[0_0_24px_rgba(0,255,163,0.35)]"
+              >
+                {ended ? "Read the lore" : "Enter the canon"}
+                <SkipForward size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                data-testid="origins-trailer-share"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs uppercase tracking-wider transition-colors backdrop-blur-sm"
+                aria-live="polite"
+              >
+                {shared ? (
+                  <>
+                    <Check size={13} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={13} />
+                    Share
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
