@@ -123,7 +123,8 @@ function App() {
                   <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
-                  <Route path="/game" element={<SpeedRunGame />} />
+                  <Route path="/game" element={<Phase1Runner3D />} />
+                  <Route path="/game/2d" element={<SpeedRunGame />} />
                   <Route path="/game/3d" element={<Phase1Runner3D />} />
                   <Route path="/betting" element={<BettingArena />} />
                   <Route path="/forum" element={<Forum />} />
