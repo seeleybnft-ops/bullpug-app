@@ -19,6 +19,7 @@ import Shop from "@/pages/Shop";
 import NFTGallery from "@/pages/NFTGallery";
 import WalletDashboard from "@/pages/WalletDashboard";
 import SpeedRunGame from "@/pages/SpeedRunGame";
+import Phase1Runner3D from "@/pages/Phase1Runner3D";
 import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
@@ -123,6 +124,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
                   <Route path="/game" element={<SpeedRunGame />} />
+                  <Route path="/game/3d" element={<Phase1Runner3D />} />
                   <Route path="/betting" element={<BettingArena />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/shop" element={<Shop />} />
