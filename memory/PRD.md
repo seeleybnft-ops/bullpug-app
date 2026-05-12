@@ -190,6 +190,35 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 119 — New Tinkerpug Greeting + Status Line (May 12, 2026)
+
+### Greeting rewritten per user copy
+- New greeting body: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:" followed by 5 bullets, **Bullpug Lore listed first** (lore-led ordering since Tinkerpug is now framed as a lore-keeper, not a market-bot).
+- Legacy-greeting filter extended to also catch the previous Tinkerpug greeting ("your Bullpug market intelligence companion") so existing wallets pick up the new copy on next load.
+- One-shot DB migration cleared 1 more chat_history doc that was holding the previous Tinkerpug greeting.
+
+### New chat-header status line (~15 LOC)
+Under the "Tinkerpug" name + LIVE pill, the previous "Real-time market data" tagline was replaced with a two-segment status line:
+
+`jacked into PugChain · 🟢 online`
+
+The right-hand half updates based on the loading state:
+- **🟢 online** (solid green dot) — idle, ready for input
+- **🟡 thinking…** (pulsing yellow dot) — AI is processing the current message
+
+Both segments use monospace for that "system console" vibe and small dot indicators with soft glow. Hidden when chat is minimised.
+
+### Files touched
+- `frontend/src/components/EnhancedAIAssistant.js` — greeting body + filter + status line markup
+
+### Verified
+- "keeper of the Bullpug archive" present ✓
+- Old "market intelligence companion" greeting absent ✓
+- Bullpug Lore appears before Live coin prices in bullet order ✓
+- Status line renders "jacked into PugChain · online" ✓
+- Lint clean ✓
+
+---
 ## Iteration 118 — Tinkerpug Greeting Migration (May 12, 2026)
 
 ### Issue

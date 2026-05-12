@@ -106,7 +106,12 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
             if (idx !== 0) return true;
             if (m.role !== "assistant") return true;
             const c = (m.content || "");
-            return !(c.includes("I'm **Bullpug AI**") || c.includes("Bullpug AI with **real-time"));
+            // Drop legacy greetings so the new "keeper of the Bullpug archive" version takes over
+            return !(
+              c.includes("I'm **Bullpug AI**") ||
+              c.includes("Bullpug AI with **real-time") ||
+              c.includes("your Bullpug market intelligence companion")
+            );
           });
           setMessages(cleaned);
           if (data.session_id) {
@@ -178,7 +183,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     if (isOpen && messages.length === 0 && !isLoading && historyLoaded) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Tinkerpug**, your Bullpug market intelligence companion with **real-time data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
+        content: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:\n\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
     }
@@ -432,7 +437,19 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                   </span>
                 </h3>
                 {!isMinimized && (
-                  <p className="text-[10px] text-slate-400">Real-time market data</p>
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1.5" data-testid="tinkerpug-status">
+                    <span className="font-mono">jacked into PugChain</span>
+                    <span className="text-slate-600">·</span>
+                    <span
+                      className={`inline-flex items-center gap-1 ${isLoading ? "text-[#F5D300]" : "text-[#00FFA3]"}`}
+                    >
+                      <span
+                        className={`w-1 h-1 rounded-full ${isLoading ? "bg-[#F5D300] animate-pulse" : "bg-[#00FFA3]"}`}
+                        style={{ boxShadow: isLoading ? "0 0 4px rgba(245,211,0,0.7)" : "0 0 4px rgba(0,255,163,0.6)" }}
+                      />
+                      <span className="font-mono">{isLoading ? "thinking…" : "online"}</span>
+                    </span>
+                  </p>
                 )}
               </div>
             </div>
