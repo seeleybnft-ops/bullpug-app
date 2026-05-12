@@ -11,6 +11,7 @@ import axios from "axios";
 import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence, winFeedback, loseFeedback, challengeCreatedFeedback, clickFeedback } from "@/utils/sounds";
 import "@/styles/animations.css";
+import ArenaChat from "@/components/ArenaChat";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -125,6 +126,11 @@ export default function BettingArena() {
             <P2PPotSystem walletAddress={publicKey?.toBase58()} connected={connected} config={config} wallet={{ publicKey, signTransaction: useWallet().signTransaction }} connection={useConnection().connection} />
           </TabsContent>
         </Tabs>
+
+        {/* Live arena chat — talk smack while you wait for the next draw */}
+        <div className="mt-10">
+          <ArenaChat />
+        </div>
       </div>
     </div>
   );

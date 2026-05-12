@@ -45,6 +45,16 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isFullscreen]);
 
+  // Allow any page to open Tinkerpug via a global custom event
+  useEffect(() => {
+    const handler = () => {
+      setIsOpen(true);
+      setIsMinimized(false);
+    };
+    window.addEventListener("tinkerpug:open", handler);
+    return () => window.removeEventListener("tinkerpug:open", handler);
+  }, []);
+
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [dropShared, setDropShared] = useState(false);
@@ -155,7 +165,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     if (isOpen && messages.length === 0 && !isLoading && historyLoaded) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Bullpug AI** with **real-time market data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
+        content: "Hey there! I'm **Tinkerpug**, your Bullpug market intelligence companion with **real-time data**! I can help you with:\n\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
     }
@@ -364,8 +374,8 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
           data-testid="ai-assistant-trigger"
         >
           <img 
-            src="/assets/bullpug_professor.png" 
-            alt="Bullpug AI" 
+            src="https://customer-assets.emergentagent.com/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/kfmcg9w5_image%20-%202026-05-12T133134.751.jpg" 
+            alt="Tinkerpug" 
             className="w-full h-full object-cover"
           />
           {hasNewMessage && (
@@ -394,14 +404,14 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full overflow-hidden border border-[#D946EF]/50">
                 <img 
-                  src="/assets/bullpug_professor.png" 
-                  alt="Bullpug AI" 
+                  src="https://customer-assets.emergentagent.com/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/kfmcg9w5_image%20-%202026-05-12T133134.751.jpg" 
+                  alt="Tinkerpug" 
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-1">
-                  Bullpug AI
+                  Tinkerpug
                   <Sparkles className="w-3 h-3 text-[#FFD700]" />
                   <span className="ml-1 px-1.5 py-0.5 bg-[#00FFA3]/20 text-[#00FFA3] text-[8px] rounded font-medium flex items-center gap-0.5">
                     <span className="w-1 h-1 bg-[#00FFA3] rounded-full animate-pulse" />

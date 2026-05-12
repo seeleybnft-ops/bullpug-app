@@ -154,6 +154,37 @@ async def join_pot(request: Request, data: P2PPotJoinRequest):
     # Persist to MongoDB BEFORE responding so a crash here doesn't lose the entry
     await persist_pot()
 
+    # Fire a web-push to all subscribers when the 60s countdown starts. One per round.
+    if countdown_just_started:
+        try:
+            from routers.push_notifications import broadcast_to_all_subscribers
+            await broadcast_to_all_subscribers({
+                "title": "⏱ 60s to win — Bullpug Pot is LIVE",
+                "body": f"Pot is {pot['total_amount_sol']:.3f} SOL with {unique_players} players. Tap to jump in before draw.",
+                "icon": "/bullpug-icon.png",
+                "badge": "/bullpug-badge.png",
+                "tag": f"pot-countdown-{pot['draw_at']}",
+                "url": "/betting",
+                "data": {
+                    "type": "pot_countdown",
+                    "total_sol": pot["total_amount_sol"],
+                    "players": unique_players,
+                    "draw_at": pot["draw_at"],
+                    "url": "/betting",
+                },
+            })
+        except Exception:
+            logger.exception("Failed to send pot countdown web push")
+
+        # Drop a system chat message into the arena chat for everyone watching
+        try:
+            from routers.arena_chat import post_system_message
+            await post_system_message(
+                f"⏱ 60-second countdown started · {unique_players} players · pot at {pot['total_amount_sol']:.3f} SOL — last chance to jump in!"
+            )
+        except Exception:
+            logger.exception("Failed to post countdown system chat")
+
     resp = {
         "message": f"Joined pot with {data.bet_amount_sol} SOL!",
         "probability": round(bet_lamports / pot["total_lamports"] * 100, 1),

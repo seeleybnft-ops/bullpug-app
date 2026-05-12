@@ -42,6 +42,7 @@ from routers.trading_competitions import router as trading_competitions_router
 from routers.ledger import router as ledger_router
 from routers.price_alerts import router as price_alerts_router
 from routers.big_wins import router as big_wins_router
+from routers.arena_chat import router as arena_chat_router
 
 ALL_ROUTERS = [
     betting_router, auth_router, email_router, leaderboard_router,
@@ -55,5 +56,5 @@ ALL_ROUTERS = [
     telegram_router, custodial_wallet_router, social_trading_router,
     push_notifications_router, signal_analytics_router, multichain_copy_router,
     runner_alerts_router, trading_competitions_router, ledger_router,
-    price_alerts_router, big_wins_router,
+    price_alerts_router, big_wins_router, arena_chat_router,
 ]

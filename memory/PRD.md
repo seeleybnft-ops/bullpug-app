@@ -190,6 +190,57 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 111 — Countdown Push + Arena Chat + Tinkerpug Rename + Market Intel CTA Swap (May 12, 2026)
+
+### Task 1 — Pot countdown alert (60s heads-up)
+- `routers/pot.py` `join_pot()`: after the 2-unique-wallet countdown trigger fires, the backend now:
+  - Sends a Web Push to every active subscriber: title "⏱ 60s to win — Bullpug Pot is LIVE" / body shows current pot size and player count
+  - Posts a system message into the live `arena_chat` so anyone watching the betting page sees the announcement inline
+- One push per round (the `countdown_just_started` flag is only true on the transition).
+
+### Task 2 — P2P Arena Live Chat
+- **NEW backend router `routers/arena_chat.py`**:
+  - `GET /api/arena-chat/messages?limit=&since=` — oldest→newest, 200-message rolling cap
+  - `POST /api/arena-chat/post {body, wallet_address?, session_id?}` — 2s per-author throttle, 240-char cap, profanity filter (replaces banned tokens with asterisks)
+  - Author label: `"qdeg…7Rjs"` for wallet posts, `"Anon-XXXX"` for anonymous (derived from last 4 of session_id)
+  - System messages (e.g. countdown announcements) render as centred yellow pill, never throttled
+  - Auto-prunes oldest docs when the collection exceeds MAX_HISTORY (200)
+- **NEW frontend `components/ArenaChat.js`**:
+  - Mounted at the bottom of `BettingArena.js`, below the Coin Flip / Pot tabs
+  - 5s HTTP polling with `since=lastSeenIso` (no WS — same K8s ingress reason)
+  - Optimistic message append on send, dedupe by id
+  - Right-aligned green bubbles for "You", left-aligned grey for others, centred yellow pills for system
+  - Wallet handle auto-derived from connected wallet, persistent anonymous session id stored in localStorage
+- Verified end-to-end: 4 distinct authors posted, profanity filtered ("fuck this" → "**** this"), rapid post returns 429, fetched feed renders correctly.
+
+### Task 3 — "Bullpug AI" renamed to "Tinkerpug"
+- New character art: `https://customer-assets.emergentagent.com/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/kfmcg9w5_image - 2026-05-12T133134.751.jpg` (cyberpunk pug-engineer at a holo-keyboard) replaces `/assets/bullpug_professor.png` in the chat floating button + the chat header avatar.
+- Header label: "Bullpug AI" → **"Tinkerpug"**.
+- Greeting message updated: "Hey there! I'm **Tinkerpug**, your Bullpug market intelligence companion with real-time data!"
+- System prompt in `routers/ai_chat.py` rewritten: Tinkerpug persona is now "the Bullpug ecosystem's resident market-intelligence companion. A cyberpunk pug-engineer in Newpug City who jacks into the PugChain to surface live data, lore, and trade signals" — keeps full lore knowledge while shifting voice to wise-cracking screen-glow-eyed engineer.
+
+### Task 4 — Market Intelligence section CTA swap
+- `pages/HomePage.js`: removed two off-topic buttons ("Discover the Lore" → /lore, "Play the Game" → /game). Replaced with a **single Ask Tinkerpug** button that fires a `window.dispatchEvent(new CustomEvent("tinkerpug:open"))`.
+- `components/EnhancedAIAssistant.js` listens for the `tinkerpug:open` event and pops the chat open (setting `isOpen=true` + `isMinimized=false`). Now any future component can open Tinkerpug with a one-liner.
+- Body copy reworded: "Bullpug AI monitors…" → "Tinkerpug monitors…".
+
+### Files touched
+- `backend/routers/pot.py` — countdown push + system chat trigger
+- `backend/routers/arena_chat.py` (new)
+- `backend/routers/__init__.py` — register arena_chat_router
+- `backend/routers/ai_chat.py` — Tinkerpug persona in system prompt
+- `frontend/src/components/EnhancedAIAssistant.js` — image, label, event listener
+- `frontend/src/components/ArenaChat.js` (new)
+- `frontend/src/pages/BettingArena.js` — mount ArenaChat below tabs
+- `frontend/src/pages/HomePage.js` — Ask Tinkerpug button, removed Lore/Game CTAs
+
+### Verified visually
+- HomePage market intel section now shows only "Ask Tinkerpug" pill
+- Click → chat opens with Tinkerpug avatar + label
+- Betting page shows Arena Chat at the bottom with working post/fetch
+- Chat correctly authors anon vs wallet posts with proper labels
+
+---
 ## Iteration 110 — Service Worker + Web Push (VAPID) + Trading-Badge Bug Fix (May 12, 2026)
 
 ### Part A — Trading-badge fallback bug (5-line fix)
