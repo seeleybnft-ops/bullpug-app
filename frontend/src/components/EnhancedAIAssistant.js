@@ -8,7 +8,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useAccount } from "wagmi";
 import { 
   Sparkles, X, Send, Loader2, 
-  Minimize2, Maximize2, ChevronDown, Trash2, Image, XCircle
+  Minimize2, Maximize2, ChevronDown, Trash2, Image, XCircle, Share2, Check
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
@@ -36,6 +36,30 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [dropShared, setDropShared] = useState(false);
+
+  // Share today's Bullpug Daily Drop — Web Share API → clipboard fallback → X intent
+  const shareDailyDrop = async (msg) => {
+    const text = `Today's Bullpug Daily Drop: ${msg.dropTheme}. ${msg.dropScene}. Catch tomorrow's drop on /lore. 🐾✨`;
+    const url = `${window.location.origin}/lore`;
+    try {
+      if (navigator.share && typeof navigator.share === "function") {
+        await navigator.share({ title: `Bullpug Daily Drop · ${msg.dropTheme}`, text, url });
+        setDropShared(true);
+        setTimeout(() => setDropShared(false), 2500);
+        return;
+      }
+    } catch (e) { /* user cancelled — fall through */ }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setDropShared(true);
+      setTimeout(() => setDropShared(false), 2500);
+      toast.success("Copied — share the drop!");
+    } catch (e) {
+      const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+      window.open(intent, "_blank", "noopener,noreferrer");
+    }
+  };
   
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
@@ -156,6 +180,9 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
         message: userMessage || "Please analyze this image and identify any tokens, charts, or crypto-related content.",
         session_id: sessionId,
         active_tab: activeTab,
+        daily_drop_last_seen: (() => {
+          try { return localStorage.getItem("bullpug_daily_drop_last_seen") || null; } catch (e) { return null; }
+        })(),
         chat_history: messages.slice(-10).map(m => ({
           role: m.role,
           content: m.content
@@ -176,6 +203,23 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
 
       const { data } = await axios.post(`${API}/ai/chat`, requestData);
 
+      // Prepend Daily Bullpug Drop card if backend included one
+      const newMessages = [];
+      if (data.daily_drop && data.daily_drop.image_base64) {
+        newMessages.push({
+          role: "drop",
+          dropDate: data.daily_drop.date_utc,
+          dropTheme: data.daily_drop.theme,
+          dropScene: data.daily_drop.scene,
+          dropImage: data.daily_drop.image_base64,
+          dropCaption: data.daily_drop.caption,
+          timestamp: Date.now(),
+        });
+        try {
+          localStorage.setItem("bullpug_daily_drop_last_seen", data.daily_drop.date_utc);
+        } catch (e) { /* ignore */ }
+      }
+
       const assistantMessage = {
         role: "assistant",
         content: data.response,
@@ -184,8 +228,9 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
         generatedImage: data.image_base64 || null,
         kind: data.kind || "text"
       };
-      
-      setMessages(prev => [...prev, assistantMessage]);
+      newMessages.push(assistantMessage);
+
+      setMessages(prev => [...prev, ...newMessages]);
       setHasLiveData(data.has_live_data || false);
       
       // Clear image after sending
@@ -388,7 +433,56 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                 ref={messagesContainerRef}
                 className="flex-1 p-4 overflow-y-auto h-[calc(100%-130px)] space-y-4"
               >
-                {messages.map((msg, i) => (
+                {messages.map((msg, i) => {
+                  // Special render: Daily Bullpug Drop card
+                  if (msg.role === "drop") {
+                    return (
+                      <div key={i} className="flex justify-start" data-testid="daily-drop-card">
+                        <div
+                          className="max-w-[95%] rounded-2xl overflow-hidden border border-[#F5D300]/30 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] shadow-[0_0_30px_rgba(245,211,0,0.10)]"
+                        >
+                          <img
+                            src={msg.dropImage}
+                            alt={msg.dropTheme || "Bullpug Daily Drop"}
+                            className="w-full h-auto block"
+                            loading="lazy"
+                          />
+                          <div className="p-3">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="w-1.5 h-1.5 bg-[#F5D300] rounded-full animate-pulse" />
+                              <span className="text-[9px] uppercase tracking-[0.2em] text-[#F5D300] font-bold">
+                                Today's Bullpug Drop
+                              </span>
+                            </div>
+                            <p
+                              className="text-sm font-bold text-white tracking-tight"
+                              style={{ fontFamily: "Orbitron, sans-serif" }}
+                            >
+                              {msg.dropTheme}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                              {msg.dropScene}
+                            </p>
+                            <p className="text-[10px] text-slate-500 mt-2 italic">
+                              Gone after midnight UTC — only one drop per day.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => shareDailyDrop(msg)}
+                              data-testid="daily-drop-share-btn"
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F5D300] hover:bg-[#F5D300]/90 text-black text-[10px] font-bold uppercase tracking-wider transition-colors"
+                              aria-live="polite"
+                            >
+                              {dropShared ? <Check size={11} /> : <Share2 size={11} />}
+                              {dropShared ? "Copied!" : "Share the drop"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
                   <div
                     key={i}
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -442,7 +536,8 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                       </ReactMarkdown>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 
                 {isLoading && (
                   <div className="flex justify-start">

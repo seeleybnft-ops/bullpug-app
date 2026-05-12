@@ -190,6 +190,45 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 104 — Daily Bullpug Drop (May 12, 2026)
+
+### Concept
+One AI-generated Neuko-universe image, rotated every UTC day, revealed inline in
+the AI chatbot's first response of the day. "Gone after midnight UTC — only one
+drop per day" creates FOMO; the share button turns every viewer into an amplifier.
+
+### Backend
+- **New service**: `/app/backend/services/daily_drop.py`
+  - **30 themed prompts** spanning the Neuko canon (Cometside Vigil, Moon-Cheese Float, Alarm Red, Dawn Over Newpug, The Bull Constellation, PugChain Memory, Magenta River, Lunar Flag, Festival of Barks variants, etc.)
+  - Deterministic per-UTC-day selection: `sha256(date_utc) % len(prompts)` so the SAME theme rotates predictably (one image per day total, not per user)
+  - MongoDB cache: collection `daily_drops`, keyed by `date_utc`. Brand-style suffix auto-injected. Uses `gemini-3.1-flash-image-preview` via Emergent LLM Key.
+  - **Race-safe**: per-date `asyncio.Lock` cache + `$setOnInsert` upsert so concurrent first-callers don't double-generate
+  - Generation cost: **~1 image per day, period** (not per user). Verified: cache hit returns in ~260ms.
+
+- **`routers/ai_chat.py`**:
+  - `EnhancedChatMessage` gains a `daily_drop_last_seen: Optional[str]` field
+  - `_maybe_attach_daily_drop()` helper attaches today's drop only when `last_seen != today_utc`. Wired into all chat return paths (image-gen, normal, error fallback) so the drop never gets lost.
+  - **New endpoint `GET /api/ai/daily-drop`** returns the drop directly (for testing or static pages later)
+
+### Frontend (`EnhancedAIAssistant.js`)
+- Sends `daily_drop_last_seen` from localStorage on every chat request
+- When response contains `daily_drop`, prepends a **special drop card** above the assistant's text reply:
+  - Full-bleed image, "● TODAY'S BULLPUG DROP" yellow pulse badge, theme title, scene description, FOMO line, and "SHARE THE DROP" CTA
+  - `data-testid="daily-drop-card"` + `data-testid="daily-drop-share-btn"`
+- Sets `localStorage["bullpug_daily_drop_last_seen"]` to today's UTC date on receipt → drop never re-appears later in the same UTC day
+- Share button uses Web Share API → clipboard fallback → X intent
+
+### Verified end-to-end
+- Test 1 (no seen flag): `daily_drop` attached ✓
+- Test 2 (seen today): drop skipped ✓
+- Test 3 (seen yesterday): drop re-attached ✓
+- Test 4 (cache hit): 259ms ✓
+- UI screenshot: "Magenta River" drop rendered beautifully on first message; second message did NOT re-show the card ✓
+
+### Today's drop on record
+- 2026-05-12 → **"Magenta River"** (PugChain transaction visualised as a glowing river of magenta light)
+
+---
 ## Iteration 103 — Trailer Replay/Share + Chatbot Image Generation (May 12, 2026)
 
 ### Origins Trailer: replay + share

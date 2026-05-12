@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timezone
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
+from services.daily_drop import get_todays_drop, _today_utc
 from utils.database import db
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -681,6 +682,29 @@ class EnhancedChatMessage(BaseModel):
     active_tab: str = "dashboard"
     chat_history: List[Dict] = []
     image: Optional[str] = None  # Base64 encoded image
+    daily_drop_last_seen: Optional[str] = None  # UTC date string YYYY-MM-DD
+
+
+# === DAILY DROP HELPER ===
+async def _maybe_attach_daily_drop(payload: Dict, last_seen: Optional[str]) -> Dict:
+    """If the user hasn't seen today's drop, attach it to the response payload."""
+    today = _today_utc()
+    if last_seen == today:
+        return payload
+    try:
+        drop = await get_todays_drop()
+    except Exception:
+        logger.exception("Failed to fetch daily drop")
+        drop = None
+    if drop and drop.get("image_base64"):
+        payload["daily_drop"] = {
+            "date_utc": drop["date_utc"],
+            "theme": drop.get("theme"),
+            "scene": drop.get("scene"),
+            "image_base64": drop["image_base64"],
+            "caption": drop.get("caption"),
+        }
+    return payload
 
 
 # === IMAGE GENERATION HELPERS ===
@@ -800,7 +824,8 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     raw_msg = (chat.message or "").strip()
     image_prompt = _detect_image_prompt(raw_msg)
     if image_prompt:
-        return await _generate_image_response(image_prompt, chat.session_id)
+        resp = await _generate_image_response(image_prompt, chat.session_id)
+        return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen)
 
     try:
         # Get journal summary for context
@@ -1284,15 +1309,39 @@ Provide a helpful response using the real-time data above when relevant. Be spec
             for session_id in oldest_sessions:
                 chat_sessions.pop(session_id, None)
         
-        return {
+        return await _maybe_attach_daily_drop({
             "response": response, 
             "session_id": chat.session_id,
             "has_live_data": bool(real_time_data or specific_prices)
-        }
+        }, chat.daily_drop_last_seen)
         
     except Exception as e:
         logger.error(f"Enhanced chat error: {e}")
-        return {"response": "I encountered an error. Please try again!", "session_id": chat.session_id}
+        return await _maybe_attach_daily_drop(
+            {"response": "I encountered an error. Please try again!", "session_id": chat.session_id},
+            chat.daily_drop_last_seen,
+        )
+
+
+@router.get("/daily-drop")
+async def get_daily_drop():
+    """Return today's Bullpug Daily Drop — a fresh AI image rotated every UTC day.
+
+    First call of the day triggers generation (~5-10s). All subsequent calls hit
+    the MongoDB cache for the rest of the UTC day.
+    """
+    from fastapi import HTTPException
+    drop = await get_todays_drop()
+    if not drop:
+        raise HTTPException(status_code=503, detail="Daily drop is being prepared. Please try again shortly.")
+    return {
+        "date_utc": drop["date_utc"],
+        "theme": drop.get("theme"),
+        "scene": drop.get("scene"),
+        "image_base64": drop["image_base64"],
+        "caption": drop.get("caption"),
+        "created_at": drop.get("created_at"),
+    }
 
 
 @router.get("/prices")
