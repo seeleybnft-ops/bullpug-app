@@ -247,11 +247,15 @@ async def draw_pot_winner(request: Request):
     logger.info(f"Pot Rake: {rake} SOL ({rake_lamports} lamports) to {DISTRIBUTION_WALLET}")
 
     # === CONTRIBUTE 25% OF RAKE TO PRIZE POOL (Cosmic Runner Jackpot) ===
+    # The jackpot absorbs the pot-payout tx fee so the operator's 75% share
+    # is never debited for on-chain transfer costs.
     try:
+        from routers.prize_pool import SOL_TX_FEE
         await add_to_prize_pool(
             amount_sol=rake,
             source="pot_rake",
-            details={"pot_id": pot["id"], "total_pot": total, "entries": len(pot["entries"])}
+            details={"pot_id": pot["id"], "total_pot": total, "entries": len(pot["entries"])},
+            fee_offset_sol=SOL_TX_FEE,
         )
     except Exception as e:
         logger.error(f"Failed to add pot rake to prize pool: {e}")

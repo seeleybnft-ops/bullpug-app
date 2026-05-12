@@ -32,6 +32,11 @@ PRIZE_POOL_RATE = 0.25
 # Payout interval in days
 PAYOUT_INTERVAL_DAYS = 3
 
+# Standard Solana network fee for a single signed transfer.
+# All transfer fees (pot payouts, coinflip payouts, leaderboard prize payouts)
+# are absorbed by the jackpot share so the operator's 75% rake remains clean.
+SOL_TX_FEE = 0.000005
+
 
 async def get_or_create_prize_pool():
     """Get current prize pool or create if doesn't exist."""
@@ -54,23 +59,30 @@ async def get_or_create_prize_pool():
     return pool
 
 
-async def add_to_prize_pool(amount_sol: float, source: str, details: dict = None):
-    """Add funds to the prize pool (25% of revenue)."""
-    contribution = amount_sol * PRIZE_POOL_RATE
-    
+async def add_to_prize_pool(amount_sol: float, source: str, details: dict = None, fee_offset_sol: float = 0.0):
+    """Add 25% of revenue (rake/skin) to the prize pool.
+
+    `fee_offset_sol` is subtracted from the jackpot contribution to absorb
+    transaction fees incurred when this rake event was paid out (e.g. the pot
+    winner's transfer fee). This keeps the operator's 75% rake share clean —
+    the jackpot covers all on-chain transfer costs.
+    """
+    contribution = amount_sol * PRIZE_POOL_RATE - max(fee_offset_sol, 0.0)
+
     if contribution <= 0:
         return
-    
+
     pool = await get_or_create_prize_pool()
-    
+
     contribution_record = {
-        "amount_sol": round(contribution, 6),
-        "source": source,  # "rake" or "skin_purchase"
+        "amount_sol": round(contribution, 9),
+        "source": source,
         "original_amount": amount_sol,
+        "fee_offset_sol": round(max(fee_offset_sol, 0.0), 9),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "details": details or {}
     }
-    
+
     await db.prize_pool.update_one(
         {"_id": pool["_id"]},
         {
@@ -78,8 +90,11 @@ async def add_to_prize_pool(amount_sol: float, source: str, details: dict = None
             "$push": {"contributions": contribution_record}
         }
     )
-    
-    logger.info(f"Added {contribution:.6f} SOL to prize pool from {source} (25% of {amount_sol:.6f})")
+
+    logger.info(
+        f"Added {contribution:.9f} SOL to prize pool from {source} "
+        f"(25% of {amount_sol:.6f} minus {max(fee_offset_sol, 0.0):.9f} fee)"
+    )
     return contribution
 
 
@@ -143,7 +158,11 @@ async def execute_prize_payout(admin_key: str = None):
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     pool = await get_or_create_prize_pool()
-    total_prize = pool.get("total_sol", 0)
+    gross_prize = pool.get("total_sol", 0)
+    # Estimate fee cost for up to 10 winner transfers — absorbed by the jackpot
+    # so the operator's 75% rake share never subsidises payout fees.
+    estimated_fees = SOL_TX_FEE * 10
+    total_prize = max(0.0, gross_prize - estimated_fees)
     
     # Helper function to reset timer and leaderboard
     async def reset_cycle():

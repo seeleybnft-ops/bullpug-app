@@ -190,6 +190,54 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 112 — Rake-Fee Absorption + Admin Escrow Health Indicator (May 12, 2026)
+
+### Task 1 — All transfer fees now come out of the 25% jackpot share
+**Problem:** Previously, on-chain transfer fees (Solana base fee ≈ 5000 lamports per signed transfer) were silently debited from the escrow's general balance — which in practice meant the operator's 75% rake was subsidising both the pot/coinflip winner transfers AND the future leaderboard prize payouts.
+
+**Fix:**
+- Added `SOL_TX_FEE = 0.000005` constant in `routers/prize_pool.py`.
+- `add_to_prize_pool()` now accepts `fee_offset_sol`. Contribution is computed as `25% × rake − fee_offset_sol` and stored alongside `original_amount` for audit.
+- `routers/pot.py` and `routers/betting.py` pass `fee_offset_sol=SOL_TX_FEE` so the jackpot share absorbs the winner-payout fee for each round.
+- `execute_prize_payout()` (leaderboard payout cycle): subtracts `10 × SOL_TX_FEE` from the gross pool BEFORE distributing percentages — covers up to 10 winner transfers and keeps the operator share untouched.
+- Skin purchases unchanged (no SOL transfer fees on the way in, money flows escrow ← user).
+
+**Verified:**
+- Simulated 1 SOL pot draw → 0.025 SOL rake → jackpot contribution = 0.006245 SOL (= 0.00625 − 5e-06). Operator share remains clean 0.01875 SOL.
+- `contribution_record` now persists `fee_offset_sol` so historical audits show exactly which fees the jackpot absorbed.
+
+### Task 2 — Admin Panel Escrow Health Indicator
+**New backend endpoint** `GET /api/admin/escrow-status?admin_wallet=…`:
+- Gated to both admin wallets (`we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`, `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`) — verified 403 for non-admins.
+- Returns live on-chain balance, pending obligations (open pot + open/matched coinflip challenges), jackpot-owed amount, free capital (= balance − obligations − jackpot owed), and a 7-day rake breakdown split into operator (75%) vs jackpot (25%) flow.
+- Headroom status thresholds: `healthy ≥ 0.5 SOL`, `ok ≥ 0.1`, `low ≥ 0.01`, `critical < 0.01`.
+
+**New frontend component** `components/EscrowHealthCard.js`:
+- Status-coloured top accent bar (green / yellow / orange / red).
+- Headroom progress bar against 0.5 SOL target with the free-capital figure in large Orbitron.
+- 4-tile mini-grid (on-chain, pending out, jackpot owed, tx fee per transfer).
+- 7-day rake-flow breakdown showing the operator vs jackpot split with an explainer line "All on-chain transfer fees are absorbed by the 25% jackpot share — operator capital is untouched."
+- Inline top-up recommendation when status is `low` or `critical`, calculated as `target − free_capital`.
+- Refreshes itself every 30 seconds; manual refresh button.
+
+**Mounted** in `pages/AdminPanel.js` just above the Bullpug Drop Vault quick-link card (so it's the first thing the admin sees).
+
+**Current live state:** Escrow balance 0.02 SOL → status `low` → UI shows orange warning + recommends 0.48 SOL top-up to reach 0.5 SOL operating buffer.
+
+### Files touched
+- `backend/routers/prize_pool.py` — `SOL_TX_FEE`, `fee_offset_sol` param, leaderboard payout fee deduction
+- `backend/routers/pot.py` — pass `fee_offset_sol=SOL_TX_FEE`
+- `backend/routers/betting.py` — pass `fee_offset_sol=SOL_TX_FEE`
+- `backend/routers/admin.py` — new `escrow-status` endpoint
+- `frontend/src/components/EscrowHealthCard.js` (new)
+- `frontend/src/pages/AdminPanel.js` — mount card
+
+### Verified
+- Backend: 200 for both admin wallets, 403 for non-admin, payload correct ✓
+- Math: simulated rake split returns exactly `0.025 × 0.25 − 0.000005 = 0.006245 SOL` ✓
+- UI: lint clean ✓
+
+---
 ## Iteration 111 — Countdown Push + Arena Chat + Tinkerpug Rename + Market Intel CTA Swap (May 12, 2026)
 
 ### Task 1 — Pot countdown alert (60s heads-up)

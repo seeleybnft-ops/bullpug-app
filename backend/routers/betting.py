@@ -168,13 +168,15 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         }}
     )
     
-    # === CONTRIBUTE TO PRIZE POOL (25% of rake) ===
+    # === CONTRIBUTE TO PRIZE POOL (25% of rake, minus coin-flip payout tx fee) ===
     try:
+        from routers.prize_pool import SOL_TX_FEE
         rake_amount = challenge["rake_sol"]
         await add_to_prize_pool(
             amount_sol=rake_amount,
             source="coinflip_rake",
-            details={"challenge_id": data.challenge_id, "total_pot": challenge["bet_amount_sol"] * 2}
+            details={"challenge_id": data.challenge_id, "total_pot": challenge["bet_amount_sol"] * 2},
+            fee_offset_sol=SOL_TX_FEE,
         )
     except Exception as e:
         logger.error(f"Failed to add to prize pool: {e}")

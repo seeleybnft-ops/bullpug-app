@@ -11,6 +11,7 @@ import {
   RefreshCw, Play, Ban, Clock, Wallet, CheckCircle, XCircle, ArrowDownRight, ArrowUpRight,
   Activity, Sparkles, ExternalLink
 } from "lucide-react";
+import EscrowHealthCard from "@/components/EscrowHealthCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -192,6 +193,9 @@ export default function AdminPanel() {
             </div>
           </>
         )}
+
+        {/* Escrow capital health — admin-only, visible to both main + escrow wallets */}
+        <EscrowHealthCard adminWallet={publicKey?.toBase58()} />
 
         {/* Quick-link: Bullpug Drop Vault */}
         <Link

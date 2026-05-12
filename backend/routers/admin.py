@@ -386,3 +386,101 @@ async def admin_bot_health(admin_wallet: str):
         "bot_configs": bot_configs,
         "rake": rake_stats,
     }
+
+
+# --- Escrow balance + headroom indicator (admin-only) ---
+
+# Recommended buffer to keep on-hand for tx fees + timing-skew during payouts.
+# Below this we render a warning in the UI so the operator knows to top up.
+ESCROW_HEADROOM_TARGET_SOL = 0.5
+ESCROW_HEADROOM_WARN_SOL = 0.1
+ESCROW_HEADROOM_CRITICAL_SOL = 0.01
+
+
+@router.get("/escrow-status")
+async def admin_escrow_status(admin_wallet: str):
+    """Live on-chain escrow balance + headroom assessment for the AdminPanel.
+
+    Gated to the wallets listed in `utils/config.py::ADMIN_WALLETS`
+    (currently `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT` and
+    `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`).
+    """
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    from utils.solana_payout import get_escrow_balance, get_tx_fee_sol
+    balance_sol = get_escrow_balance()
+
+    # In-flight obligations: payouts queued but not yet on-chain (open pot/coinflip)
+    pot = get_pot()
+    pot_obligation_sol = float(pot.get("total_amount_sol") or 0.0)
+    open_challenges = await db.betting_challenges.find(
+        {"status": {"$in": ["open", "matched", "active", "pending"]}}
+    ).to_list(500)
+    coinflip_obligation_sol = 0.0
+    for c in open_challenges:
+        amount = float(c.get("bet_amount_sol") or 0.0)
+        # Matched challenges hold 2x bet; open challenges hold 1x
+        if c.get("status") in ("matched", "active"):
+            coinflip_obligation_sol += amount * 2.0
+        else:
+            coinflip_obligation_sol += amount
+    pending_obligations_sol = pot_obligation_sol + coinflip_obligation_sol
+
+    # Jackpot share — money that's accounted to the prize pool but still sitting in escrow
+    prize_pool = await db.prize_pool.find_one({"active": True})
+    jackpot_owed_sol = float(prize_pool.get("total_sol") or 0.0) if prize_pool else 0.0
+
+    tx_fee_sol = get_tx_fee_sol()
+    if balance_sol is None:
+        free_capital_sol: Optional[float] = None
+        status = "unknown"
+    else:
+        free_capital_sol = max(0.0, balance_sol - pending_obligations_sol - jackpot_owed_sol)
+        if free_capital_sol < ESCROW_HEADROOM_CRITICAL_SOL:
+            status = "critical"
+        elif free_capital_sol < ESCROW_HEADROOM_WARN_SOL:
+            status = "low"
+        elif free_capital_sol < ESCROW_HEADROOM_TARGET_SOL:
+            status = "ok"
+        else:
+            status = "healthy"
+
+    # Recent rake earnings (operator side) over the last 7 days
+    from datetime import timedelta
+    seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    pipeline = [
+        {"$match": {"created_at": {"$gte": seven_days_ago}}},
+        {"$group": {"_id": None, "total_rake_sol": {"$sum": "$rake_sol"}}},
+    ]
+    coinflip_rake_agg = await db.betting_history.aggregate(pipeline).to_list(1)
+    pot_rake_agg = await db.pot_results.aggregate(pipeline).to_list(1)
+    coinflip_rake_7d = float(coinflip_rake_agg[0]["total_rake_sol"]) if coinflip_rake_agg else 0.0
+    pot_rake_7d = float(pot_rake_agg[0]["total_rake_sol"]) if pot_rake_agg else 0.0
+    rake_total_7d = coinflip_rake_7d + pot_rake_7d
+    operator_share_7d = rake_total_7d * 0.75  # 75% stays in escrow
+    jackpot_share_7d = rake_total_7d * 0.25   # 25% flows to Cosmic Runner jackpot
+
+    return {
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "escrow_wallet": DISTRIBUTION_WALLET,
+        "balance_sol": round(balance_sol, 6) if balance_sol is not None else None,
+        "tx_fee_sol": tx_fee_sol,
+        "pending_obligations_sol": round(pending_obligations_sol, 6),
+        "jackpot_owed_sol": round(jackpot_owed_sol, 6),
+        "free_capital_sol": round(free_capital_sol, 6) if free_capital_sol is not None else None,
+        "headroom": {
+            "target_sol": ESCROW_HEADROOM_TARGET_SOL,
+            "warn_sol": ESCROW_HEADROOM_WARN_SOL,
+            "critical_sol": ESCROW_HEADROOM_CRITICAL_SOL,
+            "status": status,
+        },
+        "rake_last_7d": {
+            "total_sol": round(rake_total_7d, 6),
+            "coinflip_sol": round(coinflip_rake_7d, 6),
+            "pot_sol": round(pot_rake_7d, 6),
+            "operator_share_sol": round(operator_share_7d, 6),
+            "jackpot_share_sol": round(jackpot_share_7d, 6),
+        },
+    }
+
