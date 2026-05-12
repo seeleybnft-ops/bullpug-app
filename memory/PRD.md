@@ -190,6 +190,55 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 116 — Bot MongoDB Collections Archived & Dropped + Scheduler Cleanup (May 12, 2026)
+
+### What was dropped
+**879 docs across 11 orphan bot collections** dumped to per-collection gzipped JSONL files, packaged as a single tarball, then `dropCollection`'d from MongoDB.
+
+| Collection | Docs |
+|---|---|
+| `ai_trader_signals` | 698 (largest — all bot-generated buy/sell signals) |
+| `signal_outcomes` | 77 |
+| `auto_trade_logs` | 55 |
+| `ai_trader_positions` | 20 |
+| `ai_trader_settings` | 15 |
+| `tracking_runs` | 9 |
+| `ai_trader_history` | 4 |
+| `auto_tracking_config` | 1 |
+| `adaptive_settings`, `ai_trader_executions`, `strategy_recommendations` | 0 (empty placeholders) |
+
+### What was kept (live deps)
+- `smart_money_signals`, `smart_money_meta` — Smart Money tracker runs every 10 min
+- `custodial_wallets` — Pugburn close-empty-token-accounts feature
+- `copy_trade_notifications`, `copy_trade_notification_settings` — social trading
+- `trader_settings` — Telegram bot reads from it
+
+### Archive layout (`/app/memory/archive/`)
+- `bot_collections_2026-05-12.tar.gz` (106 KB, SHA-256 `6df95338b73a1030a3fd976c26bc0cfbe3923815452708892ef81cbeeab3e0e2`)
+  - One `.jsonl.gz` per collection (with `ObjectId`/`datetime`/`bytes` properly encoded)
+  - `MANIFEST.json` with doc counts + restore instructions
+- `restore_bot_collections.py` — one-shot restore script. Safe-by-default (skips any collection that already has live docs)
+- `RESTORE.md` — master reference for all 3 archives (frontend, backend, collections) with their SHA-256s and restore commands
+
+### Scheduler cleanup
+- Removed `run_signal_tracking()` function (~160 LOC) — source `ai_trader_signals` is gone
+- Removed `_get_simulated_price()` helper
+- Removed the `signal_tracking` job registration
+- Updated scheduler startup log to no longer mention hibernated bot jobs
+- Confirmed scheduler announces: "prize pool (5 min), journal auto-complete (1 hour), runner alerts (5 min), PRICE COLLECTOR (1 min), SMART MONEY v2 (10 min), DAILY DIGEST (20:00 UTC), POT AUTO-DRAW (5 sec), ESCROW ALERT (10 min)" — pure arena/jackpot ops only
+
+### Bullpug archive total (cumulative, all 3 cleanup iterations)
+**404 KB on disk** preserves **~13,000 LOC + 879 DB docs**. Full restore path documented in `RESTORE.md`.
+
+### Verified
+- Backend restarted clean ✓
+- Scheduler announces only live jobs (no more "[HIBERNATED: …]" suffix) ✓
+- DB went from 68 → 57 collections (–11), 3,250 → 2,387 docs ✓
+- All live endpoints 200 ✓
+- All frontend routes render with zero page errors ✓
+- `restore_bot_collections.py` imports cleanly + parses MANIFEST ✓
+
+---
 ## Iteration 115 — Bot Backend Archived & Surgically Deleted (May 12, 2026)
 
 ### What was archived

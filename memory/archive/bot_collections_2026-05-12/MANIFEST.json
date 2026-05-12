@@ -1,0 +1,62 @@
+{
+  "created_at": "2026-05-12T04:23:23.073916Z",
+  "collections": [
+    {
+      "collection": "adaptive_settings",
+      "docs_archived": 0,
+      "size": 49
+    },
+    {
+      "collection": "ai_trader_executions",
+      "docs_archived": 0,
+      "size": 52
+    },
+    {
+      "collection": "ai_trader_history",
+      "docs_archived": 4,
+      "size": 617
+    },
+    {
+      "collection": "ai_trader_positions",
+      "docs_archived": 20,
+      "size": 4239
+    },
+    {
+      "collection": "ai_trader_settings",
+      "docs_archived": 15,
+      "size": 1417
+    },
+    {
+      "collection": "ai_trader_signals",
+      "docs_archived": 698,
+      "size": 89363
+    },
+    {
+      "collection": "auto_tracking_config",
+      "docs_archived": 1,
+      "size": 275
+    },
+    {
+      "collection": "auto_trade_logs",
+      "docs_archived": 55,
+      "size": 3976
+    },
+    {
+      "collection": "signal_outcomes",
+      "docs_archived": 77,
+      "size": 6659
+    },
+    {
+      "collection": "strategy_recommendations",
+      "docs_archived": 0,
+      "size": 56
+    },
+    {
+      "collection": "tracking_runs",
+      "docs_archived": 9,
+      "size": 520
+    }
+  ],
+  "total_docs": 879,
+  "restore_instructions": "See /app/memory/archive/RESTORE.md or run `python3 /app/memory/archive/restore_bot_collections.py`"
+}

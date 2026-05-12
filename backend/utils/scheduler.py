@@ -1,4 +1,4 @@
-"""Background scheduler for automatic prize pool payouts and signal tracking."""
+"""Background scheduler for automatic prize pool payouts and arena ops."""
 
 import asyncio
 import logging
@@ -33,181 +33,6 @@ async def check_and_execute_payout():
     except Exception as e:
         logger.error(f"Error in prize pool scheduler: {e}")
 
-
-async def run_signal_tracking():
-    """
-    Periodic job to track signal outcomes.
-    Runs every hour to capture 1h, 4h, and 24h price changes.
-    """
-    from utils.database import db
-    
-    try:
-        # Check if tracking is enabled
-        config = await db.auto_tracking_config.find_one(
-            {"config_type": "signal_tracking"},
-            {"_id": 0}
-        )
-        
-        if not config or not config.get("enabled", True):
-            logger.debug("Signal tracking is disabled")
-            return
-        
-        now = datetime.now(timezone.utc)
-        run_id = now.strftime("%Y%m%d_%H%M%S")
-        
-        results = {
-            "run_id": run_id,
-            "run_at": now.isoformat(),
-            "signals_processed": 0,
-            "outcomes_1h": 0,
-            "outcomes_4h": 0,
-            "outcomes_24h": 0,
-            "errors": [],
-            "source": "scheduler"
-        }
-        
-        # Get signals from the last 25 hours
-        from datetime import timedelta
-        cutoff = (now - timedelta(hours=25)).isoformat()
-        
-        signals = await db.ai_trader_signals.find({
-            "created_at": {"$gte": cutoff},
-            "entry_price": {"$exists": True, "$ne": None}
-        }, {"_id": 0}).to_list(500)
-        
-        results["signals_processed"] = len(signals)
-        
-        for signal in signals:
-            try:
-                signal_id = signal.get("signal_id")
-                token_mint = signal.get("token_mint")
-                entry_price = signal.get("entry_price", 0)
-                signal_type = signal.get("signal_type", "buy")
-                created_at = signal.get("created_at", "")
-                
-                if not signal_id or not entry_price:
-                    continue
-                
-                try:
-                    signal_time = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                except ValueError:
-                    continue
-                
-                hours_elapsed = (now - signal_time).total_seconds() / 3600
-                
-                # Get current price (simulated for now)
-                current_price = await _get_simulated_price(entry_price)
-                
-                if not current_price or current_price <= 0:
-                    continue
-                
-                # Calculate PnL
-                if signal_type == "buy":
-                    pnl_percent = ((current_price - entry_price) / entry_price) * 100
-                else:
-                    pnl_percent = ((entry_price - current_price) / entry_price) * 100
-                
-                # Determine outcome
-                if pnl_percent >= 2:
-                    outcome = "win"
-                elif pnl_percent <= -2:
-                    outcome = "loss"
-                else:
-                    outcome = "neutral"
-                
-                # Update appropriate time bucket
-                update_fields = {}
-                
-                if config.get("track_1h", True) and 1 <= hours_elapsed < 2:
-                    update_fields = {
-                        "price_after_1h": current_price,
-                        "pnl_1h_percent": round(pnl_percent, 2),
-                        "outcome_1h": outcome
-                    }
-                    results["outcomes_1h"] += 1
-                elif config.get("track_4h", True) and 4 <= hours_elapsed < 5:
-                    update_fields = {
-                        "price_after_4h": current_price,
-                        "pnl_4h_percent": round(pnl_percent, 2),
-                        "outcome_4h": outcome
-                    }
-                    results["outcomes_4h"] += 1
-                elif config.get("track_24h", True) and 24 <= hours_elapsed < 25:
-                    update_fields = {
-                        "price_after_24h": current_price,
-                        "pnl_24h_percent": round(pnl_percent, 2),
-                        "outcome_24h": outcome
-                    }
-                    results["outcomes_24h"] += 1
-                
-                if update_fields:
-                    update_fields["last_tracked_at"] = now.isoformat()
-                    
-                    indicators = signal.get("technical_indicators", {})
-                    
-                    await db.signal_outcomes.update_one(
-                        {"signal_id": signal_id},
-                        {
-                            "$set": update_fields,
-                            "$setOnInsert": {
-                                "signal_id": signal_id,
-                                "token_symbol": signal.get("token_symbol"),
-                                "token_mint": token_mint,
-                                "signal_type": signal_type,
-                                "strategy": signal.get("strategy"),
-                                "entry_price": entry_price,
-                                "confidence": signal.get("confidence", 0),
-                                "rsi": indicators.get("rsi"),
-                                "macd_histogram": indicators.get("macd", {}).get("histogram"),
-                                "bollinger_position": indicators.get("bollinger", {}).get("position"),
-                                "short_trend": indicators.get("short_trend"),
-                                "long_trend": indicators.get("long_trend"),
-                                "created_at": created_at
-                            }
-                        },
-                        upsert=True
-                    )
-                    
-            except Exception as e:
-                results["errors"].append(f"{signal.get('signal_id', 'unknown')}: {str(e)}")
-        
-        # Store run record
-        run_record = results.copy()
-        await db.tracking_runs.insert_one(run_record)
-        
-        # Update config stats
-        await db.auto_tracking_config.update_one(
-            {"config_type": "signal_tracking"},
-            {
-                "$set": {"last_run": now.isoformat()},
-                "$inc": {
-                    "total_runs": 1,
-                    "total_outcomes_tracked": results["outcomes_1h"] + results["outcomes_4h"] + results["outcomes_24h"]
-                }
-            }
-        )
-        
-        total_tracked = results["outcomes_1h"] + results["outcomes_4h"] + results["outcomes_24h"]
-        if total_tracked > 0:
-            logger.info(f"Signal tracking completed: {total_tracked} outcomes from {len(signals)} signals")
-        else:
-            logger.debug(f"Signal tracking: no outcomes to update from {len(signals)} signals")
-            
-    except Exception as e:
-        logger.error(f"Error in signal tracking scheduler: {e}")
-
-
-async def _get_simulated_price(entry_price: float) -> float:
-    """Get simulated price for tracking (realistic random walk)."""
-    import random
-    
-    # Simulate realistic price movement
-    volatility = 0.05  # 5% volatility
-    drift = -0.002  # Slight negative drift (realistic for memecoins)
-    random_factor = random.gauss(0, volatility) + drift
-    simulated_price = entry_price * (1 + random_factor)
-    
-    return max(simulated_price, entry_price * 0.5)  # Floor at 50% of entry
 
 
 async def auto_complete_pending_journal_entries():
@@ -348,16 +173,7 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1
     )
-    
-    # Signal tracking - run every hour
-    scheduler.add_job(
-        run_signal_tracking,
-        trigger=IntervalTrigger(hours=1),
-        id="signal_tracking",
-        replace_existing=True,
-        max_instances=1
-    )
-    
+
     # Journal pending entries auto-complete - run every hour
     scheduler.add_job(
         auto_complete_pending_journal_entries,
@@ -432,11 +248,11 @@ def start_scheduler():
     
     scheduler.start()
     logger.info(
-        "Background scheduler started - prize pool (5 min), signal tracking (1 hour), "
+        "Background scheduler started - prize pool (5 min), "
         "journal auto-complete (1 hour), runner alerts (5 min), "
         "PRICE COLLECTOR (1 min), SMART MONEY v2 (10 min), "
-        "DAILY DIGEST (20:00 UTC), POT AUTO-DRAW (5 sec). "
-        "[HIBERNATED: auto-trade exit check, auto-trade scan]"
+        "DAILY DIGEST (20:00 UTC), POT AUTO-DRAW (5 sec), "
+        "ESCROW ALERT (10 min)."
     )
 
 
