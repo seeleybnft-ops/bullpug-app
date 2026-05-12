@@ -190,6 +190,35 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 106 — Bullpug Drop Vault (Creator Admin Gallery UI) (May 12, 2026)
+
+### New page: `/admin/drops`
+- `/app/frontend/src/pages/AdminDropVault.js` — turns the existing admin API into a usable browsing experience for the creator.
+- **Auth flow**: Wallet must be connected; admin gating happens server-side (`admin_wallet` parameter checked against `_ADMIN_WALLETS` set). Non-admin wallets receive a 403 + clean error banner.
+- **Unconnected state**: Shows a "Bullpug Vault · Connect your admin wallet" prompt with shield icon.
+
+### Features shipped
+- **Grid layout**: responsive 2 → 6 columns (mobile → 2xl viewport); aspect-square thumbnail cards.
+- **Lazy image loading**: thumbnails fetched on intersection (via `IntersectionObserver` with 200px rootMargin) so the initial gallery payload stays metadata-only — no payload bloat even with hundreds of drops.
+- **Each card shows**: full-bleed image, theme label (Orbitron), 2-line scene snippet, shortened user_key, created_at timestamp, kind badge (mint-green for `canonical`, magenta for `fresh`), date badge.
+- **Per-card actions**: `View` (opens fullscreen preview modal) + `PNG Download` (auto-named `bullpug_{date}_{theme}_{user}.png`).
+- **Filters**: text search (matches theme/scene/user_key) + date picker + Clear button.
+- **Pagination**: prev/next, 24 per page, with running counter `21-44 of 67`.
+- **Refresh button** at top with spinner state.
+- **Preview modal**: large image, full metadata, monospace user_key (for copying), big download CTA. ESC + click-outside dismiss.
+
+### Wired
+- Route `/admin/drops` → `<AdminDropVault />` in `App.js`
+- Backend endpoint renamed from `/daily-drops/admin/{drop_id}` → `/daily-drops/admin/one` (cleaner — path param was unused; user_key + date_utc are query params).
+
+### Verified
+- Connect prompt renders correctly when no wallet ✓
+- Backend gallery list endpoint returns 3 drops (admin wallet) ✓
+- Single-drop fetch returns full base64 in cache (~250ms) ✓
+- Non-admin wallet → 403 ✓
+- Lint clean on both files ✓
+
+---
 ## Iteration 105 — Per-User Daily Drops + Admin Gallery + Fullscreen Chat (May 12, 2026)
 
 ### Per-user Daily Bullpug Drops

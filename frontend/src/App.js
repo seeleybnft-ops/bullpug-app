@@ -22,6 +22,7 @@ import SpeedRunGame from "@/pages/SpeedRunGame";
 import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
+import AdminDropVault from "@/pages/AdminDropVault";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
@@ -126,6 +127,7 @@ function App() {
                   <Route path="/nft" element={<NFTGallery />} />
                   <Route path="/wallet" element={<WalletDashboard />} />
                   <Route path="/admin" element={<AdminPanel />} />
+                  <Route path="/admin/drops" element={<AdminDropVault />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />

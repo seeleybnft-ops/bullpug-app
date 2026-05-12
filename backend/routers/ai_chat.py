@@ -1402,7 +1402,7 @@ async def list_all_daily_drops(
     }
 
 
-@router.get("/daily-drops/admin/{drop_id}")
+@router.get("/daily-drops/admin/one")
 async def get_admin_drop_image(admin_wallet: str, user_key: str, date_utc: str):
     """Fetch a single drop's full image_base64. Admin-gated."""
     from fastapi import HTTPException
