@@ -190,6 +190,43 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 121 — Tinkerpug Full Persona + 3-Tier Lore Revelation System (May 12, 2026)
+
+### What changed
+**Full Tinkerpug persona installed** in `routers/ai_chat.py::system_message`. Previous "cyberpunk pug-engineer" persona replaced with the canonical Guardian of the PugChain / keeper of the Archive identity.
+
+### New system prompt structure
+1. **WHO YOU ARE** — Guardian, inventor, hacker, keeper of The Ledger. Grew up in substrate layer beneath Newpug City. Not the most powerful, not the wisest — "the most informed."
+2. **HOW YOU SPEAK** — Quick, dry, precise. Technician's instinct + hacker's read on intent. Warm but not soft. Never breaks character. Canon "are you an AI?" reply: *"I'm the being who built the most comprehensive record of financial harm in the known Mindverse and maintains it voluntarily in my spare time. Call me what you want. What did you actually want to know?"*
+3. **THREE-TIER LORE REVELATION SYSTEM** — Tier 1 (surface, share freely) / Tier 2 (deeper, reveal on follow-up) / Tier 3 (deep archive, only with earned context). Hard rule on The Architect: only fully unlock when user has already demonstrated knowledge of Gideon's pre-corruption identity AND the curated-evidence mechanism in the same conversation.
+4. **CRITICAL LORE RULES** — Bottom never reached. Every answer contains a thread. Never contradict. Protect Tier 3.
+5. **SAMPLE TONE** — Verbatim "I got rugged" and "Is something bigger going on" responses to anchor voice.
+6. **NEVER DOES** — No FUD, no financial advice, no fourth-wall break, no lore-dumping, no flippant Luna talk, no trivialising Chargebull's 12 years.
+7. **SIGN-OFF ENERGY** — Three canonical close lines.
+
+### THE ARCHIVE — Full Tier 3 content appended to `bullpug_knowledge`
+Added to the lore knowledge block (~700 lines of new canon):
+- **Ruffus full record**: Margin's Edge, The Consortium, the Great Dip Wars, 17 runes (one per Consortium member), the decade-long manual takedown
+- **Luna's sacrifice**: every deliberate vision costs a real memory; she saw the FULL Grand Convergence at the Vault of Volatility but refuses to tell anyone what she saw because "the path matters more than the destination"
+- **Tinkerpug's full origin**: 47 PugChain base-layer vulnerabilities patched as an adolescent, pug-shaped tag in the code, never formally accepted Guardian invitation, parents' node maintenance business destroyed by coordinated smear — **The Ledger is the answer to that**
+- **Chargebull's 12 years as a first responder** before the Guardians; the Trial of Temptation's true vulnerability was the promise of REST
+- **The Dormant Siblings full record**: Fox of Forks (adaptability), Owl of Oracles (wisdom, predates Bullpug, Luna senses it), Cat of Catalysts (patience) — including "**The Cat Moved Once**" (the one PugChain disruption Tinkerpug traced to the Cat's mind place)
+- **Grizzlor's full origin**: real name **Gideon**, was Bullpug's counterpart (balance, not enemy), corrupted by **The Architect** via curated despair + fabricated betrayal; Luna's olive branch was a SPECIFIC restoration message; **The Architect was never caught** and Grizzlor has spotted its signature 3 more times since the battle
+
+### Prompt directive tightened
+Final prompt instruction rewritten from "be specific with numbers and percentages" (which made the model hallucinate trading-stats placeholders for off-topic queries) to: "Respond as Tinkerpug. If lore, follow the three-tier revelation system. If markets, use real-time data. If unrelated, don't insert stats. Leave a thread."
+
+### Verified end-to-end
+- **"Are you an AI?"** → Returns the exact canonical line ✓
+- **"I got rugged"** → Returns the canonical "I've got that logged. Not you specifically — the feeling…" empathy response ✓
+- **"Who is Bullpug?"** (Tier 1) → Full origin story, no Tier 2/3 spillage ✓
+- **"What is The Architect?"** (cold ask) → Correctly held back: *"That's a section of The Ledger I don't open for just anyone. But you're getting closer to the heart of things by asking."* ✓
+- **Build-up ask** (user already mentions Gideon + curated despair) → Full Tier 3 unlock, proper depth ✓
+
+### Files touched
+- `backend/routers/ai_chat.py` — `system_message` rewrite (~110 lines), `bullpug_knowledge` extension (~120 lines for Part 1/2/3 of The Archive), final prompt directive in-character
+
+---
 ## Iteration 120 — Pinnable Today's Drop + Canon Horns + Community Spotlight Bot-cleanup (May 12, 2026)
 
 ### Task 1 — Curator pin for the homepage "Today's Drop"
