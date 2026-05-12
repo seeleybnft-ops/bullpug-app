@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import {
   Shield, Search, Download, ChevronLeft, ChevronRight,
-  Calendar, Sparkles, RefreshCw, ImageOff, Eye,
+  Calendar, Sparkles, RefreshCw, ImageOff, Eye, Pin, PinOff,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -33,7 +33,7 @@ function formatWhen(iso) {
 
 // Drop card — loads its thumbnail lazily via a one-shot fetch when it scrolls
 // into view. Keeps the listing payload tiny (metadata only).
-function DropCard({ drop, adminWallet, onPreview }) {
+function DropCard({ drop, adminWallet, onPreview, isPinned, onTogglePin }) {
   const [img, setImg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
@@ -170,6 +170,28 @@ function DropCard({ drop, adminWallet, onPreview }) {
             PNG
           </Button>
         </div>
+        <Button
+          size="sm"
+          onClick={() => onTogglePin && onTogglePin(drop)}
+          className={`w-full h-7 text-[10px] font-bold mt-1.5 ${
+            isPinned
+              ? "bg-[#F5D300] hover:bg-[#F5D300]/90 text-black"
+              : "bg-[#D946EF]/15 hover:bg-[#D946EF]/30 text-[#D946EF] border border-[#D946EF]/40"
+          }`}
+          data-testid="vault-pin-btn"
+        >
+          {isPinned ? (
+            <>
+              <PinOff className="w-3 h-3 mr-1" />
+              Unpin from Today's Drop
+            </>
+          ) : (
+            <>
+              <Pin className="w-3 h-3 mr-1" />
+              Set as Today's Drop
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
@@ -185,8 +207,48 @@ export default function AdminDropVault() {
   const [loading, setLoading] = useState(false);
   const [previewDrop, setPreviewDrop] = useState(null);
   const [error, setError] = useState(null);
+  const [pinned, setPinned] = useState(null);
 
   const adminWallet = publicKey ? publicKey.toBase58() : null;
+
+  const fetchPinned = useCallback(async () => {
+    if (!adminWallet) return;
+    try {
+      const { data } = await axios.get(`${API}/ai/daily-drops/admin/pin`, {
+        params: { admin_wallet: adminWallet },
+      });
+      setPinned(data.pinned || null);
+    } catch (e) { /* 403 just means non-admin, ignore */ }
+  }, [adminWallet]);
+
+  useEffect(() => { fetchPinned(); }, [fetchPinned]);
+
+  const togglePin = useCallback(async (drop) => {
+    if (!adminWallet) return;
+    const isCurrentlyPinned = pinned && pinned.user_key === drop.user_key && pinned.date_utc === drop.date_utc;
+    try {
+      if (isCurrentlyPinned) {
+        await axios.delete(`${API}/ai/daily-drops/admin/pin`, {
+          params: { admin_wallet: adminWallet },
+        });
+        toast.success("Cleared — Today's Drop will use the latest auto-generated drop.");
+      } else {
+        await axios.post(`${API}/ai/daily-drops/admin/pin`, null, {
+          params: {
+            admin_wallet: adminWallet,
+            user_key: drop.user_key,
+            date_utc: drop.date_utc,
+            custom_title: drop.theme || "",
+            custom_description: drop.scene || "",
+          },
+        });
+        toast.success(`Pinned as Today's Drop · "${drop.theme || "Untitled"}"`);
+      }
+      fetchPinned();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Could not update pin");
+    }
+  }, [adminWallet, pinned, fetchPinned]);
 
   const loadDrops = useCallback(async () => {
     if (!adminWallet) return;
@@ -276,6 +338,40 @@ export default function AdminDropVault() {
           </Button>
         </div>
 
+        {/* Pin status banner */}
+        {pinned ? (
+          <div
+            data-testid="vault-pin-banner"
+            className="flex flex-wrap items-center gap-3 mb-6 px-4 py-3 rounded-2xl border border-[#F5D300]/30 bg-gradient-to-r from-[#F5D300]/10 to-[#D946EF]/10"
+          >
+            <Pin className="w-4 h-4 text-[#F5D300] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.22em] font-bold text-[#F5D300]">
+                Pinned as Today's Drop
+              </p>
+              <p className="text-sm text-white truncate" style={{ fontFamily: "Orbitron, sans-serif" }}>
+                {pinned.custom_title || "Untitled"} <span className="text-slate-500 text-[11px] font-mono">· {pinned.date_utc}</span>
+              </p>
+              {pinned.custom_description ? (
+                <p className="text-[11px] text-slate-400 line-clamp-1">{pinned.custom_description}</p>
+              ) : null}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => togglePin({ user_key: pinned.user_key, date_utc: pinned.date_utc, theme: pinned.custom_title, scene: pinned.custom_description })}
+              className="border-[#F5D300]/40 text-[#F5D300] hover:bg-[#F5D300]/10 text-[10px] h-7"
+              data-testid="vault-clear-pin-btn"
+            >
+              <PinOff className="w-3 h-3 mr-1" /> Clear
+            </Button>
+          </div>
+        ) : (
+          <div className="text-[11px] text-slate-500 mb-4 italic">
+            No pin set — Today's Drop will use the latest auto-generated drop.
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-3 mb-6">
           <div className="relative flex-1">
@@ -332,14 +428,19 @@ export default function AdminDropVault() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {filtered.map((drop) => (
-                  <DropCard
-                    key={`${drop.user_key}-${drop.date_utc}`}
-                    drop={drop}
-                    adminWallet={adminWallet}
-                    onPreview={setPreviewDrop}
-                  />
-                ))}
+                {filtered.map((drop) => {
+                  const isThisPinned = pinned && pinned.user_key === drop.user_key && pinned.date_utc === drop.date_utc;
+                  return (
+                    <DropCard
+                      key={`${drop.user_key}-${drop.date_utc}`}
+                      drop={drop}
+                      adminWallet={adminWallet}
+                      onPreview={setPreviewDrop}
+                      isPinned={!!isThisPinned}
+                      onTogglePin={togglePin}
+                    />
+                  );
+                })}
               </div>
             )}
 

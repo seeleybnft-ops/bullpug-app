@@ -54,7 +54,7 @@ export default function LatestDropWidget() {
           <div className="p-6 md:p-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5D300]/10 border border-[#F5D300]/30 text-[#F5D300] text-[10px] font-bold uppercase tracking-[0.25em] mb-4">
               <Sparkles className="w-3 h-3" />
-              Today's Drop · Fresh from the Chatbot
+              {drop.pinned ? "Today's Drop · Curator Pick" : "Today's Drop · Fresh from the Chatbot"}
             </div>
 
             <h2
@@ -62,17 +62,19 @@ export default function LatestDropWidget() {
               style={{ fontFamily: "Orbitron, sans-serif" }}
             >
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D946EF] via-[#00FFA3] to-[#FFD700]">
-                {drop.theme || "Untitled"}
+                {drop.pinned_title || drop.theme || "Untitled"}
               </span>
             </h2>
 
             <p className="text-sm md:text-base text-slate-300 leading-relaxed max-w-md mb-5">
-              {drop.scene}
+              {drop.pinned_description || drop.scene}
             </p>
 
             <p className="text-xs text-slate-500 leading-relaxed mb-6 max-w-md">
-              A new Daily Drop is generated for every visitor who opens the
-              chatbot. Universe expansion · {drop.date_utc} · gone at midnight UTC.
+              {drop.pinned
+                ? <>Handpicked by the curator · {drop.date_utc}.</>
+                : <>A new Daily Drop is generated for every visitor who opens the chatbot. Universe expansion · {drop.date_utc} · gone at midnight UTC.</>
+              }
             </p>
 
             <div className="flex flex-wrap items-center gap-3">

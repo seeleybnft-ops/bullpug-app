@@ -190,6 +190,52 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 120 — Pinnable Today's Drop + Canon Horns + Community Spotlight Bot-cleanup (May 12, 2026)
+
+### Task 1 — Curator pin for the homepage "Today's Drop"
+**Backend** (`routers/ai_chat.py`):
+- New `GET /api/ai/daily-drops/admin/pin` — returns current pin state (admin-gated)
+- New `POST /api/ai/daily-drops/admin/pin?user_key=&date_utc=&custom_title=&custom_description=` — pins a specific drop as today's homepage feature, with optional title/description override that auto-fills from `theme` + `scene` if blank
+- New `DELETE /api/ai/daily-drops/admin/pin` — clears the pin
+- Updated `GET /api/ai/daily-drops/latest` — resolution order is now: pinned override → otherwise most-recent generated drop. Returns `pinned: true`, `pinned_title`, `pinned_description` when an override exists.
+
+**Frontend**:
+- `pages/AdminDropVault.js` — every drop card now has a third button ("Set as Today's Drop" / "Unpin from Today's Drop"). A status banner at the top of the page shows what's currently pinned, with custom title + description preview and a one-click Clear button.
+- `components/LatestDropWidget.js` — honors `pinned_title` / `pinned_description` when present, swaps the eyebrow tag from "Fresh from the Chatbot" → "Curator Pick", and replaces the "gone at midnight" fine print with "Handpicked by the curator".
+
+**Verified end-to-end:**
+- Pin POST → /latest returns `pinned:true, pinned_title:"Featured · Day One Drop", pinned_description:"A handpicked snapshot to celebrate the launch."` ✓
+- Unpin DELETE → /latest returns latest fresh drop with no pinned flag ✓
+- Non-admin → 403 ✓
+
+### Task 2 — Canonical Bullpug character design enforced in every image gen
+**Both prompt suffixes rewritten** (the daily-drop generator AND the `/image` slash command):
+
+> "MANDATORY CHARACTER DESIGN — every Bullpug and Bullpughan is a pug-faced creature with prominent curved bull horns rising from the top of the head. Horns are non-negotiable: thick, polished, ivory-to-bronze, curving upward and slightly outward like a young bull's, anchored just behind the brow. The face is unmistakably a pug — squashed muzzle, wrinkled forehead, large expressive round eyes, floppy ears, short jaw. Fur can be ANY color or pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic iridescent, etc.) — embrace bold variety."
+
+Files: `services/daily_drop.py::_BULLPUG_STYLE_SUFFIX`, `routers/ai_chat.py::_BULLPUG_IMAGE_STYLE`. Every future Daily Drop AND every `/image` slash-command image will now include the pug-with-bull-horns canon. Existing cached drops keep their old art (no retroactive regeneration).
+
+### Task 3 — Community Spotlight bot-cleanup
+- Removed the entire "Top Traders" slide (top-pnl + best win rate + copy trading cards).
+- Killed the "Open Trading Bot →" link inside the Platform Activity slide.
+- Renamed the activity card from "Live Platform Stats" → "Arena · Live" and switched the metrics from `active_positions / total_trades / active_traders` to `pot_total_sol / active_players / big_wins_24h`. Its CTA now reads "Enter the Arena →" pointing to `/betting` instead of `/ai-trader`.
+- Slider count drops from 3 → 2 dots ("Top Cosmic Runners", "Platform Activity").
+
+### Files touched
+- `backend/routers/ai_chat.py` — 4 new admin pin endpoints, `_BULLPUG_IMAGE_STYLE` rewrite, `/latest` resolution updated
+- `backend/services/daily_drop.py` — `_BULLPUG_STYLE_SUFFIX` rewrite
+- `frontend/src/pages/AdminDropVault.js` — pin button per card + status banner
+- `frontend/src/components/LatestDropWidget.js` — read pinned_title/description, conditional eyebrow + fine print
+- `frontend/src/components/CommunitySpotlight.js` — removed traders slide + bot link + renamed activity card
+
+### Verified
+- Lint clean ✓
+- Pin/unpin flow end-to-end with custom title + description ✓
+- Non-admin → 403 on all pin endpoints ✓
+- CommunitySpotlight contains zero references to "Trading Bot", "Copy Trading", or "Top Traders"; arena link now renders, bot link gone ✓
+- Slide dots dropped from 3 → 2 ✓
+
+---
 ## Iteration 119 — New Tinkerpug Greeting + Status Line (May 12, 2026)
 
 ### Greeting rewritten per user copy

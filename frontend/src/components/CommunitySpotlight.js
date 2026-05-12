@@ -63,9 +63,6 @@ export default function CommunitySpotlight() {
     { id: "runners", label: "Top Cosmic Runners" },
     { id: "activity", label: "Platform Activity" },
   ];
-  if (traderLeaderboard.length > 0) {
-    slides.splice(1, 0, { id: "traders", label: "Top Traders" });
-  }
 
   const nextSlide = useCallback(() => setActiveSlide(p => (p + 1) % slides.length), [slides.length]);
   const prevSlide = useCallback(() => setActiveSlide(p => (p - 1 + slides.length) % slides.length), [slides.length]);
@@ -175,48 +172,22 @@ export default function CommunitySpotlight() {
                   </div>
                 )}
 
-                {slide.id === "traders" && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <SpotlightCard icon={<TrendingUp className="w-4 h-4" />} accent="#00FFA3" label="Top Traders (7d)">
-                      <div>
-                        {traderLeaderboard.slice(0, 5).map((t, i) => (
-                          <PlayerRow key={i} rank={i + 1} name={t.wallet_address?.slice(0, 6) + "..." || "Trader"} value={`${(t.total_pnl || 0) >= 0 ? "+" : ""}${(t.total_pnl || 0).toFixed(2)}`} valueLabel="SOL" accent="#00FFA3" />
-                        ))}
-                      </div>
-                    </SpotlightCard>
-                    <SpotlightCard icon={<Zap className="w-4 h-4" />} accent="#00C2FF" label="Best Win Rate">
-                      <div>
-                        {traderLeaderboard.slice(0, 5).map((t, i) => (
-                          <PlayerRow key={i} rank={i + 1} name={t.wallet_address?.slice(0, 6) + "..." || "Trader"} value={`${(t.win_rate || 0).toFixed(0)}%`} valueLabel="" accent="#00C2FF" />
-                        ))}
-                      </div>
-                    </SpotlightCard>
-                    <SpotlightCard icon={<Users className="w-4 h-4" />} accent="#D946EF" label="Copy Trading">
-                      <div className="text-center py-6">
-                        <Users className="w-8 h-8 text-[#D946EF]/30 mx-auto mb-3" />
-                        <p className="text-slate-400 text-xs mb-3">Follow top traders and mirror their moves</p>
-                        <Link to="/ai-trader" className="inline-block text-xs text-[#D946EF] hover:underline">Start Trading &rarr;</Link>
-                      </div>
-                    </SpotlightCard>
-                  </div>
-                )}
-
                 {slide.id === "activity" && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <SpotlightCard icon={<Zap className="w-4 h-4" />} accent="#00C2FF" label="Live Platform Stats">
+                    <SpotlightCard icon={<Zap className="w-4 h-4" />} accent="#00C2FF" label="Arena · Live">
                       <div className="space-y-4">
                         {[
-                          { label: "Active Positions", value: platformStats?.active_positions || 0, color: "#00C2FF" },
-                          { label: "Total Trades Executed", value: platformStats?.total_trades || 0, color: "#00FFA3" },
-                          { label: "Active Traders", value: platformStats?.active_traders || 0, color: "#D946EF" },
+                          { label: "Pot SOL (live)", value: (platformStats?.pot_total_sol || 0).toFixed(3), color: "#00C2FF" },
+                          { label: "Active Players", value: platformStats?.active_traders || 0, color: "#00FFA3" },
+                          { label: "Big Wins (24h)", value: platformStats?.big_wins_24h || 0, color: "#D946EF" },
                         ].map((s, i) => (
                           <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
                             <span className="text-xs text-slate-400">{s.label}</span>
                             <span className="text-sm font-bold font-mono" style={{ color: s.color }}>{s.value}</span>
                           </div>
                         ))}
-                        <Link to="/ai-trader" className="block text-center text-xs text-[#00C2FF]/70 hover:text-[#00C2FF] transition-colors" data-testid="spotlight-open-bot-link">
-                          Open Trading Bot &rarr;
+                        <Link to="/betting" className="block text-center text-xs text-[#00C2FF]/70 hover:text-[#00C2FF] transition-colors" data-testid="spotlight-open-arena-link">
+                          Enter the Arena &rarr;
                         </Link>
                       </div>
                     </SpotlightCard>

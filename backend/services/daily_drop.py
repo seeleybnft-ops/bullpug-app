@@ -123,10 +123,19 @@ _FRESH_MOODS = [
 
 
 _BULLPUG_STYLE_SUFFIX = (
-    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe aesthetic. "
-    "Vivid neon-on-dark color palette with mint green (#00FFA3), magenta (#D946EF), "
-    "and gold (#FFD700) accents against deep midnight backgrounds. No readable text, "
-    "no logos, no watermarks. Wide cinematic composition."
+    "MANDATORY CHARACTER DESIGN — every Bullpug and Bullpughan is a pug-faced "
+    "creature with prominent curved bull horns rising from the top of the head. "
+    "Horns are non-negotiable: thick, polished, ivory-to-bronze, curving upward "
+    "and slightly outward like a young bull's, anchored just behind the brow. "
+    "The face is unmistakably a pug — squashed muzzle, wrinkled forehead, large "
+    "expressive round eyes, floppy ears, short jaw. Fur can be ANY color or "
+    "pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic "
+    "iridescent, etc.) — embrace bold variety. "
+    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe "
+    "aesthetic. Vivid neon-on-dark color palette with mint green (#00FFA3), "
+    "magenta (#D946EF), and gold (#FFD700) accents against deep midnight "
+    "backgrounds. No readable text, no logos, no watermarks. "
+    "Wide cinematic composition."
 )
 
 # Per-(user, date) asyncio locks so concurrent first-callers don't all trigger an LLM call.

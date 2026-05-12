@@ -747,10 +747,18 @@ def _detect_image_prompt(message: str) -> Optional[str]:
 
 
 _BULLPUG_IMAGE_STYLE = (
-    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe aesthetic. "
-    "Vivid neon-on-dark color palette with mint green (#00FFA3), magenta (#D946EF), "
-    "and gold (#FFD700) accents against deep midnight backgrounds. No readable text, "
-    "no logos, no watermarks."
+    "MANDATORY CHARACTER DESIGN — every Bullpug and Bullpughan is a pug-faced "
+    "creature with prominent curved bull horns rising from the top of the head. "
+    "Horns are non-negotiable: thick, polished, ivory-to-bronze, curving upward "
+    "and slightly outward like a young bull's, anchored just behind the brow. "
+    "The face is unmistakably a pug — squashed muzzle, wrinkled forehead, large "
+    "expressive round eyes, floppy ears, short jaw. Fur can be ANY color or "
+    "pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic "
+    "iridescent, etc.) — embrace bold variety. "
+    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe "
+    "aesthetic. Vivid neon-on-dark color palette with mint green (#00FFA3), "
+    "magenta (#D946EF), and gold (#FFD700) accents against deep midnight "
+    "backgrounds. No readable text, no logos, no watermarks."
 )
 
 
@@ -1332,11 +1340,27 @@ Provide a helpful response using the real-time data above when relevant. Be spec
 
 @router.get("/daily-drops/latest")
 async def get_latest_daily_drop():
-    """Most-recently-generated Daily Drop across all users (today only, anonymized).
+    """Most-recently-generated Daily Drop OR the admin-pinned override.
 
-    Used by the homepage 'Latest Drop' widget — always shows the freshest piece
-    of universe-expansion so visitors see the system is alive and producing.
+    Resolution order:
+      1. If `featured_drop` system_state doc exists (admin override) → use it
+      2. Else: the most recent drop generated today (anonymized)
+
+    Used by the homepage 'Latest Drop' widget.
     """
+    # Admin override
+    pinned = await db.system_state.find_one({"_id": "featured_drop"})
+    if pinned and pinned.get("user_key") and pinned.get("date_utc"):
+        d = await db.daily_drops.find_one(
+            {"user_key": pinned["user_key"], "date_utc": pinned["date_utc"]},
+            {"_id": 0, "user_key": 0},
+        )
+        if d:
+            d["pinned"] = True
+            d["pinned_title"] = pinned.get("custom_title") or d.get("theme")
+            d["pinned_description"] = pinned.get("custom_description") or d.get("scene")
+            return {"drop": d}
+
     today = _today_utc()
     drop = await db.daily_drops.find_one(
         {"date_utc": today},
@@ -1433,6 +1457,64 @@ async def get_admin_drop_image(admin_wallet: str, user_key: str, date_utc: str):
     if not drop:
         raise HTTPException(status_code=404, detail="Drop not found")
     return drop
+
+
+@router.post("/daily-drops/admin/pin")
+async def admin_pin_daily_drop(
+    admin_wallet: str,
+    user_key: str,
+    date_utc: str,
+    custom_title: Optional[str] = None,
+    custom_description: Optional[str] = None,
+):
+    """Pin a specific drop as the homepage 'Today's Drop'. Admin-only.
+
+    Pass `custom_title` / `custom_description` to override the auto-filled
+    theme / scene strings. Pass empty strings or omit to use the drop's own
+    theme + scene.
+    """
+    from fastapi import HTTPException
+    if admin_wallet not in _ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    drop = await db.daily_drops.find_one({"user_key": user_key, "date_utc": date_utc})
+    if not drop:
+        raise HTTPException(status_code=404, detail="Drop not found")
+    update = {
+        "_id": "featured_drop",
+        "user_key": user_key,
+        "date_utc": date_utc,
+        "custom_title": (custom_title or "").strip() or None,
+        "custom_description": (custom_description or "").strip() or None,
+        "pinned_by": admin_wallet,
+        "pinned_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.system_state.update_one({"_id": "featured_drop"}, {"$set": update}, upsert=True)
+    return {"ok": True, "pinned": {
+        "user_key": user_key,
+        "date_utc": date_utc,
+        "title": update["custom_title"] or drop.get("theme"),
+        "description": update["custom_description"] or drop.get("scene"),
+    }}
+
+
+@router.delete("/daily-drops/admin/pin")
+async def admin_unpin_daily_drop(admin_wallet: str):
+    """Clear the homepage pinned override. Latest auto-resumes."""
+    from fastapi import HTTPException
+    if admin_wallet not in _ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = await db.system_state.delete_one({"_id": "featured_drop"})
+    return {"ok": True, "cleared": result.deleted_count > 0}
+
+
+@router.get("/daily-drops/admin/pin")
+async def admin_get_pinned_drop(admin_wallet: str):
+    """Return the current pin state for the AdminPanel UI."""
+    from fastapi import HTTPException
+    if admin_wallet not in _ADMIN_WALLETS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    pinned = await db.system_state.find_one({"_id": "featured_drop"}, {"_id": 0})
+    return {"pinned": pinned}
 
 
 @router.get("/prices")
