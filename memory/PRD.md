@@ -190,6 +190,34 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 109 — Arena Achievement Badges Verified (May 12, 2026)
+
+### P1 verification — all 4 arena badges working
+Wrote a 5-scenario backend integration test against the live API + MongoDB:
+
+| Scenario | Setup | Expected | Got |
+|---|---|---|---|
+| 1 | Clean wallet | 0 arena badges | ✅ 0 arena |
+| 2 | 1× 0.5 SOL coinflip win | `arena_first_blood` | ✅ |
+| 3 | + 1.5 SOL pot win | + `arena_big_winner` | ✅ |
+| 4 | + 6.0 SOL pot win | + `arena_whale` | ✅ |
+| 5 | 10 cumulative wins | + `arena_regular` | ✅ |
+
+Final stats: `arena_wins=10, arena_biggest_win=6.0` ✓
+
+### Mechanics verified
+- Cross-game aggregation (pot_results + betting_history) ✓
+- `arena_biggest_win` is MAX across both collections ✓
+- Persistent badge unlock (writes to `user_badges` on `GET /api/achievements/user/{wallet}`) ✓
+- Idempotent re-call (re-querying doesn't double-award) ✓
+- Cleaned up all test docs after run
+
+### ⚠️ Pre-existing bug flagged (not fixed — out of scope)
+`/app/backend/routers/achievements.py` line 291-294 has a fallback that, when a wallet has no `trading_journal` entries, **falls back to ALL trades across all wallets** and awards trade-based badges from that aggregate. Every fresh wallet now inherits the hibernated bot's historical badges (`trades_10`, `pnl_1k`, `first_trade`). Arena badges are unaffected (they query their own collections directly).
+
+**Recommended fix (when prioritised):** delete the `if not trades_with_wallet:` fallback block — single-user mode is legacy and the bot is hibernated.
+
+---
 ## Iteration 108 — Big Win Toast (HTTP Polling) Verified (May 12, 2026)
 
 ### Wrap-up of prior session
