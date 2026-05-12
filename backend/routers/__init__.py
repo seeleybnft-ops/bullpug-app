@@ -28,14 +28,12 @@ from routers.portfolio import router as portfolio_router
 from routers.achievements import router as achievements_router
 from routers.ai_chat import router as ai_chat_router
 from routers.watchlist import router as watchlist_router
-from routers.ai_trader import router as ai_trader_router
 from routers.pugburn import router as pugburn_router
 from routers.simulator import router as simulator_router
 from routers.telegram import router as telegram_router
 from routers.custodial_wallet import router as custodial_wallet_router
 from routers.social_trading import router as social_trading_router
 from routers.push_notifications import router as push_notifications_router
-from routers.signal_analytics import router as signal_analytics_router
 from routers.multichain_copy import router as multichain_copy_router
 from routers.runner_alerts import router as runner_alerts_router
 from routers.trading_competitions import router as trading_competitions_router
@@ -52,9 +50,9 @@ ALL_ROUTERS = [
     staking_router, wallet_router, escrow_router, tokenomics_router,
     prize_pool_router, profile_router, ai_suggestions_router, badges_router,
     wallet_trades_router, portfolio_router, achievements_router, ai_chat_router,
-    watchlist_router, ai_trader_router, pugburn_router, simulator_router,
+    watchlist_router, pugburn_router, simulator_router,
     telegram_router, custodial_wallet_router, social_trading_router,
-    push_notifications_router, signal_analytics_router, multichain_copy_router,
+    push_notifications_router, multichain_copy_router,
     runner_alerts_router, trading_competitions_router, ledger_router,
     price_alerts_router, big_wins_router, arena_chat_router,
 ]

@@ -190,6 +190,52 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 115 — Bot Backend Archived & Surgically Deleted (May 12, 2026)
+
+### What was archived
+**Full snapshot saved to** `/app/memory/archive/bot_backend_2026-05-12.tar.gz` (83 KB, SHA-256 `bf635bc3a20625cd1ea5dc0bbf5dda4cb53250734ef8656a5be1f26cdd284cd8`).
+
+Archive contains EVERY bot-touched backend file — even ones still in use — so a future restore has full context:
+
+| File | LOC | Status |
+|---|---|---|
+| `routers/ai_trader.py` | 2,524 | DELETED |
+| `routers/signal_analytics.py` | 2,485 | DELETED |
+| `services/auto_trader_engine.py` | 1,891 | DELETED |
+| `routers/custodial_wallet.py` | — | **KEPT** (pugburn + admin + ledger + rake_withdrawal use it) |
+| `services/smart_money_tracker.py` | — | **KEPT** (LIVE scheduler job every 10 min) |
+| `services/strategy_engine.py` | — | **KEPT** (imported in `services/__init__.py` at startup) |
+| `services/rake_withdrawal.py` | — | **KEPT** (admin uses `get_rake_stats`) |
+| `scheduler_extracts/` | — | reference dump of bot-related scheduler functions |
+
+**Total deleted: 6,900 LOC across 3 files.**
+
+### Wiring patches
+- `routers/__init__.py` — removed `ai_trader_router` and `signal_analytics_router` from imports + `ALL_ROUTERS` list.
+- `utils/scheduler.py` — removed dead `auto_trade_scan_cycle()` and `check_auto_trade_exits()` functions (~90 LOC) and the commented-out scheduler-registration blocks that referenced them.
+
+### Verified
+- Backend restarts cleanly ✓
+- No exceptions/tracebacks in logs ✓
+- All live endpoints respond 200 (`/big-wins/recent`, `/arena-chat/messages`, `/admin/escrow-status`, `/push-notifications/vapid-public-key`) ✓
+- Deleted endpoints correctly return 404 (`/ai-trader/*`, `/signal-analytics/*`) ✓
+- All frontend routes render with zero page errors (`/`, `/betting`, `/lore`, `/game`) ✓
+
+### To restore in the future
+```bash
+cd /app/backend && tar -xzf /app/memory/archive/bot_backend_2026-05-12.tar.gz
+# Then re-add imports to routers/__init__.py + scheduler.py
+```
+
+### What's left in the codebase that's still bot-flavoured but live
+- `custodial_wallet.py` — used by Pugburn (close-empty-token-accounts feature) and rake withdrawal
+- `smart_money_tracker.py` — live "smart money" alert feature, scans every 10 min
+- `strategy_engine.py` — imported at startup (could probably be refactored away later)
+- `routers/signal_outcomes.py` (if still exists) — referenced for hourly signal tracking job
+
+These are real, working features used by non-bot flows. Leave them alone unless we explicitly want to remove the feature they power.
+
+---
 ## Iteration 114 — Telegram Alert Activated + Bot Trader Frontend Archived & Deleted (May 12, 2026)
 
 ### Telegram alert wired

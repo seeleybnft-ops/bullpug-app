@@ -277,95 +277,6 @@ async def scan_runner_alerts():
         logger.error(f"Error in runner alerts scheduler: {e}")
 
 
-async def auto_trade_scan_cycle():
-    """
-    Periodic scan: find all wallets with auto-trading enabled and run
-    auto_trade_scan_and_execute for each one.
-    """
-    try:
-        from utils.database import db
-
-        enabled_settings = await db.ai_trader_settings.find({
-            "auto_trade_enabled": True
-        }).to_list(100)
-
-        if not enabled_settings:
-            logger.debug("Auto-trade scan: No wallets with auto-trading enabled")
-            return
-
-        for settings in enabled_settings:
-            wallet_address = settings.get("wallet_address")
-            if not wallet_address:
-                continue
-            try:
-                from routers.ai_trader import auto_trade_scan_and_execute
-                result = await auto_trade_scan_and_execute(wallet_address)
-                trades = result.get("trades", [])
-                if trades:
-                    logger.info(f"Auto-trade scan for {wallet_address[:8]}…: {len(trades)} trades executed")
-                else:
-                    msg = result.get("message", "no opportunities")
-                    logger.debug(f"Auto-trade scan for {wallet_address[:8]}…: {msg}")
-            except Exception as e:
-                logger.error(f"Auto-trade scan error for {wallet_address[:8]}…: {e}")
-
-    except Exception as e:
-        logger.error(f"Error in auto-trade scan cycle: {e}")
-
-
-async def check_auto_trade_exits():
-    """
-    CRITICAL: Check all open positions for take-profit and stop-loss triggers.
-    This runs every minute to ensure timely exit execution.
-    """
-    try:
-        from utils.database import db
-        import httpx
-        
-        # Find all wallets with auto-trading enabled
-        enabled_settings = await db.ai_trader_settings.find({
-            "auto_trade_enabled": True
-        }).to_list(100)
-        
-        if not enabled_settings:
-            logger.debug("Auto-trade exit check: No wallets with auto-trading enabled")
-            return
-        
-        total_exits = 0
-        total_positions = 0
-        
-        for settings in enabled_settings:
-            wallet_address = settings.get("wallet_address")
-            if not wallet_address:
-                continue
-                
-            try:
-                # Import the check_exits function from ai_trader router
-                from routers.ai_trader import auto_trade_check_exits
-                
-                result = await auto_trade_check_exits(wallet_address)
-                
-                exits_count = len(result.get("exits", []))
-                positions_count = result.get("positions_checked", 0)
-                
-                total_exits += exits_count
-                total_positions += positions_count
-                
-                if exits_count > 0:
-                    logger.info(f"Auto-trade exits for {wallet_address[:8]}...: {exits_count} positions closed")
-                    
-            except Exception as e:
-                logger.error(f"Error checking exits for {wallet_address[:8]}...: {e}")
-        
-        if total_exits > 0:
-            logger.info(f"Auto-trade exit check complete: {total_exits} exits across {total_positions} positions")
-        else:
-            logger.debug(f"Auto-trade exit check: {total_positions} positions checked, no exits triggered")
-            
-    except Exception as e:
-        logger.error(f"Error in auto-trade exit scheduler: {e}")
-
-
 async def collect_real_prices():
     """Collect real OHLCV price data for tracked tokens."""
     try:
@@ -464,25 +375,7 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1
     )
-    
-    # === TRADING BOT HIBERNATED ===
-    # scheduler.add_job(
-    #     check_auto_trade_exits,
-    #     trigger=IntervalTrigger(minutes=1),
-    #     id="auto_trade_exit_check",
-    #     replace_existing=True,
-    #     max_instances=1
-    # )
-    
-    # Auto-trade scan & execute — DISABLED (bot hibernated)
-    # scheduler.add_job(
-    #     auto_trade_scan_cycle,
-    #     trigger=IntervalTrigger(minutes=5),
-    #     id="auto_trade_scan",
-    #     replace_existing=True,
-    #     max_instances=1
-    # )
-    
+
     # CRITICAL: Real OHLCV price data collection - every 1 minute
     scheduler.add_job(
         collect_real_prices,
