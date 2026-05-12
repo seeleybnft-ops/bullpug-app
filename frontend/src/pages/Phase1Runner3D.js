@@ -1,33 +1,43 @@
 /**
- * Bullpug Cosmic Runner — Phase 1 (3D)
+ * Bullpug Cosmic Runner — Phase 1 (3D) + Phase 2 (Polish + Power-ups)
  *
- * Three.js + @react-three/fiber endless runner. 3-lane track through deep space.
+ * Three.js + @react-three/fiber endless runner. 3-lane cosmic track.
  * - Keyboard: A/← swipe left, D/→ swipe right, W/↑/Space jump, S/↓ slide
- * - Touch: swipe left/right/up/down on the canvas
- * - Score: distance + coin bonus
- * - Game over on obstacle hit
+ * - Touch: swipe in any direction OR on-screen tap buttons
+ * - Score: distance + coin bonus (auto-submitted to Festival of Barks leaderboard)
+ * - Power-ups: shield (1 free hit), magnet (auto-attract coins 6s), 2× multiplier (8s)
+ * - Game over on obstacle hit (shield absorbs first hit)
  *
- * Visual theme: cosmic — starfield, nebula gradient, neon track, asteroid + crystal
- *   pillar + ringed-rock obstacles, glowing SOL-like coins. Bullpug is a low-poly
- *   stylised pug with canonical curved bull horns (canon-respect).
+ * Phase 2 additions: power-ups, distant planets, scrolling nebula band, paw
+ * trail particles, speed milestones, mobile control buttons, backend score
+ * submission, leaderboard rank display.
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
+import axios from "axios";
+import { toast } from "sonner";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // ───────────────────────────────────────────── Config
 
-const LANES = [-1.6, 0, 1.6];          // x positions
-const FORWARD_SPEED_BASE = 14;          // units per second
-const FORWARD_SPEED_RAMP = 0.18;        // adds per second
-const TRACK_LENGTH = 80;                // visible track segments distance
+const LANES = [-1.6, 0, 1.6];
+const FORWARD_SPEED_BASE = 14;
+const FORWARD_SPEED_RAMP = 0.18;
+const TRACK_LENGTH = 80;
 const JUMP_VELOCITY = 9.0;
 const GRAVITY = -22.0;
 const SLIDE_DURATION_MS = 700;
-const SPAWN_AHEAD = 60;                 // spawn obstacles this far ahead
-const COIN_VALUE = 5;
+const SPAWN_AHEAD = 60;
+
+const POWERUP_DURATION_MS = {
+  magnet: 6000,
+  multiplier: 8000,
+};
+const MILESTONE_STEP = 250; // every 250m
 
 const COLORS = {
   bg: "#04030c",
@@ -41,9 +51,12 @@ const COLORS = {
   asteroid: "#5b6878",
   crystal: "#D946EF",
   ring: "#00C2FF",
+  shield: "#34D399",
+  magnet: "#F97316",
+  multiplier: "#A78BFA",
 };
 
-// ───────────────────────────────────────────── Audio (synthesised, no assets)
+// ───────────────────────────────────────────── Audio (synthesised)
 
 function useGameAudio() {
   const ctxRef = useRef(null);
@@ -76,13 +89,24 @@ function useGameAudio() {
       setTimeout(() => blip(110, 0.4, "sawtooth", 0.18), 120);
     },
     laneChange: () => blip(520, 0.04, "triangle", 0.10),
+    powerup: () => {
+      blip(880, 0.08, "triangle", 0.18);
+      setTimeout(() => blip(1320, 0.12, "triangle", 0.16), 70);
+    },
+    shieldBreak: () => blip(440, 0.25, "sawtooth", 0.18),
+    milestone: () => {
+      blip(660, 0.08, "triangle", 0.16);
+      setTimeout(() => blip(990, 0.08, "triangle", 0.16), 90);
+      setTimeout(() => blip(1320, 0.18, "triangle", 0.16), 180);
+    },
   };
 }
 
-// ───────────────────────────────────────────── Bullpug character (low-poly + horns)
+// ───────────────────────────────────────────── Bullpug character
 
-function Bullpug({ refY, refX, sliding, running }) {
+function Bullpug({ refY, refX, sliding, running, shieldActive }) {
   const group = useRef();
+  const shieldRef = useRef();
   const bob = useRef(0);
   const leg1 = useRef();
   const leg2 = useRef();
@@ -90,31 +114,33 @@ function Bullpug({ refY, refX, sliding, running }) {
     if (!group.current) return;
     group.current.position.x = refX.current;
     group.current.position.y = refY.current + (sliding.current ? -0.4 : 0);
-    // Running bob
     bob.current += dt * 14;
     const bobY = running.current && !sliding.current ? Math.sin(bob.current) * 0.06 : 0;
     group.current.position.y += bobY;
-    // Body squash on slide
     group.current.scale.set(1, sliding.current ? 0.55 : 1, sliding.current ? 1.4 : 1);
-    // Leg cycle
     if (leg1.current && leg2.current && running.current && !sliding.current) {
       leg1.current.rotation.x = Math.sin(bob.current) * 0.9;
       leg2.current.rotation.x = -Math.sin(bob.current) * 0.9;
     }
+    if (shieldRef.current) {
+      shieldRef.current.visible = !!shieldActive?.current;
+      shieldRef.current.rotation.y += dt * 1.5;
+      shieldRef.current.rotation.x += dt * 0.9;
+    }
   });
   return (
     <group ref={group}>
-      {/* Body — fawn pug, slightly squashed */}
+      {/* Body */}
       <mesh position={[0, 0.55, 0]} castShadow>
         <boxGeometry args={[0.85, 0.7, 1.0]} />
         <meshStandardMaterial color={COLORS.bullpug} roughness={0.7} />
       </mesh>
-      {/* Head — bigger, squashed muzzle */}
+      {/* Head */}
       <mesh position={[0, 1.1, 0.45]} castShadow>
         <boxGeometry args={[0.75, 0.7, 0.55]} />
         <meshStandardMaterial color={COLORS.bullpug} roughness={0.7} />
       </mesh>
-      {/* Muzzle (darker) */}
+      {/* Muzzle */}
       <mesh position={[0, 0.95, 0.78]}>
         <boxGeometry args={[0.45, 0.32, 0.2]} />
         <meshStandardMaterial color={COLORS.bullpugDark} roughness={0.85} />
@@ -128,10 +154,10 @@ function Bullpug({ refY, refX, sliding, running }) {
         <sphereGeometry args={[0.075, 12, 12]} />
         <meshStandardMaterial color="#0d0d12" />
       </mesh>
-      {/* HORNS — canonical curved bull horns (ivory-to-bronze) */}
+      {/* HORNS */}
       <Horn position={[-0.28, 1.45, 0.42]} rotation={[0.2, 0.3, -0.6]} />
       <Horn position={[0.28, 1.45, 0.42]} rotation={[0.2, -0.3, 0.6]} />
-      {/* Floppy ears */}
+      {/* Ears */}
       <mesh position={[-0.4, 1.3, 0.3]} rotation={[0.1, -0.2, -0.4]}>
         <boxGeometry args={[0.12, 0.35, 0.22]} />
         <meshStandardMaterial color={COLORS.bullpugDark} roughness={0.85} />
@@ -166,12 +192,16 @@ function Bullpug({ refY, refX, sliding, running }) {
         <boxGeometry args={[0.15, 0.15, 0.3]} />
         <meshStandardMaterial color={COLORS.bullpug} />
       </mesh>
+      {/* Shield bubble (hidden unless active) */}
+      <mesh ref={shieldRef} position={[0, 0.85, 0]} visible={false}>
+        <sphereGeometry args={[1.05, 24, 24]} />
+        <meshBasicMaterial color={COLORS.shield} transparent opacity={0.22} wireframe />
+      </mesh>
     </group>
   );
 }
 
 function Horn({ position, rotation }) {
-  // Stack of shrinking cones for a tapered curved horn look
   return (
     <group position={position} rotation={rotation}>
       <mesh>
@@ -186,6 +216,62 @@ function Horn({ position, rotation }) {
   );
 }
 
+// ───────────────────────────────────────────── Background — planets + nebula band
+
+function Planet({ position, size, color, ringColor }) {
+  const ref = useRef();
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.rotation.y += dt * 0.08;
+  });
+  return (
+    <group position={position}>
+      <mesh ref={ref}>
+        <sphereGeometry args={[size, 24, 24]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.18} roughness={0.7} />
+      </mesh>
+      {ringColor && (
+        <mesh rotation={[Math.PI / 2.4, 0, 0]}>
+          <ringGeometry args={[size * 1.4, size * 1.85, 48]} />
+          <meshBasicMaterial color={ringColor} side={THREE.DoubleSide} transparent opacity={0.45} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function NebulaBand({ speedRef }) {
+  const groupRef = useRef();
+  const segs = useMemo(() => Array.from({ length: 5 }, (_, i) => i), []);
+  const refs = useRef([]);
+  useFrame((_, dt) => {
+    const ds = speedRef.current * dt * 0.35; // parallax (slower than track)
+    refs.current.forEach((m) => {
+      if (!m) return;
+      m.position.z += ds;
+      if (m.position.z > 30) m.position.z -= 150;
+    });
+  });
+  return (
+    <group ref={groupRef}>
+      {segs.map((i) => (
+        <mesh
+          key={i}
+          ref={(el) => (refs.current[i] = el)}
+          position={[i % 2 === 0 ? -22 : 22, 4 + (i % 2) * 2, -30 - i * 30]}
+        >
+          <planeGeometry args={[26, 14]} />
+          <meshBasicMaterial
+            color={i % 2 === 0 ? "#D946EF" : "#00C2FF"}
+            transparent
+            opacity={0.08}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // ───────────────────────────────────────────── Track (scrolling)
 
 function Track({ speedRef }) {
@@ -193,8 +279,6 @@ function Track({ speedRef }) {
   const tilesRef = useRef([]);
   const TILES = 16;
   const TILE_LEN = 8;
-
-  // Build tile meshes
   const tiles = useMemo(() => Array.from({ length: TILES }, (_, i) => i), []);
 
   useFrame((_, dt) => {
@@ -202,9 +286,7 @@ function Track({ speedRef }) {
     tilesRef.current.forEach((m) => {
       if (!m) return;
       m.position.z += ds;
-      if (m.position.z > TILE_LEN) {
-        m.position.z -= TILE_LEN * TILES;
-      }
+      if (m.position.z > TILE_LEN) m.position.z -= TILE_LEN * TILES;
     });
   });
 
@@ -221,14 +303,12 @@ function Track({ speedRef }) {
           <meshStandardMaterial color={i % 2 === 0 ? COLORS.trackA : COLORS.trackB} roughness={0.6} />
         </mesh>
       ))}
-      {/* Track edges — neon mint glow strips */}
       {[-2.75, 2.75].map((x, i) => (
         <mesh key={i} position={[x, 0.02, -TRACK_LENGTH / 2]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.08, TRACK_LENGTH]} />
           <meshBasicMaterial color={COLORS.trackEdge} toneMapped={false} />
         </mesh>
       ))}
-      {/* Lane divider lines */}
       {[-0.8, 0.8].map((x, i) => (
         <mesh key={i} position={[x, 0.01, -TRACK_LENGTH / 2]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.04, TRACK_LENGTH]} />
@@ -239,9 +319,10 @@ function Track({ speedRef }) {
   );
 }
 
-// ───────────────────────────────────────────── Obstacles
+// ───────────────────────────────────────────── Obstacles / Coins / Power-ups
 
 const OBSTACLE_TYPES = ["asteroid", "crystal", "ring"];
+const POWERUP_TYPES = ["shield", "magnet", "multiplier"];
 
 function Obstacle({ type, refData }) {
   const ref = useRef();
@@ -257,7 +338,6 @@ function Obstacle({ type, refData }) {
     );
   }
   if (type === "crystal") {
-    // tall crystal pillar — must jump or lane-switch
     return (
       <group ref={ref}>
         <mesh position={[0, 1.0, 0]} castShadow>
@@ -267,7 +347,6 @@ function Obstacle({ type, refData }) {
       </group>
     );
   }
-  // ring — slide through
   return (
     <group ref={ref}>
       <mesh position={[0, 1.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -280,7 +359,7 @@ function Obstacle({ type, refData }) {
 
 function Coin({ refData }) {
   const ref = useRef();
-  useFrame((state, dt) => {
+  useFrame((_, dt) => {
     if (!ref.current) return;
     ref.current.position.copy(refData.position);
     ref.current.rotation.y += dt * 4;
@@ -293,9 +372,40 @@ function Coin({ refData }) {
   );
 }
 
-// ───────────────────────────────────────────── World — manages spawning + collision
+function PowerUp({ type, refData }) {
+  const ref = useRef();
+  useFrame((_, dt) => {
+    if (!ref.current) return;
+    ref.current.position.copy(refData.position);
+    ref.current.rotation.y += dt * 2.2;
+    ref.current.rotation.x += dt * 0.4;
+  });
+  const color =
+    type === "shield" ? COLORS.shield : type === "magnet" ? COLORS.magnet : COLORS.multiplier;
+  return (
+    <group ref={ref}>
+      <mesh>
+        {type === "shield" ? (
+          <octahedronGeometry args={[0.32, 0]} />
+        ) : type === "magnet" ? (
+          <torusGeometry args={[0.28, 0.1, 10, 18]} />
+        ) : (
+          <icosahedronGeometry args={[0.32, 0]} />
+        )}
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.9} metalness={0.6} roughness={0.2} />
+      </mesh>
+      {/* Halo */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.45, 0.55, 24]} />
+        <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
 
-function World({ onScore, onDeath, controlState, runningRef }) {
+// ───────────────────────────────────────────── World
+
+function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, runningRef }) {
   const audio = useGameAudio();
   const speedRef = useRef(FORWARD_SPEED_BASE);
   const playerXRef = useRef(0);
@@ -306,11 +416,17 @@ function World({ onScore, onDeath, controlState, runningRef }) {
   const laneIdxRef = useRef(1);
   const obstaclesRef = useRef([]);
   const coinsRef = useRef([]);
+  const powerupsRef = useRef([]);
   const spawnTrackRef = useRef(0);
   const elapsedRef = useRef(0);
   const distanceRef = useRef(0);
+  const milestoneStepRef = useRef(0);
+  const shieldActiveRef = useRef(false);
+  const magnetUntilRef = useRef(0);
+  const multiplierUntilRef = useRef(0);
   const [obstaclesState, setObstaclesState] = useState([]);
   const [coinsState, setCoinsState] = useState([]);
+  const [powerupsState, setPowerupsState] = useState([]);
   const isDeadRef = useRef(false);
 
   // Handle controls
@@ -338,15 +454,21 @@ function World({ onScore, onDeath, controlState, runningRef }) {
     laneIdxRef.current = 1;
     obstaclesRef.current = [];
     coinsRef.current = [];
+    powerupsRef.current = [];
     spawnTrackRef.current = 0;
     elapsedRef.current = 0;
     distanceRef.current = 0;
+    milestoneStepRef.current = 0;
+    shieldActiveRef.current = false;
+    magnetUntilRef.current = 0;
+    multiplierUntilRef.current = 0;
     isDeadRef.current = false;
     setObstaclesState([]);
     setCoinsState([]);
-  }, []);
+    setPowerupsState([]);
+    onPowerupChange?.({ shield: false, magnet: 0, multiplier: 0 });
+  }, [onPowerupChange]);
 
-  // expose reset via runningRef hack
   useEffect(() => {
     runningRef.current = { ...runningRef.current, reset };
   }, [reset, runningRef]);
@@ -357,6 +479,14 @@ function World({ onScore, onDeath, controlState, runningRef }) {
     elapsedRef.current += dt;
     distanceRef.current += speedRef.current * dt;
     speedRef.current += FORWARD_SPEED_RAMP * dt;
+
+    // Milestones
+    const m = Math.floor(distanceRef.current / MILESTONE_STEP);
+    if (m > milestoneStepRef.current) {
+      milestoneStepRef.current = m;
+      audio.milestone();
+      onMilestone?.(m * MILESTONE_STEP);
+    }
 
     // Player lane interp
     const targetX = LANES[laneIdxRef.current];
@@ -377,13 +507,27 @@ function World({ onScore, onDeath, controlState, runningRef }) {
       slidingRef.current = false;
     }
 
+    // Power-up timers
+    const now = performance.now();
+    const magnetActive = now < magnetUntilRef.current;
+    const multiplierActive = now < multiplierUntilRef.current;
+
     // Spawn ahead
     while (spawnTrackRef.current < distanceRef.current + SPAWN_AHEAD) {
       spawnTrackRef.current += 6 + Math.random() * 4;
       const spawnZ = -(spawnTrackRef.current - distanceRef.current);
-
-      // 60% chance obstacle, 40% chance coin row
-      if (Math.random() < 0.65) {
+      const roll = Math.random();
+      if (roll < 0.08) {
+        // power-up
+        const ptype = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+        const lane = Math.floor(Math.random() * 3);
+        powerupsRef.current.push({
+          id: Math.random(),
+          type: ptype,
+          lane,
+          position: new THREE.Vector3(LANES[lane], 1.0, spawnZ),
+        });
+      } else if (roll < 0.65) {
         const lane = Math.floor(Math.random() * 3);
         const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
         obstaclesRef.current.push({
@@ -393,7 +537,6 @@ function World({ onScore, onDeath, controlState, runningRef }) {
           position: new THREE.Vector3(LANES[lane], 0, spawnZ),
         });
       } else {
-        // coin trail
         const lane = Math.floor(Math.random() * 3);
         for (let i = 0; i < 5; i++) {
           coinsRef.current.push({
@@ -406,65 +549,127 @@ function World({ onScore, onDeath, controlState, runningRef }) {
       }
     }
 
-    // Move obstacles & coins toward camera (positive Z)
+    // Move world toward camera (+z)
     const ds = speedRef.current * dt;
     obstaclesRef.current.forEach((o) => { o.position.z += ds; });
     coinsRef.current.forEach((c) => { c.position.z += ds; });
+    powerupsRef.current.forEach((p) => { p.position.z += ds; });
 
-    // Cull off-camera
+    // Magnet — attract coins toward player when within range
+    if (magnetActive) {
+      const px = playerXRef.current;
+      const target = new THREE.Vector3(px, 0.7, 0);
+      coinsRef.current.forEach((c) => {
+        if (c.collected) return;
+        if (c.position.z > -8 && c.position.z < 4) {
+          c.position.lerp(target, Math.min(1, dt * 6));
+        }
+      });
+    }
+
+    // Cull
     obstaclesRef.current = obstaclesRef.current.filter((o) => o.position.z < 8);
     coinsRef.current = coinsRef.current.filter((c) => c.position.z < 8 && !c.collected);
+    powerupsRef.current = powerupsRef.current.filter((p) => p.position.z < 8 && !p.collected);
 
-    // Collisions — player roughly at z=0..1.0, x=playerX, y=playerY
+    // Collision
     const px = playerXRef.current;
     const py = playerYRef.current;
-    const playerRadius = 0.5;
     const playerLane = laneIdxRef.current;
 
     for (const o of obstaclesRef.current) {
       if (Math.abs(o.position.z) > 1.2) continue;
       if (o.lane !== playerLane) continue;
-      // Type-specific dodging
+      let hit = false;
       if (o.type === "asteroid") {
-        // jump over
-        if (py < 0.85) {
-          die();
-          return;
-        }
+        if (py < 0.85) hit = true;
       } else if (o.type === "ring") {
-        // slide under
-        if (!slidingRef.current) {
-          die();
-          return;
-        }
+        if (!slidingRef.current) hit = true;
       } else {
-        // crystal — must lane switch (always fatal in lane)
-        if (Math.abs(o.position.x - px) < playerRadius + 0.4) {
+        if (Math.abs(o.position.x - px) < 0.9) hit = true;
+      }
+      if (hit) {
+        if (shieldActiveRef.current) {
+          // Shield absorbs hit + removes obstacle
+          shieldActiveRef.current = false;
+          audio.shieldBreak();
+          o.position.z = 999; // mark for cull
+          onPowerupChange?.({
+            shield: false,
+            magnet: Math.max(0, magnetUntilRef.current - now),
+            multiplier: Math.max(0, multiplierUntilRef.current - now),
+          });
+        } else {
           die();
           return;
         }
       }
     }
 
+    // Power-up pickup
+    for (const p of powerupsRef.current) {
+      if (p.collected) continue;
+      if (Math.abs(p.position.z) > 1.0) continue;
+      if (p.lane !== playerLane) continue;
+      if (Math.abs(p.position.x - px) < 0.9 && Math.abs(p.position.y - (py + 0.55)) < 1.2) {
+        p.collected = true;
+        audio.powerup();
+        if (p.type === "shield") {
+          shieldActiveRef.current = true;
+        } else if (p.type === "magnet") {
+          magnetUntilRef.current = now + POWERUP_DURATION_MS.magnet;
+        } else {
+          multiplierUntilRef.current = now + POWERUP_DURATION_MS.multiplier;
+        }
+        onPowerupChange?.({
+          shield: shieldActiveRef.current,
+          magnet: Math.max(0, magnetUntilRef.current - now),
+          multiplier: Math.max(0, multiplierUntilRef.current - now),
+        });
+      }
+    }
+
+    // Coin pickup
     let coinPicked = 0;
     for (const c of coinsRef.current) {
       if (c.collected) continue;
       if (Math.abs(c.position.z) > 1.0) continue;
-      if (c.lane !== playerLane) continue;
-      if (Math.abs(c.position.x - px) < 0.7 && Math.abs(c.position.y - (py + 0.5)) < 0.8) {
+      const dxOk = Math.abs(c.position.x - px) < 0.7;
+      const dyOk = Math.abs(c.position.y - (py + 0.5)) < 0.9;
+      if (dxOk && dyOk) {
         c.collected = true;
         coinPicked += 1;
       }
     }
-    if (coinPicked) {
-      audio.coin();
-      onScore({ coins: coinPicked, distance: distanceRef.current });
-    } else {
-      onScore({ coins: 0, distance: distanceRef.current });
+    const earned = coinPicked * (multiplierActive ? 2 : 1);
+    if (earned) audio.coin();
+    onScore({ coins: earned, distance: distanceRef.current });
+
+    // Periodically broadcast remaining power-up time so HUD chips animate
+    if ((magnetActive || multiplierActive) && Math.floor(elapsedRef.current * 4) % 2 === 0) {
+      onPowerupChange?.({
+        shield: shieldActiveRef.current,
+        magnet: Math.max(0, magnetUntilRef.current - now),
+        multiplier: Math.max(0, multiplierUntilRef.current - now),
+      });
+    }
+    // Detect power-up expiry transitions
+    if (!magnetActive && magnetUntilRef.current !== 0 && magnetUntilRef.current < now) {
+      magnetUntilRef.current = 0;
+      onPowerupChange?.({
+        shield: shieldActiveRef.current, magnet: 0, multiplier: Math.max(0, multiplierUntilRef.current - now),
+      });
+    }
+    if (!multiplierActive && multiplierUntilRef.current !== 0 && multiplierUntilRef.current < now) {
+      multiplierUntilRef.current = 0;
+      onPowerupChange?.({
+        shield: shieldActiveRef.current, magnet: Math.max(0, magnetUntilRef.current - now), multiplier: 0,
+      });
     }
 
     setObstaclesState([...obstaclesRef.current]);
     setCoinsState([...coinsRef.current.filter((c) => !c.collected)]);
+    setPowerupsState([...powerupsRef.current.filter((p) => !p.collected)]);
 
     function die() {
       isDeadRef.current = true;
@@ -476,12 +681,22 @@ function World({ onScore, onDeath, controlState, runningRef }) {
   return (
     <>
       <Track speedRef={speedRef} />
-      <Bullpug refX={playerXRef} refY={playerYRef} sliding={slidingRef} running={runningRef} />
+      <NebulaBand speedRef={speedRef} />
+      <Bullpug
+        refX={playerXRef}
+        refY={playerYRef}
+        sliding={slidingRef}
+        running={runningRef}
+        shieldActive={shieldActiveRef}
+      />
       {obstaclesState.map((o) => (
         <Obstacle key={o.id} type={o.type} refData={o} />
       ))}
       {coinsState.map((c) => (
         <Coin key={c.id} refData={c} />
+      ))}
+      {powerupsState.map((p) => (
+        <PowerUp key={p.id} type={p.type} refData={p} />
       ))}
     </>
   );
@@ -497,8 +712,18 @@ export default function Phase1Runner3D() {
     try { return parseInt(localStorage.getItem("bullpug_runner3d_best") || "0", 10); } catch (e) { return 0; }
   });
   const [controlState, setControlState] = useState({ action: null, ts: 0 });
+  const [powerups, setPowerups] = useState({ shield: false, magnet: 0, multiplier: 0 });
+  const [milestone, setMilestone] = useState(null); // last milestone hit
+  const [submitState, setSubmitState] = useState({ rank: null, submitted: false });
   const runningRef = useRef({ running: false });
   const totalCoinsRef = useRef(0);
+  const milestoneTimer = useRef(null);
+
+  const playerName = useMemo(() => {
+    try {
+      return (localStorage.getItem("bullpugPlayerName") || "Cosmic Pug").trim().slice(0, 20);
+    } catch (e) { return "Cosmic Pug"; }
+  }, []);
 
   const fireAction = useCallback((action) => {
     if (!runningRef.current.running) return;
@@ -518,7 +743,7 @@ export default function Phase1Runner3D() {
     return () => window.removeEventListener("keydown", onKey);
   }, [fireAction]);
 
-  // Touch
+  // Touch swipe (lower threshold = more responsive)
   useEffect(() => {
     let startX = 0, startY = 0, startT = 0;
     const onStart = (e) => {
@@ -534,7 +759,7 @@ export default function Phase1Runner3D() {
       const dt = performance.now() - startT;
       if (dt > 700) return;
       const ax = Math.abs(dx), ay = Math.abs(dy);
-      if (Math.max(ax, ay) < 30) return;
+      if (Math.max(ax, ay) < 18) return; // lowered threshold
       if (ax > ay) fireAction(dx > 0 ? "right" : "left");
       else fireAction(dy > 0 ? "slide" : "jump");
     };
@@ -551,6 +776,29 @@ export default function Phase1Runner3D() {
     setScore({ coins: totalCoinsRef.current, distance: s.distance });
   }, []);
 
+  const handleMilestone = useCallback((dist) => {
+    setMilestone(dist);
+    if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
+    milestoneTimer.current = setTimeout(() => setMilestone(null), 1600);
+  }, []);
+
+  const submitScoreToBackend = useCallback(async (finalDistance, finalCoins) => {
+    const finalScore = Math.floor(finalDistance) + finalCoins * 5;
+    if (finalScore <= 0) return;
+    try {
+      const { data } = await axios.post(`${API}/leaderboard/submit`, {
+        player_name: playerName,
+        score: finalScore,
+        moonCheese: finalCoins,
+      });
+      setSubmitState({ rank: data?.rank ?? null, submitted: true });
+      toast.success(`Festival of Barks · Rank #${data?.rank ?? "—"}`);
+    } catch (e) {
+      setSubmitState({ rank: null, submitted: true });
+      // silent
+    }
+  }, [playerName]);
+
   const onDeath = useCallback((d) => {
     runningRef.current.running = false;
     setRunning(false);
@@ -561,16 +809,23 @@ export default function Phase1Runner3D() {
         setBestDistance(Math.floor(d.distance));
       }
     } catch (e) { /* ignore */ }
-  }, [bestDistance]);
+    submitScoreToBackend(d.distance, totalCoinsRef.current);
+  }, [bestDistance, submitScoreToBackend]);
 
   const start = () => {
     totalCoinsRef.current = 0;
     setScore({ coins: 0, distance: 0 });
     setGameOver(null);
+    setSubmitState({ rank: null, submitted: false });
+    setPowerups({ shield: false, magnet: 0, multiplier: 0 });
     runningRef.current.reset?.();
     runningRef.current.running = true;
     setRunning(true);
   };
+
+  const magnetSec = Math.ceil(powerups.magnet / 1000);
+  const multSec = Math.ceil(powerups.multiplier / 1000);
+  const isTouch = typeof window !== "undefined" && ("ontouchstart" in window || (navigator?.maxTouchPoints ?? 0) > 0);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden" data-testid="runner-3d-page">
@@ -587,35 +842,34 @@ export default function Phase1Runner3D() {
         <pointLight position={[0, 4, 0]} intensity={0.7} color="#D946EF" />
         <pointLight position={[0, 4, -20]} intensity={0.6} color="#00FFA3" />
 
-        {/* Cosmic skybox: starfield + sparkles */}
+        {/* Cosmic skybox */}
         <Stars radius={120} depth={60} count={3500} factor={4} fade saturation={0.6} />
         <Sparkles count={120} scale={[40, 25, 40]} size={3} speed={0.3} color="#D946EF" />
 
-        {/* Nebula gradient behind — large emissive sphere with vertex colors via gradient material */}
-        <mesh position={[0, 5, -90]} rotation={[0, 0, 0]}>
+        {/* Distant nebula veil */}
+        <mesh position={[0, 5, -90]}>
           <planeGeometry args={[180, 90]} />
           <meshBasicMaterial color="#1a0942" depthWrite={false} />
         </mesh>
-        <mesh position={[-25, 4, -55]} rotation={[0, 0.3, 0]}>
-          <sphereGeometry args={[6, 16, 12]} />
-          <meshBasicMaterial color="#D946EF" transparent opacity={0.18} />
-        </mesh>
-        <mesh position={[28, 6, -45]} rotation={[0, 0.3, 0]}>
-          <sphereGeometry args={[5, 16, 12]} />
-          <meshBasicMaterial color="#00C2FF" transparent opacity={0.16} />
-        </mesh>
+
+        {/* Distant planets */}
+        <Planet position={[-22, 7, -55]} size={4.5} color="#7C3AED" ringColor="#D946EF" />
+        <Planet position={[26, 9, -65]} size={3.2} color="#0EA5E9" />
+        <Planet position={[12, -3, -45]} size={1.6} color="#F5D300" />
 
         <World
           onScore={onScoreUpdate}
           onDeath={onDeath}
+          onMilestone={handleMilestone}
+          onPowerupChange={setPowerups}
           controlState={controlState}
           runningRef={runningRef}
         />
       </Canvas>
 
-      {/* HUD */}
+      {/* HUD — pushed below navbar */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-4 left-4 right-4 flex items-start justify-between">
+        <div className="absolute top-20 left-4 right-4 flex items-start justify-between">
           <div data-testid="runner-3d-hud-score">
             <div className="text-[10px] uppercase tracking-[0.25em] text-[#00FFA3] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>
               Distance
@@ -637,9 +891,75 @@ export default function Phase1Runner3D() {
             <div className="text-xl font-bold text-[#D946EF] tabular-nums" style={{ fontFamily: "Orbitron" }}>
               {bestDistance}m
             </div>
+            {/* Active power-up chips */}
+            <div className="mt-2 flex flex-col items-end gap-1" data-testid="runner-3d-hud-powerups">
+              {powerups.shield && (
+                <div className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: "rgba(52,211,153,0.18)", color: COLORS.shield, border: `1px solid ${COLORS.shield}55` }}>
+                  ◇ Shield
+                </div>
+              )}
+              {powerups.magnet > 0 && (
+                <div className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: "rgba(249,115,22,0.18)", color: COLORS.magnet, border: `1px solid ${COLORS.magnet}55` }}>
+                  ⌬ Magnet {magnetSec}s
+                </div>
+              )}
+              {powerups.multiplier > 0 && (
+                <div className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: "rgba(167,139,250,0.18)", color: COLORS.multiplier, border: `1px solid ${COLORS.multiplier}55` }}>
+                  × 2 Score {multSec}s
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Milestone burst */}
+        {milestone !== null && (
+          <div className="absolute top-1/3 left-0 right-0 text-center pointer-events-none" data-testid="runner-3d-milestone">
+            <div className="inline-block px-5 py-2 rounded-full backdrop-blur-md"
+              style={{ background: "rgba(0,255,163,0.12)", border: "1px solid rgba(0,255,163,0.4)" }}>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-[#00FFA3] font-bold" style={{ fontFamily: "Orbitron" }}>Milestone</div>
+              <div className="text-2xl font-black text-white" style={{ fontFamily: "Orbitron" }}>{milestone}m</div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* On-screen mobile controls (touch devices only, while running) */}
+      {isTouch && running && (
+        <div className="absolute inset-x-0 bottom-6 flex items-end justify-between px-6 pointer-events-none" data-testid="runner-3d-mobile-ctrls">
+          <div className="flex flex-col gap-2 pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => fireAction("left")}
+              data-testid="runner-3d-btn-left"
+              className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-2xl active:scale-95"
+            >←</button>
+            <button
+              type="button"
+              onClick={() => fireAction("slide")}
+              data-testid="runner-3d-btn-slide"
+              className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-2xl active:scale-95"
+            >↓</button>
+          </div>
+          <div className="flex flex-col gap-2 pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => fireAction("jump")}
+              data-testid="runner-3d-btn-jump"
+              className="w-14 h-14 rounded-full bg-[#00FFA3]/20 backdrop-blur-md border border-[#00FFA3]/40 text-[#00FFA3] font-bold text-2xl active:scale-95"
+            >↑</button>
+            <button
+              type="button"
+              onClick={() => fireAction("right")}
+              data-testid="runner-3d-btn-right"
+              className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-2xl active:scale-95"
+            >→</button>
+          </div>
+        </div>
+      )}
 
       {/* Start screen */}
       {!running && !gameOver && (
@@ -653,9 +973,24 @@ export default function Phase1Runner3D() {
                 COSMIC RUNNER
               </span>
             </h1>
-            <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-              Run forever through the deep PugChain. Dodge asteroids, slide through ion rings, leap over crystal pillars. Collect cosmic coins for the Festival of Barks leaderboard.
+            <p className="text-slate-300 text-sm mb-4 leading-relaxed">
+              Run forever through the deep PugChain. Dodge asteroids, slide through ion rings, leap over crystal pillars. Grab power-ups & collect cosmic coins for the Festival of Barks leaderboard.
             </p>
+            {/* Power-up legend */}
+            <div className="grid grid-cols-3 gap-2 text-[10px] font-mono mb-4">
+              <div className="rounded-md p-2" style={{ background: "rgba(52,211,153,0.1)", border: `1px solid ${COLORS.shield}55` }}>
+                <div className="font-bold" style={{ color: COLORS.shield }}>◇ Shield</div>
+                <div className="text-slate-400">1 free hit</div>
+              </div>
+              <div className="rounded-md p-2" style={{ background: "rgba(249,115,22,0.1)", border: `1px solid ${COLORS.magnet}55` }}>
+                <div className="font-bold" style={{ color: COLORS.magnet }}>⌬ Magnet</div>
+                <div className="text-slate-400">Auto-grab 6s</div>
+              </div>
+              <div className="rounded-md p-2" style={{ background: "rgba(167,139,250,0.1)", border: `1px solid ${COLORS.multiplier}55` }}>
+                <div className="font-bold" style={{ color: COLORS.multiplier }}>× 2</div>
+                <div className="text-slate-400">2× coins 8s</div>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-mono mb-6">
               <div>← / A · Left</div>
               <div>→ / D · Right</div>
@@ -687,18 +1022,37 @@ export default function Phase1Runner3D() {
             <p className="text-slate-300 text-sm mb-2">
               Cosmic coins: <span className="text-[#F5D300] font-bold">✦ {score.coins}</span>
             </p>
-            <p className="text-[11px] text-slate-500 mb-6">
+            <p className="text-[11px] text-slate-500 mb-2">
               {gameOver.distance > bestDistance ? "NEW PERSONAL BEST" : `Best · ${bestDistance}m`}
             </p>
-            <button
-              type="button"
-              onClick={start}
-              data-testid="runner-3d-restart-btn"
-              className="px-8 py-3 rounded-full bg-[#00FFA3] text-black font-black uppercase tracking-wider hover:scale-105 transition-transform"
-              style={{ fontFamily: "Orbitron" }}
-            >
-              Run Again
-            </button>
+            {submitState.submitted && (
+              <p className="text-[11px] mb-4" data-testid="runner-3d-rank">
+                <span className="text-slate-500">Festival of Barks · </span>
+                <span className="text-[#00FFA3] font-bold">
+                  {submitState.rank ? `Rank #${submitState.rank}` : "submitted"}
+                </span>
+                <span className="text-slate-500"> · as {playerName}</span>
+              </p>
+            )}
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={start}
+                data-testid="runner-3d-restart-btn"
+                className="px-6 py-3 rounded-full bg-[#00FFA3] text-black font-black uppercase tracking-wider hover:scale-105 transition-transform text-sm"
+                style={{ fontFamily: "Orbitron" }}
+              >
+                Run Again
+              </button>
+              <a
+                href="/leaderboard"
+                data-testid="runner-3d-leaderboard-link"
+                className="px-6 py-3 rounded-full border border-white/20 text-white font-bold uppercase tracking-wider hover:bg-white/10 transition-colors text-sm"
+                style={{ fontFamily: "Orbitron" }}
+              >
+                Leaderboard
+              </a>
+            </div>
           </div>
         </div>
       )}

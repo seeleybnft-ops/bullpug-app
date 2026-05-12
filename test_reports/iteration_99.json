@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 99 - End-to-end test of Phase1Runner3D (Cosmic Runner 3D) + backend /api/leaderboard wiring. Backend: 9/9 pytest pass (POST /api/leaderboard/submit returns 200 {rank,score,moonCheese}; GET /api/leaderboard returns entry; higher-score update + lower-score no-overwrite + default-name + 422-on-missing-field verified; smoke for /api/pot/active & /api/prize-pool/status). Frontend: full game loop verified end-to-end - access gate (bullpug2026) → start screen with 3 power-up chips (Shield/Magnet/×2), title COSMIC RUNNER, Begin Run button → click → start screen hides, 3D canvas renders, HUD (data-testid=runner-3d-hud-score) at y=80 (below navbar height ~64) shows live Distance ticking (12m→19m→30m) - keyboard ArrowRight/Left/Space/Down dispatched without crash → game-over overlay (data-testid=runner-3d-gameover-screen) appears with 30m + Cosmic coins ✦0 + NEW PERSONAL BEST + Run Again + Leaderboard buttons → automatic POST to /api/leaderboard/submit body={\"player_name\":\"Cosmic Pug\",\"score\":30,\"moonCheese\":0} responded 200 {\"rank\":4,\"score\":30,\"moonCheese\":0} → runner-3d-rank shows 'Festival of Barks · Rank #4 · as Cosmic Pug' → click Run Again resets without re-showing start screen (HUD visible, game-over hidden). Regression: /, /arena, /leaderboard all render their nav/header without page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_leaderboard_iteration99.py",
+    "/app/test_reports/pytest/pytest_iteration99_leaderboard.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Phase1Runner3D.js is 1062 lines - past the 700-line guideline. Recommend splitting into modules: useGameAudio (audio), components/(Bullpug,World,NebulaBand,Planet,Asteroid,Pillar,Ring,PowerUp), hooks/useRunnerLoop (per-frame logic + collisions + spawn), hooks/useInput (keyboard + swipe + tap), and services/leaderboardSubmit. Will pay back fast next time you touch the file.",
+    "leaderboard.py /submit silently ignores Mongo write failures by not wrapping insert/update_one in try - on a transient Mongo error the API still returns 200 with rank but the entry isn't persisted, and the player_name appears 'submitted' in the UI. Either propagate errors or compute rank only AFTER successful write.",
+    "leaderboard.py inserts new entries with key 'mooncakes' (line 100) but updates use 'moonCheese' (line 91). GET /api/leaderboard returns the raw doc, so older entries expose 'mooncakes' while updated entries expose 'moonCheese' - inconsistent shape for any consumer reading the field. Pick one (moonCheese to match the request schema) and migrate or coerce on read.",
+    "leaderboard.py get_current_cycle_start returns datetime when no pool exists vs string when pool has created_at - inconsistent types make the equality filter db.leaderboard.find({cycle_start: cycle_start}) unreliable across server restarts where the first call falls through to the datetime branch and the next to the string branch. Normalise to ISO string in both branches.",
+    "Phase1Runner3D reads localStorage.getItem('bullpugPlayerName') inside a useState lazy init - so any external code changing the value after mount won't be picked up until next mount. Acceptable, but document or migrate to reading at submit-time so a 'change name' UI elsewhere can take effect mid-session.",
+    "Three.js console warnings on every frame: 'THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated' (logs every render!) - either downgrade three or switch shadowMap.type to THREE.PCFShadowMap to silence the per-frame spam (perf + log clutter)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_leaderboard_iteration99.py",
+    "/app/test_reports/iteration_99.json"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (start, gameplay, HUD, score-submit, game-over, restart, 3 regression pages)"},
+  "test_credentials": "Private gate: bullpug2026 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Inserted TestRunner3D (score=9999 after upgrade) and 'Cosmic Pug' (score=30+ from gameplay run, score=500 from default-name test) into db.leaderboard for current cycle. Also created mirrored entries in db.game_leaderboard. No cleanup performed since these don't conflict with production data and the cycle naturally resets every 3 days.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase1Runner3D game-over can fire as early as ~3-5 seconds when player stays in lane 0 and obstacles spawn there - so the 60s wait loop in the script is just an upper bound, not a minimum. POST /api/leaderboard/submit is fire-and-forget on the client (axios.post inside an async IIFE in handleGameOver) - if network fails, the user sees no error toast. Score formula confirmed as floor(distance)+coins*5; coins worth 5 each. Default player_name = 'Cosmic Pug' when localStorage.bullpugPlayerName is empty at component mount. Game over overlay's rank text format: 'Festival of Barks · Rank #N · as <name>'. Three.js logs PCFSoftShadowMap deprecation warning on EVERY frame - this is noise, not a bug. The leaderboard.py field-name inconsistency (mooncakes vs moonCheese) is a real data-shape bug worth fixing.",
+  "rca of the issue": "N/A - no functional issues found. All happy paths and edge cases pass."
+}
