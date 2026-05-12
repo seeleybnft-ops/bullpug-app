@@ -67,6 +67,27 @@ async def record_big_win(
     except Exception:
         logger.exception("Failed to broadcast big win")
 
+    # Web Push to all subscribers (true background notifications via Service Worker)
+    try:
+        from routers.push_notifications import broadcast_to_all_subscribers
+        game_label = "Winner Pot" if doc.get("game") == "pot" else "Coin Flip"
+        await broadcast_to_all_subscribers({
+            "title": f"🏆 {doc['winner_name']} won {doc['payout_sol']} SOL",
+            "body": f"Bullpug {game_label} just resolved. Tap to enter the arena.",
+            "icon": "/bullpug-icon.png",
+            "badge": "/bullpug-badge.png",
+            "tag": f"bigwin-{doc['game']}-{doc['occurred_at']}",
+            "url": "/betting",
+            "data": {
+                "type": "big_win",
+                "game": doc.get("game"),
+                "payout_sol": doc.get("payout_sol"),
+                "url": "/betting",
+            },
+        })
+    except Exception:
+        logger.exception("Failed to send big-win web push")
+
 
 @router.get("/recent")
 async def get_recent_big_wins(limit: int = 5, since: Optional[str] = None):

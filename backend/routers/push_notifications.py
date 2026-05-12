@@ -12,8 +12,10 @@ Focused on Copy Trading Events:
 
 import os
 import json
+import base64
 import uuid
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
@@ -21,15 +23,103 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 
 from utils.database import db
 
+try:
+    from pywebpush import webpush, WebPushException  # type: ignore
+    _PYWEBPUSH_AVAILABLE = True
+except Exception:  # pragma: no cover
+    webpush = None  # type: ignore
+    WebPushException = Exception  # type: ignore
+    _PYWEBPUSH_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/push-notifications", tags=["Push Notifications"])
 
-# VAPID keys would normally be generated once and stored securely
-# For demo, we'll use placeholders - in production, generate with: 
-# npx web-push generate-vapid-keys
+# VAPID public key is shared with frontend; private key signs JWT for push services
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
-VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
-VAPID_EMAIL = os.environ.get("VAPID_EMAIL", "mailto:notifications@bullpug.io")
+VAPID_PRIVATE_KEY_RAW = os.environ.get("VAPID_PRIVATE_KEY_RAW", "")  # 32-byte private scalar, urlsafe-b64
+VAPID_PRIVATE_KEY_B64 = os.environ.get("VAPID_PRIVATE_KEY_B64", "")  # legacy PKCS#8 PEM, base64
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")  # legacy fallback (raw PEM)
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", os.environ.get("VAPID_EMAIL", "mailto:admin@bullpug.app"))
+VAPID_EMAIL = VAPID_SUBJECT  # backward compatibility
+
+
+def _vapid_private_key_for_pywebpush() -> Optional[str]:
+    """Return the VAPID private key in the form pywebpush expects.
+
+    pywebpush's Vapid.from_string accepts:
+      - a 32-byte raw private scalar (urlsafe-base64, no padding) — preferred
+      - a base64-encoded DER private key
+
+    We standardise on the raw 32-byte form.
+    """
+    if VAPID_PRIVATE_KEY_RAW:
+        return VAPID_PRIVATE_KEY_RAW
+    if VAPID_PRIVATE_KEY_B64:
+        try:
+            return base64.b64decode(VAPID_PRIVATE_KEY_B64).decode()
+        except Exception:
+            logger.exception("VAPID_PRIVATE_KEY_B64 is malformed")
+    if VAPID_PRIVATE_KEY:
+        return VAPID_PRIVATE_KEY
+    return None
+
+
+def _push_one(subscription_info: dict, payload: dict) -> bool:
+    """Synchronously send a single push (called via run_in_executor)."""
+    key = _vapid_private_key_for_pywebpush()
+    if not key or not _PYWEBPUSH_AVAILABLE:
+        return False
+    try:
+        webpush(
+            subscription_info=subscription_info,
+            data=json.dumps(payload),
+            vapid_private_key=key,
+            vapid_claims={"sub": VAPID_SUBJECT},
+            ttl=60,
+        )
+        return True
+    except WebPushException as e:
+        # 404/410 → endpoint expired; caller will prune
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        if status in (404, 410):
+            raise
+        logger.warning("WebPush send failed (status=%s): %s", status, e)
+        return False
+    except Exception:
+        logger.exception("WebPush send error")
+        return False
+
+
+async def _send_to_subscription(sub: dict, payload: dict) -> bool:
+    """Async wrapper. Prunes expired endpoints automatically."""
+    sub_info = {"endpoint": sub["endpoint"], "keys": sub["keys"]}
+    loop = asyncio.get_event_loop()
+    try:
+        ok = await loop.run_in_executor(None, _push_one, sub_info, payload)
+        return bool(ok)
+    except WebPushException as e:
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        if status in (404, 410):
+            try:
+                await db.push_subscriptions.delete_one({"_id": sub.get("_id")})
+                logger.info("Pruned expired push subscription %s", sub.get("subscription_id"))
+            except Exception:
+                logger.exception("Failed to prune expired subscription")
+        return False
+
+
+async def broadcast_to_all_subscribers(payload: dict) -> int:
+    """Fan out a payload to every active push subscription. Returns delivered count."""
+    if not _PYWEBPUSH_AVAILABLE or not _vapid_private_key_for_pywebpush():
+        logger.info("broadcast_to_all_subscribers: skipped (pywebpush/VAPID not configured)")
+        return 0
+    subs = await db.push_subscriptions.find({"active": True}).to_list(2000)
+    if not subs:
+        return 0
+    results = await asyncio.gather(*[_send_to_subscription(s, payload) for s in subs], return_exceptions=True)
+    delivered = sum(1 for r in results if r is True)
+    logger.info("broadcast_to_all_subscribers: %d/%d delivered", delivered, len(subs))
+    return delivered
 
 
 # ============== Models ==============
@@ -42,7 +132,7 @@ class PushSubscription(BaseModel):
 
 class PushSubscriptionCreate(BaseModel):
     """Request to create a push subscription"""
-    wallet_address: str
+    wallet_address: Optional[str] = None  # Optional — anonymous subs allowed
     subscription: PushSubscription
     device_name: Optional[str] = "Browser"
     platform: Optional[str] = "web"  # web, ios, android
@@ -88,9 +178,10 @@ async def subscribe_to_push(data: PushSubscriptionCreate):
     """Subscribe a device to push notifications."""
     subscription_id = str(uuid.uuid4())[:8]
     
-    # Check if this endpoint is already subscribed for this wallet
+    wallet = data.wallet_address or "anonymous"
+
+    # Check if this endpoint is already subscribed
     existing = await db.push_subscriptions.find_one({
-        "wallet_address": data.wallet_address,
         "endpoint": data.subscription.endpoint
     })
     
@@ -99,9 +190,11 @@ async def subscribe_to_push(data: PushSubscriptionCreate):
         await db.push_subscriptions.update_one(
             {"_id": existing["_id"]},
             {"$set": {
+                "wallet_address": wallet,
                 "keys": data.subscription.keys,
                 "device_name": data.device_name,
                 "platform": data.platform,
+                "active": True,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
@@ -114,7 +207,7 @@ async def subscribe_to_push(data: PushSubscriptionCreate):
     # Create new subscription
     subscription_doc = {
         "subscription_id": subscription_id,
-        "wallet_address": data.wallet_address,
+        "wallet_address": wallet,
         "endpoint": data.subscription.endpoint,
         "keys": data.subscription.keys,
         "device_name": data.device_name,
@@ -125,18 +218,19 @@ async def subscribe_to_push(data: PushSubscriptionCreate):
     
     await db.push_subscriptions.insert_one(subscription_doc)
     
-    # Initialize preferences if not exist
-    await db.push_notification_preferences.update_one(
-        {"wallet_address": data.wallet_address},
-        {
-            "$setOnInsert": {
-                "wallet_address": data.wallet_address,
-                **PushNotificationPreferences(wallet_address=data.wallet_address).dict(),
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-        },
-        upsert=True
-    )
+    # Initialize preferences only for wallet-bound subs
+    if data.wallet_address:
+        await db.push_notification_preferences.update_one(
+            {"wallet_address": wallet},
+            {
+                "$setOnInsert": {
+                    "wallet_address": wallet,
+                    **PushNotificationPreferences(wallet_address=wallet).dict(),
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+            },
+            upsert=True
+        )
     
     return {
         "success": True,

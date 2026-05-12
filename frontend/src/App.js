@@ -24,6 +24,7 @@ import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";
 import BigWinToast from "@/components/BigWinToast";
+import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
@@ -137,6 +138,7 @@ function App() {
                 <Footer />
                 <EnhancedAIAssistant />
                 <BigWinToast />
+                <NotificationPermissionPrompt />
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>

@@ -190,6 +190,62 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 110 — Service Worker + Web Push (VAPID) + Trading-Badge Bug Fix (May 12, 2026)
+
+### Part A — Trading-badge fallback bug (5-line fix)
+- `routers/achievements.py:281` — removed the cross-wallet fallback that, when a wallet had no `trading_journal` entries, queried ALL trades regardless of wallet, then awarded trade-based badges from that aggregate. Every fresh visitor was previously inheriting the hibernated bot's `trades_10`, `pnl_1k`, `first_trade` badges.
+- Verified: a clean test wallet now returns 0 badges & `total_trades=0, pnl=0`. ✅
+
+### Part B — True background push notifications via Web Push (VAPID)
+
+#### Why
+Previous `useBrowserNotifications` only fired native OS toasts while the tab was visible. For real "always-on" alerts (e.g. user closes the browser at 11pm, a 4 SOL pot resolves at 3am, wakes up to the notification) we needed:
+- Service Worker that survives tab close
+- VAPID-signed Web Push delivery from the backend to FCM / Apple's APNs / Mozilla's autopush
+
+#### Backend additions
+- **VAPID keypair generated** and stored in `backend/.env`:
+  - `VAPID_PUBLIC_KEY` — shared with frontend
+  - `VAPID_PRIVATE_KEY_RAW` — 32-byte private scalar (url-safe base64), the format `pywebpush` expects via `Vapid.from_string()`
+  - `VAPID_SUBJECT` — `mailto:admin@bullpug.app`
+- **`pywebpush==2.3.0`** added to `requirements.txt` (+ `py-vapid`, `http-ece` transitively)
+- **`routers/push_notifications.py` upgraded:**
+  - Real `webpush()` send (was a no-op stub before)
+  - `broadcast_to_all_subscribers(payload)` — fan-out helper using `asyncio.gather` + `run_in_executor` to avoid blocking the event loop
+  - Auto-prune endpoints on 404/410 (`Pruned expired push subscription <id>`)
+  - Anonymous subscriptions allowed (`wallet_address: Optional[str]`)
+  - `_send_to_subscription()` wraps each individual send with error handling
+- **`routers/big_wins.py` wired:** `record_big_win()` now calls `broadcast_to_all_subscribers()` after persisting and after the WebSocket broadcast attempt.
+
+#### Frontend additions
+- **`/app/frontend/public/sw-push.js`** already existed (Iteration 99 stub) — it handles `push` events and `notificationclick` to open `/betting` in a new/existing tab. No changes needed.
+- **NEW `hooks/useWebPushSubscription.js`** — registers the service worker, fetches the VAPID public key, calls `pushManager.subscribe()`, posts the subscription to the backend. Idempotent — safe to call multiple times. Returns `{supported, permission, subscribed, subscribe, unsubscribe}`.
+- **NEW `components/NotificationPermissionPrompt.js`** — small bottom-left card (mint-green accent, gradient bar, Bell icon) that appears 12 seconds after page load if the user has neither granted nor dismissed. "Enable pings" CTA triggers the full subscribe flow; "Not now" persists dismissal via `localStorage["bullpug_push_prompt_dismissed_v1"]`.
+- **`App.js`** — mounted `<NotificationPermissionPrompt />` alongside `<BigWinToast />`.
+
+#### Verified end-to-end
+- Subscribe endpoint creates subscription doc with `wallet_address=null` for anonymous users ✅
+- VAPID public key endpoint returns `{configured: true, public_key: "BGQd..."}` ✅
+- pywebpush correctly signs JWT — Vapid load test green, encryption passes ✅
+- Real subscription with valid p256dh fan-out hits FCM, FCM returns 404 for non-existent endpoint, auto-prune fires ✅ (`Pruned expired push subscription 6e021dd6`)
+- Service Worker registers in browser (`registered: 1, scriptURL: /sw-push.js`) ✅
+- 7 stale TEST_ subscriptions cleaned from prior dev sessions ✅
+- UI prompt renders only when `Notification.permission === "default"` and not dismissed ✅
+
+#### Files touched
+- `backend/.env` — added VAPID_* keys
+- `backend/requirements.txt` — added `pywebpush==2.3.0`, `py-vapid==1.9.4`, `http-ece==1.2.1`
+- `backend/routers/push_notifications.py` — real send + broadcast helper + anonymous subs
+- `backend/routers/big_wins.py` — invoke broadcast after every big-win persist
+- `backend/routers/achievements.py` — remove cross-wallet trade-fallback
+- `frontend/src/hooks/useWebPushSubscription.js` (new)
+- `frontend/src/components/NotificationPermissionPrompt.js` (new)
+- `frontend/src/App.js` — mount prompt
+
+#### Production note
+The VAPID public key is non-secret (it's sent to the frontend on every visit). The private key is in `.env` and must NEVER be committed or rotated without unsubscribing all users (which would prune themselves on the next 401). Recommend rotating it via a maintenance window if ever compromised.
+
+---
 ## Iteration 109 — Arena Achievement Badges Verified (May 12, 2026)
 
 ### P1 verification — all 4 arena badges working
