@@ -90,23 +90,36 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   // Load chat history from MongoDB when wallet connects
   useEffect(() => {
     const loadHistory = async () => {
-      if (walletAddress && !historyLoaded) {
-        try {
-          const { data } = await axios.get(`${API}/ai/history/${walletAddress}`);
-          if (data.success && data.messages && data.messages.length > 0) {
-            setMessages(data.messages);
-            if (data.session_id) {
-              setSessionId(data.session_id);
-            }
+      if (!walletAddress) {
+        // Anonymous user — no DB history to load, show greeting immediately
+        if (!historyLoaded) setHistoryLoaded(true);
+        return;
+      }
+      if (historyLoaded) return;
+      try {
+        const { data } = await axios.get(`${API}/ai/history/${walletAddress}`);
+        if (data.success && data.messages && data.messages.length > 0) {
+          // Migrate legacy "Bullpug AI" greeting → Tinkerpug. Drop the stale
+          // first message; the welcome-message effect will re-emit the new
+          // greeting on next mount if the history becomes empty.
+          const cleaned = data.messages.filter((m, idx) => {
+            if (idx !== 0) return true;
+            if (m.role !== "assistant") return true;
+            const c = (m.content || "");
+            return !(c.includes("I'm **Bullpug AI**") || c.includes("Bullpug AI with **real-time"));
+          });
+          setMessages(cleaned);
+          if (data.session_id) {
+            setSessionId(data.session_id);
           }
-          setHistoryLoaded(true);
-        } catch (e) {
-          console.error("Failed to load chat history:", e);
-          setHistoryLoaded(true);
         }
+        setHistoryLoaded(true);
+      } catch (e) {
+        console.error("Failed to load chat history:", e);
+        setHistoryLoaded(true);
       }
     };
-    
+
     loadHistory();
   }, [walletAddress, historyLoaded]);
 

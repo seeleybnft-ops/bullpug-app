@@ -190,6 +190,25 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 118 — Tinkerpug Greeting Migration (May 12, 2026)
+
+### Issue
+The screenshot showed an admin's chat still rendering the old "Hey there! I'm Bullpug AI…" greeting because the message had been **persisted to MongoDB** (`chat_history` collection) back when the chatbot was called "Bullpug AI". The Tinkerpug rename in iteration 111 only updated the source string, not existing user history.
+
+### Fix — three-layer migration
+1. **Frontend filter** (`EnhancedAIAssistant.js`): on load, the legacy first-message greeting is dropped from the array before rendering. The welcome-message effect then re-emits the fresh Tinkerpug greeting.
+2. **DB migration** (one-shot): scanned all `chat_history` docs, removed the stale "Bullpug AI" greeting at the source. **3 of 6 docs migrated**.
+3. **UX gap fix**: also patched the load effect to flip `historyLoaded = true` for unconnected users (previously they got an empty chat window because the loader bailed before setting the flag).
+
+### Verified
+- Headless test: greeting now starts with **"Hey there! I'm Tinkerpug, your Bullpug market intelligence companion with real-time data!"** ✅
+- "Bullpug AI" string no longer appears anywhere in the chat body ✅
+- Anonymous users now also see the greeting immediately (previously was blank) ✅
+
+### Files touched
+- `frontend/src/components/EnhancedAIAssistant.js` — load-effect rewrite with legacy filter + anonymous-user handling
+
+---
 ## Iteration 117 — Operator Quick Glance Pill (Navbar) (May 12, 2026)
 
 ### What was added
