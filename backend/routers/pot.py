@@ -26,6 +26,7 @@ from state.pot_state import (
     LAMPORTS_PER_SOL,
 )
 from routers.prize_pool import add_to_prize_pool
+from routers.big_wins import record_big_win
 
 router = APIRouter(prefix="/betting/pot", tags=["pot"])
 limiter = Limiter(key_func=get_remote_address)
@@ -279,6 +280,19 @@ async def draw_pot_winner(request: Request):
     })
 
     await pot_ws_manager.broadcast({"type": "pot_winner", "data": result})
+
+    # Cross-page big-win toast (≥ 1 SOL)
+    try:
+        await record_big_win(
+            game="pot",
+            winner_name=winner.get("display_name"),
+            winner_wallet=winner.get("wallet_address"),
+            payout_sol=payout,
+            rake_sol=rake,
+            extra={"pot_id": pot["id"], "total_pot_sol": total, "entry_count": len(pot["entries"])},
+        )
+    except Exception:
+        logger.exception("record_big_win (pot) failed")
 
     await reset_pot()
 

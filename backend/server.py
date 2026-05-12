@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from routers import ALL_ROUTERS
 from routers.pot import get_pot_data
-from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager
+from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, big_wins_manager
 from utils.database import db
 from utils.scheduler import start_scheduler, stop_scheduler
 
@@ -253,6 +253,19 @@ async def pot_websocket(ws: WebSocket):
         pot_ws_manager.disconnect(ws)
     except Exception:
         pot_ws_manager.disconnect(ws)
+
+
+@app.websocket("/ws/big-wins")
+async def big_wins_websocket(ws: WebSocket):
+    """WebSocket for cross-page big-win broadcasts (arena wins ≥ 1 SOL)."""
+    await big_wins_manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        big_wins_manager.disconnect(ws)
+    except Exception:
+        big_wins_manager.disconnect(ws)
 
 
 @app.websocket("/ws/dm/{wallet_address}")

@@ -23,6 +23,7 @@ import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";
+import BigWinToast from "@/components/BigWinToast";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
@@ -135,6 +136,7 @@ function App() {
                 </Routes>
                 <Footer />
                 <EnhancedAIAssistant />
+                <BigWinToast />
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>

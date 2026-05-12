@@ -19,6 +19,7 @@ from utils.config import RAKE_PERCENT, DISTRIBUTION_WALLET
 from utils.solana_payout import send_sol_payout, get_escrow_balance
 from state.pot_state import sol_to_lamports, lamports_to_sol
 from routers.prize_pool import add_to_prize_pool
+from routers.big_wins import record_big_win
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 limiter = Limiter(key_func=get_remote_address)
@@ -230,6 +231,19 @@ async def accept_challenge(request: Request, data: AcceptChallengeRequest):
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await db.betting_history.insert_one(history_entry)
+
+    # Cross-page big-win toast (≥ 1 SOL)
+    try:
+        await record_big_win(
+            game="coinflip",
+            winner_name=winner_name,
+            winner_wallet=winner_wallet,
+            payout_sol=challenge["payout_sol"],
+            rake_sol=challenge["rake_sol"],
+            extra={"challenge_id": challenge["id"], "outcome": outcome, "bet_amount_sol": challenge["bet_amount_sol"]},
+        )
+    except Exception:
+        logger.exception("record_big_win (coinflip) failed")
     
     return {
         "outcome": outcome,

@@ -71,3 +71,4 @@ class BroadcastManager:
 dm_manager = ConnectionManager()
 notification_manager = ConnectionManager()
 pot_ws_manager = BroadcastManager()
+big_wins_manager = BroadcastManager()  # Cross-page broadcast for arena wins > 1 SOL

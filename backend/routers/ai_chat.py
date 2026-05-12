@@ -1329,6 +1329,24 @@ Provide a helpful response using the real-time data above when relevant. Be spec
         )
 
 
+@router.get("/daily-drops/latest")
+async def get_latest_daily_drop():
+    """Most-recently-generated Daily Drop across all users (today only, anonymized).
+
+    Used by the homepage 'Latest Drop' widget — always shows the freshest piece
+    of universe-expansion so visitors see the system is alive and producing.
+    """
+    today = _today_utc()
+    drop = await db.daily_drops.find_one(
+        {"date_utc": today},
+        {"_id": 0, "user_key": 0},  # strip user identifier
+        sort=[("created_at", -1)],
+    )
+    if not drop:
+        return {"drop": None}
+    return {"drop": drop}
+
+
 @router.get("/daily-drop")
 async def get_daily_drop(wallet_address: Optional[str] = None, session_id: Optional[str] = None):
     """Return today's Bullpug Daily Drop for a specific user.

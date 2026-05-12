@@ -10,6 +10,7 @@ import axios from "axios";
 import RecentWinners from "@/components/RecentWinners";
 import MarketDashboard from "@/components/MarketDashboard";
 import JackpotTicker from "@/components/JackpotTicker";
+import LatestDropWidget from "@/components/LatestDropWidget";
 import CommunitySpotlight from "@/components/CommunitySpotlight";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -142,6 +143,9 @@ export default function HomePage() {
 
       {/* COSMIC RUNNER JACKPOT — LIVE TICKER */}
       <JackpotTicker />
+
+      {/* TODAY'S BULLPUG DAILY DROP (auto-hides if no drop yet today) */}
+      <LatestDropWidget />
 
       {/* COMMUNITY SPOTLIGHT */}
       <CommunitySpotlight />

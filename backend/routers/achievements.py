@@ -199,6 +199,47 @@ BADGES = {
         "rarity": "rare",
         "color": "#00C2FF"
     },
+    # ----- P2P Arena badges -----
+    "arena_first_blood": {
+        "id": "arena_first_blood",
+        "name": "First Blood",
+        "description": "Won your first P2P Arena game",
+        "icon": "🩸",
+        "category": "arena",
+        "requirement": {"type": "arena_wins", "value": 1},
+        "rarity": "common",
+        "color": "#00FFA3"
+    },
+    "arena_big_winner": {
+        "id": "arena_big_winner",
+        "name": "Big Winner",
+        "description": "Took home a single arena win of 1+ SOL",
+        "icon": "🏆",
+        "category": "arena",
+        "requirement": {"type": "arena_biggest_win", "value": 1.0},
+        "rarity": "rare",
+        "color": "#F5D300"
+    },
+    "arena_whale": {
+        "id": "arena_whale",
+        "name": "Arena Whale",
+        "description": "Took home a single arena win of 5+ SOL",
+        "icon": "🐋",
+        "category": "arena",
+        "requirement": {"type": "arena_biggest_win", "value": 5.0},
+        "rarity": "epic",
+        "color": "#D946EF"
+    },
+    "arena_regular": {
+        "id": "arena_regular",
+        "name": "Arena Regular",
+        "description": "Won 10 P2P Arena games",
+        "icon": "⚔️",
+        "category": "arena",
+        "requirement": {"type": "arena_wins", "value": 10},
+        "rarity": "rare",
+        "color": "#00C2FF"
+    },
 }
 
 
@@ -318,8 +359,8 @@ async def get_user_stats(wallet_address: str) -> Dict[str, Any]:
     
     total = winning + losing
     win_rate = (winning / total * 100) if total > 0 else 0
-    
-    return {
+
+    result = {
         "total_trades": total,
         "winning_trades": winning,
         "losing_trades": losing,
@@ -328,8 +369,34 @@ async def get_user_stats(wallet_address: str) -> Dict[str, Any]:
         "current_loss_streak": current_loss_streak,
         "best_win_streak": best_win_streak,
         "total_pnl": round(total_pnl, 2),
-        "chains_traded": list(chains)
+        "chains_traded": list(chains),
     }
+
+    # ----- P2P Arena stats (used for arena_* badges) -----
+    arena_wins = 0
+    arena_biggest_win = 0.0
+    try:
+        # Pot wins
+        arena_wins += await db.pot_results.count_documents({"winner_wallet": wallet_address})
+        # Coinflip wins
+        arena_wins += await db.betting_history.count_documents({"winner_wallet": wallet_address})
+        # Biggest single payout (cross-game)
+        big_pot = await db.pot_results.find_one(
+            {"winner_wallet": wallet_address}, {"_id": 0, "payout_sol": 1}, sort=[("payout_sol", -1)],
+        )
+        if big_pot and big_pot.get("payout_sol"):
+            arena_biggest_win = max(arena_biggest_win, float(big_pot["payout_sol"]))
+        big_flip = await db.betting_history.find_one(
+            {"winner_wallet": wallet_address}, {"_id": 0, "payout_sol": 1}, sort=[("payout_sol", -1)],
+        )
+        if big_flip and big_flip.get("payout_sol"):
+            arena_biggest_win = max(arena_biggest_win, float(big_flip["payout_sol"]))
+    except Exception:
+        logger.exception("Failed to compute arena stats for %s", wallet_address)
+
+    result["arena_wins"] = arena_wins
+    result["arena_biggest_win"] = round(arena_biggest_win, 6)
+    return result
 
 
 async def check_badge_eligibility(stats: Dict[str, Any]) -> List[str]:
@@ -360,7 +427,15 @@ async def check_badge_eligibility(stats: Dict[str, Any]) -> List[str]:
         elif req_type == "chain_count":
             if len(stats["chains_traded"]) >= req["value"]:
                 eligible.append(badge_id)
-    
+
+        elif req_type == "arena_wins":
+            if stats.get("arena_wins", 0) >= req["value"]:
+                eligible.append(badge_id)
+
+        elif req_type == "arena_biggest_win":
+            if stats.get("arena_biggest_win", 0) >= req["value"]:
+                eligible.append(badge_id)
+
     return eligible
 
 
@@ -369,7 +444,7 @@ async def get_all_badges():
     """Get all available badges and their requirements."""
     return {
         "badges": list(BADGES.values()),
-        "categories": ["streak", "volume", "performance", "profit", "milestone"]
+        "categories": ["streak", "volume", "performance", "profit", "milestone", "arena"]
     }
 
 
