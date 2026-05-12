@@ -190,6 +190,34 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 108 — Big Win Toast (HTTP Polling) Verified (May 12, 2026)
+
+### Wrap-up of prior session
+- Previous session swapped `BigWinToast` from broken WebSockets (Ingress times out `/ws/*`) to a 6s HTTP polling loop against `GET /api/big-wins/recent?since=<ISO>` — code-complete + linted but never visually verified.
+
+### What was added
+- **`POST /api/big-wins/debug-inject`** — admin-gated (X-Admin-Wallet header), QA-only synthetic big-win injector with query params `payout_sol`, `game`, `winner_name`, `winner_wallet`. Calls `record_big_win()` under the hood so it exercises the exact same persistence + threshold check (≥1 SOL) as a real arena outcome.
+
+### Verified end-to-end (Playwright)
+- Baseline page load → 0 toasts ✓
+- Injected `2.75 SOL CosmicPup Winner Pot` → toast appeared within polling cycle ✓ (gradient accent bar, ring-glow avatar, Orbitron payout in yellow→green gradient, Share-on-X + Play Arena → CTAs)
+- Injected `4.20 SOL MoonHowler Coin Flip` → second toast rendered with COIN FLIP game label, prior toast auto-dismissed after 9s as designed ✓
+- Dedupe key built from `{game}-{occurred_at}-{wallet}-{payout}` prevents double-render across polling ticks
+- Native browser notification fires when tab hidden via `useBrowserNotifications`
+
+### Files touched
+- `/app/backend/routers/big_wins.py` — added `_ADMIN_WALLETS` set + `debug-inject` endpoint
+
+### Verified mechanics
+- Polling cadence: 6s (well below the 9s display duration so wins don't get missed if the poll lands mid-flight)
+- `since=<lastSeenIso>` initialised at component mount → only wins that occur AFTER page load surface (prevents stale wins from flashing on every navigation)
+- `MAX_VISIBLE=3` cap with FIFO trim
+- ✅ Big Win Toast feature is now fully done & verified — closes the last working item from the previous fork
+
+### Cleanup
+- Removed 5 synthetic test docs from `big_wins` collection (kept the debug endpoint since it's admin-gated and useful for future QA)
+
+---
 ## Iteration 107 — Admin Panel → Vault Quick-Link (May 12, 2026)
 
 - Added a prominent "Bullpug Drop Vault →" card on the AdminPanel just above the existing Tabs, gated by the same wallet-admin check that protects the panel.
