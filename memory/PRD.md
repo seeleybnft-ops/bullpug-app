@@ -190,6 +190,40 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 114 — Telegram Alert Activated + Bot Trader Frontend Archived & Deleted (May 12, 2026)
+
+### Telegram alert wired
+- Chat id `6118851473` saved to `backend/.env::ADMIN_TELEGRAM_CHAT_ID`.
+- Backend restarted, `POST /api/admin/escrow-alert-test` returned `{status: "alerted", free_capital_sol: 0.02}` → confirmed Telegram bot delivered the "🚨 Bullpug Escrow LOW" alert to the operator.
+- Auto-alerts now fire from the scheduler every 10 minutes when free capital < 0.05 SOL (6h cooldown).
+
+### Bot trader frontend archived & deleted
+**Archived to `/app/memory/archive/bot_frontend_2026-05-12.tar.gz`** (57 KB tarball, 6,356 lines of source preserved). SHA-256 `670783b65e7575e26bba599a93474538978c827937d40a6ff4ae36dd514155d4`.
+
+**Files removed:**
+- `pages/AITrader.js` (2,132 lines) — the main bot trader page
+- `components/UnifiedAutoTrader.js`
+- `components/SignalAnalyticsDashboard.js`
+- `components/BotQuickStats.js`
+- `components/trader/` (all 16 sub-components: AlertCard, FundLedger, IntelligenceDashboard, PerformanceScorecard, PositionCard, QuickSettings, RiskCalculator, SettingsModal, SignalCard, StatCard, StrategyAnalytics, TopPickCard, TradeHistoryCard, TradeHistoryDashboard, TradingModeSelector, index.js)
+
+**Files preserved:**
+- `components/trader/constants.js` — kept because `GameEngine.js`, `GameGuide.js`, and `game/index.js` import `TRADING_BOT_IMAGE` from it.
+- `pages/TradingJournal.js` + `JournalAIAssistant.js` + `journal/*` — separate user-facing journal feature, unaffected.
+
+### Verified
+- Lint clean ✓
+- Homepage, /betting, /lore, /game all render with **zero page errors** ✓
+- Bundle now ~6,000 lines lighter
+
+### To restore in the future (if ever needed)
+```bash
+cd /app/frontend/src && tar -xzf /app/memory/archive/bot_frontend_2026-05-12.tar.gz
+```
+
+The backend bot code (`/app/backend/routers/ai_trader.py`, `services/auto_trader_engine.py`, etc.) is still intact and hibernated — only the UI was deleted.
+
+---
 ## Iteration 113 — Bot Trader Stats Removed + Telegram Operator Alert (May 12, 2026)
 
 ### Task 1 — Removed bot trader stats from Admin Panel
