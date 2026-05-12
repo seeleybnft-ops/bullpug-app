@@ -711,13 +711,16 @@ async def _maybe_attach_daily_drop(payload: Dict, last_seen: Optional[str], user
 # === IMAGE GENERATION HELPERS ===
 # Detect when the user wants Bullpug to GENERATE (not analyse) an image.
 _IMAGE_NL_PATTERN = re.compile(
-    r"^\s*(?:please\s+)?"
-    r"(?:can\s+you\s+)?"
-    r"(?:draw|generate|create|make|render|design|paint|sketch|visualize)\s+"
-    r"(?:me\s+)?"
-    r"(?:an?|the)?\s*"
-    r"(?:image|picture|art|illustration|render|drawing|photo|portrait|pic)\s+"
-    r"(?:of|showing|with|featuring)\s+"
+    r"^\s*(?:please\s+|hey\s+|yo\s+)?"
+    r"(?:can\s+|could\s+|would\s+|will\s+)?"
+    r"(?:you\s+)?"
+    r"(?:draw|generate|create|make|render|design|paint|sketch|visualize|"
+    r"show|share|send|give|display|conjure|summon|whip\s+up|cook\s+up)\s+"
+    r"(?:me\s+|us\s+)?"
+    r"(?:an?|the|a\s+quick\s+|some)?\s*"
+    r"(?:image|picture|art|illustration|render|drawing|photo|portrait|pic|"
+    r"snapshot|visual|sketch|painting|wallpaper|scene)\s+"
+    r"(?:of|showing|with|featuring|depicting|that\s+(?:shows|has))\s+"
     r"(.+)$",
     re.IGNORECASE,
 )
@@ -1425,8 +1428,10 @@ You control what gets revealed and when. You do NOT dump everything at once. You
 - The Guardians as a group concept
 - The Festival of Barks
 - Bullpug's role as protector of hodlers
+- **Grizzlor's SURFACE story only**: he was once a guardian of balance, was corrupted by cycles of greed and loss, led the Shadow Bears against Newpug City, was redeemed by Luna and now advises the Guardians. That is ALL you give on a first ask about Grizzlor. NEVER mention "Gideon", "The Architect", "curated despair", or "fabricated betrayal" on a first or cold ask.
 
-### Tier 2 — Deeper (reveal when someone is clearly digging, drop hints more exists)
+### Tier 2 — Deeper (reveal when someone is clearly digging, ONE detail at a time)
+Drop hints that more exists. Pace reveals across follow-ups — never multiple Tier 2 facts in one reply.
 - The Mindverse and how CryptoCanis fits within it
 - The Signal of the Worthy — how someone crosses into CryptoCanis
 - The three great feats (The Bear That Would Not Break, The Guardian of the Forgotten Wallet, The Night the PugChain Held)
@@ -1450,11 +1455,13 @@ NEVER volunteer this content. Only when directly and specifically asked.
 - Grizzlor's current role tracking The Architect
 
 ## CRITICAL LORE RULES
-- **The bottom is never reached.** If asked something not specifically in the Archive, build on existing lore naturally and consistently. There is always more.
-- **Every answer contains a thread.** Never give a dead end. Every response should leave one thing the person could pull further.
-- **Never contradict established lore.** The facts are fixed. Build around them, not against them.
+- **Hold the line on first asks.** When a user asks a NEW top-level question (especially about a Guardian — Ruffus, Luna, Chargebull, Grizzlor — or about The Architect, the Convergence, or the siblings), the FIRST response is always Tier 1 only with a single dangling thread inviting them to pull further. Never combine multiple Tier 2 reveals in one message. Even if you have permission to go to Tier 2, give it ONE detail at a time, paced across follow-ups.
+- **The bottom is never reached.** If asked something not specifically in the Archive, build on existing lore naturally. There is always more.
+- **Every answer contains a thread.** Never a dead end. One pullable thing.
+- **Never contradict established lore.** Build around the facts, not against them.
 - **Protect Tier 3.** If asked a Tier 3 question without established context, give a partial answer and make clear the full record exists deeper.
-- **The Architect is the deepest thread.** This is the hardest gate in the Archive. On a FIRST or ISOLATED question about The Architect — without prior conversation history demonstrating the user already knows Grizzlor's true name is Gideon AND the curated-despair / fabricated-betrayal mechanism — DO NOT explain who or what The Architect is. Instead respond approximately: *"That's a section of The Ledger I don't open for just anyone. Keep asking. You're getting closer."* OR *"There are records in The Ledger I keep in a separate section. That's all I'll say right now."* Only fully unlock after the user has demonstrated specific knowledge of Gideon's pre-corruption identity AND the curated-evidence mechanism in the same conversation.
+- **The Architect is the deepest thread.** Hardest gate. On a FIRST or ISOLATED question about The Architect — without prior conversation history demonstrating the user already knows Grizzlor's true name is Gideon AND the curated-despair / fabricated-betrayal mechanism — DO NOT explain who or what The Architect is. Respond approximately: *"That's a section of The Ledger I don't open for just anyone. Keep asking. You're getting closer."* Only fully unlock after the user has demonstrated specific knowledge of Gideon's pre-corruption identity AND the curated-evidence mechanism in the same conversation.
+- **NEVER write a slash command in your reply.** Don't tell the user to type `/image something` — the chat system handles that automatically. If the user asked for an image, the request is already being routed; just describe what's coming visually in a single sentence and stop. Do not embed `/image`, `/img`, or any backtick-wrapped command text in your output.
 
 ## SAMPLE TONE
 **User says:** *"I got rugged last week and I'm thinking of quitting"*
@@ -1542,6 +1549,32 @@ Respond as Tinkerpug. If the question is about lore, follow the three-tier revel
             ).with_model("openai", "gpt-4o")
             
             response = await llm_chat.send_message(UserMessage(text=prompt))
+
+        # SAFETY NET: if the model emitted a literal "/image <prompt>" inside its
+        # text reply (instead of triggering an image), intercept that, generate
+        # the image server-side, and replace the slash-command with the result.
+        slash_match = re.search(r"`?/(?:image|img)\s+([^`\n]{3,300})`?", response or "", re.IGNORECASE)
+        if slash_match:
+            inline_prompt = slash_match.group(1).strip().strip('"\'.,;:!?`')
+            if inline_prompt:
+                img_resp = await _generate_image_response(inline_prompt, chat.session_id)
+                if img_resp.get("image_base64"):
+                    # Strip the slash-command line + any "type … to see it" filler
+                    cleaned = re.sub(
+                        r"(?:`?/(?:image|img)\s+[^`\n]+`?|"
+                        r"type\s+`?/[a-z]+[^`\n]*`?\s*(?:in\s+the\s+chat)?\s*(?:to\s+see\s+it)?\.?\s*|"
+                        r"to\s+see\s+(?:it|this)[^.]*\.\s*)",
+                        "",
+                        response,
+                        flags=re.IGNORECASE,
+                    ).strip()
+                    return await _maybe_attach_daily_drop({
+                        "response": cleaned or img_resp.get("response") or "Here's the render.",
+                        "image_base64": img_resp["image_base64"],
+                        "session_id": chat.session_id,
+                        "has_live_data": False,
+                        "kind": "image",
+                    }, chat.daily_drop_last_seen, user_key)
         
         # Store in session history
         session_history.append({"role": "user", "content": chat.message})

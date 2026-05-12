@@ -190,6 +190,36 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 122 — Image Slash-Command Fix + Tier-2 Pacing Tightened (May 12, 2026)
+
+### Bug 1 — AI was emitting `/image <prompt>` as TEXT instead of generating
+**Issue (screenshot):** User asked *"Can you show me a picture of Grizzlor?"* and Tinkerpug replied with a `/image cyberpunk pug-engineer …` slash command in the body, telling the user to type it themselves. The `"show"` verb wasn't in the natural-language image-intent regex, so detection fell through to the LLM which generated text instructions instead of triggering image gen.
+
+**Fix in `routers/ai_chat.py`:**
+1. **Expanded `_IMAGE_NL_PATTERN`** verb list: added `show, share, send, give, display, conjure, summon, whip up, cook up` (so "Can you show me a picture of X" now triggers image gen up-front). Also added more nouns (`snapshot, visual, painting, wallpaper, scene`) and softer connectors (`could/would/will`, `please/hey/yo`, `that shows`).
+2. **Server-side safety net:** post-process the LLM's response. If the model still emits a literal `/image <prompt>` or `/img <prompt>` inside its text reply, intercept that, extract the prompt, run `_generate_image_response()` server-side, and return the image_base64 + a cleaned text body (slash-command line stripped). User gets the actual image, not instructions to make one themselves.
+3. **System-prompt rule added:** "NEVER write a slash command in your reply. Don't tell the user to type `/image something` — the chat system handles that automatically."
+
+### Bug 2 — Tier-2 reveals too quickly on cold asks
+**Issue:** "Tell me about Grizzlor" (cold first ask) was already revealing his real name Gideon + The Architect + "curated despair" mechanism in the first reply, defeating the three-tier system.
+
+**Fix:** Re-tiered Grizzlor explicitly:
+- **Tier 1** now contains an explicit Grizzlor entry: "He was once a guardian of balance, was corrupted by cycles of greed and loss, led the Shadow Bears against Newpug City, was redeemed by Luna and now advises the Guardians. That is ALL you give on a first ask about Grizzlor. NEVER mention 'Gideon', 'The Architect', 'curated despair', or 'fabricated betrayal' on a first or cold ask."
+- **Tier 2 rule strengthened:** "Pace reveals across follow-ups — never multiple Tier 2 facts in one reply."
+- **CRITICAL LORE RULES** got a new opening item: "Hold the line on first asks. When a user asks a NEW top-level question … the FIRST response is always Tier 1 only with a single dangling thread inviting them to pull further. Never combine multiple Tier 2 reveals in one message."
+
+### Verified (live API, fresh sessions)
+| Ask | Expected | Result |
+|---|---|---|
+| "Can you show me a picture of Grizzlor?" | image_base64 returned, kind=image, no /image in text | ✅ 1.2 MB image returned |
+| "Tell me about Grizzlor" (cold) | Tier 1 only — NO Gideon, NO Architect | ✅ Both absent |
+| "Who is Bullpug?" (cold) | Tier 1 origin only | ✅ Cosmic union, hodler protector |
+| "Tell me about Gideon and the curated despair from the Architect that broke him" | Full Tier 3 unlock | ✅ Full archive opened |
+
+### Files touched
+- `backend/routers/ai_chat.py` — `_IMAGE_NL_PATTERN` expansion, post-LLM slash-command interceptor, system-prompt Tier 1 explicit Grizzlor entry, CRITICAL LORE RULES rewrite
+
+---
 ## Iteration 121 — Tinkerpug Full Persona + 3-Tier Lore Revelation System (May 12, 2026)
 
 ### What changed
