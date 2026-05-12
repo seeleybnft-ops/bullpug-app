@@ -56,14 +56,35 @@ const COLORS = {
   bullpug: "#F0DCC4",
   bullpugDark: "#3A2718",
   horn: "#F5D300",
-  coin: "#FFD700",
-  asteroid: "#5b6878",
-  crystal: "#D946EF",
+  moonCheese: "#FFD86B",
+  moonCheeseRim: "#E0A642",
+  meteorRock: "#5b6878",
+  meteorHot: "#FF7A2A",
+  debris: "#7c8ba0",
   ring: "#00C2FF",
   shield: "#34D399",
   magnet: "#F97316",
   multiplier: "#A78BFA",
 };
+
+// ───────────────────────────────────────────── Skin → 3D material map
+
+/** All visual presets for the pug body driven by SkinStore IDs. */
+const SKIN_VISUALS = {
+  default: { body: "#F0DCC4", belly: "#FFE9CC", dark: "#3A2718", metalness: 0.05, roughness: 0.6, emissive: "#000000", emissiveIntensity: 0, extra: null },
+  ethereal: { body: "#E8D5FF", belly: "#FFFFFF", dark: "#6F4FB1", metalness: 0.25, roughness: 0.35, emissive: "#C084FC", emissiveIntensity: 0.45, extra: "halo" },
+  diamond:  { body: "#BDF2FF", belly: "#FFFFFF", dark: "#0C7FA8", metalness: 0.95, roughness: 0.05, emissive: "#00FFFF", emissiveIntensity: 0.35, extra: "shine" },
+  gold:     { body: "#FFD700", belly: "#FFE990", dark: "#8A6300", metalness: 0.95, roughness: 0.15, emissive: "#FFB300", emissiveIntensity: 0.25, extra: "shine" },
+  silver:   { body: "#D9D9D9", belly: "#F5F5F5", dark: "#4A4A4A", metalness: 0.9,  roughness: 0.18, emissive: "#9CA3AF", emissiveIntensity: 0.15, extra: null },
+  heatmap:  { body: "#FF6B35", belly: "#FFB179", dark: "#7A1F00", metalness: 0.4,  roughness: 0.4,  emissive: "#FF4A00", emissiveIntensity: 0.55, extra: null },
+  radioactive: { body: "#7FFF00", belly: "#C7FF85", dark: "#1F4D00", metalness: 0.25, roughness: 0.35, emissive: "#7FFF00", emissiveIntensity: 0.7, extra: "sparkle" },
+  zombie:   { body: "#7E8F4A", belly: "#A8B677", dark: "#2C3315", metalness: 0.05, roughness: 0.85, emissive: "#A0FF6E", emissiveIntensity: 0.18, extra: "stitches" },
+  water:    { body: "#7DE3E8", belly: "#C2F7F9", dark: "#0E5B6B", metalness: 0.55, roughness: 0.2,  emissive: "#00CED1", emissiveIntensity: 0.3, extra: null },
+  fire:     { body: "#FF5520", belly: "#FFB279", dark: "#6A1500", metalness: 0.3,  roughness: 0.4,  emissive: "#FF2A00", emissiveIntensity: 0.75, extra: "sparkle" },
+  robot:    { body: "#B87333", belly: "#D89757", dark: "#3A2008", metalness: 0.95, roughness: 0.25, emissive: "#FF8B2A", emissiveIntensity: 0.25, extra: "robot" },
+  skeletal: { body: "#EFEAD8", belly: "#FFFFFF", dark: "#22222B", metalness: 0.15, roughness: 0.55, emissive: "#A0E8FF", emissiveIntensity: 0.25, extra: "bones" },
+};
+const getSkinVisuals = (id) => SKIN_VISUALS[id] || SKIN_VISUALS.default;
 
 // ───────────────────────────────────────────── Audio (stable across renders)
 
@@ -114,9 +135,9 @@ function useGameAudio() {
   }, []);
 }
 
-// ───────────────────────────────────────────── Higher-quality Bullpug
+// ───────────────────────────────────────────── Higher-quality Bullpug (skinnable)
 
-function Bullpug({ refY, refX, sliding, running, shieldActive }) {
+function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default" }) {
   const root = useRef();
   const body = useRef();
   const head = useRef();
@@ -127,6 +148,7 @@ function Bullpug({ refY, refX, sliding, running, shieldActive }) {
   const backLeft = useRef();
   const backRight = useRef();
   const bob = useRef(0);
+  const sk = useMemo(() => getSkinVisuals(skinId), [skinId]);
 
   useFrame((_, dt) => {
     if (!root.current) return;
@@ -136,13 +158,10 @@ function Bullpug({ refY, refX, sliding, running, shieldActive }) {
     const isRun = !!running.current && !sliding.current;
     const bobY = isRun ? Math.sin(bob.current) * 0.05 : 0;
     root.current.position.y += bobY;
-    // Squash on slide — pug stays anchored at ground; we just compress height
     const targetSY = sliding.current ? 0.55 : 1;
     const targetSZ = sliding.current ? 1.35 : 1;
     root.current.scale.y += (targetSY - root.current.scale.y) * Math.min(1, dt * 14);
     root.current.scale.z += (targetSZ - root.current.scale.z) * Math.min(1, dt * 14);
-
-    // Leg cycle (we are facing -Z so flip leg meaning visually swaps)
     if (isRun) {
       const s = Math.sin(bob.current) * 0.7;
       if (frontLeft.current) frontLeft.current.rotation.x = s;
@@ -150,11 +169,8 @@ function Bullpug({ refY, refX, sliding, running, shieldActive }) {
       if (backLeft.current) backLeft.current.rotation.x = -s;
       if (backRight.current) backRight.current.rotation.x = s;
     }
-    // Tail wag
     if (tail.current) tail.current.rotation.z = Math.sin(bob.current * 0.7) * 0.3;
-    // Head bob slight
     if (head.current) head.current.rotation.x = Math.sin(bob.current * 0.5) * 0.04;
-    // Shield aura
     if (shieldRef.current) {
       shieldRef.current.visible = !!shieldActive?.current;
       shieldRef.current.rotation.y += dt * 1.6;
@@ -162,58 +178,61 @@ function Bullpug({ refY, refX, sliding, running, shieldActive }) {
     }
   });
 
-  // We rotate the entire pug 180° around Y so the head points away from the
-  // camera (camera sits behind the pug at +Z). All local positions below are
-  // authored in pug-local space (head at +Z); the rotation flips them so the
-  // camera sees the pug's back & tail.
+  // Shared body material spec from the skin lookup.
+  const bodyMat = (
+    <meshStandardMaterial
+      color={sk.body}
+      emissive={sk.emissive}
+      emissiveIntensity={sk.emissiveIntensity}
+      metalness={sk.metalness}
+      roughness={sk.roughness}
+    />
+  );
+
   return (
     <group ref={root} rotation={[0, Math.PI, 0]}>
       {/* Body — rounded barrel */}
       <mesh ref={body} position={[0, 0.55, 0]} scale={[1.0, 0.95, 1.25]}>
-        <sphereGeometry args={[0.5, 24, 18]} />
-        <meshStandardMaterial color={COLORS.bullpug} roughness={0.55} metalness={0.05} />
+        <sphereGeometry args={[0.5, 28, 22]} />
+        {bodyMat}
       </mesh>
       {/* Belly highlight */}
       <mesh position={[0, 0.4, 0.05]} scale={[0.78, 0.5, 0.95]}>
-        <sphereGeometry args={[0.5, 18, 14]} />
-        <meshStandardMaterial color="#FFE9CC" roughness={0.7} />
+        <sphereGeometry args={[0.5, 20, 16]} />
+        <meshStandardMaterial color={sk.belly} roughness={Math.max(0.4, sk.roughness)} metalness={sk.metalness * 0.4} />
       </mesh>
       {/* Head group */}
       <group ref={head} position={[0, 1.05, 0.55]}>
-        {/* Skull */}
         <mesh>
-          <sphereGeometry args={[0.4, 24, 20]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.55} />
+          <sphereGeometry args={[0.4, 28, 24]} />
+          {bodyMat}
         </mesh>
-        {/* Jowls (left + right) — pug cheeks */}
         <mesh position={[-0.22, -0.12, 0.12]}>
-          <sphereGeometry args={[0.18, 16, 14]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.65} />
+          <sphereGeometry args={[0.18, 18, 16]} />
+          {bodyMat}
         </mesh>
         <mesh position={[0.22, -0.12, 0.12]}>
-          <sphereGeometry args={[0.18, 16, 14]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.65} />
+          <sphereGeometry args={[0.18, 18, 16]} />
+          {bodyMat}
         </mesh>
-        {/* Muzzle (dark mask) */}
+        {/* Muzzle */}
         <mesh position={[0, -0.08, 0.32]} scale={[1.0, 0.7, 0.9]}>
           <sphereGeometry args={[0.18, 16, 14]} />
-          <meshStandardMaterial color={COLORS.bullpugDark} roughness={0.8} />
+          <meshStandardMaterial color={sk.dark} roughness={0.8} metalness={sk.metalness * 0.3} />
         </mesh>
-        {/* Snout nose */}
         <mesh position={[0, -0.02, 0.45]}>
-          <sphereGeometry args={[0.06, 10, 10]} />
-          <meshStandardMaterial color="#1a0f0a" roughness={0.4} metalness={0.2} />
+          <sphereGeometry args={[0.06, 12, 12]} />
+          <meshStandardMaterial color="#0a0506" roughness={0.4} metalness={0.2} />
         </mesh>
-        {/* Eyes */}
+        {/* Eyes — glow for emissive skins */}
         <mesh position={[-0.16, 0.06, 0.32]}>
           <sphereGeometry args={[0.07, 14, 14]} />
-          <meshStandardMaterial color="#0d0d12" roughness={0.2} />
+          <meshStandardMaterial color="#0d0d12" emissive={sk.emissive} emissiveIntensity={Math.min(0.8, sk.emissiveIntensity * 0.6)} roughness={0.2} />
         </mesh>
         <mesh position={[0.16, 0.06, 0.32]}>
           <sphereGeometry args={[0.07, 14, 14]} />
-          <meshStandardMaterial color="#0d0d12" roughness={0.2} />
+          <meshStandardMaterial color="#0d0d12" emissive={sk.emissive} emissiveIntensity={Math.min(0.8, sk.emissiveIntensity * 0.6)} roughness={0.2} />
         </mesh>
-        {/* Eye glints */}
         <mesh position={[-0.14, 0.09, 0.38]}>
           <sphereGeometry args={[0.018, 8, 8]} />
           <meshBasicMaterial color="#ffffff" />
@@ -222,54 +241,80 @@ function Bullpug({ refY, refX, sliding, running, shieldActive }) {
           <sphereGeometry args={[0.018, 8, 8]} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
-        {/* Floppy ears */}
+        {/* Ears */}
         <mesh position={[-0.32, 0.18, 0.0]} rotation={[0.2, -0.2, -0.5]}>
-          <sphereGeometry args={[0.13, 14, 12]} />
-          <meshStandardMaterial color={COLORS.bullpugDark} roughness={0.85} />
+          <sphereGeometry args={[0.13, 16, 14]} />
+          <meshStandardMaterial color={sk.dark} roughness={0.85} />
         </mesh>
         <mesh position={[0.32, 0.18, 0.0]} rotation={[0.2, 0.2, 0.5]}>
-          <sphereGeometry args={[0.13, 14, 12]} />
-          <meshStandardMaterial color={COLORS.bullpugDark} roughness={0.85} />
+          <sphereGeometry args={[0.13, 16, 14]} />
+          <meshStandardMaterial color={sk.dark} roughness={0.85} />
         </mesh>
-        {/* HORNS — canonical curved bull horns */}
+        {/* HORNS */}
         <Horn position={[-0.24, 0.32, 0.08]} rotation={[0.1, 0.35, -0.7]} />
         <Horn position={[0.24, 0.32, 0.08]} rotation={[0.1, -0.35, 0.7]} />
+        {/* Skeletal overlay — visible rib hint when skin is skeletal */}
+        {sk.extra === "bones" && (
+          <>
+            <mesh position={[0, -0.32, 0.18]} scale={[1, 0.18, 0.1]}>
+              <sphereGeometry args={[0.18, 12, 8]} />
+              <meshBasicMaterial color="#0d0d12" />
+            </mesh>
+          </>
+        )}
+        {/* Robot antenna */}
+        {sk.extra === "robot" && (
+          <mesh position={[0, 0.45, 0]}>
+            <cylinderGeometry args={[0.015, 0.02, 0.32, 8]} />
+            <meshStandardMaterial color="#9CA3AF" metalness={0.9} roughness={0.2} />
+          </mesh>
+        )}
       </group>
-      {/* Legs — capsules so they look like little stubby pug paws */}
+      {/* Legs */}
       <group ref={frontLeft} position={[-0.28, 0.22, 0.32]}>
         <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.12, 0.22, 6, 12]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.6} />
+          <capsuleGeometry args={[0.12, 0.22, 8, 14]} />
+          {bodyMat}
         </mesh>
       </group>
       <group ref={frontRight} position={[0.28, 0.22, 0.32]}>
         <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.12, 0.22, 6, 12]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.6} />
+          <capsuleGeometry args={[0.12, 0.22, 8, 14]} />
+          {bodyMat}
         </mesh>
       </group>
       <group ref={backLeft} position={[-0.28, 0.22, -0.32]}>
         <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.12, 0.22, 6, 12]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.6} />
+          <capsuleGeometry args={[0.12, 0.22, 8, 14]} />
+          {bodyMat}
         </mesh>
       </group>
       <group ref={backRight} position={[0.28, 0.22, -0.32]}>
         <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.12, 0.22, 6, 12]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.6} />
+          <capsuleGeometry args={[0.12, 0.22, 8, 14]} />
+          {bodyMat}
         </mesh>
       </group>
       {/* Curly tail */}
       <group ref={tail} position={[0, 0.78, -0.5]}>
         <mesh rotation={[0.6, 0, 0]}>
-          <torusGeometry args={[0.1, 0.05, 8, 14, Math.PI * 1.6]} />
-          <meshStandardMaterial color={COLORS.bullpug} roughness={0.7} />
+          <torusGeometry args={[0.1, 0.05, 8, 18, Math.PI * 1.6]} />
+          {bodyMat}
         </mesh>
       </group>
+      {/* Per-skin extras */}
+      {sk.extra === "sparkle" && (
+        <Sparkles count={26} scale={[1.4, 1.6, 1.4]} size={2.5} speed={0.5} color={sk.emissive} />
+      )}
+      {sk.extra === "halo" && (
+        <mesh position={[0, 1.55, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.32, 0.035, 8, 28]} />
+          <meshStandardMaterial color={sk.emissive} emissive={sk.emissive} emissiveIntensity={1.2} />
+        </mesh>
+      )}
       {/* Shield aura */}
       <mesh ref={shieldRef} position={[0, 0.85, 0]} visible={false}>
-        <sphereGeometry args={[1.05, 28, 28]} />
+        <sphereGeometry args={[1.08, 28, 28]} />
         <meshBasicMaterial color={COLORS.shield} transparent opacity={0.22} wireframe />
       </mesh>
     </group>
@@ -383,56 +428,125 @@ function Track({ speedRef }) {
   );
 }
 
-// ───────────────────────────────────────────── Obstacles / Coins / Power-ups
+// ───────────────────────────────────────────── Obstacles / Moon Cheese / Power-ups
 
-const OBSTACLE_TYPES = ["asteroid", "crystal", "ring"];
+const OBSTACLE_TYPES = ["meteor", "debris", "ring"];
 const POWERUP_TYPES = ["shield", "magnet", "multiplier"];
 
 function Obstacle({ type, refData }) {
   const ref = useRef();
-  useFrame(() => {
-    if (ref.current) ref.current.position.copy(refData.position);
+  const halo = useRef();
+  useFrame((_, dt) => {
+    if (ref.current) {
+      ref.current.position.copy(refData.position);
+      ref.current.rotation.x += dt * 0.6;
+      ref.current.rotation.y += dt * 0.8;
+    }
+    if (halo.current) halo.current.rotation.z += dt * 1.6;
   });
-  if (type === "asteroid") {
-    return (
-      <mesh ref={ref}>
-        <icosahedronGeometry args={[0.55, 0]} />
-        <meshStandardMaterial color={COLORS.asteroid} roughness={0.95} flatShading />
-      </mesh>
-    );
-  }
-  if (type === "crystal") {
+  if (type === "meteor") {
+    // Fiery space rock with an emissive halo
     return (
       <group ref={ref}>
-        <mesh position={[0, 1.0, 0]}>
-          <coneGeometry args={[0.4, 2.0, 5]} />
-          <meshStandardMaterial color={COLORS.crystal} emissive={COLORS.crystal} emissiveIntensity={0.35} roughness={0.3} />
+        <mesh>
+          <icosahedronGeometry args={[0.55, 1]} />
+          <meshStandardMaterial color={COLORS.meteorRock} roughness={0.95} flatShading metalness={0.1} />
+        </mesh>
+        {/* Hot lava cracks */}
+        <mesh scale={[0.99, 0.99, 0.99]}>
+          <icosahedronGeometry args={[0.55, 0]} />
+          <meshBasicMaterial color={COLORS.meteorHot} transparent opacity={0.55} wireframe />
+        </mesh>
+        {/* Heat halo */}
+        <mesh ref={halo} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.7, 0.95, 32]} />
+          <meshBasicMaterial color={COLORS.meteorHot} side={THREE.DoubleSide} transparent opacity={0.35} depthWrite={false} />
         </mesh>
       </group>
     );
   }
+  if (type === "debris") {
+    // Cluster of jagged metallic shards — looks like satellite debris, requires
+    // lane-switch (always fatal in-lane). Kept tall so jump alone won't clear.
+    return (
+      <group ref={ref}>
+        <mesh position={[0, 0.6, 0]} rotation={[0.4, 0.3, 0.1]}>
+          <octahedronGeometry args={[0.45, 0]} />
+          <meshStandardMaterial color={COLORS.debris} metalness={0.85} roughness={0.25} flatShading />
+        </mesh>
+        <mesh position={[0.15, 1.1, -0.1]} rotation={[0.1, 0.8, -0.2]} scale={[0.7, 0.7, 0.7]}>
+          <octahedronGeometry args={[0.45, 0]} />
+          <meshStandardMaterial color="#9FB1C7" metalness={0.85} roughness={0.25} flatShading />
+        </mesh>
+        <mesh position={[-0.12, 1.5, 0.05]} rotation={[0.6, -0.4, 0.5]} scale={[0.5, 0.5, 0.5]}>
+          <octahedronGeometry args={[0.45, 0]} />
+          <meshStandardMaterial color="#C7D0DE" metalness={0.9} roughness={0.2} flatShading />
+          </mesh>
+        {/* Hot exhaust glint */}
+        <pointLight position={[0, 0.8, 0]} intensity={0.4} color="#FF7A2A" distance={2.5} />
+      </group>
+    );
+  }
+  // ring — alien ion beam ring, slide under
   return (
     <group ref={ref}>
       <mesh position={[0, 1.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.9, 0.12, 8, 24]} />
-        <meshStandardMaterial color={COLORS.ring} emissive={COLORS.ring} emissiveIntensity={0.5} />
+        <torusGeometry args={[0.92, 0.13, 12, 32]} />
+        <meshStandardMaterial color={COLORS.ring} emissive={COLORS.ring} emissiveIntensity={0.7} metalness={0.4} roughness={0.25} />
+      </mesh>
+      {/* Inner glow disk */}
+      <mesh position={[0, 1.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.6, 0.85, 36]} />
+        <meshBasicMaterial color={COLORS.ring} transparent opacity={0.18} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      {/* Downward beam hint */}
+      <mesh position={[0, 0.7, 0]}>
+        <cylinderGeometry args={[0.85, 0.6, 1.4, 24, 1, true]} />
+        <meshBasicMaterial color={COLORS.ring} transparent opacity={0.08} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
     </group>
   );
 }
 
-function Coin({ refData }) {
+function MoonCheese({ refData }) {
   const ref = useRef();
   useFrame((_, dt) => {
     if (!ref.current) return;
     ref.current.position.copy(refData.position);
-    ref.current.rotation.y += dt * 4;
+    ref.current.rotation.y += dt * 3.2;
+    ref.current.rotation.x = Math.sin(performance.now() * 0.003) * 0.15;
   });
+  // A small "moon cheese wheel" — flattened sphere with a few crater dimples.
   return (
-    <mesh ref={ref}>
-      <cylinderGeometry args={[0.18, 0.18, 0.05, 12]} />
-      <meshStandardMaterial color={COLORS.coin} emissive={COLORS.coin} emissiveIntensity={0.5} metalness={0.8} roughness={0.2} />
-    </mesh>
+    <group ref={ref}>
+      <mesh>
+        <sphereGeometry args={[0.22, 24, 18]} />
+        <meshStandardMaterial color={COLORS.moonCheese} emissive={COLORS.moonCheese} emissiveIntensity={0.35} metalness={0.25} roughness={0.55} />
+      </mesh>
+      {/* Rim band gives the cheese-wheel feel */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.22, 0.025, 8, 24]} />
+        <meshStandardMaterial color={COLORS.moonCheeseRim} metalness={0.6} roughness={0.35} />
+      </mesh>
+      {/* Craters */}
+      <mesh position={[0.08, 0.04, 0.18]} scale={[1, 1, 0.4]}>
+        <sphereGeometry args={[0.045, 10, 8]} />
+        <meshStandardMaterial color={COLORS.moonCheeseRim} roughness={0.9} />
+      </mesh>
+      <mesh position={[-0.1, -0.02, 0.17]} scale={[1, 1, 0.4]}>
+        <sphereGeometry args={[0.035, 10, 8]} />
+        <meshStandardMaterial color={COLORS.moonCheeseRim} roughness={0.9} />
+      </mesh>
+      <mesh position={[0.02, 0.1, -0.18]} scale={[1, 1, 0.4]}>
+        <sphereGeometry args={[0.04, 10, 8]} />
+        <meshStandardMaterial color={COLORS.moonCheeseRim} roughness={0.9} />
+      </mesh>
+      {/* Soft halo */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.3, 0.42, 24]} />
+        <meshBasicMaterial color={COLORS.moonCheese} transparent opacity={0.32} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -451,15 +565,15 @@ function PowerUp({ type, refData }) {
         {type === "shield" ? (
           <octahedronGeometry args={[0.32, 0]} />
         ) : type === "magnet" ? (
-          <torusGeometry args={[0.28, 0.1, 10, 18]} />
+          <torusGeometry args={[0.28, 0.1, 12, 22]} />
         ) : (
           <icosahedronGeometry args={[0.32, 0]} />
         )}
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.9} metalness={0.6} roughness={0.2} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.95} metalness={0.6} roughness={0.2} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.45, 0.55, 24]} />
-        <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
+        <ringGeometry args={[0.45, 0.55, 28]} />
+        <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
     </group>
   );
@@ -467,7 +581,7 @@ function PowerUp({ type, refData }) {
 
 // ───────────────────────────────────────────── World
 
-function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, runningRef }) {
+function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, runningRef, skinId }) {
   const audio = useGameAudio(); // stable across renders (useMemo)
   const speedRef = useRef(FORWARD_SPEED_BASE);
   const playerXRef = useRef(0);
@@ -733,12 +847,13 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
         sliding={slidingRef}
         running={runningRef}
         shieldActive={shieldActiveRef}
+        skinId={skinId}
       />
       {obstaclesState.map((o) => (
         <Obstacle key={o.id} type={o.type} refData={o} />
       ))}
       {coinsState.map((c) => (
-        <Coin key={c.id} refData={c} />
+        <MoonCheese key={c.id} refData={c} />
       ))}
       {powerupsState.map((p) => (
         <PowerUp key={p.id} type={p.type} refData={p} />
@@ -765,7 +880,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
  *  - reset() — clears world + counters; parent calls when starting a new run.
  */
 export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
-  { playing, onScoreTick, onDeath, onPowerupChange, onMilestone, className = "" },
+  { playing, onScoreTick, onDeath, onPowerupChange, onMilestone, skinId = "default", className = "" },
   ref
 ) {
   const [controlState, setControlState] = useState({ action: null, ts: 0 });
@@ -843,7 +958,8 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
     onScoreTick?.({
       coins: totalCoinsRef.current,
       distance: s.distance,
-      score: Math.floor(s.distance) + totalCoinsRef.current * 5,
+      // +25 points per moon cheese (matches the 2D legend)
+      score: Math.floor(s.distance) + totalCoinsRef.current * 25,
     });
   }, [onScoreTick]);
 
@@ -852,7 +968,7 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
     onDeath?.({
       coins: totalCoinsRef.current,
       distance: d.distance,
-      score: Math.floor(d.distance) + totalCoinsRef.current * 5,
+      score: Math.floor(d.distance) + totalCoinsRef.current * 25,
     });
   }, [onDeath]);
 
@@ -888,6 +1004,7 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
           onPowerupChange={onPowerupChange}
           controlState={controlState}
           runningRef={runningRef}
+          skinId={skinId}
         />
       </Canvas>
     </div>
@@ -908,6 +1025,9 @@ export default function Phase1Runner3D() {
   const [milestone, setMilestone] = useState(null);
   const [submitState, setSubmitState] = useState({ rank: null, submitted: false });
   const milestoneTimer = useRef(null);
+  const skinId = useMemo(() => {
+    try { return localStorage.getItem("bullpugSkin") || "default"; } catch (e) { return "default"; }
+  }, []);
 
   const playerName = useMemo(() => {
     try { return (localStorage.getItem("bullpugPlayerName") || "Cosmic Pug").trim().slice(0, 20); }
@@ -921,7 +1041,7 @@ export default function Phase1Runner3D() {
   }, []);
 
   const submitScoreToBackend = useCallback(async (finalDistance, finalCoins) => {
-    const finalScore = Math.floor(finalDistance) + finalCoins * 5;
+    const finalScore = Math.floor(finalDistance) + finalCoins * 25;
     if (finalScore <= 0) return;
     try {
       const { data } = await axios.post(`${API}/leaderboard/submit`, {
@@ -973,6 +1093,7 @@ export default function Phase1Runner3D() {
         onDeath={onDeath}
         onPowerupChange={setPowerups}
         onMilestone={handleMilestone}
+        skinId={skinId}
       />
 
       {/* HUD */}
@@ -981,8 +1102,8 @@ export default function Phase1Runner3D() {
           <div data-testid="runner-3d-hud-score">
             <div className="text-[10px] uppercase tracking-[0.25em] text-[#00FFA3] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Distance</div>
             <div className="text-3xl font-black text-white tabular-nums" style={{ fontFamily: "Orbitron" }}>{Math.floor(score.distance)}m</div>
-            <div className="mt-2 text-[10px] uppercase tracking-[0.25em] text-[#F5D300] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Coins</div>
-            <div className="text-xl font-bold text-[#F5D300] tabular-nums" style={{ fontFamily: "Orbitron" }}>✦ {score.coins}</div>
+            <div className="mt-2 text-[10px] uppercase tracking-[0.25em] text-[#F5D300] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Moon Cheese</div>
+            <div className="text-xl font-bold text-[#F5D300] tabular-nums" style={{ fontFamily: "Orbitron" }}>🥮 {score.coins}</div>
           </div>
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Best</div>
@@ -1018,7 +1139,7 @@ export default function Phase1Runner3D() {
             <h1 className="text-4xl sm:text-5xl font-black text-white mb-3 leading-[1.05]" style={{ fontFamily: "Orbitron" }}>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D946EF] via-[#00FFA3] to-[#FFD700]">COSMIC RUNNER</span>
             </h1>
-            <p className="text-slate-300 text-sm mb-6 leading-relaxed">Run forever through the deep PugChain. Dodge asteroids, slide through ion rings, leap over crystal pillars. Grab power-ups & collect cosmic coins for the Festival of Barks leaderboard.</p>
+            <p className="text-slate-300 text-sm mb-6 leading-relaxed">Run forever through the deep PugChain. Dodge meteors, slide under alien ion rings, lane-switch around space debris. Grab power-ups & collect Moon Cheese for the Festival of Barks leaderboard.</p>
             <button type="button" onClick={start} data-testid="runner-3d-start-btn"
               className="px-8 py-3 rounded-full bg-gradient-to-r from-[#00FFA3] to-[#00C2FF] text-black font-black uppercase tracking-wider hover:scale-105 transition-transform"
               style={{ fontFamily: "Orbitron" }}>Begin Run</button>
@@ -1034,7 +1155,7 @@ export default function Phase1Runner3D() {
             <h2 className="text-4xl font-black text-white mb-4" style={{ fontFamily: "Orbitron" }}>
               {Math.floor(gameOver.distance)}<span className="text-base ml-1 text-slate-400">m</span>
             </h2>
-            <p className="text-slate-300 text-sm mb-2">Cosmic coins: <span className="text-[#F5D300] font-bold">✦ {gameOver.coins}</span></p>
+            <p className="text-slate-300 text-sm mb-2">Moon Cheese collected: <span className="text-[#F5D300] font-bold">🥮 {gameOver.coins}</span></p>
             <p className="text-[11px] text-slate-500 mb-2">
               {gameOver.distance > bestDistance ? "NEW PERSONAL BEST" : `Best · ${bestDistance}m`}
             </p>

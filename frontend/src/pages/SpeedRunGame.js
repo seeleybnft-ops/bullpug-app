@@ -2310,6 +2310,7 @@ export default function SpeedRunGame() {
                     playing={gameState === "playing"}
                     onScoreTick={handle3DScoreTick}
                     onDeath={handle3DDeath}
+                    skinId={currentSkinId}
                   />
                 </div>
                 {/* Hidden 2D canvas kept mounted only for legacy ref compatibility */}

@@ -4,56 +4,68 @@
 
 ---
 
-## 2026-05-13 — Cosmic Runner 3D bugfix + panel restoration
+## 2026-05-13 (b) — 3D skins + higher-quality assets + Moon Cheese
 
-User-reported regressions on `/game`:
-1. Bullpug was facing the camera (eyes showing) instead of running away from it.
-2. Pug was too low-poly / boxy.
-3. Lane navigation skipped the middle lane (jumped left→right).
-4. Slide did nothing visually and the model clipped through the floor.
-5. All side panels (achievements, skin store, leaderboard, jackpot, stage badge) had been replaced by a full-screen 3D canvas.
+User asks:
+1. 3D model every skin from the Skin Store and reflect on the in-game pug.
+2. Improve quality of in-game models to better match the 2D legend.
+3. The collectible is **Moon Cheese**, not generic coins.
 
-### Fixes
-- **Embedded mode**: extracted a controlled `<CosmicRunner3DScene />` from
-  `Phase1Runner3D.js`. The page `/game` is now back on `SpeedRunGame.js`
-  (kept all surrounding UI panels) and renders the new 3D scene inside its
-  canvas slot in place of the legacy 2D canvas. The 2D animation loop is
-  retained but never kicked off (the `requestAnimationFrame` boot call is
-  replaced with `scene3DRef.reset()`).
-- **Pug orientation**: wrapped the entire model in `rotation={[0, π, 0]}` so
-  the camera now sees his back, curly tail and horns from behind.
-- **Pug quality**: replaced box geometries with sphere body (squashed
-  barrel), sphere head + two jowl spheres, sphere muzzle + nose + eye
-  glints, sphere ears, capsule legs, partial-torus curly tail.
-- **Lane de-dup**: `useGameAudio()` now returns a stable memoised object,
-  and the controlState `useEffect` ignores any tick whose `ts` matches the
-  previous one. Each keypress moves exactly one lane.
-- **Slide fix**: removed the negative `Y` offset on the pug group. The
-  slide now only compresses scale Y (and stretches Z), keeping the model
-  anchored on the track surface.
-- **Grace period**: spawn pointer starts 12m ahead and the first 2.5s of a
-  run will never spawn an obstacle in the player's current lane.
+### Implemented
+- **Skin → 3D pipeline**: added a `SKIN_VISUALS` map keyed by skin ID
+  (`default`, `ethereal`, `diamond`, `gold`, `silver`, `heatmap`,
+  `radioactive`, `zombie`, `water`, `fire`, `robot`, `skeletal`) returning
+  `{body, belly, dark, metalness, roughness, emissive, emissiveIntensity,
+  extra}`. `<Bullpug skinId={...} />` applies them to body / head / jowls /
+  legs / tail + recolors muzzle and ears. Eyes pick up a subtle skin-glow
+  emissive too.
+- **Per-skin extras**:
+  - `ethereal` → glowing halo ring above the head.
+  - `radioactive` / `fire` → drei `<Sparkles />` aura around the pug.
+  - `robot` → small antenna sticking out the top of the head.
+  - `skeletal` → faint rib hint behind the head.
+- `SpeedRunGame.js` and the standalone `/game/3d` both pass the active
+  `currentSkinId` / `localStorage.bullpugSkin` to the scene, so equipping a
+  skin in the existing Skin Store instantly applies in the new 3D mode.
+- **Moon Cheese**: removed the cylinder `Coin` component, added
+  `<MoonCheese />` — flattened sphere body with bronze rim band, three
+  crater dimples, soft yellow halo ring, +25 score per pickup (matches the
+  2D guide's "Collect for +25 points"). HUD label switched from "Coins"
+  to "Moon Cheese · 🥮".
+- **Improved obstacles** (aligned with the in-app legend):
+  - `meteor` (was `asteroid`) → flat-shaded icosahedron + emissive lava
+    cracks + spinning heat halo.
+  - `debris` (was `crystal`) → cluster of three rotated octahedra with a
+    hot-orange exhaust `<pointLight>`.
+  - `ring` → thicker torus + inner glow disk + downward beam cone hint.
 
 ### Files touched
-- `/app/frontend/src/pages/Phase1Runner3D.js` — bugfixes + new
-  `CosmicRunner3DScene` named export (forwardRef + imperative `reset()` /
-  `fireAction()`).
-- `/app/frontend/src/pages/SpeedRunGame.js` — import the new scene,
-  replace the 2D `<canvas>` slot with the scene, wire `handle3DScoreTick`
-  and `handle3DDeath` callbacks (death triggers existing
-  `submitScore` + high-score localStorage + win/gameover SFX).
-- `/app/frontend/src/App.js` — `/game` route now points to `SpeedRunGame`
-  again; `/game/3d` keeps the standalone full-screen variant.
+- `/app/frontend/src/pages/Phase1Runner3D.js` — added `SKIN_VISUALS`,
+  `skinId` prop pipeline (`CosmicRunner3DScene` → `World` → `Bullpug`),
+  replaced `Coin` with `MoonCheese`, redesigned all three obstacles,
+  +25 score per cheese, HUD label changes, default-skin lookup via
+  `localStorage.bullpugSkin`.
+- `/app/frontend/src/pages/SpeedRunGame.js` — pass `skinId={currentSkinId}`
+  into the embedded scene so the Skin Store selection drives the model.
 
 ### Verification
-- Visual: pug back facing camera, middle lane reachable, slide compresses
-  without clipping, score 23 after ~3s in lane 2 → no instant death.
-- Backend: existing `/api/leaderboard/submit` is called by SpeedRunGame's
-  `submitScore` on death. Achievements panel ticked from 0/21 → 1/21
-  ("First Steps!") on first run end.
+- Visual smoke-tested 5 skins via `localStorage.bullpugSkin` →
+  `default / gold / radioactive / skeletal / ethereal` — each pug body
+  re-materialised with the correct colors, emissives and extras
+  (ethereal halo visible, skeletal bone-white, radioactive glowing green).
+- Score row now reads "Moon Cheese N" with the 🥮 icon in the standalone
+  HUD; SpeedRunGame's existing "Moon Cheese 0" counter ticks from the
+  same source.
+- Frontend lint clean on both files.
+
+---
+
+## 2026-05-13 (a) — Cosmic Runner 3D bugfix + panel restoration
+
+(Preserved — see prior entry.)
 
 ---
 
 ## 2026-05-12 — Cosmic Runner 3D · Phase 1 polish + Phase 2 enhancements
 
-(Preserved — see prior version of this file.)
+(Preserved.)
