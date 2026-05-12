@@ -190,6 +190,14 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 107 — Admin Panel → Vault Quick-Link (May 12, 2026)
+
+- Added a prominent "Bullpug Drop Vault →" card on the AdminPanel just above the existing Tabs, gated by the same wallet-admin check that protects the panel.
+- Uses `Link` from `react-router-dom` → deep-links to `/admin/drops` (no full page reload).
+- Styling: yellow-bordered gradient card matching the Lore page's action block, hover shadow + arrow nudge animation, `data-testid="admin-vault-link"`.
+- Lint clean.
+
+---
 ## Iteration 106 — Bullpug Drop Vault (Creator Admin Gallery UI) (May 12, 2026)
 
 ### New page: `/admin/drops`

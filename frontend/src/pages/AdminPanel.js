@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import axios from "axios";
 import {
   Shield, Users, DollarSign, BarChart3, Trophy, AlertTriangle,
   RefreshCw, Play, Ban, Clock, Wallet, CheckCircle, XCircle, ArrowDownRight, ArrowUpRight,
-  Activity
+  Activity, Sparkles, ExternalLink
 } from "lucide-react";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -191,6 +192,39 @@ export default function AdminPanel() {
             </div>
           </>
         )}
+
+        {/* Quick-link: Bullpug Drop Vault */}
+        <Link
+          to="/admin/drops"
+          data-testid="admin-vault-link"
+          className="block mb-6 group"
+        >
+          <div className="rounded-2xl border border-[#F5D300]/30 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] p-5 hover:border-[#F5D300]/60 hover:shadow-[0_0_30px_rgba(245,211,0,0.15)] transition-all">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-[#F5D300]/10 border border-[#F5D300]/30 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-[#F5D300]" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-[#F5D300] font-bold mb-0.5">
+                    Creator Vault
+                  </p>
+                  <h3
+                    className="text-base md:text-lg font-bold text-white tracking-tight"
+                    style={{ fontFamily: "Orbitron, sans-serif" }}
+                  >
+                    Bullpug Drop Vault →
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Browse every AI-generated Daily Drop across the entire userbase.
+                    Filter by date, theme, or wallet. Download in one click.
+                  </p>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-[#F5D300] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </div>
+          </div>
+        </Link>
 
         <Tabs defaultValue="fund-health">
           <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6">
