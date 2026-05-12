@@ -22,8 +22,6 @@ export default function AdminPanel() {
   const [challenges, setChallenges] = useState([]);
   const [bets, setBets] = useState([]);
   const [escrow, setEscrow] = useState(null);
-  const [reconciliation, setReconciliation] = useState(null);
-  const [reconLoading, setReconLoading] = useState(false);
 
   useEffect(() => {
     checkAdmin();
@@ -48,17 +46,6 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
-  const fetchReconciliation = useCallback(async () => {
-    setReconLoading(true);
-    try {
-      const { data } = await axios.get(`${API}/ledger/admin/reconciliation`);
-      setReconciliation(data);
-    } catch (e) {
-      toast.error("Failed to load reconciliation data");
-    }
-    setReconLoading(false);
-  }, []);
-
   const fetchDashboard = async () => {
     if (!publicKey) return;
     try {
@@ -75,7 +62,6 @@ export default function AdminPanel() {
     } catch (e) {
       toast.error("Failed to load admin data");
     }
-    fetchReconciliation();
   };
 
   const cancelChallenge = async (challengeId) => {
@@ -230,11 +216,8 @@ export default function AdminPanel() {
           </div>
         </Link>
 
-        <Tabs defaultValue="fund-health">
+        <Tabs defaultValue="challenges">
           <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1 mb-6">
-            <TabsTrigger value="fund-health" className="data-[state=active]:bg-[#FFB800]/10 data-[state=active]:text-[#FFB800]">
-              Fund Health
-            </TabsTrigger>
             <TabsTrigger value="challenges" className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3]">
               Challenges
             </TabsTrigger>
@@ -245,14 +228,6 @@ export default function AdminPanel() {
               Escrow
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="fund-health">
-            <ReconciliationDashboard
-              data={reconciliation}
-              loading={reconLoading}
-              onRefresh={fetchReconciliation}
-            />
-          </TabsContent>
 
           <TabsContent value="challenges">
             <div className="glass-card rounded-xl p-4">
@@ -387,151 +362,3 @@ function StatCard({ icon, label, value, color }) {
   );
 }
 
-function ReconciliationDashboard({ data, loading, onRefresh }) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <RefreshCw className="w-6 h-6 text-slate-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="text-center py-16">
-        <Wallet className="w-10 h-10 mx-auto mb-3 text-slate-600" />
-        <p className="text-slate-400 text-sm">No reconciliation data available</p>
-        <Button onClick={onRefresh} variant="outline" size="sm" className="mt-4 border-white/20">
-          <RefreshCw className="w-4 h-4 mr-2" /> Load Data
-        </Button>
-      </div>
-    );
-  }
-
-  const healthy = data.healthy;
-  const drift = data.drift_sol || 0;
-
-  return (
-    <div className="space-y-6" data-testid="reconciliation-dashboard">
-      {/* Health Banner */}
-      <div className={`rounded-xl p-5 border ${healthy ? "bg-[#00FFA3]/5 border-[#00FFA3]/20" : "bg-red-500/5 border-red-500/30"}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {healthy ? (
-              <CheckCircle className="w-8 h-8 text-[#00FFA3]" />
-            ) : (
-              <XCircle className="w-8 h-8 text-red-400" />
-            )}
-            <div>
-              <h3 className="text-lg font-bold" style={{ fontFamily: "Orbitron" }}>
-                {healthy ? "Funds Healthy" : "Drift Detected"}
-              </h3>
-              <p className="text-xs text-slate-400">
-                {healthy
-                  ? "On-chain balance matches virtual ledger totals"
-                  : `Discrepancy of ${drift.toFixed(6)} SOL between on-chain and ledger`}
-              </p>
-            </div>
-          </div>
-          <Button onClick={onRefresh} variant="outline" size="sm" className="border-white/20">
-            <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">On-Chain SOL</p>
-          <p className="text-xl font-black text-[#00C2FF]" style={{ fontFamily: "Orbitron" }}>
-            {data.total_on_chain_sol?.toFixed(6)}
-          </p>
-          <p className="text-[10px] text-slate-600">Custodial wallet balance</p>
-        </div>
-        <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">Available SOL</p>
-          <p className="text-xl font-black text-[#00FFA3]" style={{ fontFamily: "Orbitron" }}>
-            {(data.total_available_sol ?? 0).toFixed(6)}
-          </p>
-          <p className="text-[10px] text-slate-600">User funds (idle)</p>
-        </div>
-        <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">In Token Positions</p>
-          <p className="text-xl font-black text-[#FFB800]" style={{ fontFamily: "Orbitron" }}>
-            {(data.total_locked_in_tokens_sol ?? 0).toFixed(6)}
-          </p>
-          <p className="text-[10px] text-slate-600">SOL converted to tokens</p>
-        </div>
-        <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">Platform Rake</p>
-          <p className="text-xl font-black text-[#D946EF]" style={{ fontFamily: "Orbitron" }}>
-            {data.platform_rake_sol?.toFixed(6)}
-          </p>
-          <p className="text-[10px] text-slate-600">Collected fees</p>
-        </div>
-        <div className="glass-card rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase mb-1">Drift</p>
-          <p className={`text-xl font-black ${healthy ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: "Orbitron" }}>
-            {drift >= 0 ? "+" : ""}{drift.toFixed(6)}
-          </p>
-          <p className="text-[10px] text-slate-600">On-chain − available − rake</p>
-        </div>
-      </div>
-
-      {/* Per-User Breakdown */}
-      <div className="glass-card rounded-xl p-4">
-        <h4 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Per-User Fund Breakdown ({data.user_count || 0} users)
-        </h4>
-        {data.users && data.users.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full" data-testid="reconciliation-users-table">
-              <thead>
-                <tr className="text-[10px] text-slate-500 uppercase border-b border-white/10">
-                  <th className="text-left p-3">User Wallet</th>
-                  <th className="text-left p-3">Custodial</th>
-                  <th className="text-right p-3">On-Chain SOL</th>
-                  <th className="text-right p-3">Available</th>
-                  <th className="text-right p-3">In Tokens</th>
-                  <th className="text-right p-3">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.users.map((u) => (
-                  <tr key={u.user_wallet} className="border-b border-white/5 hover:bg-white/[0.02]">
-                    <td className="p-3 text-xs font-mono text-slate-300">{u.short_wallet}</td>
-                    <td className="p-3 text-[10px] font-mono text-slate-500">
-                      {u.custodial_address ? `${u.custodial_address.slice(0, 6)}...${u.custodial_address.slice(-4)}` : "N/A"}
-                    </td>
-                    <td className="p-3 text-xs text-right font-mono text-[#00C2FF]">
-                      {u.on_chain_sol?.toFixed(6)}
-                    </td>
-                    <td className="p-3 text-xs text-right font-mono text-[#00FFA3]">
-                      {(u.available_sol ?? 0).toFixed(6)}
-                    </td>
-                    <td className="p-3 text-xs text-right font-mono text-[#FFB800]">
-                      {(u.locked_in_tokens_sol ?? 0).toFixed(6)}
-                    </td>
-                    <td className="p-3 text-xs text-right font-mono text-white">
-                      {u.virtual_balance_sol?.toFixed(6)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-center text-xs text-slate-500 py-6">No users tracked yet. Balances appear after deposits.</p>
-        )}
-      </div>
-
-      {/* Last check timestamp */}
-      {data.checked_at && (
-        <p className="text-[10px] text-slate-600 text-right">
-          Last checked: {new Date(data.checked_at).toLocaleString()}
-        </p>
-      )}
-    </div>
-  );
-}

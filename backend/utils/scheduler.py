@@ -466,7 +466,6 @@ def start_scheduler():
     )
     
     # === TRADING BOT HIBERNATED ===
-    # Auto-trade exit monitoring — DISABLED (bot hibernated)
     # scheduler.add_job(
     #     check_auto_trade_exits,
     #     trigger=IntervalTrigger(minutes=1),
@@ -500,6 +499,24 @@ def start_scheduler():
         id="smart_money_scanner",
         replace_existing=True,
         max_instances=1
+    )
+
+    # Escrow health check + Telegram alert to operator when free capital is low
+    async def _run_escrow_alert():
+        try:
+            from services.escrow_alerts import check_escrow_and_alert
+            result = await check_escrow_and_alert()
+            if result.get("status") not in ("ok", "skipped", "throttled"):
+                logger.info("Escrow alert task: %s", result)
+        except Exception:
+            logger.exception("Escrow alert task crashed")
+
+    scheduler.add_job(
+        _run_escrow_alert,
+        trigger=IntervalTrigger(minutes=10),
+        id="escrow_health_alert",
+        replace_existing=True,
+        max_instances=1,
     )
     
     # NEW: Daily trading digest via Telegram - 20:00 UTC daily

@@ -397,6 +397,34 @@ ESCROW_HEADROOM_WARN_SOL = 0.1
 ESCROW_HEADROOM_CRITICAL_SOL = 0.01
 
 
+@router.post("/escrow-alert-test")
+async def admin_escrow_alert_test(admin_wallet: str):
+    """Run an escrow-health check and send a test Telegram alert if configured.
+
+    Lets you confirm the ADMIN_TELEGRAM_CHAT_ID is set correctly without
+    having to wait for free capital to actually drop below the threshold.
+    """
+    if not is_admin(admin_wallet):
+        raise HTTPException(status_code=403, detail="Admin only")
+    from services.escrow_alerts import check_escrow_and_alert
+    import os
+    chat_id = os.environ.get("ADMIN_TELEGRAM_CHAT_ID", "").strip()
+    if not chat_id:
+        return {
+            "status": "skipped",
+            "reason": "ADMIN_TELEGRAM_CHAT_ID is not set in backend/.env",
+            "instructions": "Message @userinfobot on Telegram to get your numeric chat id, paste it into backend/.env as ADMIN_TELEGRAM_CHAT_ID=<id>, then restart backend.",
+        }
+    # Force-send by temporarily clearing the throttle state
+    await db.system_state.update_one(
+        {"_id": "escrow_alert_state"},
+        {"$set": {"last_alert_at": None}},
+        upsert=True,
+    )
+    result = await check_escrow_and_alert()
+    return {"test": True, "chat_id_configured": bool(chat_id), **result}
+
+
 @router.get("/escrow-status")
 async def admin_escrow_status(admin_wallet: str):
     """Live on-chain escrow balance + headroom assessment for the AdminPanel.

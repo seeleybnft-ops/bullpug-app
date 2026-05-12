@@ -190,6 +190,57 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 113 — Bot Trader Stats Removed + Telegram Operator Alert (May 12, 2026)
+
+### Task 1 — Removed bot trader stats from Admin Panel
+The screenshot showed the "Fund Health" tab which was the hibernated bot trader's reconciliation dashboard (custodial wallet balances, "In Token Positions", "Platform Rake", "Drift Detected" banner, "Per-User Fund Breakdown"). All references were specific to the bot's custodial multi-wallet ledger which is no longer relevant.
+
+**Removed from `pages/AdminPanel.js`:**
+- `<TabsTrigger value="fund-health">` and matching `<TabsContent>` mount
+- `<ReconciliationDashboard>` component definition (~150 LOC)
+- `reconciliation` / `reconLoading` state hooks
+- `fetchReconciliation()` function and `useCallback` import
+- Default tab changed from `fund-health` → `challenges`
+- `axios.get(/api/ledger/admin/reconciliation)` call removed
+
+The `/api/ledger/admin/reconciliation` endpoint still exists in the backend for the hibernated bot's internal book-keeping but is no longer surfaced anywhere in the UI. Confirmed visually: the page now contains zero references to "Drift Detected", "PLATFORM RAKE", "Custodial wallet balance", "Fund Health", "Per-User Fund Breakdown", or "In Token Positions".
+
+Also cleaned the only stale bot-trader scheduler comment block in `utils/scheduler.py`.
+
+### Task 2 — Telegram operator alert for low escrow capital
+**Why:** Previous iteration's `EscrowHealthCard` only fires when you have the admin panel open. This wires the same health check into the scheduler so you get a Telegram nudge even when you're not watching.
+
+**Implementation:**
+- New env var `ADMIN_TELEGRAM_CHAT_ID` (blank by default, set via `backend/.env`).
+- New service `services/escrow_alerts.py`:
+  - `check_escrow_and_alert()` — computes free capital (`on-chain − pot/coinflip obligations − jackpot owed`), fires Telegram alert when below 0.05 SOL.
+  - 6-hour cooldown so you don't get spammed while the wallet stays low.
+  - Auto-resets the cooldown once free capital recovers above 0.05 SOL.
+  - Alert message includes: free capital, on-chain balance, pending obligations, threshold, recommended top-up, and the escrow wallet address (one-tap copy on mobile).
+- Wired into the scheduler: runs every 10 minutes (`escrow_health_alert` job).
+- New admin endpoint `POST /api/admin/escrow-alert-test` — forces a test alert. Returns setup instructions when `ADMIN_TELEGRAM_CHAT_ID` isn't configured. Useful to confirm wiring without waiting for an actual low-balance event.
+
+**To activate (user action required):**
+1. On Telegram, message `@userinfobot`, copy the numeric chat id it replies with.
+2. Paste it into `backend/.env`: `ADMIN_TELEGRAM_CHAT_ID=<id>`.
+3. Restart backend.
+4. Hit `POST /api/admin/escrow-alert-test?admin_wallet=qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs` once to confirm the Telegram bot can reach you. After that, alerts fire automatically every 10 minutes when free capital < 0.05 SOL.
+
+### Files touched
+- `frontend/src/pages/AdminPanel.js` — removed Fund Health tab + ReconciliationDashboard
+- `backend/services/escrow_alerts.py` (new)
+- `backend/routers/admin.py` — new `/escrow-alert-test` endpoint
+- `backend/utils/scheduler.py` — wired 10-min escrow alert job, cleaned bot-trader comments
+- `backend/.env` — added `ADMIN_TELEGRAM_CHAT_ID=` placeholder
+
+### Verified
+- `/admin` page contains zero bot-related text ✓
+- `POST /escrow-alert-test` with no chat_id → returns helpful `{status: skipped, instructions: ...}` ✓
+- Non-admin → 403 ✓
+- `/escrow-status` still works as expected ✓
+- Lint clean ✓
+
+---
 ## Iteration 112 — Rake-Fee Absorption + Admin Escrow Health Indicator (May 12, 2026)
 
 ### Task 1 — All transfer fees now come out of the 25% jackpot share
