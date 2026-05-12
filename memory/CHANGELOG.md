@@ -4,39 +4,56 @@
 
 ---
 
-## 2026-05-12 — Cosmic Runner 3D · Phase 1 polish + Phase 2 enhancements
+## 2026-05-13 — Cosmic Runner 3D bugfix + panel restoration
 
-**Scope**: User asked to (A) polish the Phase 1 3D runner gameplay and (B) layer in Phase 2 (better env, power-ups, mobile tuning, 3D pug polish).
+User-reported regressions on `/game`:
+1. Bullpug was facing the camera (eyes showing) instead of running away from it.
+2. Pug was too low-poly / boxy.
+3. Lane navigation skipped the middle lane (jumped left→right).
+4. Slide did nothing visually and the model clipped through the floor.
+5. All side panels (achievements, skin store, leaderboard, jackpot, stage badge) had been replaced by a full-screen 3D canvas.
 
-### Implemented
-- **HUD relocation**: Distance/Coins/Best now sit at `top-20` (below navbar) instead of `top-4` (was hidden behind the logo).
-- **Backend score wiring**: `Phase1Runner3D` auto-submits to `POST /api/leaderboard/submit` on game over with `{player_name, score=floor(distance)+coins*5, moonCheese=coins}`. UI displays returned rank via `data-testid="runner-3d-rank"`.
-- **Power-up system** (3 types, ~8% spawn rate):
-  - **Shield** (◇ green octahedron) — absorbs the next obstacle hit and breaks with a sfx burst.
-  - **Magnet** (⌬ orange torus) — for 6s, all coins within track range lerp toward the player.
-  - **2× Multiplier** (× purple icosahedron) — doubles coin pickup value for 8s.
-  - HUD chips show active power-ups with live countdown (`runner-3d-hud-powerups`).
-  - Start screen has a 3-chip legend explaining each.
-- **Environment depth**: 3 distant planets (one ringed Saturn-like), 5 parallax-scrolling nebula bands behind the track at varying depths, retained Stars + Sparkles.
-- **Speed milestones**: every 250m, a centered toast (`runner-3d-milestone`) fades in for 1.6s with an upward arpeggio sfx.
-- **Mobile**: swipe threshold dropped from 30 → 18 px (more responsive); on-screen tap buttons (←/↓/↑/→) auto-render on touch devices only.
-- **Pug polish**: wireframe shield bubble appears around the pug when shielded.
-- **Game-over screen**: now also links to the global Leaderboard page.
-
-### Backend changes
-- `routers/leaderboard.py` — fixed insert field name from `mooncakes` → `moonCheese` for shape consistency with the update path and request schema.
-
-### Testing
-- **Test report**: `/app/test_reports/iteration_99.json`
-- **Backend**: 9/9 pytest pass — covers submit happy-path, upgrade-on-higher-score, no-overwrite-on-lower-score, default-name, 422-on-missing-field, leaderboard GET, pot/active and prize-pool smoke.
-- **Frontend**: 100% — full game loop (access gate → start → run → keyboard input → game-over → auto-submit → restart) plus regression on `/`, `/arena`, `/leaderboard`.
+### Fixes
+- **Embedded mode**: extracted a controlled `<CosmicRunner3DScene />` from
+  `Phase1Runner3D.js`. The page `/game` is now back on `SpeedRunGame.js`
+  (kept all surrounding UI panels) and renders the new 3D scene inside its
+  canvas slot in place of the legacy 2D canvas. The 2D animation loop is
+  retained but never kicked off (the `requestAnimationFrame` boot call is
+  replaced with `scene3DRef.reset()`).
+- **Pug orientation**: wrapped the entire model in `rotation={[0, π, 0]}` so
+  the camera now sees his back, curly tail and horns from behind.
+- **Pug quality**: replaced box geometries with sphere body (squashed
+  barrel), sphere head + two jowl spheres, sphere muzzle + nose + eye
+  glints, sphere ears, capsule legs, partial-torus curly tail.
+- **Lane de-dup**: `useGameAudio()` now returns a stable memoised object,
+  and the controlState `useEffect` ignores any tick whose `ts` matches the
+  previous one. Each keypress moves exactly one lane.
+- **Slide fix**: removed the negative `Y` offset on the pug group. The
+  slide now only compresses scale Y (and stretches Z), keeping the model
+  anchored on the track surface.
+- **Grace period**: spawn pointer starts 12m ahead and the first 2.5s of a
+  run will never spawn an obstacle in the player's current lane.
 
 ### Files touched
-- `/app/frontend/src/pages/Phase1Runner3D.js` (full rewrite, 707 → 1062 lines)
-- `/app/backend/routers/leaderboard.py` (1-line field rename)
-- `/app/memory/test_credentials.md` (created)
-- `/app/backend/tests/test_leaderboard_iteration99.py` (created by testing agent)
+- `/app/frontend/src/pages/Phase1Runner3D.js` — bugfixes + new
+  `CosmicRunner3DScene` named export (forwardRef + imperative `reset()` /
+  `fireAction()`).
+- `/app/frontend/src/pages/SpeedRunGame.js` — import the new scene,
+  replace the 2D `<canvas>` slot with the scene, wire `handle3DScoreTick`
+  and `handle3DDeath` callbacks (death triggers existing
+  `submitScore` + high-score localStorage + win/gameover SFX).
+- `/app/frontend/src/App.js` — `/game` route now points to `SpeedRunGame`
+  again; `/game/3d` keeps the standalone full-screen variant.
 
-### Known advisory notes (not blocking)
-- `Phase1Runner3D.js` is 1062 lines — beyond the 700-line guideline. Suggested split next time it's touched: hooks (`useGameAudio`, `useRunnerInput`), components folder (`Bullpug`, `Track`, `NebulaBand`, `Planet`, `Obstacle`, `Coin`, `PowerUp`), and a `useRunnerLoop` hook for the per-frame logic.
-- `leaderboard.py` submit endpoint does not propagate Mongo write errors — succeeds even if persistence fails. Low risk; cycle resets every 3 days.
+### Verification
+- Visual: pug back facing camera, middle lane reachable, slide compresses
+  without clipping, score 23 after ~3s in lane 2 → no instant death.
+- Backend: existing `/api/leaderboard/submit` is called by SpeedRunGame's
+  `submitScore` on death. Achievements panel ticked from 0/21 → 1/21
+  ("First Steps!") on first run end.
+
+---
+
+## 2026-05-12 — Cosmic Runner 3D · Phase 1 polish + Phase 2 enhancements
+
+(Preserved — see prior version of this file.)

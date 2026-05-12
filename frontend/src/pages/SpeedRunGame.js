@@ -14,6 +14,7 @@ import SkinStore from "@/components/SkinStore";
 import JackpotDisplay from "@/components/JackpotDisplay";
 import GameAchievements from "@/components/GameAchievements";
 import LeaderboardPanel from "@/components/LeaderboardPanel";
+import { CosmicRunner3DScene } from "@/pages/Phase1Runner3D";
 import "@/styles/animations.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -89,6 +90,7 @@ export default function SpeedRunGame() {
   const { t } = useTranslation();
   const { publicKey, connected } = useWallet();
   const canvasRef = useRef(null);
+  const scene3DRef = useRef(null);
   const [gameState, setGameState] = useState("idle");
   const [score, setScore] = useState(0);
   const [moonCheese, setMoonCheese] = useState(0);
@@ -2068,9 +2070,36 @@ export default function SpeedRunGame() {
       animRef.current = requestAnimationFrame(loop);
     };
     
-    animRef.current = requestAnimationFrame(loop);
+    // 3D mode: kick the embedded scene instead of the 2D loop.
+    scene3DRef.current?.reset();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highScore, totalMoonCheese, playerName, currentSkin, currentSkinId]);
+
+  // ─────────────── 3D scene callbacks ───────────────
+  const handle3DScoreTick = useCallback(({ score: liveScore, coins }) => {
+    setScore(liveScore);
+    setMoonCheese(coins);
+  }, []);
+
+  const handle3DDeath = useCallback(({ score: finalScore, coins }) => {
+    setGameState("over");
+    setScore(finalScore);
+    setMoonCheese(coins);
+    const newTotal = totalMoonCheese + coins;
+    setTotalMoonCheese(newTotal);
+    localStorage.setItem("bullpugMoonCheese", String(newTotal));
+    if (finalScore > highScore) {
+      setHighScore(finalScore);
+      localStorage.setItem("bullpugHighScore", String(finalScore));
+      winFeedback();
+      playSoundIfEnabled('newHighScore');
+    } else {
+      playSoundIfEnabled('gameover');
+    }
+    submitScore(finalScore, coins);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highScore, totalMoonCheese, playerName]);
+
 
   // Helper function to shade colors
   const shadeColor = (color, percent) => {
@@ -2270,13 +2299,21 @@ export default function SpeedRunGame() {
               </div>
 
               <div className="relative mx-auto" style={{ maxWidth: W }}>
-                <canvas ref={canvasRef} width={W} height={H} 
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008] touch-none"
-                  data-testid="game-canvas" 
-                />
+                {/* 3D Cosmic Runner scene (replaces the legacy 2D canvas) */}
+                <div
+                  data-testid="game-canvas"
+                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008] overflow-hidden"
+                  style={{ aspectRatio: `${W} / ${H}`, maxWidth: W }}
+                >
+                  <CosmicRunner3DScene
+                    ref={scene3DRef}
+                    playing={gameState === "playing"}
+                    onScoreTick={handle3DScoreTick}
+                    onDeath={handle3DDeath}
+                  />
+                </div>
+                {/* Hidden 2D canvas kept mounted only for legacy ref compatibility */}
+                <canvas ref={canvasRef} width={W} height={H} className="hidden" aria-hidden="true" />
 
                 {gameState === "idle" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl">
