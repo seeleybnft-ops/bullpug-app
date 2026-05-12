@@ -97,7 +97,7 @@ async def submit_score(data: LeaderboardSubmitRequest):
             "id": str(uuid.uuid4()),
             "player_name": data.player_name,
             "score": data.score,
-            "mooncakes": data.moonCheese,  # Store as mooncakes for backward compatibility
+            "moonCheese": data.moonCheese,
             "cycle_start": cycle_start,
             "created_at": datetime.now(timezone.utc).isoformat()
         }

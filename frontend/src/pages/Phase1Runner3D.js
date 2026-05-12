@@ -831,7 +831,6 @@ export default function Phase1Runner3D() {
     <div className="relative w-full h-screen bg-black overflow-hidden" data-testid="runner-3d-page">
       {/* 3D Canvas */}
       <Canvas
-        shadows
         camera={{ position: [0, 2.7, 4.5], fov: 70 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         style={{ background: COLORS.bg }}
