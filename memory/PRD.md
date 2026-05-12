@@ -190,6 +190,41 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - Remove private access gate when user confirms testing is complete
 
 ---
+## Iteration 117 — Operator Quick Glance Pill (Navbar) (May 12, 2026)
+
+### What was added
+A tiny admin-only pill in the navbar (between LanguageSwitcher and the wallet button) that shows escrow health at a glance from any page, no clicking required.
+
+### Component: `components/OperatorQuickGlance.js` (~75 LOC)
+- Pings `GET /api/admin/escrow-status` every 60 seconds for the connected admin wallet
+- Renders **only** when `useWallet().publicKey` is in `ADMIN_WALLETS` (same gate as `/admin`)
+- Returns `null` for non-admin users → zero visual footprint
+- Status colour mapping:
+  - 🟢 `healthy` (free capital ≥ 0.5 SOL) — solid green dot
+  - 🟡 `ok` (≥ 0.1) — yellow dot
+  - 🟠 `low` (≥ 0.01) — orange dot, **pulsing**
+  - 🔴 `critical` (< 0.01) — red dot, **pulsing**, glow
+- Shows the live free-capital figure in Orbitron, with a Wallet icon next to it
+- Hover tooltip: `Escrow Healthy / Free capital: 0.024 SOL / On-chain: 0.0200 SOL / Click for full breakdown`
+- Whole pill is a `<Link to="/admin">` so a single click opens the full EscrowHealthCard
+- Hidden on mobile (`hidden md:inline-flex`) to keep the nav tidy on narrow screens
+
+### Wired into `components/Navbar.js`
+- Imported `OperatorQuickGlance`
+- Mounted directly after `<LanguageSwitcher />` inside the admin gate: `{isAdmin && <OperatorQuickGlance adminWallet={publicKey?.toBase58()} />}`
+
+### Verified
+- Non-admin / disconnected → pill count = 0 ✓
+- Admin API responds correctly when called with admin wallet (status=`low`, free=0.02) ✓
+- Lint clean on both files ✓
+- All routes render zero page errors ✓
+- Will auto-render in green/yellow/orange/red the moment you connect `qdeg…7Rjs` or `we2w…huoT`
+
+### Files touched
+- `frontend/src/components/OperatorQuickGlance.js` (new)
+- `frontend/src/components/Navbar.js` — added import + mount
+
+---
 ## Iteration 116 — Bot MongoDB Collections Archived & Dropped + Scheduler Cleanup (May 12, 2026)
 
 ### What was dropped

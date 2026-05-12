@@ -7,6 +7,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
 import UnifiedWalletButton from "./UnifiedWalletButton";
+import OperatorQuickGlance from "./OperatorQuickGlance";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -152,6 +153,7 @@ export default function Navbar() {
               )}
               <NotificationBell />
               <LanguageSwitcher />
+              {isAdmin && <OperatorQuickGlance adminWallet={publicKey?.toBase58()} />}
             </div>
             <UnifiedWalletButton />
             <button
