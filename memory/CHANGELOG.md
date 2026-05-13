@@ -1,48 +1,70 @@
 # Bullpug — Changelog
 
-## 2026-05-13 (c) — Real skeleton model + brighter debris
+## 2026-05-13 (d) — All 5 legend obstacles + tight per-type hitboxes
 
 User feedback:
-- "Boulders are too dark and cannot be seen properly. make them more illuminated please."
-- "The skins are actual themes — the skeleton Bullpug should be a real skeleton."
+- "Hitbox sizing should be reflective of how big the obstacles. Even when jumping it is hitting the obstacle."
+- "Obstacles must remain above ground."
+- "Obstacles should be modelled after the game guide" (5 types: Meteor, Space
+  Debris, Black Hole, Satellite, Alien Ship).
 
 ### Implemented
-- **`SkeletonBody` sub-component** for `skinId === 'skeletal'` (Phantom skin).
-  Verified the 2D `skeletal_cutout.png` is a fully rendered skeleton; the
-  3D model now matches:
-  - Bull-horned **skull** with brow ridge, dark eye sockets + phantom cyan
-    eye glow, nasal cavity, upper + lower jaw, four small teeth, bony stub
-    ears.
-  - **Spine** of 7 vertebrae spheres from skull to tail.
-  - **Ribcage** of 5 curved half-torus ribs hanging off the spine + a
-    sternum block.
-  - **Shoulder & pelvis** bony plates.
-  - **Leg bones** — each leg is hip joint + upper bone + knee + lower
-    bone + paw sphere (refs preserved so the existing run-cycle still
-    animates them).
-  - **Curly tail** of 5 small vertebrae spheres.
-  - Faint cool-blue phantom point light for atmosphere.
-- **Brighter debris obstacle**:
-  - Shard base colours lifted to `#C7D0DE → #E1E8F2 → #F2F6FC` (warm-tinted
-    near-whites) with emissive intensity 0.4 – 0.55.
-  - Replaced the single dim 0.4-intensity point light with **two**:
-    warm orange 1.3 + cool blue 0.7 + a 0.5-opacity orange halo ring.
-- **Brighter meteor** (smaller bump): rock colour lifted slightly,
-  emissive intensity raised, added a 0.9-intensity orange point light and
-  bumped halo opacity from 0.35 → 0.5.
+- **`OBSTACLE_DEFS` table** — single source of truth for all 5 obstacle
+  types:
+  - `meteor`     → y 0.55, hz 0.45, clear: py≥0.85           (Stage 1)
+  - `debris`     → y 0.95, hz 0.55, clear: py≥1.40           (Stage 2)
+  - `black_hole` → y 0.06, hz 0.40, clear: py≥0.50           (Stage 3)
+  - `satellite`  → y 1.65, hz 0.50, clear: sliding           (Stage 4)
+  - `alien_ship` → y 2.00, hz 0.70, clear: sliding           (Stage 5)
+  - Spawn pool filtered by current stage (`floor(distance/150)+1`).
+- **Bug fix**: the old collision code still checked `o.type === 'asteroid'`
+  even though spawning had been renamed to `meteor`, so meteors fell into
+  the "always fatal in-lane" branch (i.e. jumping over them did NOT clear
+  them). Replaced the whole `if/else if/else` branch with a single
+  `OBSTACLE_DEFS[type].clear(py, sliding)` dispatch.
+- **Hit window tightened** — replaced the uniform `Math.abs(z) > 1.2`
+  early-out with each type's `def.hz` (0.40 – 0.70 instead of 1.2). Player
+  is now only at risk while actually adjacent to the obstacle.
+- **Spawn Y per type** — `position: new Vector3(LANES[lane], def.y, spawnZ)`
+  so every model floats at its own height (no more clipping into the
+  track).
+- **New 3D models** matching the 2D legend:
+  - Meteor: bright fiery icosahedron + hot wireframe + three nested cone
+    trails + heat halo + warm point light.
+  - Space Debris: faceted dodecahedron + a smaller offset shard + halo +
+    cool point light.
+  - Black Hole: flat dark center disk + purple accretion ring + outer
+    halo + violet point light.
+  - Satellite: small box body + two flat solar panels with grid lines +
+    dish antenna + red status blinker + purple soft glow.
+  - Alien Ship: squashed sphere saucer + dome + green light ring +
+    pulsing yellow tractor beam cone + halo + yellow point light.
+- **Stage progression wired**: `SpeedRunGame.handle3DScoreTick` now also
+  computes `currentStage = floor(distance / 150) + 1` (capped at 5) so the
+  "Stage X/5" badge advances as the player covers distance.
 
 ### Files touched
-- `/app/frontend/src/pages/Phase1Runner3D.js` — added `SkeletonBody`,
-  branch in `Bullpug` so `skinId === 'skeletal'` renders the skeleton
-  instead of the fleshy body, brighter `meteor` + `debris` materials and
-  lighting.
+- `/app/frontend/src/pages/Phase1Runner3D.js` — full rewrite of the
+  `Obstacle` component + `OBSTACLE_DEFS` table, spawn loop now
+  stage-aware, collision loop refactored to type-dispatch.
+- `/app/frontend/src/pages/SpeedRunGame.js` — `handle3DScoreTick` now
+  receives `distance` and updates `currentStage`.
 
 ### Verification
-- Visual: Phantom +1% Bonus badge + on-screen skeleton with skull, horns,
-  visible leg bones, phantom aura.
-- Visual: debris cluster now reads as a bright metallic shard pile with a
-  warm halo at distance — no longer blends into the dark track.
+- 0 m run: only meteors spawn. Jumping (Space) clears them — no more
+  spurious deaths.
+- ~64 m run (test mode at /30 m per stage): meteors, debris, black holes
+  and satellites visible together; player survives by alternating jump &
+  slide.
+- Meteors visibly float above the track (y 0.55) with comet tails reading
+  cleanly in dark space.
 - Frontend lint clean.
+
+---
+
+## 2026-05-13 (c) — Real skeleton model + brighter debris
+
+(Preserved.)
 
 ---
 

@@ -609,87 +609,208 @@ function Track({ speedRef }) {
 
 // ───────────────────────────────────────────── Obstacles / Moon Cheese / Power-ups
 
-const OBSTACLE_TYPES = ["meteor", "debris", "ring"];
+/**
+ * 5 obstacle types from the 2D legend.
+ *  - y: world height the group spawns at (keeps the model off the ground).
+ *  - hz: half collision window in Z. Tight per-type so a fast pug doesn't get
+ *    "killed" 1.5 metres before the obstacle.
+ *  - clear(py, sliding): returns true if the player has dodged it vertically
+ *    (jump for ground obstacles, slide for flyers).
+ *  - minStage: distance-gated unlock (stage = floor(distance/150)+1, capped 5).
+ */
+const OBSTACLE_DEFS = {
+  meteor:     { y: 0.55, hz: 0.45, minStage: 1, clear: (py) => py >= 0.85 },
+  debris:     { y: 0.95, hz: 0.55, minStage: 2, clear: (py) => py >= 1.40 },
+  black_hole: { y: 0.06, hz: 0.40, minStage: 3, clear: (py) => py >= 0.50 },
+  satellite:  { y: 1.65, hz: 0.50, minStage: 4, clear: (_py, sliding) => !!sliding },
+  alien_ship: { y: 2.00, hz: 0.70, minStage: 5, clear: (_py, sliding) => !!sliding },
+};
 const POWERUP_TYPES = ["shield", "magnet", "multiplier"];
 
 function Obstacle({ type, refData }) {
   const ref = useRef();
   const halo = useRef();
+  const beam = useRef();
   useFrame((_, dt) => {
     if (ref.current) {
       ref.current.position.copy(refData.position);
-      ref.current.rotation.x += dt * 0.6;
-      ref.current.rotation.y += dt * 0.8;
+      // Subtle spin keeps shapes interesting without disturbing the hitbox.
+      ref.current.rotation.y += dt * 0.6;
     }
     if (halo.current) halo.current.rotation.z += dt * 1.6;
+    if (beam.current) beam.current.material.opacity = 0.18 + Math.abs(Math.sin(performance.now() * 0.004)) * 0.18;
   });
+
   if (type === "meteor") {
-    // Fiery space rock with an emissive halo — kept warm/bright so it reads
-    // in deep space.
+    // Fiery comet — bright rock with hot wireframe + trailing flame tail.
     return (
       <group ref={ref}>
         <mesh>
-          <icosahedronGeometry args={[0.55, 1]} />
-          <meshStandardMaterial color="#8A9099" emissive="#FF5520" emissiveIntensity={0.35} roughness={0.85} flatShading metalness={0.15} />
+          <icosahedronGeometry args={[0.4, 1]} />
+          <meshStandardMaterial color="#FFB179" emissive="#FF4500" emissiveIntensity={0.7} roughness={0.55} flatShading metalness={0.2} />
         </mesh>
         {/* Hot lava cracks */}
-        <mesh scale={[0.99, 0.99, 0.99]}>
-          <icosahedronGeometry args={[0.55, 0]} />
-          <meshBasicMaterial color={COLORS.meteorHot} transparent opacity={0.7} wireframe />
+        <mesh scale={[1.01, 1.01, 1.01]}>
+          <icosahedronGeometry args={[0.4, 0]} />
+          <meshBasicMaterial color="#FFE0A0" transparent opacity={0.8} wireframe />
+        </mesh>
+        {/* Comet tail — three nested cones streaking back */}
+        <mesh position={[0, 0, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.32, 0.9, 16, 1, true]} />
+          <meshBasicMaterial color="#FF4500" transparent opacity={0.65} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, 0, -0.75]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.22, 1.4, 16, 1, true]} />
+          <meshBasicMaterial color="#FFB179" transparent opacity={0.5} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, 0, -1.05]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.1, 1.8, 12, 1, true]} />
+          <meshBasicMaterial color="#FFE0A0" transparent opacity={0.4} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
         {/* Heat halo */}
         <mesh ref={halo} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.7, 1.0, 32]} />
-          <meshBasicMaterial color={COLORS.meteorHot} side={THREE.DoubleSide} transparent opacity={0.5} depthWrite={false} />
+          <ringGeometry args={[0.55, 0.78, 32]} />
+          <meshBasicMaterial color="#FF7A2A" side={THREE.DoubleSide} transparent opacity={0.55} depthWrite={false} />
         </mesh>
-        <pointLight position={[0, 0, 0]} intensity={0.9} color={COLORS.meteorHot} distance={3.5} />
+        <pointLight intensity={1.1} color="#FF7A2A" distance={4} />
       </group>
     );
   }
+
   if (type === "debris") {
-    // Cluster of bright metallic shards with self-illumination so they read in
-    // dark space. Always fatal in lane (jump alone won't clear it).
+    // Floating wreckage — single faceted angular rock (matches the white
+    // crystal icon in the in-game legend). Tall enough that low jumps won't
+    // clear it.
     return (
       <group ref={ref}>
-        <mesh position={[0, 0.6, 0]} rotation={[0.4, 0.3, 0.1]}>
-          <octahedronGeometry args={[0.5, 0]} />
-          <meshStandardMaterial color="#C7D0DE" emissive="#7DB6FF" emissiveIntensity={0.4} metalness={0.85} roughness={0.2} flatShading />
+        <mesh rotation={[0.35, 0.4, 0.1]}>
+          <dodecahedronGeometry args={[0.55, 0]} />
+          <meshStandardMaterial color="#E3E8F0" emissive="#9FB1C7" emissiveIntensity={0.45} metalness={0.35} roughness={0.35} flatShading />
         </mesh>
-        <mesh position={[0.18, 1.15, -0.1]} rotation={[0.1, 0.8, -0.2]} scale={[0.75, 0.75, 0.75]}>
-          <octahedronGeometry args={[0.5, 0]} />
-          <meshStandardMaterial color="#E1E8F2" emissive="#FFB179" emissiveIntensity={0.55} metalness={0.85} roughness={0.2} flatShading />
+        {/* Inner facet — slightly off-axis chunk so silhouette is asymmetric */}
+        <mesh position={[0.12, 0.08, -0.05]} rotation={[0.6, -0.3, 0.4]} scale={[0.55, 0.55, 0.55]}>
+          <octahedronGeometry args={[0.55, 0]} />
+          <meshStandardMaterial color="#FFFFFF" emissive="#C7D8FF" emissiveIntensity={0.5} metalness={0.4} roughness={0.25} flatShading />
         </mesh>
-        <mesh position={[-0.14, 1.6, 0.05]} rotation={[0.6, -0.4, 0.5]} scale={[0.55, 0.55, 0.55]}>
-          <octahedronGeometry args={[0.5, 0]} />
-          <meshStandardMaterial color="#F2F6FC" emissive="#FFFFFF" emissiveIntensity={0.45} metalness={0.95} roughness={0.15} flatShading />
+        {/* Halo */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.7, 0.92, 32]} />
+          <meshBasicMaterial color="#C7D8FF" side={THREE.DoubleSide} transparent opacity={0.45} depthWrite={false} />
         </mesh>
-        {/* Warning halo + warm exhaust light so the cluster pops in dark space */}
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 1.0, 0]}>
-          <ringGeometry args={[0.75, 0.95, 32]} />
-          <meshBasicMaterial color="#FFB179" side={THREE.DoubleSide} transparent opacity={0.5} depthWrite={false} />
-        </mesh>
-        <pointLight position={[0, 1.0, 0]} intensity={1.3} color="#FFB179" distance={4.5} />
-        <pointLight position={[0, 0.5, 0]} intensity={0.7} color="#7DB6FF" distance={3.0} />
+        <pointLight intensity={0.9} color="#C7D8FF" distance={3.5} />
       </group>
     );
   }
-  // ring — alien ion beam ring, slide under
+
+  if (type === "black_hole") {
+    // Dangerous gravity well — flat dark ellipse with a purple accretion ring.
+    return (
+      <group ref={ref} rotation={[-Math.PI / 2.2, 0, 0]}>
+        {/* Void center */}
+        <mesh>
+          <circleGeometry args={[0.55, 36]} />
+          <meshBasicMaterial color="#0a0014" />
+        </mesh>
+        {/* Inner deep purple glow */}
+        <mesh position={[0, 0, 0.01]}>
+          <ringGeometry args={[0.55, 0.62, 36]} />
+          <meshBasicMaterial color="#4C1D95" transparent opacity={0.95} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Accretion ring (rotating) */}
+        <mesh ref={halo} position={[0, 0, 0.02]}>
+          <ringGeometry args={[0.6, 0.95, 48]} />
+          <meshBasicMaterial color="#D946EF" transparent opacity={0.55} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Outer faint halo */}
+        <mesh position={[0, 0, 0.015]}>
+          <ringGeometry args={[0.95, 1.15, 48]} />
+          <meshBasicMaterial color="#7C3AED" transparent opacity={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        <pointLight intensity={0.7} color="#D946EF" distance={4} />
+      </group>
+    );
+  }
+
+  if (type === "satellite") {
+    // Flying communications satellite — central box body + two flat solar
+    // panel wings + dish antenna. Pug slides underneath.
+    return (
+      <group ref={ref}>
+        {/* Main body */}
+        <mesh>
+          <boxGeometry args={[0.32, 0.32, 0.5]} />
+          <meshStandardMaterial color="#D6D8E0" metalness={0.7} roughness={0.3} />
+        </mesh>
+        {/* Solar panels (left + right) */}
+        <mesh position={[-0.55, 0, 0]} rotation={[0, 0, 0]}>
+          <boxGeometry args={[0.7, 0.02, 0.35]} />
+          <meshStandardMaterial color="#5B4FE6" emissive="#A78BFA" emissiveIntensity={0.7} metalness={0.55} roughness={0.25} />
+        </mesh>
+        <mesh position={[0.55, 0, 0]}>
+          <boxGeometry args={[0.7, 0.02, 0.35]} />
+          <meshStandardMaterial color="#5B4FE6" emissive="#A78BFA" emissiveIntensity={0.7} metalness={0.55} roughness={0.25} />
+        </mesh>
+        {/* Panel grid lines */}
+        <mesh position={[-0.55, 0.012, 0]}>
+          <boxGeometry args={[0.7, 0.005, 0.02]} />
+          <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        <mesh position={[0.55, 0.012, 0]}>
+          <boxGeometry args={[0.7, 0.005, 0.02]} />
+          <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        {/* Dish antenna */}
+        <mesh position={[0, 0.22, 0]} rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.12, 0.18, 16, 1, true]} />
+          <meshStandardMaterial color="#FFFFFF" metalness={0.8} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.015, 0.015, 0.12, 6]} />
+          <meshStandardMaterial color="#9CA3AF" metalness={0.9} roughness={0.2} />
+        </mesh>
+        {/* Status blinker */}
+        <mesh position={[0, 0, 0.27]}>
+          <sphereGeometry args={[0.035, 10, 10]} />
+          <meshBasicMaterial color="#EF4444" />
+        </mesh>
+        {/* Soft glow halo so it reads against dark space */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.95, 1.15, 32]} />
+          <meshBasicMaterial color="#A78BFA" transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        <pointLight intensity={0.6} color="#A78BFA" distance={3} />
+      </group>
+    );
+  }
+
+  // alien_ship — UFO disc with translucent dome + downward tractor beam
   return (
     <group ref={ref}>
-      <mesh position={[0, 1.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.92, 0.13, 12, 32]} />
-        <meshStandardMaterial color={COLORS.ring} emissive={COLORS.ring} emissiveIntensity={0.7} metalness={0.4} roughness={0.25} />
+      {/* Saucer body — squashed cylinder */}
+      <mesh scale={[1.0, 0.25, 1.0]}>
+        <sphereGeometry args={[0.55, 24, 16]} />
+        <meshStandardMaterial color="#C7D0DE" metalness={0.85} roughness={0.2} />
       </mesh>
-      {/* Inner glow disk */}
-      <mesh position={[0, 1.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.6, 0.85, 36]} />
-        <meshBasicMaterial color={COLORS.ring} transparent opacity={0.18} side={THREE.DoubleSide} depthWrite={false} />
+      {/* Lower lights ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.06, 0]}>
+        <torusGeometry args={[0.42, 0.04, 8, 32]} />
+        <meshBasicMaterial color="#34D399" />
       </mesh>
-      {/* Downward beam hint */}
-      <mesh position={[0, 0.7, 0]}>
-        <cylinderGeometry args={[0.85, 0.6, 1.4, 24, 1, true]} />
-        <meshBasicMaterial color={COLORS.ring} transparent opacity={0.08} side={THREE.DoubleSide} depthWrite={false} />
+      {/* Dome */}
+      <mesh position={[0, 0.12, 0]}>
+        <sphereGeometry args={[0.24, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#7DE3E8" emissive="#34D399" emissiveIntensity={0.45} metalness={0.4} roughness={0.15} transparent opacity={0.75} />
       </mesh>
+      {/* Tractor beam — yellow cone hanging down (animated alpha) */}
+      <mesh ref={beam} position={[0, -0.7, 0]}>
+        <coneGeometry args={[0.55, 1.4, 28, 1, true]} />
+        <meshBasicMaterial color="#FFD700" transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, -1.38, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.45, 0.55, 32]} />
+        <meshBasicMaterial color="#FFD700" transparent opacity={0.5} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <pointLight intensity={0.9} color="#FFD700" distance={4} />
     </group>
   );
 }
@@ -891,13 +1012,21 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
         const lane = Math.floor(Math.random() * 3);
         powerupsRef.current.push({ id: Math.random(), type: ptype, lane, position: new THREE.Vector3(LANES[lane], 1.0, spawnZ) });
       } else if (roll < 0.65) {
+        // Build the obstacle pool by current stage (distance-gated).
+        const stage = Math.min(5, Math.floor(distanceRef.current / 150) + 1);
+        const pool = Object.keys(OBSTACLE_DEFS).filter((k) => OBSTACLE_DEFS[k].minStage <= stage);
         let lane = Math.floor(Math.random() * 3);
         if (inGrace && lane === laneIdxRef.current) {
-          // shove to an adjacent lane so the player has a clean opening
           lane = (lane + 1) % 3;
         }
-        const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-        obstaclesRef.current.push({ id: Math.random(), type, lane, position: new THREE.Vector3(LANES[lane], 0, spawnZ) });
+        const type = pool[Math.floor(Math.random() * pool.length)];
+        const def = OBSTACLE_DEFS[type];
+        obstaclesRef.current.push({
+          id: Math.random(),
+          type,
+          lane,
+          position: new THREE.Vector3(LANES[lane], def.y, spawnZ),
+        });
       } else {
         const lane = Math.floor(Math.random() * 3);
         for (let i = 0; i < 5; i++) {
@@ -933,16 +1062,15 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
     const playerLane = laneIdxRef.current;
 
     for (const o of obstaclesRef.current) {
-      if (Math.abs(o.position.z) > 1.2) continue;
+      const def = OBSTACLE_DEFS[o.type];
+      if (!def) continue;
+      // Tight per-type Z hit window so jumps land cleanly between obstacles.
+      if (Math.abs(o.position.z) > def.hz) continue;
       if (o.lane !== playerLane) continue;
-      let hit = false;
-      if (o.type === "asteroid") {
-        if (py < 0.85) hit = true;
-      } else if (o.type === "ring") {
-        if (!slidingRef.current) hit = true;
-      } else {
-        if (Math.abs(o.position.x - px) < 0.9) hit = true;
-      }
+      // Per-type clear rule (jump vs slide).
+      const cleared = def.clear(py, slidingRef.current);
+      if (cleared) continue;
+      const hit = true;
       if (hit) {
         if (shieldActiveRef.current) {
           shieldActiveRef.current = false;

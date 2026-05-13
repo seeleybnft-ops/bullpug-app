@@ -2076,9 +2076,11 @@ export default function SpeedRunGame() {
   }, [highScore, totalMoonCheese, playerName, currentSkin, currentSkinId]);
 
   // ─────────────── 3D scene callbacks ───────────────
-  const handle3DScoreTick = useCallback(({ score: liveScore, coins }) => {
+  const handle3DScoreTick = useCallback(({ score: liveScore, coins, distance }) => {
     setScore(liveScore);
     setMoonCheese(coins);
+    const stage = Math.min(5, Math.floor((distance || 0) / 150) + 1);
+    setCurrentStage(stage);
   }, []);
 
   const handle3DDeath = useCallback(({ score: finalScore, coins }) => {
