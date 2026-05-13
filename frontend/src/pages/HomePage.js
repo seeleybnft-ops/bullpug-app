@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Rocket, Shield, Zap, Coins, BarChart3, Gamepad2, ShoppingCart, Moon, Bot, Flame, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,31 @@ export default function HomePage() {
   const [email, setEmail] = useState("");
   const [stats, setStats] = useState(null);
   const [subscribing, setSubscribing] = useState(false);
+  // PugBurn live-fetch — surfaces the connected wallet's reclaimable SOL
+  // right in the promo strip, so the hook becomes a personalised CTA.
+  const { publicKey } = useWallet();
+  const walletAddress = publicKey?.toString();
+  const [pugBurnScan, setPugBurnScan] = useState(null); // { count, sol }
+
+  useEffect(() => {
+    if (!walletAddress) {
+      setPugBurnScan(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await axios.get(`${API}/pugburn/scan/${walletAddress}`);
+        if (cancelled) return;
+        const sol = Number(data?.total_reclaimable_sol || 0);
+        const count = data?.vacant_accounts?.length || 0;
+        setPugBurnScan({ sol, count });
+      } catch (e) {
+        if (!cancelled) setPugBurnScan(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [walletAddress]);
 
   useEffect(() => {
     axios.get(`${API}/tokenomics/stats`).then(r => setStats(r.data)).catch(() => {});
@@ -106,7 +132,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* PUGBURN PROMO STRIP */}
+      {/* PUGBURN PROMO STRIP — hides when a connected wallet has nothing
+          to reclaim, becomes personalised when it does. */}
+      {!(pugBurnScan && pugBurnScan.count === 0) && (
       <section className="py-6 md:py-8" data-testid="pugburn-promo-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <Link
@@ -132,24 +160,48 @@ export default function HomePage() {
               <div className="flex-1 min-w-0 text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#FF6B6B]" style={{ fontFamily: "Orbitron" }}>
-                    Hidden SOL · Free Tool
+                    {pugBurnScan && pugBurnScan.sol > 0
+                      ? "Reclaimable · Just For You"
+                      : "Hidden SOL · Free Tool"}
                   </span>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5D300]/15 border border-[#F5D300]/30 text-[#F5D300] text-[10px] font-bold">
-                    NEW
-                  </span>
+                  {!(pugBurnScan && pugBurnScan.sol > 0) && (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5D300]/15 border border-[#F5D300]/30 text-[#F5D300] text-[10px] font-bold">
+                      NEW
+                    </span>
+                  )}
+                  {pugBurnScan && pugBurnScan.sol > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#00FFA3]/15 border border-[#00FFA3]/40 text-[#00FFA3] text-[10px] font-bold animate-pulse" data-testid="pugburn-promo-live-badge">
+                      ● LIVE
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-white mb-1" style={{ fontFamily: "Orbitron" }}>
-                  Reclaim SOL from your empty token accounts
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-400">
-                  Every old airdrop / dust account locks <span className="text-[#F5D300] font-semibold">~0.002 SOL</span>. PugBurn finds them and gives the SOL back to you. No fees.
-                </p>
+                {pugBurnScan && pugBurnScan.sol > 0 ? (
+                  <>
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-1" style={{ fontFamily: "Orbitron" }} data-testid="pugburn-promo-headline">
+                      You have <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD86B] via-[#F5D300] to-[#FF6B6B]">{pugBurnScan.sol.toFixed(4)} SOL</span> to reclaim
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-400">
+                      <span className="text-white font-semibold">{pugBurnScan.count}</span>
+                      {pugBurnScan.count === 1 ? " empty token account is " : " empty token accounts are "}
+                      locking your SOL. Close them in one click. No fees.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg sm:text-xl font-black text-white mb-1" style={{ fontFamily: "Orbitron" }}>
+                      Reclaim SOL from your empty token accounts
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-400">
+                      Every old airdrop / dust account locks <span className="text-[#F5D300] font-semibold">~0.002 SOL</span>. PugBurn finds them and gives the SOL back to you. No fees.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* CTA */}
               <div className="flex items-center justify-center sm:flex-shrink-0">
                 <span className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#FF6B6B] text-black font-black uppercase tracking-wider text-xs group-hover:bg-[#F5D300] transition-colors" style={{ fontFamily: "Orbitron" }}>
-                  Scan My Wallet
+                  {pugBurnScan && pugBurnScan.sol > 0 ? "Reclaim Now" : "Scan My Wallet"}
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </span>
               </div>
@@ -157,6 +209,7 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      )}
 
       {/* MARKET DASHBOARD */}
       <section className="py-12 md:py-16" data-testid="market-dashboard-section">
