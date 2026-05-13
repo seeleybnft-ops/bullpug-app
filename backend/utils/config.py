@@ -22,11 +22,17 @@ ESCROW_WALLET = DISTRIBUTION_WALLET
 # Store wallet for skin purchases
 STORE_WALLET = DISTRIBUTION_WALLET
 
-# Admin wallets
-ADMIN_WALLETS = [
-    "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",  # Fee wallet
-    "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"   # Personal wallet
-]
+# Admin wallets — env-driven with a code default so the app boots even
+# without ADMIN_WALLETS set. ALL admin auth (SIWS + legacy compat) reads
+# from this list.
+_admin_env = os.environ.get("ADMIN_WALLETS", "").strip()
+if _admin_env:
+    ADMIN_WALLETS = [w.strip() for w in _admin_env.split(",") if w.strip()]
+else:
+    ADMIN_WALLETS = [
+        "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",  # Fee wallet
+        "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs"   # Personal wallet
+    ]
 
 # CORS
 CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')

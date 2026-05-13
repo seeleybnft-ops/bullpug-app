@@ -203,14 +203,32 @@ async def draw_pot_winner(request: Request):
     """Draw pot winner - winner takes all minus rake.
 
     Gated: either the countdown must have expired (draw_at <= now) OR the caller
-    is the DISTRIBUTION_WALLET admin (via X-Admin-Wallet header).
+    is an admin (via SIWS JWT Authorization: Bearer ... or, transitionally,
+    the legacy X-Admin-Wallet header).
     """
     pot = get_pot()
     if len(pot["entries"]) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 entries")
 
-    admin_header = request.headers.get("X-Admin-Wallet", "")
-    is_admin = admin_header == DISTRIBUTION_WALLET
+    # Admin check — try JWT first, fall back to legacy header so the
+    # internal scheduler (still using X-Admin-Wallet) keeps working until
+    # it's migrated.
+    is_admin = False
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        try:
+            from utils.admin_auth import _admin_wallets, JWT_SECRET, JWT_ALGORITHM
+            from jose import jwt as _jwt
+            payload = _jwt.decode(auth_header.split(" ", 1)[1].strip(), JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if payload.get("scope") == "admin" and payload.get("wallet") in _admin_wallets():
+                is_admin = True
+        except Exception:
+            pass
+    if not is_admin:
+        legacy_header = request.headers.get("X-Admin-Wallet", "")
+        if legacy_header == DISTRIBUTION_WALLET:
+            is_admin = True
+
     if not is_admin:
         if not pot.get("draw_at"):
             raise HTTPException(status_code=403, detail="Countdown has not started")

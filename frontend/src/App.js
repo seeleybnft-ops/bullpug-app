@@ -24,6 +24,7 @@ import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";
+import AdminAuthGate from "@/components/AdminAuthGate";
 import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
 import Messages from "@/pages/Messages";
@@ -132,8 +133,8 @@ function App() {
                   <Route path="/shop" element={<Shop />} />
                   <Route path="/nft" element={<NFTGallery />} />
                   <Route path="/wallet" element={<WalletDashboard />} />
-                  <Route path="/admin" element={<AdminPanel />} />
-                  <Route path="/admin/drops" element={<AdminDropVault />} />
+                  <Route path="/admin" element={<AdminAuthGate title="Operator Console"><AdminPanel /></AdminAuthGate>} />
+                  <Route path="/admin/drops" element={<AdminAuthGate title="Drop Vault"><AdminDropVault /></AdminAuthGate>} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />
