@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Trophy, Coins, Clock, Flame } from "lucide-react";
 import axios from "axios";
+import TipPotModal from "@/components/TipPotModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -49,6 +50,7 @@ export default function JackpotTicker() {
   const [pool, setPool] = useState(null);
   const [error, setError] = useState(false);
   const [tick, setTick] = useState(0);
+  const [tipOpen, setTipOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -86,6 +88,7 @@ export default function JackpotTicker() {
   if (error) return null;
 
   return (
+    <>
     <section className="py-12 md:py-16" data-testid="jackpot-ticker-section">
       <div className="max-w-7xl mx-auto px-6 md:px-12">
         <div
@@ -160,11 +163,20 @@ export default function JackpotTicker() {
                   </button>
                 </Link>
                 <Link to="/betting" data-testid="jackpot-cta-arena">
-                  <button className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-[#F5D300]/40 text-[#F5D300] font-bold text-xs uppercase tracking-wider hover:border-[#F5D300] hover:bg-[#F5D300]/5 transition-colors">
-                    <Coins className="w-4 h-4" />
-                    Feed the pot
+                  <button className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-white/20 text-slate-200 font-bold text-xs uppercase tracking-wider hover:border-white/40 hover:bg-white/5 transition-colors">
+                    <Trophy className="w-4 h-4" />
+                    P2P Arena
                   </button>
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setTipOpen(true)}
+                  data-testid="jackpot-cta-tip"
+                  className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-[#F5D300]/40 text-[#F5D300] font-bold text-xs uppercase tracking-wider hover:border-[#F5D300] hover:bg-[#F5D300]/10 transition-colors"
+                >
+                  <Coins className="w-4 h-4" />
+                  Tip the pot
+                </button>
               </div>
             </div>
 
@@ -240,5 +252,15 @@ export default function JackpotTicker() {
         </div>
       </div>
     </section>
+    <TipPotModal
+      open={tipOpen}
+      onClose={() => setTipOpen(false)}
+      onTipped={({ newTotal }) => {
+        if (newTotal != null) {
+          setPool((p) => (p ? { ...p, total_sol: newTotal } : p));
+        }
+      }}
+    />
+    </>
   );
 }

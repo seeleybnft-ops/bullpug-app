@@ -1,8 +1,10 @@
 """Prize pool management for leaderboard rewards."""
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 import logging
+import uuid
 from typing import Optional
 
 from utils.database import db
@@ -326,3 +328,125 @@ async def get_payout_history(limit: int = 10):
     ).sort("payout_at", -1).limit(limit).to_list(limit)
     
     return {"payouts": payouts}
+
+
+# ─────────────────────────────────────────── Tip the Pot
+
+class TipPotRequest(BaseModel):
+    wallet_address: str = Field(..., min_length=20, max_length=64)
+    amount_sol: float = Field(..., gt=0)
+    tx_signature: str = Field(..., min_length=10, max_length=200)
+    display_name: Optional[str] = None
+
+
+@router.post("/tip")
+async def tip_the_pot(req: TipPotRequest):
+    """Record a community tip to the jackpot.
+
+    The client transfers SOL directly to ``DISTRIBUTION_WALLET`` via Phantom
+    and then calls this endpoint with the resulting tx signature. **All of
+    the tipped amount goes to the prize pool** (the operator does not take a
+    rake on tips) so the gesture is fully credited to the runners.
+    """
+    if req.amount_sol < 0.001:
+        raise HTTPException(status_code=400, detail="Minimum tip is 0.001 SOL")
+    if req.amount_sol > 100:
+        raise HTTPException(status_code=400, detail="Maximum tip is 100 SOL — split it if needed")
+
+    # Idempotent on tx_signature so retries don't double-credit.
+    existing = await db.pot_tips.find_one(
+        {"tx_signature": req.tx_signature},
+        {"_id": 0, "id": 1, "amount_sol": 1}
+    )
+    if existing:
+        return {
+            "success": True,
+            "duplicate": True,
+            "tip_id": existing.get("id"),
+            "amount_sol": existing.get("amount_sol"),
+        }
+
+    # Append to the active pool (100% of the tip — no rake split).
+    pool = await get_or_create_prize_pool()
+    contribution_record = {
+        "amount_sol": round(req.amount_sol, 9),
+        "source": "community_tip",
+        "original_amount": req.amount_sol,
+        "fee_offset_sol": 0.0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": {
+            "wallet": req.wallet_address,
+            "tx_signature": req.tx_signature,
+            "display_name": req.display_name or "",
+        },
+    }
+    await db.prize_pool.update_one(
+        {"_id": pool["_id"]},
+        {
+            "$inc": {"total_sol": req.amount_sol},
+            "$push": {"contributions": contribution_record},
+        },
+    )
+
+    # Independent tip ledger for the public leaderboard / Top Tippers panel.
+    tip_doc = {
+        "id": str(uuid.uuid4()),
+        "wallet_address": req.wallet_address,
+        "display_name": (req.display_name or "")[:24],
+        "amount_sol": round(req.amount_sol, 9),
+        "tx_signature": req.tx_signature,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.pot_tips.insert_one(tip_doc)
+
+    # Refresh pool total for the response.
+    refreshed = await db.prize_pool.find_one(
+        {"_id": pool["_id"]}, {"_id": 0, "total_sol": 1}
+    )
+    new_total = round(refreshed.get("total_sol", 0), 6) if refreshed else 0
+
+    logger.info(
+        "Community tip recorded: %.6f SOL from %s (tx %s) — new pool total %.6f SOL",
+        req.amount_sol, req.wallet_address, req.tx_signature, new_total
+    )
+
+    return {
+        "success": True,
+        "duplicate": False,
+        "tip_id": tip_doc["id"],
+        "amount_sol": tip_doc["amount_sol"],
+        "new_pool_total_sol": new_total,
+    }
+
+
+@router.get("/top-tippers")
+async def get_top_tippers(limit: int = 10):
+    """Aggregate the top community tippers for the current pool cycle."""
+    pool = await get_or_create_prize_pool()
+    cycle_start = pool.get("created_at")
+    match_stage = {}
+    if cycle_start:
+        match_stage["created_at"] = {"$gte": cycle_start}
+
+    pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$group": {
+            "_id": "$wallet_address",
+            "total_sol": {"$sum": "$amount_sol"},
+            "display_name": {"$last": "$display_name"},
+            "tip_count": {"$sum": 1},
+            "last_tip_at": {"$max": "$created_at"},
+        }},
+        {"$sort": {"total_sol": -1}},
+        {"$limit": int(limit)},
+    ]
+    rows = await db.pot_tips.aggregate(pipeline).to_list(int(limit))
+    tippers = [{
+        "wallet_address": r["_id"],
+        "display_name": (r.get("display_name") or "")[:24],
+        "total_sol": round(r.get("total_sol", 0), 6),
+        "tip_count": r.get("tip_count", 0),
+        "last_tip_at": r.get("last_tip_at"),
+    } for r in rows]
+
+    return {"tippers": tippers, "cycle_start": cycle_start}
