@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Rocket, Shield, Zap, Coins, BarChart3, Gamepad2, ShoppingCart, Moon, Bot } from "lucide-react";
+import { Rocket, Shield, Zap, Coins, BarChart3, Gamepad2, ShoppingCart, Moon, Bot, Flame, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -103,6 +103,58 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-[#00FFA3]/5 rounded-full blur-[120px]" />
             <img src={IMAGES.hero} alt="Bullpug Guardian" className="relative z-10 w-[350px] h-[350px] md:w-[480px] md:h-[480px] object-contain animate-float drop-shadow-[0_0_50px_rgba(0,255,163,0.25)]" />
           </div>
+        </div>
+      </section>
+
+      {/* PUGBURN PROMO STRIP */}
+      <section className="py-6 md:py-8" data-testid="pugburn-promo-section">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          <Link
+            to="/pugburn"
+            data-testid="pugburn-promo-card"
+            className="group relative block overflow-hidden rounded-2xl border border-[#FF6B6B]/30 bg-gradient-to-r from-[#1a0a0a]/80 via-[#0f0518]/80 to-[#1a0a0a]/80 backdrop-blur-md hover:border-[#FF6B6B]/60 transition-all hover:shadow-[0_0_40px_rgba(255,107,107,0.25)]"
+          >
+            {/* Animated ember glow */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -left-10 top-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-[#FF6B6B]/20 blur-3xl animate-pulse" />
+              <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-[#F5D300]/10 blur-3xl" />
+            </div>
+
+            <div className="relative flex flex-col sm:flex-row items-stretch gap-4 sm:gap-6 p-5 sm:p-6">
+              {/* Icon block */}
+              <div className="flex items-center justify-center sm:flex-shrink-0">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6B6B] to-[#F5D300] flex items-center justify-center shadow-[0_0_30px_rgba(255,107,107,0.45)] group-hover:scale-110 transition-transform">
+                  <Flame className="w-8 h-8 text-black" strokeWidth={2.5} />
+                </div>
+              </div>
+
+              {/* Copy */}
+              <div className="flex-1 min-w-0 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#FF6B6B]" style={{ fontFamily: "Orbitron" }}>
+                    Hidden SOL · Free Tool
+                  </span>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5D300]/15 border border-[#F5D300]/30 text-[#F5D300] text-[10px] font-bold">
+                    NEW
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-black text-white mb-1" style={{ fontFamily: "Orbitron" }}>
+                  Reclaim SOL from your empty token accounts
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  Every old airdrop / dust account locks <span className="text-[#F5D300] font-semibold">~0.002 SOL</span>. PugBurn finds them and gives the SOL back to you. No fees.
+                </p>
+              </div>
+
+              {/* CTA */}
+              <div className="flex items-center justify-center sm:flex-shrink-0">
+                <span className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#FF6B6B] text-black font-black uppercase tracking-wider text-xs group-hover:bg-[#F5D300] transition-colors" style={{ fontFamily: "Orbitron" }}>
+                  Scan My Wallet
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </div>
+            </div>
+          </Link>
         </div>
       </section>
 
