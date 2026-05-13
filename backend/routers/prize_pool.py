@@ -10,6 +10,7 @@ from typing import Optional
 from utils.database import db
 from utils.config import DISTRIBUTION_WALLET
 from utils.solana_payout import send_sol_payout, get_escrow_balance
+from utils.tx_verify import verify_sol_transfer
 
 router = APIRouter(prefix="/prize-pool", tags=["prize-pool"])
 logger = logging.getLogger(__name__)
@@ -365,6 +366,20 @@ async def tip_the_pot(req: TipPotRequest):
             "tip_id": existing.get("id"),
             "amount_sol": existing.get("amount_sol"),
         }
+
+    # On-chain verification — make sure the user actually paid the escrow.
+    ok, reason = await verify_sol_transfer(
+        tx_signature=req.tx_signature,
+        expected_recipient=DISTRIBUTION_WALLET,
+        expected_amount_sol=req.amount_sol,
+        expected_sender=req.wallet_address,
+    )
+    if not ok:
+        logger.warning(
+            "Tip verification failed: %s for %s (%.6f SOL): %s",
+            req.tx_signature, req.wallet_address, req.amount_sol, reason,
+        )
+        raise HTTPException(status_code=400, detail=f"Tip verification failed: {reason}")
 
     # Append to the active pool (100% of the tip — no rake split).
     pool = await get_or_create_prize_pool()

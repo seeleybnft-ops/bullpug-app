@@ -6,6 +6,8 @@ import logging
 from datetime import datetime, timezone
 
 from utils.database import db
+from utils.config import DISTRIBUTION_WALLET
+from utils.tx_verify import verify_sol_transfer
 from routers.prize_pool import add_to_prize_pool
 
 router = APIRouter(prefix="/skins", tags=["skins"])
@@ -152,6 +154,25 @@ async def purchase_skin(wallet_address: str, skin_id: str, tx_signature: str, am
     
     if existing:
         raise HTTPException(status_code=400, detail="Skin already owned")
+
+    # Idempotency on tx signature — never double-credit a retry.
+    dup = await db.skin_purchases.find_one({"tx_signature": tx_signature}, {"_id": 0, "id": 1})
+    if dup:
+        return {"message": "Purchase already recorded", "purchase_id": dup.get("id"), "duplicate": True}
+
+    # On-chain verification — make sure the buyer actually paid the store.
+    ok, reason = await verify_sol_transfer(
+        tx_signature=tx_signature,
+        expected_recipient=DISTRIBUTION_WALLET,
+        expected_amount_sol=amount_sol,
+        expected_sender=wallet_address,
+    )
+    if not ok:
+        logger.warning(
+            "Skin purchase verification failed: %s for %s (%s, %.6f SOL): %s",
+            tx_signature, wallet_address, skin_id, amount_sol, reason,
+        )
+        raise HTTPException(status_code=400, detail=f"Purchase verification failed: {reason}")
     
     purchase = {
         "id": str(uuid.uuid4()),
