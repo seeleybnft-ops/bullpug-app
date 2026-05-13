@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Trophy, TrendingUp, Gamepad2, ChevronLeft, ChevronRight, Crown, Zap, Users, Star } from "lucide-react";
+import { Trophy, TrendingUp, Gamepad2, ChevronLeft, ChevronRight, Crown, Zap, Users, Star, Coins } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -38,19 +38,22 @@ export default function CommunitySpotlight() {
   const [gameLeaderboard, setGameLeaderboard] = useState([]);
   const [traderLeaderboard, setTraderLeaderboard] = useState([]);
   const [platformStats, setPlatformStats] = useState(null);
+  const [topTippers, setTopTippers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [gameRes, traderRes, statsRes] = await Promise.all([
+        const [gameRes, traderRes, statsRes, tippersRes] = await Promise.all([
           axios.get(`${API}/leaderboard`).catch(() => ({ data: { leaderboard: [] } })),
           axios.get(`${API}/social-trading/leaderboard?limit=5`).catch(() => ({ data: { leaderboard: [] } })),
           axios.get(`${API}/ai-trader/platform-stats`).catch(() => ({ data: {} })),
+          axios.get(`${API}/prize-pool/top-tippers?limit=5`).catch(() => ({ data: { tippers: [] } })),
         ]);
         setGameLeaderboard((gameRes.data?.leaderboard || []).slice(0, 5));
         setTraderLeaderboard(traderRes.data?.leaderboard || []);
         setPlatformStats(statsRes.data);
+        setTopTippers(tippersRes.data?.tippers || []);
       } catch (_) {}
       setLoading(false);
     };
@@ -62,6 +65,7 @@ export default function CommunitySpotlight() {
   const slides = [
     { id: "runners", label: "Top Cosmic Runners" },
     { id: "activity", label: "Platform Activity" },
+    { id: "tippers", label: "Top Tippers" },
   ];
 
   const nextSlide = useCallback(() => setActiveSlide(p => (p + 1) % slides.length), [slides.length]);
@@ -224,6 +228,104 @@ export default function CommunitySpotlight() {
                           </div>
                         </Link>
                       </div>
+                    </SpotlightCard>
+                  </div>
+                )}
+
+                {slide.id === "tippers" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <SpotlightCard icon={<Coins className="w-4 h-4" />} accent="#F5D300" label="Top Tippers · This Cycle">
+                      {topTippers.length > 0 ? (
+                        <div>
+                          {topTippers.slice(0, 5).map((t, i) => {
+                            const short = t.wallet_address ? `${t.wallet_address.slice(0, 4)}...${t.wallet_address.slice(-4)}` : "—";
+                            return (
+                              <PlayerRow
+                                key={t.wallet_address || i}
+                                rank={i + 1}
+                                name={t.display_name && t.display_name.trim() ? t.display_name : short}
+                                value={Number(t.total_sol || 0).toFixed(4)}
+                                valueLabel="SOL"
+                                accent="#F5D300"
+                              />
+                            );
+                          })}
+                          <p className="text-[10px] text-slate-500 text-center mt-3" data-testid="spotlight-tippers-link">
+                            <Coins className="inline w-3 h-3 mr-1 align-text-bottom text-[#F5D300]" />
+                            Feed the pot from the jackpot tile above
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Coins className="w-8 h-8 text-[#F5D300]/30 mx-auto mb-3" />
+                          <p className="text-slate-500 text-xs mb-2">No tips yet this cycle.</p>
+                          <p className="text-[11px] text-[#F5D300]/80">Be the first to feed the pot &rarr;</p>
+                        </div>
+                      )}
+                    </SpotlightCard>
+
+                    <SpotlightCard icon={<TrendingUp className="w-4 h-4" />} accent="#00FFA3" label="Cycle Stats">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-400">Total tippers</span>
+                          <span className="text-lg font-black text-[#00FFA3] tabular-nums" style={{ fontFamily: "Orbitron" }}>{topTippers.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-400">Tipped this cycle</span>
+                          <span className="text-lg font-black text-[#F5D300] tabular-nums" style={{ fontFamily: "Orbitron" }}>
+                            {topTippers.reduce((a, b) => a + Number(b.total_sol || 0), 0).toFixed(4)} <span className="text-[10px] text-slate-500">SOL</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-400">Top single tipper</span>
+                          <span className="text-lg font-black text-[#D946EF] tabular-nums" style={{ fontFamily: "Orbitron" }}>
+                            {(topTippers[0]?.total_sol || 0).toFixed(4)} <span className="text-[10px] text-slate-500">SOL</span>
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t border-white/[0.06]">
+                          <p className="text-[10px] text-slate-500 leading-relaxed">
+                            100% of every tip flows straight into the prize escrow that pays the next top-10 runner split. No rake.
+                          </p>
+                        </div>
+                      </div>
+                    </SpotlightCard>
+
+                    <SpotlightCard icon={<Crown className="w-4 h-4" />} accent="#D946EF" label="Cycle Champion">
+                      {topTippers[0] ? (
+                        <div className="space-y-4">
+                          <div className="relative p-4 rounded-xl bg-gradient-to-br from-[#D946EF]/10 to-transparent border border-[#D946EF]/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-[#D946EF]/20 flex items-center justify-center">
+                                <Crown className="w-5 h-5 text-[#D946EF]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs text-slate-400">Biggest tipper</p>
+                                <p className="text-sm font-bold text-white truncate" style={{ fontFamily: "Space Grotesk" }}>
+                                  {topTippers[0].display_name && topTippers[0].display_name.trim()
+                                    ? topTippers[0].display_name
+                                    : `${topTippers[0].wallet_address.slice(0, 4)}...${topTippers[0].wallet_address.slice(-4)}`}
+                                </p>
+                                <p className="text-xs font-mono text-[#D946EF]">
+                                  {Number(topTippers[0].total_sol).toFixed(4)} SOL · {topTippers[0].tip_count} tip{topTippers[0].tip_count === 1 ? "" : "s"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Cycle resets</p>
+                            <p className="text-xs text-slate-300 font-mono">Every 3 days</p>
+                          </div>
+                          <p className="block text-center text-xs text-[#D946EF]/70">
+                            Outpace them &rarr;
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Crown className="w-8 h-8 text-[#D946EF]/30 mx-auto mb-3" />
+                          <p className="text-slate-500 text-xs">Champion seat is open.</p>
+                          <p className="text-[11px] text-[#D946EF]/80 mt-1">Take it with the first tip.</p>
+                        </div>
+                      )}
                     </SpotlightCard>
                   </div>
                 )}

@@ -175,7 +175,7 @@ export default function JackpotTicker() {
                   className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-[#F5D300]/40 text-[#F5D300] font-bold text-xs uppercase tracking-wider hover:border-[#F5D300] hover:bg-[#F5D300]/10 transition-colors"
                 >
                   <Coins className="w-4 h-4" />
-                  Tip the pot
+                  Feed the pot
                 </button>
               </div>
             </div>
