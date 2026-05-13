@@ -2083,6 +2083,21 @@ export default function SpeedRunGame() {
     setCurrentStage(stage);
   }, []);
 
+  const [stageFlash3D, setStageFlash3D] = useState(null);
+  const stageFlashTimer3D = useRef(null);
+  const STAGE_3D_TEASE = {
+    2: "Space Debris incoming · jump high!",
+    3: "Black Holes opening · jump over!",
+    4: "Satellites in orbit · slide under!",
+    5: "Alien Ships hunting · slide under!",
+  };
+  const handle3DStageChange = useCallback((stage) => {
+    setStageFlash3D({ stage, tease: STAGE_3D_TEASE[stage] || "" });
+    if (stageFlashTimer3D.current) clearTimeout(stageFlashTimer3D.current);
+    stageFlashTimer3D.current = setTimeout(() => setStageFlash3D(null), 2200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handle3DDeath = useCallback(({ score: finalScore, coins }) => {
     setGameState("over");
     setScore(finalScore);
@@ -2304,7 +2319,7 @@ export default function SpeedRunGame() {
                 {/* 3D Cosmic Runner scene (replaces the legacy 2D canvas) */}
                 <div
                   data-testid="game-canvas"
-                  className="w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008] overflow-hidden"
+                  className="relative w-full rounded-xl border-2 border-[#D946EF]/30 cursor-pointer bg-[#000008] overflow-hidden"
                   style={{ aspectRatio: `${W} / ${H}`, maxWidth: W }}
                 >
                   <CosmicRunner3DScene
@@ -2312,8 +2327,23 @@ export default function SpeedRunGame() {
                     playing={gameState === "playing"}
                     onScoreTick={handle3DScoreTick}
                     onDeath={handle3DDeath}
+                    onStageChange={handle3DStageChange}
                     skinId={currentSkinId}
                   />
+                  {stageFlash3D && (
+                    <div className="pointer-events-none absolute inset-x-0 top-[28%] text-center z-20" data-testid="speedrun-3d-stage-flash">
+                      <div className="inline-block px-6 py-3 rounded-2xl backdrop-blur-md"
+                        style={{ background: "rgba(217,70,239,0.18)", border: "1px solid rgba(217,70,239,0.6)", boxShadow: "0 0 40px rgba(217,70,239,0.45)" }}>
+                        <div className="text-[10px] uppercase tracking-[0.35em] text-[#F5D300] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Stage Unlocked</div>
+                        <div className="text-4xl font-black mb-1" style={{ fontFamily: "Orbitron" }}>
+                          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D946EF] via-[#FF7A2A] to-[#F5D300]">STAGE {stageFlash3D.stage}</span>
+                        </div>
+                        {stageFlash3D.tease && (
+                          <div className="text-xs text-slate-200">{stageFlash3D.tease}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Hidden 2D canvas kept mounted only for legacy ref compatibility */}
                 <canvas ref={canvasRef} width={W} height={H} className="hidden" aria-hidden="true" />

@@ -575,10 +575,10 @@ export default function PugBurn() {
                 <p className="text-slate-400 mb-4">
                   No empty token accounts found. Nothing to reclaim.
                 </p>
-                <Link to="/ai-trader">
+                <Link to="/">
                   <Button className="bg-gradient-to-r from-[#D946EF] to-[#00FFA3]">
                     <ArrowRight className="w-4 h-4 mr-2" />
-                    Go to Trading Bot
+                    Back to Home
                   </Button>
                 </Link>
               </div>

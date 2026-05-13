@@ -30,6 +30,7 @@ import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
+import PugBurn from "@/pages/PugBurn";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -125,6 +126,7 @@ function App() {
                   <Route path="/lore" element={<Lore />} />
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/game/3d" element={<Phase1Runner3D />} />
+                  <Route path="/pugburn" element={<PugBurn />} />
                   <Route path="/betting" element={<BettingArena />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/shop" element={<Shop />} />

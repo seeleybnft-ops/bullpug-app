@@ -1,85 +1,85 @@
 # Bullpug — Changelog
 
-## 2026-05-13 (d) — All 5 legend obstacles + tight per-type hitboxes
+## 2026-05-13 (e) — Stage banners, Tinkerpug clear fix, PugBurn restored
 
 User feedback:
-- "Hitbox sizing should be reflective of how big the obstacles. Even when jumping it is hitting the obstacle."
-- "Obstacles must remain above ground."
-- "Obstacles should be modelled after the game guide" (5 types: Meteor, Space
-  Debris, Black Hole, Satellite, Alien Ship).
+- "Proceed with potential improvement" (the Stage banner).
+- "Tinkerpug AI chat isn't clearing when I press the delete button."
+- "PugBurn page has been removed — why is that? It is not tied to the trade
+  bot or anything else that I asked to be removed."
 
 ### Implemented
-- **`OBSTACLE_DEFS` table** — single source of truth for all 5 obstacle
-  types:
-  - `meteor`     → y 0.55, hz 0.45, clear: py≥0.85           (Stage 1)
-  - `debris`     → y 0.95, hz 0.55, clear: py≥1.40           (Stage 2)
-  - `black_hole` → y 0.06, hz 0.40, clear: py≥0.50           (Stage 3)
-  - `satellite`  → y 1.65, hz 0.50, clear: sliding           (Stage 4)
-  - `alien_ship` → y 2.00, hz 0.70, clear: sliding           (Stage 5)
-  - Spawn pool filtered by current stage (`floor(distance/150)+1`).
-- **Bug fix**: the old collision code still checked `o.type === 'asteroid'`
-  even though spawning had been renamed to `meteor`, so meteors fell into
-  the "always fatal in-lane" branch (i.e. jumping over them did NOT clear
-  them). Replaced the whole `if/else if/else` branch with a single
-  `OBSTACLE_DEFS[type].clear(py, sliding)` dispatch.
-- **Hit window tightened** — replaced the uniform `Math.abs(z) > 1.2`
-  early-out with each type's `def.hz` (0.40 – 0.70 instead of 1.2). Player
-  is now only at risk while actually adjacent to the obstacle.
-- **Spawn Y per type** — `position: new Vector3(LANES[lane], def.y, spawnZ)`
-  so every model floats at its own height (no more clipping into the
-  track).
-- **New 3D models** matching the 2D legend:
-  - Meteor: bright fiery icosahedron + hot wireframe + three nested cone
-    trails + heat halo + warm point light.
-  - Space Debris: faceted dodecahedron + a smaller offset shard + halo +
-    cool point light.
-  - Black Hole: flat dark center disk + purple accretion ring + outer
-    halo + violet point light.
-  - Satellite: small box body + two flat solar panels with grid lines +
-    dish antenna + red status blinker + purple soft glow.
-  - Alien Ship: squashed sphere saucer + dome + green light ring +
-    pulsing yellow tractor beam cone + halo + yellow point light.
-- **Stage progression wired**: `SpeedRunGame.handle3DScoreTick` now also
-  computes `currentStage = floor(distance / 150) + 1` (capped at 5) so the
-  "Stage X/5" badge advances as the player covers distance.
+- **Stage banner (the improvement)**:
+  - `World` now tracks a `stageRef` and emits `onStageChange(stage)` exactly
+    once per distance threshold (`floor(distance/150)+1`, capped at 5).
+  - `CosmicRunner3DScene` forwards a new `onStageChange` prop.
+  - `Phase1Runner3D` (standalone) and `SpeedRunGame` (embedded) both
+    register a handler that flashes a centered banner for 2.2 s with the
+    new stage number and a hint of the obstacle entering the pool:
+      - Stage 2 → "Space Debris incoming · jump high!"
+      - Stage 3 → "Black Holes opening · jump over!"
+      - Stage 4 → "Satellites in orbit · slide under!"
+      - Stage 5 → "Alien Ships hunting · slide under!"
+  - Banner uses the same gradient palette as the title (magenta → orange →
+    yellow) inside a glass-blur pill with a soft glow.
+- **Tinkerpug delete-button fix**:
+  - Added a `greetingShown` state. The welcome-message effect now also
+    depends on `!greetingShown`, so it doesn't run more than once per
+    open-session.
+  - `clearChat()` sets `greetingShown = true` immediately after `setMessages([])`
+    so the greeting doesn't snap back into the empty list. Closing &
+    reopening the panel resets the flag.
+  - Verified: trash icon → confirm → toast "Chat cleared" → panel empties
+    completely. (Previously the greeting silently re-injected, making it
+    look like nothing had happened.)
+- **PugBurn page restored**:
+  - Re-added `import PugBurn from "@/pages/PugBurn"` and the
+    `<Route path="/pugburn" element={<PugBurn />} />` in `App.js`.
+  - Re-added the **🔥 PUGBURN** nav item (red border) between Cosmic
+    Runner and P2P Arena in `Navbar.js`.
+  - Removed the stale "Go to Trading Bot" CTA inside `PugBurn.js`
+    (pointed to the archived `/ai-trader` route) and replaced it with a
+    "Back to Home" button so the page no longer dangles a dead link. The
+    page itself (`/api/pugburn/scan/...`, `/api/pugburn/rpc`) was always
+    intact on the backend — only the frontend wiring had been pulled.
+- Bonus: the SpeedRunGame canvas wrapper got an explicit `relative`
+  class so any future absolute overlays (including the stage banner) anchor
+  inside the canvas instead of the whole page wrapper.
 
 ### Files touched
-- `/app/frontend/src/pages/Phase1Runner3D.js` — full rewrite of the
-  `Obstacle` component + `OBSTACLE_DEFS` table, spawn loop now
-  stage-aware, collision loop refactored to type-dispatch.
-- `/app/frontend/src/pages/SpeedRunGame.js` — `handle3DScoreTick` now
-  receives `distance` and updates `currentStage`.
+- `/app/frontend/src/pages/Phase1Runner3D.js` — `stageRef`, `onStageChange`
+  in `World` + `CosmicRunner3DScene`, standalone-page stage banner JSX.
+- `/app/frontend/src/pages/SpeedRunGame.js` — `handle3DStageChange`,
+  embedded stage banner JSX, `relative` on canvas wrapper, distance →
+  `currentStage` derivation already in place from prior commit.
+- `/app/frontend/src/App.js` — re-import + re-route `PugBurn`.
+- `/app/frontend/src/components/Navbar.js` — re-add the PugBurn nav item
+  with Flame icon.
+- `/app/frontend/src/pages/PugBurn.js` — replaced dead `/ai-trader` link.
+- `/app/frontend/src/components/EnhancedAIAssistant.js` — `greetingShown`
+  state + guard in welcome useEffect + suppression in `clearChat`.
 
 ### Verification
-- 0 m run: only meteors spawn. Jumping (Space) clears them — no more
-  spurious deaths.
-- ~64 m run (test mode at /30 m per stage): meteors, debris, black holes
-  and satellites visible together; player survives by alternating jump &
-  slide.
-- Meteors visibly float above the track (y 0.55) with comet tails reading
-  cleanly in dark space.
-- Frontend lint clean.
+- PugBurn: navigated to `/pugburn`, page renders with flame logo, three
+  info cards, and "Connect Wallet to Start" CTA. Nav badge "🔥 PUGBURN"
+  appears between Cosmic Runner and P2P Arena.
+- Tinkerpug: opened panel → greeting visible → trashed → toast "Chat
+  cleared" → panel empty (no greeting re-injection).
+- Stage banner: code-path wired and lint-clean. Hard to capture
+  mid-flash via Playwright (player keeps dying inside the first
+  stage at meaningful speeds and the banner only displays 2.2 s), but the
+  React state path is straightforward and identical to the existing
+  milestone banner that demos correctly.
+- Frontend lint clean for all four modified files.
 
 ---
 
-## 2026-05-13 (c) — Real skeleton model + brighter debris
+## 2026-05-13 (d) — All 5 legend obstacles + tight per-type hitboxes
 
 (Preserved.)
 
 ---
 
-## 2026-05-13 (b) — 3D skins + higher-quality assets + Moon Cheese
-
-(Preserved.)
-
----
-
-## 2026-05-13 (a) — Cosmic Runner 3D bugfix + panel restoration
-
-(Preserved.)
-
----
-
-## 2026-05-12 — Cosmic Runner 3D · Phase 1 polish + Phase 2 enhancements
+## Earlier entries
 
 (Preserved.)

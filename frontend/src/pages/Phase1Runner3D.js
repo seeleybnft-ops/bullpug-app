@@ -888,7 +888,7 @@ function PowerUp({ type, refData }) {
 
 // ───────────────────────────────────────────── World
 
-function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, runningRef, skinId }) {
+function World({ onScore, onDeath, onMilestone, onPowerupChange, onStageChange, controlState, runningRef, skinId }) {
   const audio = useGameAudio(); // stable across renders (useMemo)
   const speedRef = useRef(FORWARD_SPEED_BASE);
   const playerXRef = useRef(0);
@@ -904,6 +904,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
   const elapsedRef = useRef(0);
   const distanceRef = useRef(0);
   const milestoneStepRef = useRef(0);
+  const stageRef = useRef(1);
   const shieldActiveRef = useRef(false);
   const magnetUntilRef = useRef(0);
   const multiplierUntilRef = useRef(0);
@@ -947,6 +948,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
     elapsedRef.current = 0;
     distanceRef.current = 0;
     milestoneStepRef.current = 0;
+    stageRef.current = 1;
     shieldActiveRef.current = false;
     magnetUntilRef.current = 0;
     multiplierUntilRef.current = 0;
@@ -968,6 +970,13 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
     elapsedRef.current += dt;
     distanceRef.current += speedRef.current * dt;
     speedRef.current += FORWARD_SPEED_RAMP * dt;
+
+    // Stage progression — emit once per threshold crossing.
+    const curStage = Math.min(5, Math.floor(distanceRef.current / 150) + 1);
+    if (curStage > stageRef.current) {
+      stageRef.current = curStage;
+      onStageChange?.(curStage);
+    }
 
     // Milestones
     const m = Math.floor(distanceRef.current / MILESTONE_STEP);
@@ -1194,7 +1203,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, controlState, r
  *  - reset() — clears world + counters; parent calls when starting a new run.
  */
 export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
-  { playing, onScoreTick, onDeath, onPowerupChange, onMilestone, skinId = "default", className = "" },
+  { playing, onScoreTick, onDeath, onPowerupChange, onMilestone, onStageChange, skinId = "default", className = "" },
   ref
 ) {
   const [controlState, setControlState] = useState({ action: null, ts: 0 });
@@ -1316,6 +1325,7 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
           onDeath={handleDeath}
           onMilestone={onMilestone}
           onPowerupChange={onPowerupChange}
+          onStageChange={onStageChange}
           controlState={controlState}
           runningRef={runningRef}
           skinId={skinId}
@@ -1337,6 +1347,8 @@ export default function Phase1Runner3D() {
   });
   const [powerups, setPowerups] = useState({ shield: false, magnet: 0, multiplier: 0 });
   const [milestone, setMilestone] = useState(null);
+  const [stageFlash, setStageFlash] = useState(null);
+  const stageFlashTimer = useRef(null);
   const [submitState, setSubmitState] = useState({ rank: null, submitted: false });
   const milestoneTimer = useRef(null);
   const skinId = useMemo(() => {
@@ -1352,6 +1364,19 @@ export default function Phase1Runner3D() {
     setMilestone(dist);
     if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
     milestoneTimer.current = setTimeout(() => setMilestone(null), 1600);
+  }, []);
+
+  const STAGE_TEASE = {
+    2: "Space Debris incoming · jump high!",
+    3: "Black Holes opening · jump over!",
+    4: "Satellites in orbit · slide under!",
+    5: "Alien Ships hunting · slide under!",
+  };
+  const handleStageChange = useCallback((stage) => {
+    setStageFlash({ stage, tease: STAGE_TEASE[stage] || "" });
+    if (stageFlashTimer.current) clearTimeout(stageFlashTimer.current);
+    stageFlashTimer.current = setTimeout(() => setStageFlash(null), 2200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submitScoreToBackend = useCallback(async (finalDistance, finalCoins) => {
@@ -1407,6 +1432,7 @@ export default function Phase1Runner3D() {
         onDeath={onDeath}
         onPowerupChange={setPowerups}
         onMilestone={handleMilestone}
+        onStageChange={handleStageChange}
         skinId={skinId}
       />
 
@@ -1440,6 +1466,20 @@ export default function Phase1Runner3D() {
             <div className="inline-block px-5 py-2 rounded-full backdrop-blur-md" style={{ background: "rgba(0,255,163,0.12)", border: "1px solid rgba(0,255,163,0.4)" }}>
               <div className="text-[10px] uppercase tracking-[0.3em] text-[#00FFA3] font-bold" style={{ fontFamily: "Orbitron" }}>Milestone</div>
               <div className="text-2xl font-black text-white" style={{ fontFamily: "Orbitron" }}>{milestone}m</div>
+            </div>
+          </div>
+        )}
+        {stageFlash && (
+          <div className="absolute top-1/4 left-0 right-0 text-center" data-testid="runner-3d-stage-flash">
+            <div className="inline-block px-6 py-3 rounded-2xl backdrop-blur-md animate-[fadeIn_0.4s_ease-out]"
+              style={{ background: "rgba(217,70,239,0.18)", border: "1px solid rgba(217,70,239,0.6)", boxShadow: "0 0 40px rgba(217,70,239,0.45)" }}>
+              <div className="text-[10px] uppercase tracking-[0.35em] text-[#F5D300] font-bold mb-1" style={{ fontFamily: "Orbitron" }}>Stage Unlocked</div>
+              <div className="text-4xl font-black mb-1" style={{ fontFamily: "Orbitron" }}>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D946EF] via-[#FF7A2A] to-[#F5D300]">STAGE {stageFlash.stage}</span>
+              </div>
+              {stageFlash.tease && (
+                <div className="text-xs text-slate-200">{stageFlash.tease}</div>
+              )}
             </div>
           </div>
         )}

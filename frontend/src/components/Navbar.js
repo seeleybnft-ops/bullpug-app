@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
-import { Menu, X, MessageCircle, MessageSquare, User } from "lucide-react";
+import { Menu, X, MessageCircle, MessageSquare, User, Flame } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -56,6 +56,7 @@ export default function Navbar() {
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
     { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
+    { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
     { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3" },
   ];
 

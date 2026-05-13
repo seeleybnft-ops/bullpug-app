@@ -35,6 +35,10 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [hasLiveData, setHasLiveData] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  // Track whether the auto-greeting has already been emitted this open-session.
+  // Lets clearChat() suppress the welcome message so the chat actually empties
+  // instead of immediately re-greeting the user.
+  const [greetingShown, setGreetingShown] = useState(false);
   // ESC exits fullscreen (and only fullscreen, not the chat entirely)
   useEffect(() => {
     if (!isFullscreen) return;
@@ -180,14 +184,21 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
 
   // Show welcome message when opened for first time
   useEffect(() => {
-    if (isOpen && messages.length === 0 && !isLoading && historyLoaded) {
+    if (isOpen && messages.length === 0 && !isLoading && historyLoaded && !greetingShown) {
       setMessages([{
         role: "assistant",
         content: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:\n\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
+      setGreetingShown(true);
     }
-  }, [isOpen, messages.length, isLoading, historyLoaded]);
+  }, [isOpen, messages.length, isLoading, historyLoaded, greetingShown]);
+
+  // When the panel is closed, reset the greeting flag so reopening shows the
+  // intro again on a fresh session.
+  useEffect(() => {
+    if (!isOpen) setGreetingShown(false);
+  }, [isOpen]);
 
   // Focus input when opened
   useEffect(() => {
@@ -372,6 +383,10 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     // Clear local state
     setMessages([]);
     sessionStorage.removeItem('bullpug_ai_messages');
+    // Suppress the auto-greeting until the user closes & reopens the panel —
+    // otherwise the welcome useEffect immediately re-emits it and makes the
+    // delete button look broken.
+    setGreetingShown(true);
     
     // Generate new session
     const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
