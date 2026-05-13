@@ -137,6 +137,172 @@ function useGameAudio() {
 
 // ───────────────────────────────────────────── Higher-quality Bullpug (skinnable)
 
+/** A full skeletal bullpug — skull with horns, ribcage, spine, leg bones,
+ * curly tail vertebrae. Used when skinId === 'skeletal' so the in-game model
+ * matches the 2D PHANTOM skin cutout (full skeleton, not a bone-white pug). */
+function SkeletonBody({ frontLeft, frontRight, backLeft, backRight, tail, head }) {
+  const bone = "#F0EAD2";          // aged ivory
+  const boneDark = "#A89A6F";      // shadowed bone
+  const eyeGlow = "#A0E8FF";       // phantom eye glow
+  return (
+    <>
+      {/* SKULL */}
+      <group ref={head} position={[0, 1.05, 0.55]}>
+        {/* Cranium */}
+        <mesh>
+          <sphereGeometry args={[0.34, 26, 22]} />
+          <meshStandardMaterial color={bone} roughness={0.6} metalness={0.1} />
+        </mesh>
+        {/* Brow ridge */}
+        <mesh position={[0, 0.18, 0.22]} scale={[1.0, 0.35, 0.7]}>
+          <sphereGeometry args={[0.3, 18, 14]} />
+          <meshStandardMaterial color={boneDark} roughness={0.65} />
+        </mesh>
+        {/* Eye sockets (dark hollows with phantom glow inside) */}
+        <mesh position={[-0.14, 0.04, 0.28]} scale={[1, 1, 0.4]}>
+          <sphereGeometry args={[0.09, 14, 12]} />
+          <meshBasicMaterial color="#0a0a14" />
+        </mesh>
+        <mesh position={[0.14, 0.04, 0.28]} scale={[1, 1, 0.4]}>
+          <sphereGeometry args={[0.09, 14, 12]} />
+          <meshBasicMaterial color="#0a0a14" />
+        </mesh>
+        <mesh position={[-0.14, 0.04, 0.25]}>
+          <sphereGeometry args={[0.04, 10, 10]} />
+          <meshBasicMaterial color={eyeGlow} />
+        </mesh>
+        <mesh position={[0.14, 0.04, 0.25]}>
+          <sphereGeometry args={[0.04, 10, 10]} />
+          <meshBasicMaterial color={eyeGlow} />
+        </mesh>
+        {/* Nasal cavity */}
+        <mesh position={[0, -0.06, 0.32]} scale={[1, 1, 0.3]}>
+          <sphereGeometry args={[0.05, 10, 10]} />
+          <meshBasicMaterial color="#0a0a14" />
+        </mesh>
+        {/* Snout / upper jaw */}
+        <mesh position={[0, -0.12, 0.32]} scale={[1.0, 0.55, 0.95]}>
+          <sphereGeometry args={[0.18, 16, 14]} />
+          <meshStandardMaterial color={bone} roughness={0.65} />
+        </mesh>
+        {/* Lower jaw (slightly offset) */}
+        <mesh position={[0, -0.22, 0.28]} scale={[0.95, 0.35, 0.85]}>
+          <sphereGeometry args={[0.18, 16, 14]} />
+          <meshStandardMaterial color={boneDark} roughness={0.7} />
+        </mesh>
+        {/* Teeth — small white rectangles between upper and lower jaws */}
+        {[-0.08, -0.025, 0.025, 0.08].map((x, i) => (
+          <mesh key={i} position={[x, -0.18, 0.46]}>
+            <boxGeometry args={[0.025, 0.04, 0.02]} />
+            <meshStandardMaterial color="#FFFFFF" roughness={0.4} />
+          </mesh>
+        ))}
+        {/* Skeleton ears — bony stubs, not floppy */}
+        <mesh position={[-0.3, 0.18, 0.0]} rotation={[0.2, -0.2, -0.5]} scale={[0.6, 0.9, 0.5]}>
+          <coneGeometry args={[0.08, 0.2, 6]} />
+          <meshStandardMaterial color={boneDark} roughness={0.85} />
+        </mesh>
+        <mesh position={[0.3, 0.18, 0.0]} rotation={[0.2, 0.2, 0.5]} scale={[0.6, 0.9, 0.5]}>
+          <coneGeometry args={[0.08, 0.2, 6]} />
+          <meshStandardMaterial color={boneDark} roughness={0.85} />
+        </mesh>
+        {/* Horns */}
+        <Horn position={[-0.24, 0.32, 0.08]} rotation={[0.1, 0.35, -0.7]} />
+        <Horn position={[0.24, 0.32, 0.08]} rotation={[0.1, -0.35, 0.7]} />
+      </group>
+
+      {/* SPINE — chain of vertebrae from skull to tail */}
+      {Array.from({ length: 7 }).map((_, i) => {
+        const z = 0.36 - i * 0.13;
+        return (
+          <mesh key={`v${i}`} position={[0, 0.75, z]}>
+            <sphereGeometry args={[0.07, 12, 12]} />
+            <meshStandardMaterial color={bone} roughness={0.55} />
+          </mesh>
+        );
+      })}
+
+      {/* RIBCAGE — 5 curved rib arcs hanging off the spine */}
+      {[0.28, 0.18, 0.05, -0.08, -0.21].map((z, i) => (
+        <mesh key={`r${i}`} position={[0, 0.55, z]} rotation={[0, 0, Math.PI / 2]}>
+          <torusGeometry args={[0.32, 0.038, 8, 18, Math.PI * 1.15]} />
+          <meshStandardMaterial color={bone} roughness={0.55} />
+        </mesh>
+      ))}
+
+      {/* STERNUM */}
+      <mesh position={[0, 0.42, 0.05]} scale={[0.18, 0.06, 0.7]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color={boneDark} roughness={0.6} />
+      </mesh>
+
+      {/* SHOULDER & PELVIS — bony plates */}
+      <mesh position={[0, 0.78, 0.38]}>
+        <sphereGeometry args={[0.18, 14, 12]} />
+        <meshStandardMaterial color={boneDark} roughness={0.55} />
+      </mesh>
+      <mesh position={[0, 0.78, -0.38]}>
+        <sphereGeometry args={[0.2, 14, 12]} />
+        <meshStandardMaterial color={boneDark} roughness={0.55} />
+      </mesh>
+
+      {/* LEG BONES — 2 cylinders per leg with a joint ball, refs preserved for run-cycle */}
+      <group ref={frontLeft} position={[-0.28, 0.38, 0.36]}>
+        {/* hip joint */}
+        <mesh><sphereGeometry args={[0.08, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        {/* upper bone */}
+        <mesh position={[0, -0.12, 0]}><cylinderGeometry args={[0.04, 0.045, 0.22, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        {/* knee */}
+        <mesh position={[0, -0.24, 0]}><sphereGeometry args={[0.055, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        {/* lower bone */}
+        <mesh position={[0, -0.36, 0]}><cylinderGeometry args={[0.035, 0.04, 0.2, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        {/* paw */}
+        <mesh position={[0, -0.49, 0.04]} scale={[1, 0.6, 1.2]}><sphereGeometry args={[0.07, 10, 10]} /><meshStandardMaterial color={bone} /></mesh>
+      </group>
+      <group ref={frontRight} position={[0.28, 0.38, 0.36]}>
+        <mesh><sphereGeometry args={[0.08, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.12, 0]}><cylinderGeometry args={[0.04, 0.045, 0.22, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.24, 0]}><sphereGeometry args={[0.055, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.36, 0]}><cylinderGeometry args={[0.035, 0.04, 0.2, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.49, 0.04]} scale={[1, 0.6, 1.2]}><sphereGeometry args={[0.07, 10, 10]} /><meshStandardMaterial color={bone} /></mesh>
+      </group>
+      <group ref={backLeft} position={[-0.28, 0.38, -0.36]}>
+        <mesh><sphereGeometry args={[0.08, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.12, 0]}><cylinderGeometry args={[0.04, 0.045, 0.22, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.24, 0]}><sphereGeometry args={[0.055, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.36, 0]}><cylinderGeometry args={[0.035, 0.04, 0.2, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.49, -0.04]} scale={[1, 0.6, 1.2]}><sphereGeometry args={[0.07, 10, 10]} /><meshStandardMaterial color={bone} /></mesh>
+      </group>
+      <group ref={backRight} position={[0.28, 0.38, -0.36]}>
+        <mesh><sphereGeometry args={[0.08, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.12, 0]}><cylinderGeometry args={[0.04, 0.045, 0.22, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.24, 0]}><sphereGeometry args={[0.055, 10, 10]} /><meshStandardMaterial color={boneDark} /></mesh>
+        <mesh position={[0, -0.36, 0]}><cylinderGeometry args={[0.035, 0.04, 0.2, 8]} /><meshStandardMaterial color={bone} /></mesh>
+        <mesh position={[0, -0.49, -0.04]} scale={[1, 0.6, 1.2]}><sphereGeometry args={[0.07, 10, 10]} /><meshStandardMaterial color={bone} /></mesh>
+      </group>
+
+      {/* CURLY TAIL — chain of small vertebrae spheres on a wagging group */}
+      <group ref={tail} position={[0, 0.78, -0.55]}>
+        {[
+          { p: [0, 0, 0], s: 0.07 },
+          { p: [0.04, 0.04, -0.06], s: 0.065 },
+          { p: [0.1, 0.06, -0.08], s: 0.06 },
+          { p: [0.14, 0.04, -0.04], s: 0.055 },
+          { p: [0.12, -0.02, 0.02], s: 0.05 },
+        ].map((v, i) => (
+          <mesh key={i} position={v.p}>
+            <sphereGeometry args={[v.s, 10, 10]} />
+            <meshStandardMaterial color={bone} roughness={0.55} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Phantom aura — faint cool-blue glow around skeleton */}
+      <pointLight position={[0, 0.7, 0]} intensity={0.4} color={eyeGlow} distance={2.4} />
+    </>
+  );
+}
+
 function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default" }) {
   const root = useRef();
   const body = useRef();
@@ -191,6 +357,17 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
 
   return (
     <group ref={root} rotation={[0, Math.PI, 0]}>
+      {skinId === "skeletal" ? (
+        <SkeletonBody
+          frontLeft={frontLeft}
+          frontRight={frontRight}
+          backLeft={backLeft}
+          backRight={backRight}
+          tail={tail}
+          head={head}
+        />
+      ) : (
+      <>
       {/* Body — rounded barrel */}
       <mesh ref={body} position={[0, 0.55, 0]} scale={[1.0, 0.95, 1.25]}>
         <sphereGeometry args={[0.5, 28, 22]} />
@@ -302,6 +479,8 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
           {bodyMat}
         </mesh>
       </group>
+      </>
+      )}
       {/* Per-skin extras */}
       {sk.extra === "sparkle" && (
         <Sparkles count={26} scale={[1.4, 1.6, 1.4]} size={2.5} speed={0.5} color={sk.emissive} />
@@ -445,45 +624,52 @@ function Obstacle({ type, refData }) {
     if (halo.current) halo.current.rotation.z += dt * 1.6;
   });
   if (type === "meteor") {
-    // Fiery space rock with an emissive halo
+    // Fiery space rock with an emissive halo — kept warm/bright so it reads
+    // in deep space.
     return (
       <group ref={ref}>
         <mesh>
           <icosahedronGeometry args={[0.55, 1]} />
-          <meshStandardMaterial color={COLORS.meteorRock} roughness={0.95} flatShading metalness={0.1} />
+          <meshStandardMaterial color="#8A9099" emissive="#FF5520" emissiveIntensity={0.35} roughness={0.85} flatShading metalness={0.15} />
         </mesh>
         {/* Hot lava cracks */}
         <mesh scale={[0.99, 0.99, 0.99]}>
           <icosahedronGeometry args={[0.55, 0]} />
-          <meshBasicMaterial color={COLORS.meteorHot} transparent opacity={0.55} wireframe />
+          <meshBasicMaterial color={COLORS.meteorHot} transparent opacity={0.7} wireframe />
         </mesh>
         {/* Heat halo */}
         <mesh ref={halo} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.7, 0.95, 32]} />
-          <meshBasicMaterial color={COLORS.meteorHot} side={THREE.DoubleSide} transparent opacity={0.35} depthWrite={false} />
+          <ringGeometry args={[0.7, 1.0, 32]} />
+          <meshBasicMaterial color={COLORS.meteorHot} side={THREE.DoubleSide} transparent opacity={0.5} depthWrite={false} />
         </mesh>
+        <pointLight position={[0, 0, 0]} intensity={0.9} color={COLORS.meteorHot} distance={3.5} />
       </group>
     );
   }
   if (type === "debris") {
-    // Cluster of jagged metallic shards — looks like satellite debris, requires
-    // lane-switch (always fatal in-lane). Kept tall so jump alone won't clear.
+    // Cluster of bright metallic shards with self-illumination so they read in
+    // dark space. Always fatal in lane (jump alone won't clear it).
     return (
       <group ref={ref}>
         <mesh position={[0, 0.6, 0]} rotation={[0.4, 0.3, 0.1]}>
-          <octahedronGeometry args={[0.45, 0]} />
-          <meshStandardMaterial color={COLORS.debris} metalness={0.85} roughness={0.25} flatShading />
+          <octahedronGeometry args={[0.5, 0]} />
+          <meshStandardMaterial color="#C7D0DE" emissive="#7DB6FF" emissiveIntensity={0.4} metalness={0.85} roughness={0.2} flatShading />
         </mesh>
-        <mesh position={[0.15, 1.1, -0.1]} rotation={[0.1, 0.8, -0.2]} scale={[0.7, 0.7, 0.7]}>
-          <octahedronGeometry args={[0.45, 0]} />
-          <meshStandardMaterial color="#9FB1C7" metalness={0.85} roughness={0.25} flatShading />
+        <mesh position={[0.18, 1.15, -0.1]} rotation={[0.1, 0.8, -0.2]} scale={[0.75, 0.75, 0.75]}>
+          <octahedronGeometry args={[0.5, 0]} />
+          <meshStandardMaterial color="#E1E8F2" emissive="#FFB179" emissiveIntensity={0.55} metalness={0.85} roughness={0.2} flatShading />
         </mesh>
-        <mesh position={[-0.12, 1.5, 0.05]} rotation={[0.6, -0.4, 0.5]} scale={[0.5, 0.5, 0.5]}>
-          <octahedronGeometry args={[0.45, 0]} />
-          <meshStandardMaterial color="#C7D0DE" metalness={0.9} roughness={0.2} flatShading />
-          </mesh>
-        {/* Hot exhaust glint */}
-        <pointLight position={[0, 0.8, 0]} intensity={0.4} color="#FF7A2A" distance={2.5} />
+        <mesh position={[-0.14, 1.6, 0.05]} rotation={[0.6, -0.4, 0.5]} scale={[0.55, 0.55, 0.55]}>
+          <octahedronGeometry args={[0.5, 0]} />
+          <meshStandardMaterial color="#F2F6FC" emissive="#FFFFFF" emissiveIntensity={0.45} metalness={0.95} roughness={0.15} flatShading />
+        </mesh>
+        {/* Warning halo + warm exhaust light so the cluster pops in dark space */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 1.0, 0]}>
+          <ringGeometry args={[0.75, 0.95, 32]} />
+          <meshBasicMaterial color="#FFB179" side={THREE.DoubleSide} transparent opacity={0.5} depthWrite={false} />
+        </mesh>
+        <pointLight position={[0, 1.0, 0]} intensity={1.3} color="#FFB179" distance={4.5} />
+        <pointLight position={[0, 0.5, 0]} intensity={0.7} color="#7DB6FF" distance={3.0} />
       </group>
     );
   }
