@@ -13,6 +13,7 @@ import {
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import TinkerpugCodex, { CodexButton, detectUnlocked } from "./TinkerpugCodex";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -62,6 +63,16 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [dropShared, setDropShared] = useState(false);
+  const [codexOpen, setCodexOpen] = useState(false);
+  // Track Codex unlock count so the header badge stays in sync with the pane
+  // (recomputed whenever assistant messages change). Cheap scan, runs in-effect.
+  const [codexUnlockedCount, setCodexUnlockedCount] = useState(0);
+  useEffect(() => {
+    try {
+      const unlocked = detectUnlocked(messages, new Set());
+      setCodexUnlockedCount(unlocked.size);
+    } catch (e) { /* noop */ }
+  }, [messages]);
 
   // Share today's Bullpug Daily Drop — Web Share API → clipboard fallback → X intent
   const shareDailyDrop = async (msg) => {
@@ -488,6 +499,13 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                 {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
               </button>
               {!isMinimized && (
+                <CodexButton
+                  unlockedCount={codexUnlockedCount}
+                  open={codexOpen}
+                  onClick={() => setCodexOpen((v) => !v)}
+                />
+              )}
+              {!isMinimized && (
                 <button
                   onClick={() => setIsFullscreen(prev => !prev)}
                   className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
@@ -509,6 +527,11 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
           {/* Messages Area */}
           {!isMinimized && (
             <>
+              <TinkerpugCodex
+                messages={messages}
+                open={codexOpen}
+                onClose={() => setCodexOpen(false)}
+              />
               <div 
                 ref={messagesContainerRef}
                 className="flex-1 p-4 overflow-y-auto h-[calc(100%-130px)] space-y-4"

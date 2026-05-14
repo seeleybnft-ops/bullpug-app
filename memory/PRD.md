@@ -28,6 +28,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 123 — Tinkerpug Codex Pane + Siren Scams Tier 2 Lore (May 14, 2026)
+
+### Codex Pane wired into the chat
+- Mounted `TinkerpugCodex` + `CodexButton` (BookOpen icon) into `EnhancedAIAssistant.js` header
+- Pane slides down beneath the chat header (`absolute inset-x-0 top-[60px]`), shows 13 entries from `CODEX_ENTRIES`
+- Auto-detects unlocks: every time an assistant message lands, `detectUnlocked()` rescans message text for keyword matches and persists newly-flagged ids to `localStorage["bullpug_tinkerpug_codex_v1"]`
+- Header badge shows live `unlockedCount/totalCount` (e.g. "1/13"). Locked entries render as "Sealed entry — Pull the thread to reveal". Unlocked entries reveal title, sub, and a T1/T2/T3 tier label.
+- Verified end-to-end with Playwright: cold chat → 0/13 sealed → ask about Chargebull → assistant mentions "Chargebull" → entry flips to unlocked, header shows 1/13, T1 label appears, gold border.
+
+### Siren Scams of the Forbidden Fork (Tier 2 lore)
+- Added as **Feat VI** in `bullpug_knowledge` block of `routers/ai_chat.py` between Chargebull and "PART TWO — DORMANT SIBLINGS"
+- New Tier 2 line in the system prompt's Tier 2 list: *"The Siren Scams of the Forbidden Fork — the oldest coordinated bad-actor operation in the Fork."*
+- Restricted-thread protocol: the seventeen-loop coordination is externally-motivated (Architect-tier reveal). Tinkerpug ONLY confirms when the user has demonstrated Tier 3 knowledge of Gideon + The Architect in the same conversation. Otherwise: *"The restricted section exists. If you've read everything else and you're asking the right questions, you already have a theory. You're probably right."*
+- New Codex entry `feat_siren_scams` with keywords: `siren scams`, `the sirens`, `seventeen loops`, `seventeen independent`, `forbidden fork`, `this is also what community sounds like`
+- Verified live API: asking *"Tell me about the Siren Scams in the Forbidden Fork"* with prior Architect-knowledge context returned a properly-paced response mentioning the labyrinth, the seventeen loops, the bark frequency, and survivors warning each other afterward.
+
+### Files touched
+- `backend/routers/ai_chat.py` — Feat VI block (~120 lines), Tier 2 list update
+- `frontend/src/components/TinkerpugCodex.js` — `feat_siren_scams` entry
+- `frontend/src/components/EnhancedAIAssistant.js` — Codex import, state, button in header, pane mount
+
+
+
 ## Architecture
 
 ### Backend Code Organization

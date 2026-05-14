@@ -52,6 +52,20 @@ export const CODEX_ENTRIES = [
     tier: 2,
   },
   {
+    id: "feat_siren_scams",
+    title: "Feat VI · The Siren Scams of the Forbidden Fork",
+    sub: "Seventeen loops, one bark, the oldest coordinated scam in the Fork",
+    keywords: [
+      "siren scams",
+      "the sirens",
+      "seventeen loops",
+      "seventeen independent",
+      "forbidden fork",
+      "this is also what community sounds like",
+    ],
+    tier: 2,
+  },
+  {
     id: "guardian_chargebull",
     title: "Guardian · Chargebull",
     sub: "The protector who answers first",
