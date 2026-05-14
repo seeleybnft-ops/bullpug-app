@@ -125,7 +125,9 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
             return !(
               c.includes("I'm **Bullpug AI**") ||
               c.includes("Bullpug AI with **real-time") ||
-              c.includes("your Bullpug market intelligence companion")
+              c.includes("your Bullpug market intelligence companion") ||
+              // Previous Tinkerpug greeting that included Market sentiment + Trade analysis bullets
+              (c.includes("keeper of the Bullpug archive") && c.includes("Market sentiment"))
             );
           });
           setMessages(cleaned);
@@ -198,7 +200,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     if (isOpen && messages.length === 0 && !isLoading && historyLoaded && !greetingShown) {
       setMessages([{
         role: "assistant",
-        content: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:\n\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n- **Market sentiment** - Fear & Greed Index and global market data\n- **Trade analysis** and exit strategies\n\nI'll remember our conversation so feel free to continue anytime!",
+        content: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:\n\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n\nI'll remember our conversation so feel free to continue anytime!",
         timestamp: Date.now()
       }]);
       setGreetingShown(true);
