@@ -28,7 +28,51 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
-## Iteration 124 — Clear-Chat Fix + Skin Unlock + Cosmic Runner Graphics Pass + Bloom (May 15, 2026)
+## Iteration 125 — Stage Length 2.5x + Better Bull Horns + Per-Skin Visual Identities (May 15, 2026)
+
+### Stage progression stretched 2.5x
+- `Phase1Runner3D.js` — `stage = floor(distance / 375) + 1` (was 150). Same in both stage gating call sites + the OBSTACLE_DEFS comment.
+- Stages now take 2.5x the running distance to unlock, giving players more time to settle into each obstacle pool before the next tier opens.
+
+### Canonical bull horns redesigned + universalized
+- `Horn` component completely rebuilt: 5 stacked cones with progressively decreasing radii + per-segment yaw outward + pitch back to create an actual upward-then-outward curl that reads as a bull horn at game-camera distance.
+- Polished ivory base → bronze tip gradient via per-segment metalness ramp (0.55 → 0.80) and roughness drop. Base ring torus wrap at the skull join.
+- Wider base (radius 0.105) and taller (total ~0.78 vertical) so horns are clearly visible even when shrunk in the chase-cam view.
+- Horns now sit ON TOP of the head dome (anchor moved to y=0.36) instead of inside it.
+- Verified visible in-game on the default pug — ivory-bronze horn tips clearly read against the cosmic backdrop.
+
+### Per-skin visual identities (`SkinExtras` component)
+Each of the 10 skins now gets a distinct visual treatment beyond the base body material:
+
+| Skin | Visual treatment |
+|---|---|
+| **Fire** | Animated flame plume above head with `useFrame` flicker (sin × dual-frequency noise) on scale + emissiveIntensity; ember sparkles |
+| **Heatmap** | Same flame system in cooler red-orange palette |
+| **Gold** | Glossy orbital shine ring (rotating at 1.6 rad/s, swaying on x-axis) + warm gold sparkles |
+| **Diamond** | Prismatic cyan + white dual sparkle layers + faceted shine ring |
+| **Silver** | Subtle cool sparkles |
+| **Radioactive** | 48 vivid green sparkles + pulsing aura sphere (sin-driven scale) |
+| **Zombie** | Sickly green miasma sparkles + dim greenish aura sphere |
+| **Water** | Soft cyan droplet sparkles |
+| **Ethereal** | Rotating halo (z + y axes) + 45-particle ethereal trail |
+| **Robot / Skeletal** | Existing in-mesh extras (antenna, ribs) preserved |
+
+All animations driven by a single `useFrame` hook that's safe-guarded with `if (ref.current)` so a missing ref for a given skin is a no-op.
+
+### Bloom tuning for accuracy
+- `Bloom` intensity 0.85 → 1.15, threshold 0.35 → 0.22, smoothing 0.85 → 0.65 — catches more emissive surfaces (fire flames, gold ring, ethereal halo, track edges, meteor cores) without washing out the rest.
+- `Vignette` slightly stronger (offset 0.22, darkness 0.6) to focus eye on the centre track.
+
+### Verified live
+- Default pug renders with clearly visible horns ✓
+- Track edges, meteor obstacles, sparkles all bloom properly ✓
+- Zero console errors ✓
+- All 10 skin extras render without errors when their skin is selected ✓
+
+### Files touched
+- `frontend/src/pages/Phase1Runner3D.js` — Stage divisor, Horn rebuild, SkinExtras component, Bloom + Vignette tuning
+
+
 
 ### Bug fix — Tinkerpug "Delete" wasn't reliably clearing the chat
 - Replaced `window.confirm` (some browsers/iframes block it silently) with a **two-click confirm pattern**: first click arms the trash icon (red bg + pulse + tooltip "Click again to confirm"), second click within 4s actually clears.

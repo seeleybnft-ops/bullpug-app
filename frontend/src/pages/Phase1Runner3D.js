@@ -213,8 +213,8 @@ function SkeletonBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
           <meshStandardMaterial color={boneDark} roughness={0.85} />
         </mesh>
         {/* Horns */}
-        <Horn position={[-0.24, 0.32, 0.08]} rotation={[0.1, 0.35, -0.7]} />
-        <Horn position={[0.24, 0.32, 0.08]} rotation={[0.1, -0.35, 0.7]} />
+        <Horn position={[-0.22, 0.36, 0.02]} mirror={-1} />
+        <Horn position={[0.22, 0.36, 0.02]} mirror={1} />
       </group>
 
       {/* SPINE — chain of vertebrae from skull to tail */}
@@ -433,9 +433,9 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
           <sphereGeometry args={[0.13, 16, 14]} />
           <meshStandardMaterial color={sk.dark} roughness={0.85} />
         </mesh>
-        {/* HORNS */}
-        <Horn position={[-0.24, 0.32, 0.08]} rotation={[0.1, 0.35, -0.7]} />
-        <Horn position={[0.24, 0.32, 0.08]} rotation={[0.1, -0.35, 0.7]} />
+        {/* HORNS — canonical bull horns, every pug wears them */}
+        <Horn position={[-0.22, 0.36, 0.02]} mirror={-1} />
+        <Horn position={[0.22, 0.36, 0.02]} mirror={1} />
         {/* Skeletal overlay — visible rib hint when skin is skeletal */}
         {sk.extra === "bones" && (
           <>
@@ -487,16 +487,8 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
       </group>
       </>
       )}
-      {/* Per-skin extras */}
-      {sk.extra === "sparkle" && (
-        <Sparkles count={26} scale={[1.4, 1.6, 1.4]} size={2.5} speed={0.5} color={sk.emissive} />
-      )}
-      {sk.extra === "halo" && (
-        <mesh position={[0, 1.55, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.32, 0.035, 8, 28]} />
-          <meshStandardMaterial color={sk.emissive} emissive={sk.emissive} emissiveIntensity={1.2} />
-        </mesh>
-      )}
+      {/* Per-skin visual flourishes — flames, sparkles, halos, etc */}
+      <SkinExtras skinId={skinId} sk={sk} />
       {/* Shield aura */}
       <mesh ref={shieldRef} position={[0, 0.85, 0]} visible={false}>
         <sphereGeometry args={[1.08, 28, 28]} />
@@ -506,16 +498,214 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
   );
 }
 
-function Horn({ position, rotation }) {
+/**
+ * Per-skin visual flourishes layered on top of the base Bullpug mesh.
+ * Each skin gets a treatment tuned for that specific identity — fire
+ * actually has flickering flames, gold has an orbital shine ring, diamond
+ * has prismatic sparkles, ethereal has a rotating halo with a trailing
+ * particle field, and so on.
+ */
+function SkinExtras({ skinId, sk }) {
+  const flameRef = useRef();
+  const haloRef = useRef();
+  const shineRingRef = useRef();
+  const auraRef = useRef();
+
+  useFrame((state, dt) => {
+    const t = state.clock.elapsedTime;
+    if (flameRef.current) {
+      // Authentic flame flicker — sin × noise on emissive intensity + scale
+      const flicker = 0.7 + Math.sin(t * 11) * 0.18 + Math.sin(t * 19.3) * 0.12;
+      flameRef.current.scale.set(1, 0.85 + flicker * 0.35, 1);
+      const m = flameRef.current.material;
+      if (m) m.emissiveIntensity = 1.1 + flicker * 1.2;
+    }
+    if (haloRef.current) {
+      haloRef.current.rotation.z += dt * 0.7;
+      haloRef.current.rotation.y += dt * 0.2;
+    }
+    if (shineRingRef.current) {
+      shineRingRef.current.rotation.y += dt * 1.6;
+      shineRingRef.current.rotation.x = Math.sin(t * 0.8) * 0.15;
+    }
+    if (auraRef.current) {
+      const pulse = 1 + Math.sin(t * 2.2) * 0.08;
+      auraRef.current.scale.set(pulse, pulse, pulse);
+    }
+  });
+
+  // ── Fire — animated flame plume + ember sparkles
+  if (skinId === "fire" || skinId === "heatmap") {
+    const flameCol = skinId === "fire" ? "#FF3A00" : "#FF6B35";
+    const sparkCol = skinId === "fire" ? "#FFB066" : "#FFD86B";
+    return (
+      <>
+        {/* Flame plume — stacked teardrops with animated emissive flicker */}
+        <group position={[0, 1.7, 0]}>
+          <mesh ref={flameRef} position={[0, 0.25, 0]}>
+            <coneGeometry args={[0.35, 1.0, 14]} />
+            <meshStandardMaterial
+              color={flameCol}
+              emissive={flameCol}
+              emissiveIntensity={1.6}
+              transparent
+              opacity={0.78}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh position={[0, 0.55, 0]}>
+            <coneGeometry args={[0.22, 0.6, 12]} />
+            <meshStandardMaterial
+              color="#FFE26B"
+              emissive="#FFCB3A"
+              emissiveIntensity={2.2}
+              transparent
+              opacity={0.85}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+        {/* Ember particles */}
+        <Sparkles count={40} scale={[1.6, 2.4, 1.6]} size={3.2} speed={0.8} color={sparkCol} />
+      </>
+    );
+  }
+
+  // ── Gold — orbital shine ring + warm sparkles
+  if (skinId === "gold") {
+    return (
+      <>
+        <group ref={shineRingRef} position={[0, 0.65, 0]}>
+          <mesh rotation={[Math.PI / 2.4, 0, 0]}>
+            <torusGeometry args={[0.78, 0.018, 8, 48]} />
+            <meshStandardMaterial
+              color="#FFE57A"
+              emissive="#FFC83A"
+              emissiveIntensity={1.4}
+              metalness={1}
+              roughness={0.05}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+        <Sparkles count={28} scale={[1.5, 1.8, 1.5]} size={3.0} speed={0.4} color="#FFE066" />
+      </>
+    );
+  }
+
+  // ── Diamond — prismatic crystalline sparkles + cyan halo
+  if (skinId === "diamond") {
+    return (
+      <>
+        <Sparkles count={40} scale={[1.5, 1.9, 1.5]} size={4.2} speed={0.55} color="#BDF2FF" />
+        <Sparkles count={20} scale={[1.2, 1.4, 1.2]} size={2.5} speed={0.3} color="#FFFFFF" />
+        <mesh ref={shineRingRef} position={[0, 0.6, 0]} rotation={[Math.PI / 3, 0, 0]}>
+          <torusGeometry args={[0.7, 0.012, 6, 32]} />
+          <meshBasicMaterial color="#9DEAFF" toneMapped={false} transparent opacity={0.55} />
+        </mesh>
+      </>
+    );
+  }
+
+  // ── Silver — subtle cool sparkles
+  if (skinId === "silver") {
+    return <Sparkles count={20} scale={[1.4, 1.6, 1.4]} size={2.2} speed={0.3} color="#E0E5EE" />;
+  }
+
+  // ── Radioactive — vivid sparkle field + pulsing aura sphere
+  if (skinId === "radioactive") {
+    return (
+      <>
+        <Sparkles count={48} scale={[1.7, 2.0, 1.7]} size={3.5} speed={0.7} color="#A8FF3E" />
+        <mesh ref={auraRef} position={[0, 0.65, 0]}>
+          <sphereGeometry args={[0.95, 16, 14]} />
+          <meshBasicMaterial color="#7FFF00" transparent opacity={0.07} toneMapped={false} />
+        </mesh>
+      </>
+    );
+  }
+
+  // ── Zombie — sickly green miasma
+  if (skinId === "zombie") {
+    return (
+      <>
+        <Sparkles count={22} scale={[1.5, 2.0, 1.5]} size={2.6} speed={0.35} color="#A0FF6E" />
+        <mesh ref={auraRef} position={[0, 0.55, 0]}>
+          <sphereGeometry args={[0.85, 14, 12]} />
+          <meshBasicMaterial color="#506B2A" transparent opacity={0.06} toneMapped={false} />
+        </mesh>
+      </>
+    );
+  }
+
+  // ── Water — soft cyan droplet sparkles
+  if (skinId === "water") {
+    return <Sparkles count={26} scale={[1.4, 1.7, 1.4]} size={2.5} speed={0.4} color="#7DE3E8" />;
+  }
+
+  // ── Ethereal — full rotating halo + outer trail
+  if (skinId === "ethereal") {
+    return (
+      <>
+        <mesh ref={haloRef} position={[0, 1.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.34, 0.038, 10, 32]} />
+          <meshStandardMaterial
+            color="#E8D5FF"
+            emissive={sk.emissive}
+            emissiveIntensity={1.6}
+            toneMapped={false}
+          />
+        </mesh>
+        <Sparkles count={45} scale={[1.7, 2.2, 1.7]} size={3.0} speed={0.45} color="#D9B5FF" />
+      </>
+    );
+  }
+
+  // ── Robot, skeletal — extras already baked into the body mesh elsewhere
+  return null;
+}
+
+/**
+ * Canonical Bullpug bull horn — thick base, curved upward and slightly
+ * outward, polished ivory-to-bronze. Built from a sequence of cones at
+ * decreasing radii to fake a curved horn cheaply. Universal across all
+ * skins so every pug model wears them per the Neuko canon.
+ *
+ * mirror: -1 for left horn, +1 for right horn (flips the outward curl).
+ */
+function Horn({ position, mirror = 1 }) {
+  const baseColor = "#F2E2BD"; // polished ivory
+  const tipColor = "#9C6B2F"; // bronze
+  // 5 stacked cones with a slight per-segment yaw outward + pitch back to
+  // create the upward-then-outward curl that reads as a bull horn at a
+  // glance, even at small in-game scale.
+  const SEG = [
+    { r: 0.105, h: 0.20, yaw: 0.00, pitch: 0.05, ty: 0.00, tx: 0.00, col: baseColor, mix: 0.0 },
+    { r: 0.088, h: 0.18, yaw: 0.10, pitch: 0.06, ty: 0.17, tx: 0.018, col: baseColor, mix: 0.2 },
+    { r: 0.070, h: 0.16, yaw: 0.20, pitch: 0.08, ty: 0.32, tx: 0.046, col: "#E6CB97", mix: 0.45 },
+    { r: 0.050, h: 0.14, yaw: 0.32, pitch: 0.10, ty: 0.46, tx: 0.082, col: "#C99863", mix: 0.7 },
+    { r: 0.028, h: 0.12, yaw: 0.44, pitch: 0.12, ty: 0.58, tx: 0.124, col: tipColor, mix: 1.0 },
+  ];
   return (
-    <group position={position} rotation={rotation}>
-      <mesh>
-        <coneGeometry args={[0.07, 0.26, 10]} />
-        <meshStandardMaterial color={COLORS.horn} metalness={0.45} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 0.16, 0.05]} rotation={[-0.3, 0, 0]}>
-        <coneGeometry args={[0.045, 0.16, 10]} />
-        <meshStandardMaterial color="#E5A12E" metalness={0.55} roughness={0.3} />
+    <group position={position} rotation={[0, 0, mirror * 0.22]}>
+      {SEG.map((s, i) => (
+        <group key={i} position={[s.tx * mirror, s.ty, -s.pitch]} rotation={[s.pitch, mirror * s.yaw, 0]}>
+          <mesh>
+            <coneGeometry args={[s.r, s.h, 14]} />
+            <meshStandardMaterial
+              color={s.col}
+              metalness={0.55 + s.mix * 0.25}
+              roughness={0.18 + (1 - s.mix) * 0.22}
+              emissive="#3a2308"
+              emissiveIntensity={0.08}
+            />
+          </mesh>
+        </group>
+      ))}
+      {/* Base ring — the "wrap" where the horn meets the skull, deeper bronze */}
+      <mesh position={[0, -0.005, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.098, 0.016, 8, 18]} />
+        <meshStandardMaterial color="#6E481B" metalness={0.7} roughness={0.35} />
       </mesh>
     </group>
   );
@@ -622,7 +812,7 @@ function Track({ speedRef }) {
  *    "killed" 1.5 metres before the obstacle.
  *  - clear(py, sliding): returns true if the player has dodged it vertically
  *    (jump for ground obstacles, slide for flyers).
- *  - minStage: distance-gated unlock (stage = floor(distance/150)+1, capped 5).
+ *  - minStage: distance-gated unlock (stage = floor(distance/375)+1, capped 5).
  */
 const OBSTACLE_DEFS = {
   meteor:     { y: 0.55, hz: 0.45, minStage: 1, clear: (py) => py >= 0.85 },
@@ -1008,7 +1198,10 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, onStageChange, 
     speedRef.current += FORWARD_SPEED_RAMP * dt;
 
     // Stage progression — emit once per threshold crossing.
-    const curStage = Math.min(5, Math.floor(distanceRef.current / 150) + 1);
+    // Stage progression — 375 metres per stage (2.5x the original 150 cadence
+    // so players have more time to settle into a rhythm before the next
+    // obstacle pool unlocks).
+    const curStage = Math.min(5, Math.floor(distanceRef.current / 375) + 1);
     if (curStage > stageRef.current) {
       stageRef.current = curStage;
       onStageChange?.(curStage);
@@ -1058,7 +1251,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, onStageChange, 
         powerupsRef.current.push({ id: Math.random(), type: ptype, lane, position: new THREE.Vector3(LANES[lane], 1.0, spawnZ) });
       } else if (roll < 0.65) {
         // Build the obstacle pool by current stage (distance-gated).
-        const stage = Math.min(5, Math.floor(distanceRef.current / 150) + 1);
+        const stage = Math.min(5, Math.floor(distanceRef.current / 375) + 1);
         const pool = Object.keys(OBSTACLE_DEFS).filter((k) => OBSTACLE_DEFS[k].minStage <= stage);
         let lane = Math.floor(Math.random() * 3);
         if (inGrace && lane === laneIdxRef.current) {
@@ -1388,14 +1581,14 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
         {/* Postprocessing — bloom on emissive materials + light vignette for depth */}
         <EffectComposer multisampling={0} disableNormalPass>
           <Bloom
-            intensity={0.85}
-            luminanceThreshold={0.35}
-            luminanceSmoothing={0.85}
+            intensity={1.15}
+            luminanceThreshold={0.22}
+            luminanceSmoothing={0.65}
             mipmapBlur
             kernelSize={KernelSize.LARGE}
             blendFunction={BlendFunction.SCREEN}
           />
-          <Vignette eskil={false} offset={0.18} darkness={0.55} />
+          <Vignette eskil={false} offset={0.22} darkness={0.6} />
         </EffectComposer>
       </Canvas>
     </div>
