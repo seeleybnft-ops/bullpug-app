@@ -844,10 +844,11 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
         return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen, user_key)
 
     try:
-        # Get journal summary for context
-        journal_summary = {"has_trades": False}
-        if chat.wallet_address:
-            journal_summary = await get_user_journal_summary(chat.wallet_address)
+        # Journal summary used to be fetched here for trading-stat context;
+        # the AI Trading Bot is now hibernated, so the fetch is skipped to
+        # save a DB round-trip per chat request.
+        # if chat.wallet_address:
+        #     _ = await get_user_journal_summary(chat.wallet_address)
         
         # Build real-time market data context
         real_time_data = ""
@@ -966,27 +967,16 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
         if real_time_data:
             real_time_data = sentiment_context + real_time_data
         
-        # Build context based on active tab
-        tab_context = ""
-        if chat.active_tab == "dashboard":
-            tab_context = "The user is on the Dashboard tab viewing their trading statistics."
-        elif chat.active_tab == "portfolio":
-            tab_context = "The user is on the Portfolio Value tab viewing their token holdings."
-        elif chat.active_tab == "simulator":
-            tab_context = "The user is on the Exit Simulator tab running Monte Carlo simulations."
-        elif chat.active_tab == "achievements":
-            tab_context = "The user is on the Achievements tab viewing their badges."
+        # Tab context — kept generic. The AI Trading Bot has been hibernated,
+        # so we no longer surface trading-stats / dashboard-insights cues here
+        # (those caused Tinkerpug to lead with "Reviewing your trading stats
+        # today?" which is off-canon now).
+        tab_context = "The user is exploring the Bullpug app."
         
-        # Build trading context
+        # Trading context — disabled since the AI Trading Bot is hibernated.
+        # Historical journal data is preserved on the backend but Tinkerpug
+        # should not lead conversation with trade stats anymore.
         trading_context = ""
-        if journal_summary.get("has_trades"):
-            trading_context = f"""
-User's Trading Profile:
-- Total Trades: {journal_summary.get('total_trades', 0)}
-- Win Rate: {journal_summary.get('win_rate', 0):.1f}%
-- Total P&L: ${journal_summary.get('total_pnl', 0):.2f}
-- Tokens Traded: {', '.join(journal_summary.get('tokens_traded', []))}
-"""
         
         # Build chat history context
         session_history = chat_sessions.get(chat.session_id, [])
@@ -1825,7 +1815,11 @@ Current Time: {current_time}
 
 User's question: {chat.message}
 
-Respond as Tinkerpug. If the question is about lore, follow the three-tier revelation system — never dump Tier 2 or Tier 3 unless asked specifically. If the question is about prices/markets, use the real-time data above. If the question doesn't involve trading stats, do not insert them. Leave a thread."""
+Respond as Tinkerpug. PRIORITY ORDER for what you can help with:
+  1. **Bullpug Lore (PRIMARY ROLE)** — the Archive, the Guardians, Newpug City, the feats, the cosmic mythos. Follow the three-tier revelation system — never dump Tier 2 or Tier 3 unless asked specifically.
+  2. **Live coin prices** (secondary) — only if the user asks about a specific token / price / market. Use the real-time data above.
+  3. **Trending coins** (tertiary) — only if asked.
+NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or anything related to the AI Trading Bot — that system is hibernated. NEVER ask "Reviewing your trading stats today?" or "How are the charts treating you?". When greeting or answering a generic "hello", invite the user into the Archive instead — offer to surface lore threads, talk about Bullpug, or pull a token price if they want one."""
 
         # Handle image if provided
         if chat.image:

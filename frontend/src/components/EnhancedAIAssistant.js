@@ -17,6 +17,17 @@ import TinkerpugCodex, { CodexButton, detectUnlocked } from "./TinkerpugCodex";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Canonical Tinkerpug welcome greeting. Used both for the first-open
+// auto-greeting AND when the user clears the chat — so deleting always
+// resets back to a known, on-canon Archive intro.
+const TINKERPUG_GREETING = "Hey there. I'm **Tinkerpug**, keeper of the Bullpug Archive. I can help you with:\n\n- **Bullpug Lore** — Newpug City, the Guardians, the Mindverse, the feats. Just ask.\n- **Live coin prices** — \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** — \"What's trending on Solana?\"\n\nWhere do you want to dig first?";
+
+const buildGreetingMessage = () => ({
+  role: "assistant",
+  content: TINKERPUG_GREETING,
+  timestamp: Date.now(),
+});
+
 export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const { publicKey, connected: solanaConnected } = useWallet();
   const { address: evmAddress, isConnected: evmConnected } = useAccount();
@@ -125,13 +136,15 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
             if (idx !== 0) return true;
             if (m.role !== "assistant") return true;
             const c = (m.content || "");
-            // Drop legacy greetings so the new "keeper of the Bullpug archive" version takes over
+            // Drop legacy greetings so the new "keeper of the Bullpug Archive" version takes over
             return !(
               c.includes("I'm **Bullpug AI**") ||
               c.includes("Bullpug AI with **real-time") ||
               c.includes("your Bullpug market intelligence companion") ||
               // Previous Tinkerpug greeting that included Market sentiment + Trade analysis bullets
-              (c.includes("keeper of the Bullpug archive") && c.includes("Market sentiment"))
+              (c.includes("keeper of the Bullpug archive") && c.includes("Market sentiment")) ||
+              // Older lowercase "archive" greeting that opened with "Hey there!"
+              (c.includes("keeper of the Bullpug archive") && c.includes("Hey there!"))
             );
           });
           setMessages(cleaned);
@@ -202,11 +215,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   // Show welcome message when opened for first time
   useEffect(() => {
     if (isOpen && messages.length === 0 && !isLoading && historyLoaded && !greetingShown) {
-      setMessages([{
-        role: "assistant",
-        content: "Hey there! I'm **Tinkerpug**, keeper of the Bullpug archive! I can help you with:\n\n- **Bullpug Lore** - Learn about Newpug City, the Guardians, and our cosmic origins\n- **Live coin prices** - Ask \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** - Ask \"What's trending on Solana?\"\n\nI'll remember our conversation so feel free to continue anytime!",
-        timestamp: Date.now()
-      }]);
+      setMessages([buildGreetingMessage()]);
       setGreetingShown(true);
     }
   }, [isOpen, messages.length, isLoading, historyLoaded, greetingShown]);
@@ -360,6 +369,19 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
     }
   };
 
+  // Auto-scroll to the bottom whenever a new message arrives or the assistant
+  // starts/stops "thinking" — gives the chat the same UX as any messenger.
+  useEffect(() => {
+    // requestAnimationFrame so the layout has settled (markdown render etc)
+    // before we measure scrollHeight.
+    const id = requestAnimationFrame(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [messages, isLoading]);
+
   const toggleOpen = () => {
     setIsOpen(!isOpen);
     setIsMinimized(false);
@@ -396,11 +418,14 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
       saveTimeoutRef.current = null;
     }
 
-    // Clear local state IMMEDIATELY so the user sees the chat empty.
-    setMessages([]);
+    // Clear local state IMMEDIATELY so the user sees the chat reset.
+    // Re-emit the canonical Tinkerpug greeting straight away so deleting
+    // always returns to a known, on-canon Archive intro instead of an
+    // empty void.
+    setMessages([buildGreetingMessage()]);
     sessionStorage.removeItem("bullpug_ai_messages");
-    // Suppress the welcome useEffect from re-emitting the greeting in the same
-    // open-session (it'll re-emit naturally when the panel is closed & reopened).
+    // greetingShown=true prevents the welcome useEffect from emitting a
+    // duplicate greeting in this same open-session.
     setGreetingShown(true);
 
     // Rotate session id so any in-flight reply gets attributed to a new thread.
