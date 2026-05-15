@@ -309,7 +309,7 @@ function SkeletonBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
   );
 }
 
-function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default" }) {
+export function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default", idle = false }) {
   const root = useRef();
   const body = useRef();
   const head = useRef();
@@ -324,6 +324,16 @@ function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default
 
   useFrame((_, dt) => {
     if (!root.current) return;
+    // Idle/preview mode: slow Y-axis rotation, no jump/slide/run animation,
+    // no x/y position tracking. Used by the SkinStore preview viewport.
+    if (idle) {
+      root.current.rotation.y += dt * 0.4;
+      bob.current += dt * 4;
+      root.current.position.y = Math.sin(bob.current) * 0.04;
+      if (tail.current) tail.current.rotation.z = Math.sin(bob.current * 0.7) * 0.25;
+      if (head.current) head.current.rotation.x = Math.sin(bob.current * 0.5) * 0.03;
+      return;
+    }
     root.current.position.x = refX.current;
     root.current.position.y = refY.current;
     bob.current += dt * 14;
@@ -534,10 +544,8 @@ function SkinExtras({ skinId, sk }) {
     }
   });
 
-  // ── Fire — animated flame plume + ember sparkles
-  if (skinId === "fire" || skinId === "heatmap") {
-    const flameCol = skinId === "fire" ? "#FF3A00" : "#FF6B35";
-    const sparkCol = skinId === "fire" ? "#FFB066" : "#FFD86B";
+  // ── Fire (Inferno) — animated flame plume + ember sparkles
+  if (skinId === "fire") {
     return (
       <>
         {/* Flame plume — stacked teardrops with animated emissive flicker */}
@@ -545,8 +553,8 @@ function SkinExtras({ skinId, sk }) {
           <mesh ref={flameRef} position={[0, 0.25, 0]}>
             <coneGeometry args={[0.35, 1.0, 14]} />
             <meshStandardMaterial
-              color={flameCol}
-              emissive={flameCol}
+              color="#FF3A00"
+              emissive="#FF3A00"
               emissiveIntensity={1.6}
               transparent
               opacity={0.78}
@@ -566,7 +574,89 @@ function SkinExtras({ skinId, sk }) {
           </mesh>
         </group>
         {/* Ember particles */}
-        <Sparkles count={40} scale={[1.6, 2.4, 1.6]} size={3.2} speed={0.8} color={sparkCol} />
+        <Sparkles count={40} scale={[1.6, 2.4, 1.6]} size={3.2} speed={0.8} color="#FFB066" />
+      </>
+    );
+  }
+
+  // ── Heatmap — thermal pulse rings (not flames), like a thermal radar sweep
+  if (skinId === "heatmap") {
+    return (
+      <>
+        {/* Inner pulsing thermal core */}
+        <mesh ref={auraRef} position={[0, 0.55, 0]}>
+          <sphereGeometry args={[0.85, 18, 14]} />
+          <meshBasicMaterial color="#FF6B35" transparent opacity={0.12} toneMapped={false} />
+        </mesh>
+        {/* Three concentric thermal rings spinning at different speeds */}
+        <mesh ref={shineRingRef} position={[0, 0.55, 0]} rotation={[Math.PI / 2.5, 0, 0]}>
+          <torusGeometry args={[0.78, 0.014, 6, 32]} />
+          <meshBasicMaterial color="#FF4A00" toneMapped={false} transparent opacity={0.85} />
+        </mesh>
+        <mesh position={[0, 0.55, 0]} rotation={[Math.PI / 3.5, 0, 0.5]}>
+          <torusGeometry args={[0.95, 0.01, 6, 32]} />
+          <meshBasicMaterial color="#FFB179" toneMapped={false} transparent opacity={0.5} />
+        </mesh>
+        <Sparkles count={20} scale={[1.4, 1.6, 1.4]} size={2.2} speed={0.35} color="#FFAA66" />
+      </>
+    );
+  }
+
+  // ── Aqua (water) — animated droplet sparkles + horizontal ripple ring
+  if (skinId === "water") {
+    return (
+      <>
+        {/* Ripple ring slowly expanding around the pug */}
+        <mesh ref={shineRingRef} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.7, 0.012, 6, 32]} />
+          <meshBasicMaterial color="#7DE3E8" toneMapped={false} transparent opacity={0.55} />
+        </mesh>
+        {/* Droplet/spray sparkles */}
+        <Sparkles count={36} scale={[1.5, 1.9, 1.5]} size={2.8} speed={0.55} color="#7DE3E8" />
+        <Sparkles count={18} scale={[1.2, 1.5, 1.2]} size={1.8} speed={0.35} color="#C2F7F9" />
+      </>
+    );
+  }
+
+  // ── Cyber (robot) — circuit-board LED ring + spark sparkles
+  if (skinId === "robot") {
+    return (
+      <>
+        {/* Cyan LED data ring */}
+        <mesh ref={shineRingRef} position={[0, 0.85, 0]} rotation={[Math.PI / 2.2, 0, 0]}>
+          <torusGeometry args={[0.55, 0.022, 8, 32]} />
+          <meshStandardMaterial
+            color="#00C2FF"
+            emissive="#00C2FF"
+            emissiveIntensity={1.8}
+            metalness={0.8}
+            roughness={0.2}
+            toneMapped={false}
+          />
+        </mesh>
+        {/* Secondary slim ring at hip height */}
+        <mesh position={[0, 0.32, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.65, 0.008, 6, 28]} />
+          <meshBasicMaterial color="#FF8B2A" toneMapped={false} transparent opacity={0.7} />
+        </mesh>
+        {/* Spark sparkles tinted electric blue */}
+        <Sparkles count={22} scale={[1.4, 1.8, 1.4]} size={2.0} speed={0.6} color="#00FFE0" />
+      </>
+    );
+  }
+
+  // ── Phantom (skeletal) — ghostly translucent aura + soft wisps
+  if (skinId === "skeletal") {
+    return (
+      <>
+        {/* Pale spectral aura sphere */}
+        <mesh ref={auraRef} position={[0, 0.55, 0]}>
+          <sphereGeometry args={[1.0, 16, 14]} />
+          <meshBasicMaterial color="#A0E8FF" transparent opacity={0.08} toneMapped={false} />
+        </mesh>
+        {/* Bone-white wispy sparkles */}
+        <Sparkles count={28} scale={[1.6, 2.1, 1.6]} size={2.4} speed={0.3} color="#DDF3FF" />
+        <Sparkles count={14} scale={[1.2, 1.4, 1.2]} size={1.6} speed={0.2} color="#FFFFFF" />
       </>
     );
   }
@@ -638,11 +728,6 @@ function SkinExtras({ skinId, sk }) {
     );
   }
 
-  // ── Water — soft cyan droplet sparkles
-  if (skinId === "water") {
-    return <Sparkles count={26} scale={[1.4, 1.7, 1.4]} size={2.5} speed={0.4} color="#7DE3E8" />;
-  }
-
   // ── Ethereal — full rotating halo + outer trail
   if (skinId === "ethereal") {
     return (
@@ -661,7 +746,8 @@ function SkinExtras({ skinId, sk }) {
     );
   }
 
-  // ── Robot, skeletal — extras already baked into the body mesh elsewhere
+  // ── Robot (Cyber) and Skeletal (Phantom) are now handled above with full
+  //    visual treatments. Defensive fallback for any unmatched id.
   return null;
 }
 

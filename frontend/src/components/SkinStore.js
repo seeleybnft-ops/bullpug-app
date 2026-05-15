@@ -10,6 +10,7 @@ import axios from "axios";
 import { Store, Check, Lock, Sparkles, Zap, Crown, X, Gift, Eye, Send, ArrowRight, User, Star, Trophy } from "lucide-react";
 import { SKINS, RARITY_COLORS, getSkinById, PURCHASABLE_SKIN_IDS } from "@/config/skins";
 import { playSoundIfEnabled, clickFeedback } from "@/utils/sounds";
+import SkinPreview3D from "@/components/SkinPreview3D";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STORE_WALLET = "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT";
@@ -207,21 +208,19 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
         {/* Current Selection */}
         <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-xl border-2 border-[#00FFA3]/50 overflow-hidden bg-gradient-to-b from-slate-800 to-slate-900">
-                <img 
-                  src={getSkinById(selectedSkin).image} 
-                  alt={getSkinById(selectedSkin).name}
-                  className="w-full h-full object-contain skin-pulse"
-                  style={{ filter: `drop-shadow(0 0 10px ${getSkinById(selectedSkin).color}50)` }}
-                />
-              </div>
+            <div className="relative shrink-0">
+              <SkinPreview3D
+                skinId={selectedSkin}
+                size={120}
+                glowColor={getSkinById(selectedSkin).color}
+              />
             </div>
             <div>
               <p className="text-xs text-slate-500">Currently Equipped</p>
-              <p className="text-lg font-bold text-white">{getSkinById(selectedSkin).name}</p>
+              <p className="text-lg font-bold text-white" data-testid="equipped-skin-name">{getSkinById(selectedSkin).name}</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-[220px]">{getSkinById(selectedSkin).description}</p>
               {getSkinById(selectedSkin).bonusPercent > 0 && (
-                <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px]">
+                <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px] mt-2">
                   <Zap className="w-3 h-3 mr-1" /> +{getSkinById(selectedSkin).bonusPercent}% Bonus Points
                 </Badge>
               )}

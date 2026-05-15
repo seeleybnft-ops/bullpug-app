@@ -28,6 +28,38 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 126 — Skin Preview 3D + Identity-Specific VFX (May 15, 2026)
+
+### Identity-specific Skin VFX refined
+Each named skin now has visuals that match its display name (Inferno = flames, Aqua = water, Cyber = circuit ring, Phantom = ghost):
+- **Inferno (fire)** — animated flame plume above head, sin × dual-noise flicker on emissive + scale, orange ember sparkles
+- **Heatmap** — **differentiated from Inferno** — thermal radar rings (no flames), inner pulsing thermal sphere, two counter-rotating thermal rings at different angles
+- **Aqua (water)** — ground-level horizontal ripple ring + cyan droplet sparkles + lighter white spray particles
+- **Cyber (robot)** — bright cyan LED data ring at head height + slim amber accent ring at hip + electric-blue spark sparkles
+- **Phantom (skeletal)** — pale spectral aura sphere (1.0u radius, 8% opacity) + bone-white wispy sparkles in two layers
+- **Diamond / Gold / Silver / Radioactive / Zombie / Ethereal** — visuals from iteration 125 retained
+
+### Bullpug component refactor
+- `Bullpug` now exported + accepts new `idle` prop. In idle mode the component skips x/y position tracking and jump/slide/run animation, and instead does a slow auto-rotate (0.4 rad/s on Y) + soft bob (sin-driven 0.04u). Used by the new preview viewport.
+- Refs (`refY`, `refX`, `sliding`, `running`, `shieldActive`) become unused when idle, so the preview doesn't need to construct dummy refs.
+
+### NEW: `SkinPreview3D` component → `/app/frontend/src/components/SkinPreview3D.js`
+- Compact 120×120 (configurable) 3D viewport with full pipeline: ACES tone mapping, hemisphere + key + rim lighting, 400-star backdrop, sparkle field tinted to skin's rarity color, ground-pedestal ring glow, EffectComposer Bloom.
+- Re-uses live game `Bullpug` in idle mode + the same `SkinExtras` VFX rendered automatically based on `skinId`. So flames flicker, gold ring rotates, ethereal halo spins, cyber LED ring pulses — exactly as they will in-game.
+- Pedestal ring tinted to `getSkinById(skinId).color` so the preview always feels "themed" to the skin.
+
+### SkinStore integration
+- "Currently Equipped" card now shows the 3D preview viewport instead of the static cutout image.
+- Added the skin's `description` text + `data-testid="equipped-skin-name"` for testing.
+- Verified live: Guardian (default) renders with visible bull horns, slow auto-rotates, pedestal glows brown-ish (Guardian colour `#D4956A`).
+
+### Files touched
+- `frontend/src/pages/Phase1Runner3D.js` — Inferno/Heatmap split, Aqua/Cyber/Phantom rewrites, `Bullpug` export + idle mode
+- `frontend/src/components/SkinPreview3D.js` — NEW preview component
+- `frontend/src/components/SkinStore.js` — replaced static image card with `SkinPreview3D`
+
+
+
 ## Iteration 125 — Stage Length 2.5x + Better Bull Horns + Per-Skin Visual Identities (May 15, 2026)
 
 ### Stage progression stretched 2.5x
