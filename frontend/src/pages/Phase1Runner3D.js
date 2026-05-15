@@ -28,6 +28,8 @@ import {
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Sparkles } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { BlendFunction, KernelSize } from "postprocessing";
 import * as THREE from "three";
 import axios from "axios";
 import { toast } from "sonner";
@@ -1382,6 +1384,19 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
           runningRef={runningRef}
           skinId={skinId}
         />
+
+        {/* Postprocessing — bloom on emissive materials + light vignette for depth */}
+        <EffectComposer multisampling={0} disableNormalPass>
+          <Bloom
+            intensity={0.85}
+            luminanceThreshold={0.35}
+            luminanceSmoothing={0.85}
+            mipmapBlur
+            kernelSize={KernelSize.LARGE}
+            blendFunction={BlendFunction.SCREEN}
+          />
+          <Vignette eskil={false} offset={0.18} darkness={0.55} />
+        </EffectComposer>
       </Canvas>
     </div>
   );

@@ -28,6 +28,38 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 124 — Clear-Chat Fix + Skin Unlock + Cosmic Runner Graphics Pass + Bloom (May 15, 2026)
+
+### Bug fix — Tinkerpug "Delete" wasn't reliably clearing the chat
+- Replaced `window.confirm` (some browsers/iframes block it silently) with a **two-click confirm pattern**: first click arms the trash icon (red bg + pulse + tooltip "Click again to confirm"), second click within 4s actually clears.
+- `clearChat()` rewritten so **local state is wiped synchronously first** (messages, sessionStorage, session id rotation, debounced save cancellation), then server delete runs as best-effort. Even if the server call fails, the UI is consistent.
+- New `data-testid="ai-chat-clear"` on the trash button.
+- Verified: 2 messages → 2-click → 0 messages, "Chat cleared" toast renders. Ledger / Codex unlocks unaffected (they live in their own localStorage key).
+
+### Admin grant — all skins unlocked for `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`
+- 10 admin-granted `skin_purchases` records (all rarities) + 1 mythic `ethereal` achievement record inserted with `tx_signature: ADMIN_UNLOCK_TESTING`.
+- Verified via `GET /api/skins/owned/{wallet}` → 11/11 skins returned.
+
+### Cosmic Runner graphics pass (no-new-deps polish)
+- `Phase1Runner3D.js` Canvas now uses **ACES Filmic tone mapping** with `toneMappingExposure: 1.18` + sRGB output color space — cinematic colour curve instead of the default flat linear output.
+- **DPR capped at `[1, 1.6]`** — sharper on retina, no perf cliff on mid-tier laptops.
+- Lighting rebuilt: hemisphere fill (cool purple top, deep night bottom) + warm key directional + **purple rim light** from behind the player for cosmic silhouette pop + warm point fill from below to lift the pug's belly.
+- **Starfield density 3500 → 5000**, saturation up, plus a second `Sparkles` layer in mint-green for depth.
+- **Player drop-shadow** added (`PlayerShadow` component) — circular blob under the pug that scales/fades with jump height (1.0 at floor → 0.35 at peak ~2u). Cheap arcade-3D trick, no shadowmap cost.
+
+### Bloom pass — `@react-three/postprocessing@3.0.4` installed
+- `EffectComposer` mounted at the end of the Canvas tree with:
+  - `Bloom` (intensity 0.85, threshold 0.35, large kernel, SCREEN blend, mipmap blur) — selective glow on emissive materials only
+  - `Vignette` (offset 0.18, darkness 0.55) — soft edge fade to focus the eye on the track
+- Verified live: mint-green track edges now have a proper glow halo, meteor obstacles bloom orange, planets glow softly, stars appear sharper / dimensional. Default-skin pug still looks natural (low emissive threshold respected). Zero console errors.
+- Set up so the Ethereal halo / Radioactive / Fire skins now actually bloom into the camera at the user's wallet when they swap.
+
+### Files touched
+- `frontend/src/components/EnhancedAIAssistant.js` — two-click clear, sync state wipe, red-armed trash button
+- `frontend/src/pages/Phase1Runner3D.js` — Canvas pipeline (tonemap, DPR, lighting), PlayerShadow, EffectComposer/Bloom/Vignette
+- `frontend/package.json` — `@react-three/postprocessing@3.0.4`
+
+
 ## Iteration 123 — Tinkerpug Codex Pane + Siren Scams Tier 2 Lore (May 14, 2026)
 
 ### Codex Pane wired into the chat
