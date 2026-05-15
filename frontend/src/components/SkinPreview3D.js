@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { Stars, Sparkles } from "@react-three/drei";
+import { Stars, Sparkles, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
 import * as THREE from "three";
@@ -42,6 +42,7 @@ export default function SkinPreview3D({ skinId, size = 160, glowColor = "#D946EF
       >
         <hemisphereLight args={["#5b3a8a", "#0b0820", 0.6]} />
         <ambientLight intensity={0.35} />
+        <Environment preset="city" background={false} environmentIntensity={0.8} />
         <directionalLight position={[3, 5, 3]} intensity={1.0} color="#fff5d6" />
         <directionalLight position={[-3, 2, -3]} intensity={0.7} color="#D946EF" />
         <pointLight position={[0, 2, 1.5]} intensity={0.5} color="#00FFA3" />

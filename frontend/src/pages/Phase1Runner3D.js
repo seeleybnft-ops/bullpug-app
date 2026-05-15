@@ -27,7 +27,7 @@ import {
   useState,
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars, Sparkles } from "@react-three/drei";
+import { Stars, Sparkles, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
 import * as THREE from "three";
@@ -360,14 +360,36 @@ export function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "
     }
   });
 
-  // Shared body material spec from the skin lookup.
-  const bodyMat = (
+  // Shared body material spec from the skin lookup. Diamond gets the full
+  // PBR treatment — true transmission (light passes through), high IOR for
+  // strong refraction, clearcoat for the wet-crystal sheen, and a fixed
+  // thickness so refraction has something to bend through.
+  const bodyMat = skinId === "diamond" ? (
+    <meshPhysicalMaterial
+      color="#FFFFFF"
+      emissive="#9DEAFF"
+      emissiveIntensity={0.08}
+      metalness={0.15}
+      roughness={0.04}
+      transmission={0.95}
+      thickness={1.1}
+      ior={2.4}
+      attenuationColor="#BDF2FF"
+      attenuationDistance={2.5}
+      clearcoat={1}
+      clearcoatRoughness={0.04}
+      transparent
+      opacity={0.95}
+      envMapIntensity={1.4}
+    />
+  ) : (
     <meshStandardMaterial
       color={sk.body}
       emissive={sk.emissive}
       emissiveIntensity={sk.emissiveIntensity}
       metalness={sk.metalness}
       roughness={sk.roughness}
+      envMapIntensity={sk.metalness > 0.6 ? 1.2 : 0.6}
     />
   );
 
@@ -876,32 +898,44 @@ function SkinSurface({ skinId, sk }) {
   if (skinId === "diamond") {
     return (
       <>
-        {/* Faceted crystal shell (slightly larger than body, wireframe-ish) */}
+        {/* Faceted crystal shells (slightly larger than body, wireframe-ish).
+            Use a physical transmission material so the facet lines refract
+            against the HDR environment for that rainbow-edged sparkle. */}
         <group ref={fractalRef}>
-          <mesh position={[0, 0.62, 0]} scale={[1.18, 1.12, 1.32]}>
+          <mesh position={[0, 0.62, 0]} scale={[1.22, 1.16, 1.36]}>
             <icosahedronGeometry args={[0.5, 1]} />
-            <meshStandardMaterial
-              color="#BDF2FF"
+            <meshPhysicalMaterial
+              color="#FFFFFF"
               emissive="#7DE3E8"
-              emissiveIntensity={0.45}
-              metalness={0.9}
-              roughness={0.05}
+              emissiveIntensity={0.55}
+              metalness={0.1}
+              roughness={0.02}
+              transmission={0.6}
+              ior={2.4}
+              clearcoat={1}
+              clearcoatRoughness={0.05}
               transparent
-              opacity={0.18}
+              opacity={0.4}
               wireframe
+              envMapIntensity={1.6}
             />
           </mesh>
-          <mesh position={[0, 1.05, 0.55]} scale={[1.2, 1.2, 1.2]}>
+          <mesh position={[0, 1.05, 0.55]} scale={[1.24, 1.24, 1.24]}>
             <icosahedronGeometry args={[0.42, 1]} />
-            <meshStandardMaterial
-              color="#E8FBFF"
+            <meshPhysicalMaterial
+              color="#FFFFFF"
               emissive="#9DEAFF"
-              emissiveIntensity={0.35}
-              metalness={0.9}
-              roughness={0.05}
+              emissiveIntensity={0.45}
+              metalness={0.1}
+              roughness={0.02}
+              transmission={0.6}
+              ior={2.4}
+              clearcoat={1}
+              clearcoatRoughness={0.05}
               transparent
-              opacity={0.2}
+              opacity={0.4}
               wireframe
+              envMapIntensity={1.6}
             />
           </mesh>
         </group>
@@ -1981,6 +2015,9 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
         style={{ background: COLORS.bg, width: "100%", height: "100%" }}
       >
         <fog attach="fog" args={[COLORS.bg, 20, 75]} />
+        {/* IBL: clean HDR environment for real reflections / transmission on metallics
+            and the Diamond skin. background={false} so the cosmic backdrop stays. */}
+        <Environment preset="city" background={false} environmentIntensity={0.7} />
         {/* Ambient: a touch of cool sky fill so shadow sides aren't pitch black */}
         <hemisphereLight args={["#5b3a8a", "#0b0820", 0.55]} />
         <ambientLight intensity={0.25} />
