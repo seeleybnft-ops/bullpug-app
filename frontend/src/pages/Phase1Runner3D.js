@@ -34,6 +34,10 @@ import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Cap DPR so high-density retina displays stay smooth. 1.6 is a good balance
+// between razor-sharp edges and consistent 60fps on mid-tier laptops.
+const DPR_CAP = [1, 1.6];
+
 // ───────────────────────────────────────────── Config
 
 const LANES = [-1.6, 0, 1.6];
@@ -588,7 +592,7 @@ function Track({ speedRef }) {
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <planeGeometry args={[5.5, TILE_LEN]} />
-          <meshStandardMaterial color={i % 2 === 0 ? COLORS.trackA : COLORS.trackB} roughness={0.6} />
+          <meshStandardMaterial color={i % 2 === 0 ? COLORS.trackA : COLORS.trackB} roughness={0.55} metalness={0.1} />
         </mesh>
       ))}
       {[-2.75, 2.75].map((x, i) => (
@@ -888,6 +892,36 @@ function PowerUp({ type, refData }) {
 
 // ───────────────────────────────────────────── World
 
+// ───────────────────────────────────────────── Player drop-shadow (arcade-style)
+
+/**
+ * Cheap circular shadow blob that tracks the player's X position and fades
+ * out / shrinks as the player jumps. Sits just above the track plane.
+ * Avoids the cost of real shadow maps for hundreds of dynamic meshes.
+ */
+function PlayerShadow({ refX, refY, sliding }) {
+  const ref = useRef();
+  useFrame(() => {
+    const m = ref.current;
+    if (!m) return;
+    m.position.x = refX.current;
+    const y = refY.current || 0;
+    // Scale + opacity ramp from 1.0 at floor → 0.35 at peak jump (~y=2)
+    const t = Math.max(0, Math.min(1, y / 2.0));
+    const widen = sliding?.current ? 1.4 : 1.0;
+    m.scale.set(widen * (1 - t * 0.55), 1, 1 - t * 0.55);
+    if (m.material) {
+      m.material.opacity = 0.55 * (1 - t * 0.75);
+    }
+  });
+  return (
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]}>
+      <circleGeometry args={[0.6, 28]} />
+      <meshBasicMaterial color="#000000" transparent opacity={0.55} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function World({ onScore, onDeath, onMilestone, onPowerupChange, onStageChange, controlState, runningRef, skinId }) {
   const audio = useGameAudio(); // stable across renders (useMemo)
   const speedRef = useRef(FORWARD_SPEED_BASE);
@@ -1164,6 +1198,7 @@ function World({ onScore, onDeath, onMilestone, onPowerupChange, onStageChange, 
     <>
       <Track speedRef={speedRef} />
       <NebulaBand speedRef={speedRef} />
+      <PlayerShadow refX={playerXRef} refY={playerYRef} sliding={slidingRef} />
       <Bullpug
         refX={playerXRef}
         refY={playerYRef}
@@ -1299,17 +1334,34 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
     <div className={`relative w-full h-full ${className}`} data-testid="runner-3d-scene">
       <Canvas
         camera={{ position: [0, 2.7, 4.5], fov: 70 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        dpr={DPR_CAP}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+          toneMapping: THREE.ACESFilmicToneMapping,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
+        onCreated={({ gl }) => {
+          gl.toneMappingExposure = 1.18;
+        }}
         style={{ background: COLORS.bg, width: "100%", height: "100%" }}
       >
-        <fog attach="fog" args={[COLORS.bg, 18, 70]} />
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 8, 4]} intensity={0.8} />
-        <pointLight position={[0, 4, 0]} intensity={0.7} color="#D946EF" />
-        <pointLight position={[0, 4, -20]} intensity={0.6} color="#00FFA3" />
+        <fog attach="fog" args={[COLORS.bg, 20, 75]} />
+        {/* Ambient: a touch of cool sky fill so shadow sides aren't pitch black */}
+        <hemisphereLight args={["#5b3a8a", "#0b0820", 0.55]} />
+        <ambientLight intensity={0.25} />
+        {/* Key light — soft warm directional from above-right */}
+        <directionalLight position={[5, 9, 4]} intensity={1.1} color="#fff5d6" />
+        {/* Rim light — purple kicker from behind the runner for that "cosmic" silhouette pop */}
+        <directionalLight position={[-3, 4, -8]} intensity={0.75} color="#D946EF" />
+        <pointLight position={[0, 4, 0]} intensity={0.8} color="#D946EF" />
+        <pointLight position={[0, 4, -20]} intensity={0.7} color="#00FFA3" />
+        {/* Subtle warm fill from below to lift the pug's belly out of pure shadow */}
+        <pointLight position={[0, -2, 2]} intensity={0.3} color="#F5D300" />
 
-        <Stars radius={120} depth={60} count={3500} factor={4} fade saturation={0.6} />
-        <Sparkles count={120} scale={[40, 25, 40]} size={3} speed={0.3} color="#D946EF" />
+        <Stars radius={120} depth={60} count={5000} factor={4.5} fade saturation={0.7} />
+        <Sparkles count={180} scale={[40, 25, 40]} size={3.5} speed={0.35} color="#D946EF" />
+        <Sparkles count={90} scale={[30, 15, 30]} size={2.2} speed={0.5} color="#00FFA3" />
 
         <mesh position={[0, 5, -90]}>
           <planeGeometry args={[180, 90]} />

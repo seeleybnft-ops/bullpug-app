@@ -64,6 +64,10 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const [imagePreview, setImagePreview] = useState(null);
   const [dropShared, setDropShared] = useState(false);
   const [codexOpen, setCodexOpen] = useState(false);
+  // Two-click confirm pattern for the trash button (replaces window.confirm
+  // which can be blocked by some browsers / iframes / dismissed accidentally).
+  const [clearPending, setClearPending] = useState(false);
+  const clearPendingTimeoutRef = useRef(null);
   // Track Codex unlock count so the header badge stays in sync with the pane
   // (recomputed whenever assistant messages change). Cheap scan, runs in-effect.
   const [codexUnlockedCount, setCodexUnlockedCount] = useState(0);
@@ -370,44 +374,57 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   };
 
   const clearChat = async () => {
-    if (!window.confirm("Clear all chat history? This cannot be undone.")) return;
-    
-    // Cancel any pending save operations
+    // Two-click confirm: first click arms, second click within 4s executes.
+    if (!clearPending) {
+      setClearPending(true);
+      if (clearPendingTimeoutRef.current) clearTimeout(clearPendingTimeoutRef.current);
+      clearPendingTimeoutRef.current = setTimeout(() => setClearPending(false), 4000);
+      toast("Click delete again to confirm", { duration: 3500 });
+      return;
+    }
+    // Confirmed — disarm and clear synchronously first so the UI updates
+    // immediately, then best-effort delete on the server.
+    setClearPending(false);
+    if (clearPendingTimeoutRef.current) {
+      clearTimeout(clearPendingTimeoutRef.current);
+      clearPendingTimeoutRef.current = null;
+    }
+    // Cancel any pending save so an in-flight debounced save can't re-persist
+    // the old messages after we've cleared them.
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
-    
-    // Clear from MongoDB if wallet connected
+
+    // Clear local state IMMEDIATELY so the user sees the chat empty.
+    setMessages([]);
+    sessionStorage.removeItem("bullpug_ai_messages");
+    // Suppress the welcome useEffect from re-emitting the greeting in the same
+    // open-session (it'll re-emit naturally when the panel is closed & reopened).
+    setGreetingShown(true);
+
+    // Rotate session id so any in-flight reply gets attributed to a new thread.
+    const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(newSession);
+    sessionStorage.setItem("bullpug_ai_session", newSession);
+
+    // Server delete is best-effort and async — even if it fails, the local
+    // state is already cleared so the UI is consistent.
     if (walletAddress) {
       try {
         const response = await axios.delete(`${API}/ai/history/${walletAddress}`);
         if (response.data?.success) {
           toast.success("Chat history cleared");
+        } else {
+          toast.success("Chat cleared (local)");
         }
       } catch (e) {
         console.error("Failed to clear history from server:", e);
-        toast.error("Failed to clear chat history");
+        toast("Chat cleared locally — server sync failed");
       }
     } else {
       toast.success("Chat cleared");
     }
-    
-    // Clear local state
-    setMessages([]);
-    sessionStorage.removeItem('bullpug_ai_messages');
-    // Suppress the auto-greeting until the user closes & reopens the panel —
-    // otherwise the welcome useEffect immediately re-emits it and makes the
-    // delete button look broken.
-    setGreetingShown(true);
-    
-    // Generate new session
-    const newSession = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setSessionId(newSession);
-    sessionStorage.setItem('bullpug_ai_session', newSession);
-    
-    // Reset historyLoaded so it doesn't try to re-fetch cleared history
-    setHistoryLoaded(true);  // Keep true since we just cleared it intentionally
   };
 
   return (
@@ -486,8 +503,13 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
               {!isMinimized && (
                 <button
                   onClick={clearChat}
-                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
-                  title="Clear chat history"
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    clearPending
+                      ? "bg-red-500/30 text-red-300 ring-1 ring-red-500/60 animate-pulse"
+                      : "hover:bg-red-500/20 text-slate-400 hover:text-red-400"
+                  }`}
+                  title={clearPending ? "Click again to confirm" : "Clear chat history"}
+                  data-testid="ai-chat-clear"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
