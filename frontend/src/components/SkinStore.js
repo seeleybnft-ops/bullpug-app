@@ -211,7 +211,7 @@ export default function SkinStore({ isOpen, onClose, onSkinSelect, currentSkinId
             <div className="relative shrink-0">
               <SkinPreview3D
                 skinId={selectedSkin}
-                size={120}
+                size={160}
                 glowColor={getSkinById(selectedSkin).color}
               />
             </div>

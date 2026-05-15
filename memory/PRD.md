@@ -28,6 +28,51 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 127 — Surface Texture & Materiality Pass (May 15, 2026)
+
+### Backups saved
+- `/app/.backups/iter126/Phase1Runner3D.js` and `SkinPreview3D.js` snapshotted before this pass. Restorable if a regression is found.
+
+### NEW: `SkinSurface` component
+Surface-level texture layer rendered between the body mesh and `SkinExtras`. Each skin now has identity-matched surface detail:
+
+| Skin | Surface treatment |
+|---|---|
+| **Guardian (default)** | 10 `FurTuft` cones — top of head (between horns), cheeks, back, shoulders, in alternating brown shades for natural fur look |
+| **Ethereal** | 5 wispy cosmic fur strands in lilac/lavender on head + shoulders |
+| **Phantom (skeletal)** | 3 pale white wisps on the skull (sparse, ghostly) |
+| **Inferno (fire)** | 12 emissive **lava cracks** on body + head, each pulsing on its own phase via `sin × multi-frequency` (real seeping-fire effect, not just flames above) |
+| **Heatmap** | 9 thermal hot-patches pulsing red→orange→yellow in unison (radar-scan feel) |
+| **Diamond** | **Two faceted crystal shells** (Icosahedron geometry) wrapping body + head, wireframe transparent emissive, slowly counter-rotating — gives the prismatic fractal look |
+| **Gold** | 7 facet sheen pinpoints distributed across body + head (high-metalness emissive specks) |
+| **Silver** | 5 subtle reflective specks |
+| **Radioactive** | 9 glowing green vein patches stretched into elongated capsule shapes |
+| **Zombie** | 8 torn-flesh bumps (darker green) + 2 stitch lines crossing the back |
+| **Cyber (robot)** | Vertical chest seam + left/right side seams (dark armor lines) + 4 cyan LED dots glowing at chest corners |
+| **Aqua (water)** | 6 emissive water droplets clinging to body surface in metallic semi-transparent material |
+
+### NEW: `FurTuft` helper
+Reusable tapered-cone primitive for fur strands. Used by Guardian, Ethereal, and Phantom skins. Roughness-heavy material (0.85) so they don't look plastic.
+
+### Animations
+- **Inferno lava cracks**: each crack pulses on its own phase using `t * 5 + i*0.7` and a 2nd harmonic at `t * 11`, so the body looks like it's breathing fire rather than blinking
+- **Heatmap thermal patches**: all in unison at `t * 2.4` — feels like a thermal scan
+- **Diamond fractal shells**: counter-rotate at 0.004 rad/frame (Y) + 0.0015 rad/frame (X) — slow enough not to nauseate, fast enough to catch the eye
+
+### Preview viewport sized up
+- SkinStore preview went from 120 → **160px** to make surface details visible (cracks, fractals, fur tufts read clearly at this size).
+
+### Verified live
+- In-game Guardian render shows visible fur tufts + horns ✓
+- SkinStore 3D preview rotates with new surface texture overlay ✓
+- Zero page errors during gameplay or preview ✓
+
+### Files touched
+- `frontend/src/pages/Phase1Runner3D.js` — `SkinSurface`, `FurTuft`, animation hook
+- `frontend/src/components/SkinStore.js` — preview size 120 → 160
+
+
+
 ## Iteration 126 — Skin Preview 3D + Identity-Specific VFX (May 15, 2026)
 
 ### Identity-specific Skin VFX refined
