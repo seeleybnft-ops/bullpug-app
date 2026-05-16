@@ -366,14 +366,46 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      setIsAtBottom(true);
     }
   };
 
-  // Auto-scroll to the bottom whenever a new message arrives or the assistant
-  // starts/stops "thinking" — gives the chat the same UX as any messenger.
+  // Smart auto-scroll — only follow new messages if the user was already near
+  // the bottom when the message arrived. If they scrolled up to re-read older
+  // messages, leave them in place and show the "Scroll to bottom" pill so
+  // they choose when to jump down.
+  //
+  // wasAtBottomRef is captured BEFORE the messages array updates (via a
+  // layout effect that runs synchronously after the previous render), so by
+  // the time the post-render useEffect fires we already know whether to
+  // follow or hold.
+  const BOTTOM_SLACK_PX = 80; // "near bottom" tolerance
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const wasAtBottomRef = useRef(true);
+
+  // Track scroll position so the pill shows/hides + we know whether to follow.
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - BOTTOM_SLACK_PX;
+    wasAtBottomRef.current = atBottom;
+    setIsAtBottom(atBottom);
+  }, []);
+
+  // Wire/unwire the scroll listener whenever the container mounts (when chat
+  // is opened the ref is created; when closed it's destroyed).
   useEffect(() => {
-    // requestAnimationFrame so the layout has settled (markdown render etc)
-    // before we measure scrollHeight.
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [handleScroll, isOpen, isMinimized]);
+
+  // Auto-scroll to the bottom on new messages — but only if the user was
+  // already near the bottom. Otherwise we just leave them be and let the
+  // pill button surface the new content.
+  useEffect(() => {
+    if (!wasAtBottomRef.current) return; // user is reading history — don't yank
     const id = requestAnimationFrame(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -703,16 +735,20 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                 )}
               </div>
 
-              {/* Scroll to bottom button */}
-              <div className="absolute bottom-[70px] left-1/2 -translate-x-1/2">
-                <button
-                  onClick={scrollToBottom}
-                  className="px-3 py-1 rounded-full bg-white/10 text-slate-400 text-xs flex items-center gap-1 hover:bg-white/20 transition-colors"
-                >
-                  <ChevronDown className="w-3 h-3" />
-                  Scroll to bottom
-                </button>
-              </div>
+              {/* Scroll to bottom button — only shows when user has scrolled
+                  up. Sticks subtly so they can jump back when ready. */}
+              {!isAtBottom && (
+                <div className="absolute bottom-[70px] left-1/2 -translate-x-1/2 pointer-events-auto" data-testid="scroll-to-bottom-wrap">
+                  <button
+                    onClick={scrollToBottom}
+                    className="px-3 py-1.5 rounded-full bg-[#D946EF]/20 text-[#E9B5FF] text-xs flex items-center gap-1 hover:bg-[#D946EF]/30 ring-1 ring-[#D946EF]/40 transition-colors shadow-lg shadow-[#D946EF]/20"
+                    data-testid="scroll-to-bottom-btn"
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                    Scroll to bottom
+                  </button>
+                </div>
+              )}
 
               {/* Input Area */}
               <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 bg-[#0D0D15]">
