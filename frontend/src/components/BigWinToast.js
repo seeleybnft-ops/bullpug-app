@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Trophy, X, Coins, Sparkles } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import useBrowserNotifications from "../hooks/useBrowserNotifications";
+import { playBigWinFanfare } from "../utils/sounds";
 
 const LOGO =
   "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
@@ -59,6 +60,11 @@ export default function BigWinToast() {
       }
       return list;
     });
+
+    // 🎺 CELEBRATION — multi-note fanfare + haptic burst. Fired on every
+    // qualifying big win so the page feels alive in real-time. Silently
+    // no-ops if sound is disabled or the audio context is suspended.
+    playBigWinFanfare();
 
     // Auto-dismiss
     timersRef.current[_toastId] = setTimeout(() => dismissWin(_toastId), DISPLAY_DURATION_MS);
@@ -121,8 +127,30 @@ export default function BigWinToast() {
           <div
             key={win._toastId}
             data-testid="big-win-toast"
-            className="pointer-events-auto relative w-[340px] sm:w-[380px] rounded-2xl overflow-hidden border border-[#F5D300]/40 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] shadow-[0_0_40px_rgba(245,211,0,0.20)] animate-[slideInRight_0.4s_ease-out]"
+            className="pointer-events-auto relative w-[340px] sm:w-[380px] rounded-2xl overflow-hidden border-2 border-[#F5D300]/60 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] shadow-[0_0_60px_rgba(245,211,0,0.45),0_0_30px_rgba(0,255,163,0.25)] animate-[bigWinEntry_0.8s_cubic-bezier(0.34,1.56,0.64,1)]"
           >
+            {/* Animated halo behind the card */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-[-4px] rounded-2xl bg-gradient-to-r from-[#F5D300]/0 via-[#F5D300]/40 to-[#F5D300]/0 animate-[shimmer_2.5s_linear_infinite] opacity-60" />
+            </div>
+
+            {/* Confetti sparkle burst — 8 particles flying out from logo */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="absolute left-12 top-12 w-1.5 h-1.5 rounded-full animate-[confettiBurst_1.4s_ease-out_forwards]"
+                  style={{
+                    background: ["#F5D300", "#00FFA3", "#D946EF", "#00D4FF"][i % 4],
+                    boxShadow: "0 0 8px currentColor",
+                    "--angle": `${i * 30}deg`,
+                    "--dist": `${60 + (i % 3) * 25}px`,
+                    animationDelay: `${i * 0.04}s`,
+                  }}
+                />
+              ))}
+            </div>
+
             {/* Top accent bar */}
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#F5D300] via-[#00FFA3] to-[#D946EF]" />
 
@@ -212,6 +240,32 @@ export default function BigWinToast() {
         @keyframes slideInRight {
           from { transform: translateX(120%); opacity: 0; }
           to   { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes bigWinEntry {
+          0%   { transform: translateX(120%) scale(0.6); opacity: 0; }
+          55%  { transform: translateX(-8px) scale(1.06); opacity: 1; }
+          75%  { transform: translateX(4px) scale(0.98); }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        @keyframes shimmer {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes confettiBurst {
+          0% {
+            opacity: 1;
+            transform: translate(0, 0) scale(0.5);
+          }
+          70% { opacity: 1; }
+          100% {
+            opacity: 0;
+            transform:
+              translate(
+                calc(cos(var(--angle)) * var(--dist)),
+                calc(sin(var(--angle)) * var(--dist) - 20px)
+              )
+              scale(1.2);
+          }
         }
       `}</style>
     </div>

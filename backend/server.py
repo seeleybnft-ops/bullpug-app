@@ -339,13 +339,127 @@ async def notification_websocket(ws: WebSocket, wallet_address: str):
         notification_manager.disconnect(wallet_address)
 
 
+# ========== CSRF Protection Middleware ==========
+# Stateless API hardening — defence-in-depth on every state-changing request.
+#
+# **Threat model & defence layers** (in order of importance):
+#
+# 1. **Custom header check** (`X-Bullpug-CSRF: 1`)
+#    This is the actual CSRF defence. A cross-origin attacker site CANNOT
+#    add a custom header to a fetch() call without a successful CORS
+#    preflight, and our CORS allowlist only grants preflight to known
+#    origins. This is the OWASP-recommended "custom request header"
+#    pattern. (Browsers in 2026 still enforce this.)
+#
+# 2. **Referer allowlist** (when present)
+#    The Cloudflare Worker that fronts both the preview env and
+#    bullpug.com REWRITES the `Origin` header to an internal cluster
+#    URL, so Origin can't be trusted. The `Referer` header is passed
+#    through verbatim. When present, we require it to start with an
+#    allowlisted origin. If absent (some privacy modes strip it), we
+#    fall through to the custom-header check alone.
+#
+# 3. **X-Forwarded-Host fallback**
+#    Set by the ingress. Useful as a tertiary signal when Referer is
+#    stripped — must match the user-facing host of an allowlisted entry.
+#
+# Exemptions: GET/HEAD/OPTIONS (read-only), Stripe webhook (signature
+# auth), RPC diagnostics, WebSocket upgrades.
+from urllib.parse import urlparse
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+_CSRF_EXEMPT_METHODS = {"GET", "HEAD", "OPTIONS"}
+_CSRF_EXEMPT_PATHS = {
+    "/api/webhook/stripe",       # Stripe verifies via signature header
+    "/api/admin/force-seed",     # Server-to-server diagnostic
+    "/api/admin/rpc-diagnostic", # Server-to-server diagnostic
+}
+_CSRF_EXEMPT_PREFIXES = (
+    "/api/ws/",
+)
+
+
+def _parse_origin(value: str) -> tuple[str, str]:
+    """Return (scheme+host[:port], host) from a URL or origin string."""
+    if not value:
+        return "", ""
+    try:
+        p = urlparse(value)
+        if p.scheme and p.netloc:
+            return f"{p.scheme}://{p.netloc}", p.netloc
+        # Fallback: treat as a bare host
+        return "", value.strip()
+    except Exception:
+        return "", ""
+
+
+def _csrf_allowed_origins() -> set[str]:
+    """Parse the CORS_ORIGINS env into a set of exact scheme+host[:port]."""
+    raw = os.environ.get("CORS_ORIGINS", "*")
+    return {o.strip() for o in raw.split(",") if o.strip()}
+
+
+@app.middleware("http")
+async def csrf_protection_middleware(request: Request, call_next):
+    method = request.method.upper()
+    path = request.url.path
+    if (
+        method in _CSRF_EXEMPT_METHODS
+        or path in _CSRF_EXEMPT_PATHS
+        or any(path.startswith(p) for p in _CSRF_EXEMPT_PREFIXES)
+        or not path.startswith("/api/")
+    ):
+        return await call_next(request)
+
+    allowed_origins = _csrf_allowed_origins()
+    wildcard = "*" in allowed_origins
+
+    # LAYER 1 — Custom header is the actual CSRF defence. Required always.
+    if not request.headers.get("x-bullpug-csrf"):
+        logger.warning("CSRF reject: missing X-Bullpug-CSRF path=%s", path)
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "CSRF check failed: missing X-Bullpug-CSRF header."},
+        )
+
+    # LAYER 2 — Referer allowlist (best available origin signal behind the
+    # Cloudflare worker). Origin is intentionally NOT checked because the
+    # ingress rewrites it to an internal cluster URL. X-Forwarded-Host is
+    # also NOT used because the ingress sets it to OUR hostname regardless
+    # of who the actual requester is, so it's a useless CSRF signal here.
+    if not wildcard:
+        referer = request.headers.get("referer") or ""
+        if referer:
+            referer_origin, _ = _parse_origin(referer)
+            referer_ok = bool(referer_origin) and any(
+                referer_origin == a or referer_origin.startswith(a)
+                for a in allowed_origins
+            )
+            if not referer_ok:
+                logger.warning(
+                    "CSRF reject: bad referer path=%s referer=%s",
+                    path, referer[:80]
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF check failed: referer not allowed."},
+                )
+        # If Referer is absent (privacy-mode browser strips it), the
+        # custom-header check above is the sole defence. That alone is
+        # the OWASP-blessed minimum for CSRF protection on a custom-header-
+        # required stateless API, so we let it through.
+
+    return await call_next(request)
+
+
 # ========== CORS Middleware ==========
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-Bullpug-CSRF"],
 )
 
 

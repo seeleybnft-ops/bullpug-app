@@ -1,6 +1,6 @@
 """AI Chat Router - Enhanced conversational AI with session memory and real-time data."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import logging
@@ -831,6 +831,44 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     """
     if not EMERGENT_LLM_KEY:
         return {"response": "AI chat is currently unavailable. Please try again later.", "session_id": chat.session_id}
+
+    # ── Image attachment size cap ────────────────────────────────────────
+    # Hard-cap inbound vision-mode image attachments. Without this:
+    #   • Malicious clients can pump 50MB base64 blobs and rack up our
+    #     OpenAI vision spend (every byte travels to the model)
+    #   • Memory pressure spikes on the FastAPI worker
+    # 5 MB of base64 ≈ 3.75 MB of decoded image — plenty for a screenshot
+    # or photo, way too small for video / book / pdf abuse.
+    if chat.image:
+        # base64 length without the data-URL prefix
+        raw_b64 = chat.image.split(",", 1)[-1] if "," in chat.image else chat.image
+        # Each base64 char encodes 6 bits → bytes ≈ len * 0.75
+        approx_bytes = (len(raw_b64) * 3) // 4
+        MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB decoded
+        if approx_bytes > MAX_IMAGE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Image attachment too large ({approx_bytes // 1024} KB). "
+                       f"Max {MAX_IMAGE_BYTES // (1024 * 1024)} MB. "
+                       f"Resize / compress before retrying."
+            )
+
+    # Also cap total request payload (message + history) so a giant
+    # chat_history blob can't tunnel past the image cap.
+    MAX_MESSAGE_CHARS = 8000
+    if chat.message and len(chat.message) > MAX_MESSAGE_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Message too long ({len(chat.message)} chars). Max {MAX_MESSAGE_CHARS}."
+        )
+    MAX_HISTORY_CHARS = 60000
+    if chat.chat_history:
+        total = sum(len((m.get("content") or "")) for m in chat.chat_history if isinstance(m, dict))
+        if total > MAX_HISTORY_CHARS:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Chat history too large ({total} chars). Max {MAX_HISTORY_CHARS}."
+            )
 
     # Stable per-user identifier for daily drops: prefer the wallet address,
     # fall back to the (frontend-stable) session_id for anonymous visitors.

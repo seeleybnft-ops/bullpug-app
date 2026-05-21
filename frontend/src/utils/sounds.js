@@ -131,6 +131,8 @@ const sounds = {
   error: { frequency: 200, duration: 0.3, type: 'sawtooth', gain: 0.15 },
   hover: { frequency: 450, duration: 0.03, type: 'sine', gain: 0.05 },
   swoosh: { frequency: 300, duration: 0.15, type: 'sawtooth', gain: 0.1 },
+  // Big-win celebration — arpeggio fanfare (handled specially below)
+  bigWin: { frequency: 660, duration: 1.4, type: 'sine', gain: 0.3 },
 };
 
 // Play a tone
@@ -273,6 +275,52 @@ export function challengeCreatedFeedback() {
   feedback('challengeCreated', hapticPatterns.success);
 }
 
+/**
+ * Multi-note triumphant fanfare for big wins (>= 1 SOL). Plays a major
+ * arpeggio (C5 → E5 → G5 → C6) with a sustained high overtone and a soft
+ * sparkle "ting" on top, accompanied by a celebratory haptic pattern.
+ * Falls back silently if audio context is unavailable or the user has
+ * disabled sound.
+ */
+export function playBigWinFanfare() {
+  if (!isSoundEnabled() || !audioContext) return;
+  try {
+    if (audioContext.state === 'suspended') audioContext.resume();
+    const t0 = audioContext.currentTime;
+    // C major triad arpeggio rising into octave (C5→E5→G5→C6→E6)
+    const notes = [
+      { f: 523.25, t: 0.00, d: 0.18, gain: 0.30, type: 'triangle' }, // C5
+      { f: 659.25, t: 0.12, d: 0.18, gain: 0.30, type: 'triangle' }, // E5
+      { f: 783.99, t: 0.24, d: 0.22, gain: 0.32, type: 'triangle' }, // G5
+      { f: 1046.5, t: 0.40, d: 0.30, gain: 0.34, type: 'sine' },     // C6
+      { f: 1318.5, t: 0.60, d: 0.55, gain: 0.30, type: 'sine' },     // E6 sustain
+    ];
+    // Add a soft sparkle layer — square wave 1 octave up dropped low
+    const sparkle = [
+      { f: 2093, t: 0.65, d: 0.08, gain: 0.10, type: 'square' },
+      { f: 2349, t: 0.78, d: 0.08, gain: 0.10, type: 'square' },
+      { f: 2637, t: 0.90, d: 0.10, gain: 0.10, type: 'square' },
+    ];
+    for (const n of [...notes, ...sparkle]) {
+      const osc = audioContext.createOscillator();
+      const g = audioContext.createGain();
+      osc.type = n.type;
+      osc.frequency.setValueAtTime(n.f, t0 + n.t);
+      g.gain.setValueAtTime(0, t0 + n.t);
+      g.gain.linearRampToValueAtTime(n.gain, t0 + n.t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + n.t + n.d);
+      osc.connect(g);
+      g.connect(audioContext.destination);
+      osc.start(t0 + n.t);
+      osc.stop(t0 + n.t + n.d + 0.01);
+    }
+    // Celebration haptic — long-medium-long
+    vibrate([80, 50, 80, 50, 200]);
+  } catch (e) {
+    // Silent fail — never let audio errors break the toast
+  }
+}
+
 export default {
   playTone,
   playCoinFlipSequence,
@@ -288,6 +336,7 @@ export default {
   clickFeedback,
   betPlacedFeedback,
   challengeCreatedFeedback,
+  playBigWinFanfare,
   startBackgroundMusic,
   stopBackgroundMusic,
   setMusicVolume,

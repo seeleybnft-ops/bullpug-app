@@ -32,11 +32,12 @@ All routes are gated by a temporary access code (`PrivateAccessGate`) which must
 ### Removed / archived pages (no longer in router)
 - AI Trading Bot dashboard (hibernated)
 - Trading Journal page (data preserved, UI removed)
-- Reflections Calculator (still has backend, no route mount)
-- Exit Simulator (still has backend, no route mount)
-- Portfolio (still has backend, no route mount)
+- Reflections Calculator (route returns 404 — backend unmounted 16 May 2026)
+- Exit Simulator (route returns 404 — backend unmounted 16 May 2026)
+- Portfolio (route returns 404 — backend unmounted 16 May 2026)
+- Trading Competitions (route returns 404 — backend unmounted 16 May 2026)
 
-> **Audit note:** five backend routers (`/journal`, `/portfolio`, `/reflections`, `/staking` / exit-simulator, `/ai-trader/*`) still serve endpoints with no frontend route mounted. Decide whether to deprecate or expose.
+> **Audit note:** the orphan routers — `/journal`, `/portfolio`, `/reflections`, `/staking`, `/competitions` — are now **disabled at the router level** (unmounted from `ALL_ROUTERS`). All endpoints under those prefixes return 404. The router files remain on disk for a future relaunch; see policy comment at the top of `/app/backend/routers/__init__.py`.
 
 ---
 
@@ -100,19 +101,21 @@ Base path is `/api`. Every endpoint listed below already lives behind that prefi
 | Prefix | Status | Why kept |
 |---|---|---|
 | `/api/ai-trader/*` | Hibernated | Historical trading bot data preserved, scheduler off |
-| `/api/journal` | Hibernated | Trading journal data preserved |
 | `/api/wallet-trades` | Hibernated | Detected trades archive |
 | `/api/social-trading` | Hibernated | Copy-trading follow graph |
 | `/api/multichain-copy` | Hibernated | Multichain copy-trading follow graph |
-| `/api/competitions` | Hibernated | Trading competitions (no UI) |
 | `/api/runner-alerts` | Hibernated | Token-runner alerts |
-| `/api/portfolio` | Hibernated | Portfolio value calc |
-| `/api/reflections` | Hibernated | Reflections distribution calc |
-| `/api/staking` + `/exit-simulator` | Hibernated | Exit-strategy Monte Carlo |
 | `/api/watchlist` | Hibernated | Token watchlists |
 | `/api/checkout` (Stripe) | Wired but unsurfaced | Plushie/merch endpoints exist, frontend Shop is partial |
 
-> **Audit note:** dormant endpoints represent ~40% of the backend codebase. Decide which to delete vs. keep dormant for future relaunch. Each adds attack surface and Mongo collections that grow.
+### 2.7 Unmounted / 404 (router files preserved for relaunch)
+| Prefix | Mount status |
+|---|---|
+| `/api/journal` | **UNMOUNTED — returns 404** |
+| `/api/portfolio` | **UNMOUNTED — returns 404** |
+| `/api/reflections` | **UNMOUNTED — returns 404** |
+| `/api/staking` + `/exit-simulator` | **UNMOUNTED — returns 404** |
+| `/api/competitions` | **UNMOUNTED — returns 404** |
 
 ---
 
@@ -274,10 +277,14 @@ Auth: SIWS (Sign-In With Solana) → ed25519 signature verification → 12-hour 
 - ✅ Admin endpoints behind SIWS JWT
 - ✅ Private keys / API tokens stored in `.env`, never exposed to frontend
 - ✅ MongoDB `_id` excluded from all response payloads
-- ⚠️ `bullpug2026` access gate still active — remove for public launch
-- ⚠️ No rate limiting at API layer (Cloudflare / nginx would handle in prod)
-- ⚠️ No request body size cap on `/api/ai/chat` image attachments
-- ⚠️ No CSRF protection on POST endpoints (mitigated by wallet-signed nonces but should be explicit)
+- ✅ **Image attachment size cap on `/api/ai/chat`** — 5 MB hard limit on decoded image, 8000 char limit on message, 60000 char limit on chat_history. Returns HTTP 413 above limit, preventing OpenAI vision-API cost blowups
+- ✅ **CSRF protection middleware** on all state-changing requests (POST/PUT/DELETE/PATCH) to `/api/*`. Two-layer defence tuned for our Cloudflare-fronted infra:
+  - **Layer 1 (always-on):** custom `X-Bullpug-CSRF: 1` header required — browsers cannot forge custom headers cross-origin without successful CORS preflight, which our CORS allowlist gates. This is the OWASP-recommended pattern.
+  - **Layer 2 (when CORS_ORIGINS is non-wildcard):** `Referer` header must match the allowlist when present. The `Origin` header is intentionally **NOT** checked because the Cloudflare Worker fronting the cluster rewrites Origin to an internal cluster URL before it reaches FastAPI. `X-Forwarded-Host` is also NOT used because the ingress sets it to our own hostname regardless of who's calling, making it useless as a CSRF signal.
+  - All axios + fetch calls auto-attach the CSRF header via `/app/frontend/src/index.js`
+  - Verified: POST without header → 403, POST with header from evil.com Referer → 403, POST with valid Referer → passes
+- ✅ **Rate limiting handled at the Cloudflare edge** (confirmed via `cf-ray` / `server: cloudflare` response headers on both preview and bullpug.com). FastAPI does NOT need a separate rate-limit layer. WAF rules / rate-limit thresholds managed in the Cloudflare dashboard. If you ever move off Cloudflare, install `slowapi` rate limits inline at the FastAPI layer (`slowapi` is already imported in `server.py` but unused per-route)
+- ✅ **Strict CORS allowlist** set in `/app/backend/.env`: `CORS_ORIGINS=https://bullpug.com,https://cosmic-runner-hub.preview.emergentagent.com`. Will be picked up by production on next redeploy.
 
 ---
 
@@ -294,33 +301,37 @@ Auth: SIWS (Sign-In With Solana) → ed25519 signature verification → 12-hour 
 Priority-ordered.
 
 ### P0 — production blockers
-1. **Remove `bullpug2026` access gate** before public launch
-2. Decide what to do with hibernated AI Trading Bot routes (delete vs. keep)
+1. ~~**Remove `bullpug2026` access gate** before public launch~~ — _deliberately kept active per user 16 May 2026_
+2. ~~Decide what to do with hibernated AI Trading Bot routes (delete vs. keep)~~ — _resolved: 5 orphan routers unmounted (404), AI Trading Bot stack remains imported but dormant_
+3. ~~Confirm `HELIUS_RPC_URL` is explicitly set in production~~ — _set in preview `.env`. Production env requires manual verification by operator on the deployment dashboard_
+
+### P1 — security & ops
+4. ~~Image attachment size cap on `/api/ai/chat`~~ — **DONE** (5MB image / 8000 char message / 60000 char history, HTTP 413)
+5. ~~Explicit CSRF protection on POST endpoints~~ — **DONE** (Origin allowlist + `X-Bullpug-CSRF` header middleware)
+6. ~~Rate limiting~~ — **handled at Cloudflare edge** (confirmed via response headers)
 
 ### P1 — visible UX gaps
-3. Big-win toast broadcast not wired into UI
-4. Shop checkout flow partial — needs end-to-end test
-5. NFT Gallery is display-only — no mint flow
+7. ~~Big-win toast broadcast not wired into UI~~ — **DONE & UPGRADED** (now includes multi-note arpeggio fanfare + confetti burst + amplified entry animation + halo shimmer for wins ≥ 1 SOL)
+8. Shop checkout flow partial — **PARKED — do not action**
+9. NFT Gallery is display-only — **PARKED — do not action**
 
 ### P2 — backlog
-6. Tinkerpug progression bar (parked)
-7. Plushie merch sale flow polish
-8. Camera shake on near-miss + screen-flash on power-up pickup
-9. HDR-loading shimmer for skin preview viewport
-10. Mouse-drag rotation on skin preview
-11. Inferno lava body shader (vertex-displaced)
-12. Phantom anatomical bone skeleton rebuild
+10. Tinkerpug progression bar (parked)
+11. Camera shake on near-miss + screen-flash on power-up pickup
+12. HDR-loading shimmer for skin preview viewport
+13. Mouse-drag rotation on skin preview
+14. Inferno lava body shader (vertex-displaced)
+15. Phantom anatomical bone skeleton rebuild
 
 ### Backlog — admin / ops
-13. Admin rake-withdrawal history UI
-14. Forum + arena-chat moderation tools
-15. Wallet ban / blacklist mechanism
-16. API rate limiting (at proxy or app layer)
+16. Admin rake-withdrawal history UI
+17. Forum + arena-chat moderation tools
+18. Wallet ban / blacklist mechanism
+19. Production `CORS_ORIGINS` should be set to `https://bullpug.com` (currently `*` in preview — works because Cloudflare WAF handles edge, but explicit allowlist is defence-in-depth)
 
 ### Backlog — features
-17. $BULLPUG token entries for pot (mint + Jupiter quote)
-18. Escrow operating capital top-up monitor
-19. Trading competitions UI (route exists, no page)
+20. $BULLPUG token entries for pot (mint + Jupiter quote)
+21. Escrow operating capital top-up monitor
 
 ---
 
