@@ -9,8 +9,10 @@ import logging
 
 from utils.database import db
 from utils.config import DISTRIBUTION_WALLET, is_admin
+from utils.admin_auth import require_admin_jwt
 from utils.websocket_managers import pot_ws_manager
 from state.pot_state import get_pot, reset_pot, persist_pot, lamports_to_sol
+from fastapi import Depends
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -510,5 +512,171 @@ async def admin_escrow_status(admin_wallet: str):
             "operator_share_sol": round(operator_share_7d, 6),
             "jackpot_share_sol": round(jackpot_share_7d, 6),
         },
+    }
+
+
+@router.get("/rake-summary")
+async def rake_summary(wallet: str = Depends(require_admin_jwt)):
+    """SIWS-protected lifetime rake & jackpot rollup.
+
+    Single call returns:
+      • Lifetime gross rake collected (split by source)
+      • The 75 / 25 split (operator share vs jackpot contribution)
+      • Lifetime skin revenue + community tips (separate from bet rake)
+      • Current active jackpot balance & next payout countdown
+      • Lifetime jackpot paid out to leaderboard winners
+      • Last-payout details
+      • Current operator escrow wallet balance (on-chain)
+
+    All amounts in SOL. Source of truth is the prize_pool contribution log;
+    bet-history collections are queried for cross-checking and per-source
+    breakdown.
+    """
+    from datetime import timedelta
+    from utils.solana_payout import get_escrow_balance
+
+    now = datetime.now(timezone.utc)
+
+    # ── Lifetime bet rake (coinflip + pot) — sum from history collections ──
+    coinflip_agg = await db.betting_history.aggregate([
+        {"$group": {"_id": None, "rake_sol": {"$sum": "$rake_sol"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    pot_agg = await db.pot_results.aggregate([
+        {"$group": {"_id": None, "rake_sol": {"$sum": "$rake_sol"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    coinflip_rake_lifetime = float(coinflip_agg[0]["rake_sol"]) if coinflip_agg else 0.0
+    pot_rake_lifetime = float(pot_agg[0]["rake_sol"]) if pot_agg else 0.0
+    coinflip_count = int(coinflip_agg[0]["n"]) if coinflip_agg else 0
+    pot_count = int(pot_agg[0]["n"]) if pot_agg else 0
+    bet_rake_lifetime = coinflip_rake_lifetime + pot_rake_lifetime
+
+    # ── Lifetime skin revenue — every paid skin purchase ──
+    skin_agg = await db.skin_purchases.aggregate([
+        {"$match": {
+            "tx_signature": {"$ne": "ADMIN_UNLOCK_TESTING"},
+            "amount_sol": {"$gt": 0},
+        }},
+        {"$group": {"_id": None, "revenue_sol": {"$sum": "$amount_sol"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    skin_revenue_lifetime = float(skin_agg[0]["revenue_sol"]) if skin_agg else 0.0
+    skin_count = int(skin_agg[0]["n"]) if skin_agg else 0
+
+    # ── Lifetime community tips ──
+    tip_agg = await db.pot_tips.aggregate([
+        {"$group": {"_id": None, "tip_sol": {"$sum": "$amount_sol"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    tips_lifetime = float(tip_agg[0]["tip_sol"]) if tip_agg else 0.0
+    tip_count = int(tip_agg[0]["n"]) if tip_agg else 0
+
+    # ── 75 / 25 split applies to BET rake only. Skin purchases are 100% to
+    #    house but 25% of the skin price ALSO contributes to the jackpot
+    #    (see add_to_prize_pool source="skin_purchase"). Tips are 100% to
+    #    jackpot. We compute the operator/jackpot net flows below.
+    operator_share_lifetime = bet_rake_lifetime * 0.75 + skin_revenue_lifetime * 0.75
+    # jackpot share = 25% of bet rake + 25% of skin revenue + 100% of tips
+    jackpot_contributed_lifetime = (
+        bet_rake_lifetime * 0.25 + skin_revenue_lifetime * 0.25 + tips_lifetime
+    )
+
+    # ── Current active jackpot pool ──
+    active_pool = await db.prize_pool.find_one({"active": True}, {"_id": 0})
+    current_pool_sol = float(active_pool.get("total_sol") or 0.0) if active_pool else 0.0
+    next_payout_iso = active_pool.get("next_payout_at") if active_pool else None
+    time_until_payout_seconds = None
+    if next_payout_iso:
+        try:
+            next_dt = datetime.fromisoformat(next_payout_iso.replace("Z", "+00:00"))
+            time_until_payout_seconds = max(0, int((next_dt - now).total_seconds()))
+        except Exception:
+            pass
+
+    # ── Lifetime jackpot paid out ──
+    payouts_agg = await db.prize_payouts.aggregate([
+        {"$group": {"_id": None, "paid_sol": {"$sum": "$total_paid_sol"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    jackpot_paid_lifetime = float(payouts_agg[0]["paid_sol"]) if payouts_agg else 0.0
+    payout_cycles = int(payouts_agg[0]["n"]) if payouts_agg else 0
+
+    # ── Last payout details ──
+    last_payout_doc = await db.prize_payouts.find_one(
+        {}, {"_id": 0, "payout_at": 1, "total_paid_sol": 1, "winners": 1},
+        sort=[("payout_at", -1)],
+    )
+    last_payout = None
+    if last_payout_doc:
+        winners = last_payout_doc.get("winners") or []
+        last_payout = {
+            "payout_at": last_payout_doc.get("payout_at"),
+            "total_paid_sol": round(float(last_payout_doc.get("total_paid_sol") or 0.0), 6),
+            "winner_count": len(winners),
+            "top_winner": (
+                {
+                    "display_name": winners[0].get("display_name"),
+                    "wallet": winners[0].get("wallet_address"),
+                    "prize_sol": round(float(winners[0].get("prize_sol") or 0.0), 6),
+                }
+                if winners else None
+            ),
+        }
+
+    # ── Live escrow wallet balance ──
+    on_chain_balance = get_escrow_balance()
+
+    # ── 7-day & 24h rollups for the dashboard ──
+    seven_days_ago = (now - timedelta(days=7)).isoformat()
+    one_day_ago = (now - timedelta(days=1)).isoformat()
+
+    async def _rake_in_window(coll, since_iso: str, time_field: str) -> float:
+        agg = await db[coll].aggregate([
+            {"$match": {time_field: {"$gte": since_iso}}},
+            {"$group": {"_id": None, "rake_sol": {"$sum": "$rake_sol"}}},
+        ]).to_list(1)
+        return float(agg[0]["rake_sol"]) if agg else 0.0
+
+    coinflip_rake_7d = await _rake_in_window("betting_history", seven_days_ago, "timestamp")
+    pot_rake_7d = await _rake_in_window("pot_results", seven_days_ago, "drawn_at")
+    coinflip_rake_24h = await _rake_in_window("betting_history", one_day_ago, "timestamp")
+    pot_rake_24h = await _rake_in_window("pot_results", one_day_ago, "drawn_at")
+
+    return {
+        "checked_at": now.isoformat(),
+        "operator_wallet": DISTRIBUTION_WALLET,
+        "on_chain_balance_sol": round(on_chain_balance, 6) if on_chain_balance is not None else None,
+        "lifetime": {
+            "bet_rake_sol": round(bet_rake_lifetime, 6),
+            "coinflip_rake_sol": round(coinflip_rake_lifetime, 6),
+            "coinflip_count": coinflip_count,
+            "pot_rake_sol": round(pot_rake_lifetime, 6),
+            "pot_count": pot_count,
+            "skin_revenue_sol": round(skin_revenue_lifetime, 6),
+            "skin_count": skin_count,
+            "tips_sol": round(tips_lifetime, 6),
+            "tip_count": tip_count,
+            "operator_share_sol": round(operator_share_lifetime, 6),
+            "jackpot_contributed_sol": round(jackpot_contributed_lifetime, 6),
+            "jackpot_paid_sol": round(jackpot_paid_lifetime, 6),
+            "payout_cycles": payout_cycles,
+        },
+        "current_cycle": {
+            "pool_sol": round(current_pool_sol, 6),
+            "next_payout_at": next_payout_iso,
+            "time_until_payout_seconds": time_until_payout_seconds,
+            "last_payout": last_payout,
+        },
+        "rake_24h": {
+            "total_sol": round(coinflip_rake_24h + pot_rake_24h, 6),
+            "coinflip_sol": round(coinflip_rake_24h, 6),
+            "pot_sol": round(pot_rake_24h, 6),
+            "operator_share_sol": round((coinflip_rake_24h + pot_rake_24h) * 0.75, 6),
+            "jackpot_share_sol": round((coinflip_rake_24h + pot_rake_24h) * 0.25, 6),
+        },
+        "rake_7d": {
+            "total_sol": round(coinflip_rake_7d + pot_rake_7d, 6),
+            "coinflip_sol": round(coinflip_rake_7d, 6),
+            "pot_sol": round(pot_rake_7d, 6),
+            "operator_share_sol": round((coinflip_rake_7d + pot_rake_7d) * 0.75, 6),
+            "jackpot_share_sol": round((coinflip_rake_7d + pot_rake_7d) * 0.25, 6),
+        },
+        "_authenticated_as": wallet,
     }
 
