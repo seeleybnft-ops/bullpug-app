@@ -12,6 +12,7 @@ import {
   Activity, Sparkles, ExternalLink
 } from "lucide-react";
 import EscrowHealthCard from "@/components/EscrowHealthCard";
+import RakeJackpotCard from "@/components/RakeJackpotCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -227,6 +228,9 @@ export default function AdminPanel() {
             <TabsTrigger value="escrow" className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF]">
               Escrow
             </TabsTrigger>
+            <TabsTrigger value="rake" className="data-[state=active]:bg-[#F5D300]/10 data-[state=active]:text-[#F5D300]">
+              Rake &amp; Jackpot
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="challenges">
@@ -342,6 +346,10 @@ export default function AdminPanel() {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="rake">
+            <RakeJackpotCard />
           </TabsContent>
         </Tabs>
       </div>
