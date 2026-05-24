@@ -27,7 +27,7 @@ import {
   useState,
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars, Sparkles, Environment } from "@react-three/drei";
+import { Stars, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
 import * as THREE from "three";
@@ -2015,9 +2015,6 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
         style={{ background: COLORS.bg, width: "100%", height: "100%" }}
       >
         <fog attach="fog" args={[COLORS.bg, 20, 75]} />
-        {/* IBL: clean HDR environment for real reflections / transmission on metallics
-            and the Diamond skin. background={false} so the cosmic backdrop stays. */}
-        <Environment preset="city" background={false} environmentIntensity={0.7} />
         {/* Ambient: a touch of cool sky fill so shadow sides aren't pitch black */}
         <hemisphereLight args={["#5b3a8a", "#0b0820", 0.55]} />
         <ambientLight intensity={0.25} />
