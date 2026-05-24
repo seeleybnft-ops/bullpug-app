@@ -9,8 +9,11 @@
  * never crowds the regular chat experience.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Lock, Sparkles, X } from "lucide-react";
+import axios from "axios";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // id ↔ display + match rules. Keep these light — we want false-positives to
 // be rare. All keywords are checked case-insensitively against the joined
@@ -170,10 +173,46 @@ export function CodexButton({ unlockedCount, open, onClick }) {
   );
 }
 
-export default function TinkerpugCodex({ messages, open, onClose }) {
+export default function TinkerpugCodex({ messages, open, onClose, walletAddress }) {
+  // localStorage seeds the initial set instantly so the pane doesn't flicker
+  // on mount. Server hydration runs once a wallet is connected — at that
+  // point we MERGE (union) server + local so progress from any device joins
+  // up onto the wallet's permanent record.
   const [unlocked, setUnlocked] = useState(() => loadUnlocked());
+  const lastSyncedSnapshotRef = useRef(""); // serialised set we last POSTed
+  const lastHydratedWalletRef = useRef(null);
 
-  // Whenever new assistant messages land, rescan and persist new unlocks.
+  // ── Server hydration on wallet connect ─────────────────────────────────
+  // First time a wallet shows up (and on every wallet change), pull the
+  // server-side unlock list and union it with the local set. After that,
+  // any new local unlocks are pushed back in the save-on-change effect
+  // below.
+  useEffect(() => {
+    if (!walletAddress) return;
+    if (lastHydratedWalletRef.current === walletAddress) return;
+    lastHydratedWalletRef.current = walletAddress;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await axios.get(`${API}/ai/codex/${walletAddress}`);
+        const serverIds = Array.isArray(data?.unlocked_ids) ? data.unlocked_ids : [];
+        if (cancelled || serverIds.length === 0) return;
+        setUnlocked((prev) => {
+          const merged = new Set(prev);
+          for (const id of serverIds) merged.add(id);
+          if (merged.size !== prev.size) persist(merged);
+          return merged;
+        });
+      } catch (e) {
+        // Server unreachable — local set still works, sync will retry on next change.
+        // eslint-disable-next-line no-console
+        console.debug("Codex hydrate failed (will retry on next unlock):", e?.message || e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [walletAddress]);
+
+  // ── Whenever new assistant messages land, rescan and persist new unlocks ─
   useEffect(() => {
     setUnlocked((prev) => {
       const next = detectUnlocked(messages || [], prev);
@@ -181,6 +220,31 @@ export default function TinkerpugCodex({ messages, open, onClose }) {
       return next;
     });
   }, [messages]);
+
+  // ── Sync to server whenever the unlocked set changes (debounced via
+  //     deduped snapshot) and a wallet is connected. Server uses upsert
+  //     with merge semantics so concurrent writes from another device
+  //     can't accidentally regress someone's progress. ────────────────────
+  useEffect(() => {
+    if (!walletAddress) return;
+    if (unlocked.size === 0) return;
+    const snapshot = JSON.stringify([...unlocked].sort());
+    if (snapshot === lastSyncedSnapshotRef.current) return;
+    lastSyncedSnapshotRef.current = snapshot;
+    (async () => {
+      try {
+        await axios.post(`${API}/ai/codex/save`, {
+          wallet_address: walletAddress,
+          unlocked_ids: [...unlocked],
+        });
+      } catch (e) {
+        // Allow retry on next change — local copy is intact regardless.
+        lastSyncedSnapshotRef.current = ""; // unblock retry
+        // eslint-disable-next-line no-console
+        console.debug("Codex sync failed (will retry on next unlock):", e?.message || e);
+      }
+    })();
+  }, [unlocked, walletAddress]);
 
   const grouped = useMemo(() => {
     return CODEX_ENTRIES.map((e) => ({ ...e, unlockedYet: unlocked.has(e.id) }));

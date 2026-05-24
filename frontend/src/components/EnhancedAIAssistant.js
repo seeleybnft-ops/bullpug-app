@@ -259,10 +259,20 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
         daily_drop_last_seen: (() => {
           try { return localStorage.getItem("bullpug_daily_drop_last_seen") || null; } catch (e) { return null; }
         })(),
-        chat_history: messages.slice(-10).map(m => ({
-          role: m.role,
-          content: m.content
-        }))
+        chat_history: messages.slice(-40).map(m => {
+          // Surface image attachments + generated images into the text content
+          // so the LLM keeps full conversational context — including referent
+          // resolution ("show me the OTHER side of it" → it = previously shown
+          // image). Without this, only role+content survived and every image
+          // turn became a blind hand-off.
+          const parts = [m.content || ""];
+          if (m.image) parts.push("[user attached an image]");
+          if (m.generatedImage) parts.push("[assistant generated an image and showed it inline]");
+          return {
+            role: m.role,
+            content: parts.filter(Boolean).join("\n").trim(),
+          };
+        })
       };
 
       // If there's an image, convert to base64 and send
@@ -612,6 +622,7 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
                 messages={messages}
                 open={codexOpen}
                 onClose={() => setCodexOpen(false)}
+                walletAddress={walletAddress}
               />
               <div 
                 ref={messagesContainerRef}

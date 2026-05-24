@@ -2221,7 +2221,11 @@ async def save_chat_history(request: SaveChatHistoryRequest):
                 "$set": {
                     "wallet_address": request.wallet_address,
                     "session_id": request.session_id,
-                    "messages": [m.dict() for m in request.messages[-50:]],  # Keep last 50 messages
+                    # Persist a generous history so a long-running thread can
+                    # resolve referents from messages well outside the live
+                    # window. 200 entries ≈ a week of casual chat. Older
+                    # entries are dropped to bound document size.
+                    "messages": [m.dict() for m in request.messages[-200:]],
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
             },
@@ -2282,6 +2286,70 @@ async def clear_chat_history(wallet_address: str):
         }
     except Exception as e:
         logger.error(f"Failed to clear chat history: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
+# TINKERPUG CODEX — wallet-bound lore unlock progress
+# ============================================================================
+# Unlocked lore entry IDs persist to MongoDB keyed by wallet so progress
+# survives chat deletion, wallet reconnect, browser cache clears, and
+# device switches. Anonymous users (no wallet) continue to use the
+# localStorage fallback handled entirely on the frontend.
+
+class CodexSaveRequest(BaseModel):
+    wallet_address: str
+    unlocked_ids: list[str]
+
+
+@router.get("/codex/{wallet_address}")
+async def get_codex_unlocks(wallet_address: str):
+    """Return the union of unlocked Codex entry IDs for this wallet."""
+    try:
+        doc = await db.tinkerpug_codex.find_one(
+            {"wallet_address": wallet_address},
+            {"_id": 0, "unlocked_ids": 1, "updated_at": 1},
+        )
+        return {
+            "success": True,
+            "unlocked_ids": doc.get("unlocked_ids", []) if doc else [],
+            "updated_at": doc.get("updated_at") if doc else None,
+        }
+    except Exception as e:
+        logger.error(f"Failed to load codex unlocks: {e}")
+        return {"success": False, "unlocked_ids": [], "error": str(e)}
+
+
+@router.post("/codex/save")
+async def save_codex_unlocks(request: CodexSaveRequest):
+    """Upsert the unlocked Codex entry IDs for this wallet.
+
+    The frontend sends the FULL set every time (not just new ones). The
+    server stores the union with whatever it has on file so reconnecting
+    from a different device merges rather than overwrites.
+    """
+    try:
+        wallet = request.wallet_address
+        client_set = set(request.unlocked_ids or [])
+
+        existing = await db.tinkerpug_codex.find_one(
+            {"wallet_address": wallet}, {"_id": 0, "unlocked_ids": 1}
+        )
+        server_set = set(existing.get("unlocked_ids", [])) if existing else set()
+        merged = sorted(client_set | server_set)
+
+        await db.tinkerpug_codex.update_one(
+            {"wallet_address": wallet},
+            {"$set": {
+                "wallet_address": wallet,
+                "unlocked_ids": merged,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            upsert=True,
+        )
+        return {"success": True, "unlocked_ids": merged, "count": len(merged)}
+    except Exception as e:
+        logger.error(f"Failed to save codex unlocks: {e}")
         return {"success": False, "error": str(e)}
 
 
