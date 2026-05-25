@@ -28,6 +28,24 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 157 — Guardian Sheen Restored via Procedural CubeTexture (Feb 25, 2026)
+
+Re-enabled the soft-fuzz `sheen` rim on the Guardian default skin, gated behind a tiny procedural `THREE.CubeTexture` env map so the previous "missing-IBL → sheen renders black/invisible" failure can't repeat. Other 10 skins stay on the safe no-sheen path from iteration 156.
+
+### Implementation
+- New `useMemo` block inside `SculptedPugBody` builds a 6-face 64×64 canvas `THREE.CubeTexture` only when `skinId === "default"` (memo key `isGuardian`). Faces use simple warm-sky / mid-tone / deep-shadow vertical gradients — no network fetch, ~24 KB of canvas memory total. `colorSpace = SRGBColorSpace`.
+- Material factory: when `isGuardian`, returns a `meshPhysicalMaterial` with `sheen: 0.55 / sheenRoughness: 0.55 / sheenColor: shade(sk.body, -0.25) / envMap: guardianEnvMap / envMapIntensity: 0.9`. Other skins hit the existing no-sheen branch.
+- Snout, nose pad, and ears (the three inline materials) sprinkle in `{ sheen, sheenColor, envMap }` via a Guardian-gated spread so the sheen+envMap is consistent across all of Guardian's parts.
+- `sheenRimColor` and `darkSheenColor` memos restored (they were dropped in 156); both are still derived from the skin palette via `shade()`.
+
+### Backup
+Pre-restore SculptedPugBody snapshot saved at `/app/memory/backups/SculptedPugBody.2026-02-25.no-sheen.bak.jsx` (311 lines) for fast revert if the cube env approach causes any issue at scale.
+
+### Tested
+- SkinStore Guardian preview: full chunky pug renders cleanly with visible warm rim glow (sheen working).
+- `/game/3d` regression on Gold, Fire (Inferno), Radioactive: all bodies render complete, lava cracks / flame plume / glowing-eye / orbital ring effects all intact, no glitching.
+- Lint clean, no console errors.
+
 ## Iteration 156 — Sculpted Body Glitching Bug Fix (Feb 25, 2026)
 
 User reported bodies "glitching in and out" in both the SkinStore preview and in-game (artifacts showed Guardian preview rendering as scattered face fragments + pedestal; Gold in-game rear view showing only horns + paws + orbital ring with the entire torso/head missing).

@@ -368,18 +368,60 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
   const isDiamond = skinId === "diamond";
   const isMetal = sk.metalness >= 0.6;
   const isGlow = sk.emissiveIntensity > 0.3;
+  // Guardian (default) gets the soft-fuzz sheen rim back, paired with a
+  // tiny procedural CubeTexture env map below. Other skins still go
+  // through the no-sheen path that fixed the iteration-156 glitch.
+  const isGuardian = skinId === "default";
 
   // Derived accent colors. Brow is a slightly darker shade of the body
-  // (10%); wrinkles are clearly darker (28%). We deliberately do NOT use
-  // the `sheen` extension — without an IBL env map (we strip `<Environment>`
-  // to avoid the Cloudflare-proxied HDR CloneError) sheen renders invalid
-  // on most GPUs and the affected meshes drop out intermittently.
+  // (10%); wrinkles are clearly darker (28%). Sheen rim is a 25%-lighter
+  // tint of the body — only consumed by the Guardian material.
   const browColor = useMemo(() => shade(sk.body, 0.1), [sk.body]);
   const wrinkleColor = useMemo(() => shade(sk.body, 0.28), [sk.body]);
   const creaseColor = useMemo(() => shade(sk.dark, 0.4), [sk.dark]);
+  const sheenRimColor = useMemo(() => shade(sk.body, -0.25), [sk.body]);
+  const darkSheenColor = useMemo(() => shade(sk.dark, -0.3), [sk.dark]);
+
+  // Procedural CubeTexture env map — only built when Guardian is equipped.
+  // Six 64×64 canvas faces with soft warm-sky / cool-shadow gradients give
+  // `meshPhysicalMaterial.sheen` and `clearcoat` something to sample
+  // without touching the buggy drei `<Environment>` HDR loader (which
+  // crashes through the Cloudflare-proxied preview with a postMessage
+  // CloneError).
+  const guardianEnvMap = useMemo(() => {
+    if (!isGuardian || typeof document === "undefined") return null;
+    const size = 64;
+    const faces = [];
+    // Cube face order: +X, -X, +Y (top), -Y (bottom), +Z, -Z
+    const faceColors = [
+      ["#C9A074", "#3A2718"], // +X side  (warm mid → shadow)
+      ["#C9A074", "#3A2718"], // -X side
+      ["#FFE9CC", "#E8C18A"], // +Y top   (sky)
+      ["#2A1A10", "#0A0805"], // -Y bottom (deep shadow)
+      ["#C9A074", "#3A2718"], // +Z side
+      ["#C9A074", "#3A2718"], // -Z side
+    ];
+    for (let i = 0; i < 6; i++) {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createLinearGradient(0, 0, 0, size);
+      grad.addColorStop(0, faceColors[i][0]);
+      grad.addColorStop(1, faceColors[i][1]);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      faces.push(canvas);
+    }
+    const cubeTex = new THREE.CubeTexture(faces);
+    cubeTex.colorSpace = THREE.SRGBColorSpace;
+    cubeTex.needsUpdate = true;
+    return cubeTex;
+  }, [isGuardian]);
 
   // Adaptive material factory. Diamond branches into transmission for
-  // body parts (we still allow per-call overrides for paws/jowls etc).
+  // body parts. Guardian re-enables sheen (backed by the procedural
+  // cube env map). All other skins stay on the safe no-sheen path.
   const skin = (overrides = {}) => {
     if (isDiamond && !overrides.color) {
       return (
@@ -399,6 +441,25 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
           transparent
           opacity={0.95}
           envMapIntensity={1.4}
+          {...overrides}
+        />
+      );
+    }
+    if (isGuardian) {
+      return (
+        <meshPhysicalMaterial
+          color={sk.body}
+          emissive={sk.emissive}
+          emissiveIntensity={sk.emissiveIntensity}
+          metalness={sk.metalness}
+          roughness={sk.roughness}
+          sheen={0.55}
+          sheenRoughness={0.55}
+          sheenColor={sheenRimColor}
+          clearcoat={0.3}
+          clearcoatRoughness={0.5}
+          envMap={guardianEnvMap}
+          envMapIntensity={0.9}
           {...overrides}
         />
       );
@@ -540,6 +601,11 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.78}
             metalness={sk.metalness * 0.5}
             clearcoat={0.05}
+            {...(isGuardian ? {
+              sheen: 0.3,
+              sheenColor: darkSheenColor,
+              envMap: guardianEnvMap,
+            } : {})}
           />
         </mesh>
         {/* Signature snout crease */}
@@ -556,6 +622,11 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             metalness={0.15}
             clearcoat={1.0}
             clearcoatRoughness={0.1}
+            {...(isGuardian ? {
+              sheen: 0.4,
+              sheenColor: "#553028",
+              envMap: guardianEnvMap,
+            } : {})}
           />
         </mesh>
         {/* Nostril dots */}
@@ -627,6 +698,11 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.82}
             metalness={sk.metalness * 0.6}
             clearcoat={0.1}
+            {...(isGuardian ? {
+              sheen: 0.5,
+              sheenColor: darkSheenColor,
+              envMap: guardianEnvMap,
+            } : {})}
           />
         </mesh>
         <mesh position={[0.34, 0.14, -0.02]} rotation={[0.3, 0.15, 0.55]} scale={[0.7, 1.45, 0.55]}>
@@ -636,6 +712,11 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.82}
             metalness={sk.metalness * 0.6}
             clearcoat={0.1}
+            {...(isGuardian ? {
+              sheen: 0.5,
+              sheenColor: darkSheenColor,
+              envMap: guardianEnvMap,
+            } : {})}
           />
         </mesh>
         {/* HORNS — every pug wears them */}
