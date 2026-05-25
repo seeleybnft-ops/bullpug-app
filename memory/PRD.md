@@ -28,6 +28,25 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 156 — Sculpted Body Glitching Bug Fix (Feb 25, 2026)
+
+User reported bodies "glitching in and out" in both the SkinStore preview and in-game (artifacts showed Guardian preview rendering as scattered face fragments + pedestal; Gold in-game rear view showing only horns + paws + orbital ring with the entire torso/head missing).
+
+### Root cause
+`meshPhysicalMaterial` with the `sheen` extension was failing silently on the in-browser WebGL context. Three.js's sheen implementation (`KHR_materials_sheen`-style soft fuzz) requires the IBL env map to compute its rim term. When we stripped `<Environment>` (iteration 152, to fix the Cloudflare-proxied HDR `CloneError`), the env map went with it — leaving `sheen` to produce invalid (NaN/black) output. On affected GPUs the entire mesh dropped out intermittently. The Horns (`meshStandardMaterial`, no sheen) and Legs (smaller capsule, sheen still in factory but lower polycount sometimes survived) were the inconsistent survivors.
+
+### Fix
+- Removed `sheen`, `sheenRoughness`, `sheenColor` from the `skin()` material factory in `SculptedPugBody`.
+- Removed `sheen` / `sheenColor` from the three inline `meshPhysicalMaterial` usages (snout, nose pad, ears).
+- Bumped `clearcoat` slightly (0.2 → 0.3 organic, 0.5 → 0.6 metallic) and added `clearcoat: 0.1` on ears to compensate for the lost soft glow without re-enabling sheen.
+- Stripped the 3 `castShadow` props (chest sphere, head, leg upper) — there's no shadow renderer configured, so `castShadow={true}` does nothing useful and can confuse some drivers.
+- Dropped the now-unused `sheenRimColor` / `darkSheenColor` memoized variables.
+
+### Tested
+- SkinStore Guardian preview: full pug renders cleanly (chunky cream body, head, dark muzzle, floppy ear, horns, legs, pedestal — no fragments).
+- Gold in-game `/game/3d` rear view: complete golden body + head + horns + orbital ring + paws.
+- No console errors, lint clean.
+
 ## Iteration 155 — Sculpted PugBody Applied to All Skins (Feb 25, 2026)
 
 User confirmed the sculpted Guardian look. Rolled the same procedural sculpt out to every non-skeletal skin (10 skins): Ethereal, Diamond, Gold, Silver, Heatmap, Radioactive, Zombie, Aqua, Inferno, Cyber. Skeletal still uses its dedicated `SkeletonBody` (full skull/ribcage/spine model).

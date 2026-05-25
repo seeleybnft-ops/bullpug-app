@@ -370,12 +370,12 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
   const isGlow = sk.emissiveIntensity > 0.3;
 
   // Derived accent colors. Brow is a slightly darker shade of the body
-  // (10%); wrinkles are clearly darker (28%); sheen rim is a 25%-lighter
-  // tint that catches the rim light like soft fuzz.
+  // (10%); wrinkles are clearly darker (28%). We deliberately do NOT use
+  // the `sheen` extension — without an IBL env map (we strip `<Environment>`
+  // to avoid the Cloudflare-proxied HDR CloneError) sheen renders invalid
+  // on most GPUs and the affected meshes drop out intermittently.
   const browColor = useMemo(() => shade(sk.body, 0.1), [sk.body]);
   const wrinkleColor = useMemo(() => shade(sk.body, 0.28), [sk.body]);
-  const sheenRimColor = useMemo(() => shade(sk.body, -0.25), [sk.body]);
-  const darkSheenColor = useMemo(() => shade(sk.dark, -0.3), [sk.dark]);
   const creaseColor = useMemo(() => shade(sk.dark, 0.4), [sk.dark]);
 
   // Adaptive material factory. Diamond branches into transmission for
@@ -410,11 +410,8 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
         emissiveIntensity={sk.emissiveIntensity}
         metalness={sk.metalness}
         roughness={sk.roughness}
-        sheen={isMetal ? 0.0 : 0.55}
-        sheenRoughness={0.55}
-        sheenColor={sheenRimColor}
-        clearcoat={isMetal ? 0.5 : 0.2}
-        clearcoatRoughness={isMetal ? 0.15 : 0.55}
+        clearcoat={isMetal ? 0.6 : 0.3}
+        clearcoatRoughness={isMetal ? 0.15 : 0.5}
         envMapIntensity={isMetal ? 1.2 : 0.65}
         {...overrides}
       />
@@ -442,7 +439,7 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
   // forward/backward depending on whether this is a front or back leg.
   const Leg = ({ refLeg, x, z, zSign }) => (
     <group ref={refLeg} position={[x, 0.22, z]}>
-      <mesh position={[0, -0.14, 0]} castShadow>
+      <mesh position={[0, -0.14, 0]}>
         <capsuleGeometry args={[0.14, 0.16, 16, 28]} />
         {skin()}
       </mesh>
@@ -462,7 +459,7 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
   return (
     <>
       {/* ───── BODY — pear-shaped barrel ───── */}
-      <mesh position={[0, 0.6, 0.22]} scale={[1.2, 1.08, 1.0]} castShadow>
+      <mesh position={[0, 0.6, 0.22]} scale={[1.2, 1.08, 1.0]}>
         <sphereGeometry args={[0.46, 64, 48]} />
         {skin()}
       </mesh>
@@ -497,7 +494,7 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
 
       {/* ───── HEAD ───── */}
       <group ref={head} position={[0, 1.08, 0.55]}>
-        <mesh scale={[1.1, 0.95, 1.0]} castShadow>
+        <mesh scale={[1.1, 0.95, 1.0]}>
           <sphereGeometry args={[0.4, 64, 48]} />
           {skin()}
         </mesh>
@@ -542,8 +539,6 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             color={sk.dark}
             roughness={0.78}
             metalness={sk.metalness * 0.5}
-            sheen={isMetal ? 0 : 0.3}
-            sheenColor={darkSheenColor}
             clearcoat={0.05}
           />
         </mesh>
@@ -561,8 +556,6 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             metalness={0.15}
             clearcoat={1.0}
             clearcoatRoughness={0.1}
-            sheen={0.4}
-            sheenColor="#553028"
           />
         </mesh>
         {/* Nostril dots */}
@@ -633,8 +626,7 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             color={sk.dark}
             roughness={0.82}
             metalness={sk.metalness * 0.6}
-            sheen={isMetal ? 0 : 0.5}
-            sheenColor={darkSheenColor}
+            clearcoat={0.1}
           />
         </mesh>
         <mesh position={[0.34, 0.14, -0.02]} rotation={[0.3, 0.15, 0.55]} scale={[0.7, 1.45, 0.55]}>
@@ -643,8 +635,7 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             color={sk.dark}
             roughness={0.82}
             metalness={sk.metalness * 0.6}
-            sheen={isMetal ? 0 : 0.5}
-            sheenColor={darkSheenColor}
+            clearcoat={0.1}
           />
         </mesh>
         {/* HORNS — every pug wears them */}
