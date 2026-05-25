@@ -27,6 +27,7 @@ import AdminDropVault from "@/pages/AdminDropVault";
 import AdminAuthGate from "@/components/AdminAuthGate";
 import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
+import WhatsNewToast from "@/components/WhatsNewToast";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
@@ -144,6 +145,7 @@ function App() {
                 <EnhancedAIAssistant />
                 <BigWinToast />
                 <NotificationPermissionPrompt />
+                <WhatsNewToast />
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>

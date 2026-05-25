@@ -28,6 +28,24 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 163 — "What's New in this build" Toast (Feb 25, 2026)
+
+One-shot post-deploy announcement so returning users notice the recent batch (Pug Pit theming, sculpted pugs, blackhole fix, howl audio).
+
+### Implementation
+- New component `/app/frontend/src/components/WhatsNewToast.js`. Mounts globally next to `BigWinToast` inside the routed app shell in `App.js`.
+- Uses `sonner.toast.custom` with a glass-card body, lucide `Sparkles` header icon, magenta `▸` bullet markers, and a green "GOT IT" dismiss button. Position `bottom-right`, duration 12s, but dismiss-on-click via the explicit button.
+- Suppression key: `localStorage.bullpugLastSeenBuild`. Compares against the in-file `BUILD_ID` constant (`"2026-02-25-pug-pit"`). If they match, the effect returns early. After firing, the new BUILD_ID is written.
+- 2.5s mount-delay before display so the page can settle / wallet adapters finish bootstrapping before the toast appears.
+- All `localStorage` access wrapped in try/catch — in private browsing / sandboxed iframes the storage call throws SecurityError. Worst case: those users see the toast every visit. Acceptable degradation; we never crash.
+- `HIGHLIGHTS` constant drives the bullet list. Punchy, player-facing copy (no "iteration 162" jargon). Currently: Pug Pit fighting-game theme; Sculpted pugs with PBR; Black hole readability fix; Howl+bark audio.
+
+### How to use next time
+Bump `BUILD_ID` in `WhatsNewToast.js` and update the `HIGHLIGHTS` array. Every user (including those who dismissed the previous one) will see the new announcement on their next visit.
+
+### Tested
+Cleared `bullpugLastSeenBuild` in DevTools, reloaded `/` — toast fires in the bottom-right after the 2.5s delay with all 4 highlights + dismiss button visible. No PAGEERRORs. Lint clean.
+
 ## Iteration 162 — Pug Pit Audio: Pack Howl + Bone-Drop Bark + Animation Backups (Feb 25, 2026)
 
 ### Audio wired (programmatic, no asset files)
