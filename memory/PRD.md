@@ -28,6 +28,27 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 152 — Guardian Skin PBR Remodel + Real CloneError Fix (Feb 25, 2026)
+
+### Bug fix: lingering HDR Environment crash (CloneError)
+- `SkinPreview3D.js` still had `<Environment preset="city">` from drei (the previous fork claimed it was removed but only the game canvas had been cleaned). Opening the Skin Store on a fresh session crashed with `Could not load potsdamer_platz_1k.hdr: Failed to execute 'postMessage' on 'Window': Request object could not be cloned.` because drei's HDR loader posts a non-cloneable request through the Cloudflare-proxied preview.
+- Stripped the `Environment` import + tag from `SkinPreview3D.js`. Drei is no longer touching `postMessage`. Skin Store opens cleanly.
+
+### Default "Guardian" skin: high-poly + tuned PBR pass (option d)
+- New `GuardianBody` component in `Phase1Runner3D.js` is rendered only when `skinId === "default"`. All other skins still use the original sphere-stack so nothing else is affected.
+- Geometry bumped from `sphereGeometry(0.5, 28, 22)` to `(0.5, 64, 48)` for body + head; capsule legs from `(8, 14)` to `(16, 28)`; tail torus from `(8, 18)` to `(16, 32)`.
+- Sculpted detail added on top of the primitives: heavy pug brow ridge, wrinkle bar, real left/right jowls, pushed-in muzzle, wet clearcoated nose pad, amber eyes with catch-light specs, floppy velvet ears, paw pads with three toe nubs, tip-knob on the curly tail.
+- Tuned `meshPhysicalMaterial` everywhere on the model: `sheen=0.55` with warm `#FFB888` sheen color (faux-subsurface fuzz read), `clearcoat=0.2 / clearcoatRoughness=0.55` for healthy skin gloss, `roughness=0.58`, `metalness=0`. Nose pad and eyes carry full `clearcoat=1.0` for the wet read.
+- Refs (`frontLeft`, `frontRight`, `backLeft`, `backRight`, `tail`, `head`) are forwarded from `Bullpug` so the existing run-cycle/idle wag animations keep working unchanged.
+
+### Status
+- Skin Store loads ✓ (no CloneError)
+- Guardian preview renders the new chunkier sculpted pug with proper sheen/clearcoat ✓
+- Other skins (Ethereal, Diamond, Gold, Silver, Heatmap, Radioactive, Zombie, Aqua, Inferno, Cyber, Phantom) untouched ✓
+- AWAITING USER APPROVAL before extending the PBR remodel pass to the rest of the skins.
+
+
+
 ## Iteration 128 — Diamond Real Refraction + HDR Environment (May 15, 2026)
 
 ### Added: HDR environment map (drei `Environment` preset="city")

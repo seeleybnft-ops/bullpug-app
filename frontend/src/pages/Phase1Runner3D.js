@@ -309,6 +309,237 @@ function SkeletonBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
   );
 }
 
+/**
+ * GuardianBody — high-quality default-skin pug.
+ *
+ * Used only when skinId === "default" (the "Guardian" skin). Replaces the
+ * low-poly sphere stack with a higher-poly composition and tuned PBR
+ * materials so the canonical Bullpug feels noticeably sculpted:
+ *
+ *   • Body / head / muzzle bumped to 64×48 sphere segments (smooth silhouette)
+ *   • Heavy pug brow ridge + a wrinkle bar above it
+ *   • Real jowls flanking the muzzle (the floppy cheek pouches pugs are
+ *     known for)
+ *   • Pushed-in snout with a wet, clearcoated nose pad and amber eyes
+ *     with proper catch-light specs
+ *   • Floppy velvet ears (sheened, warm rim color)
+ *   • Paws with three toe nubs and dark pad on the bottom
+ *   • Curly torus tail with a small knob at the tip
+ *
+ * Material: meshPhysicalMaterial with `sheen` (warm rim that simulates
+ * soft fuzz/subsurface) + subtle `clearcoat` for healthy skin sheen.
+ * Refs (frontLeft, frontRight, backLeft, backRight, tail, head) are
+ * forwarded from `Bullpug` so the existing run-cycle / idle wag
+ * animations work unchanged.
+ */
+function GuardianBody({ frontLeft, frontRight, backLeft, backRight, tail, head }) {
+  const cream = "#F0DCC4";
+  const bellyColor = "#FFE9CC";
+  const dark = "#3A2718";
+  const muzzle = "#2A1A10";
+
+  // Tuned PBR material spec — wrapped in a factory so individual parts
+  // can override color/roughness while sharing the sheen + clearcoat pass.
+  const skin = (overrides = {}) => (
+    <meshPhysicalMaterial
+      color={cream}
+      roughness={0.58}
+      metalness={0}
+      sheen={0.55}
+      sheenRoughness={0.55}
+      sheenColor="#FFB888"
+      clearcoat={0.2}
+      clearcoatRoughness={0.55}
+      envMapIntensity={0.65}
+      {...overrides}
+    />
+  );
+
+  return (
+    <>
+      {/* BODY — chunky barrel, high-poly */}
+      <mesh position={[0, 0.55, 0]} scale={[1.05, 0.98, 1.35]} castShadow>
+        <sphereGeometry args={[0.5, 64, 48]} />
+        {skin()}
+      </mesh>
+      {/* Belly highlight — paler cream, nudged slightly forward */}
+      <mesh position={[0, 0.38, 0.06]} scale={[0.82, 0.55, 1.0]}>
+        <sphereGeometry args={[0.5, 48, 36]} />
+        {skin({ color: bellyColor, sheenColor: "#FFD4B0" })}
+      </mesh>
+      {/* Chest tuft — slight forward swell so the silhouette isn't a pure sphere */}
+      <mesh position={[0, 0.5, 0.4]} scale={[0.7, 0.55, 0.4]}>
+        <sphereGeometry args={[0.32, 32, 24]} />
+        {skin({ color: bellyColor, roughness: 0.72 })}
+      </mesh>
+
+      {/* HEAD GROUP — driven by the existing head ref */}
+      <group ref={head} position={[0, 1.05, 0.55]}>
+        {/* Cranium */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.4, 64, 48]} />
+          {skin()}
+        </mesh>
+        {/* Heavy pug brow ridge */}
+        <mesh position={[0, 0.18, 0.22]} scale={[1.05, 0.32, 0.7]}>
+          <sphereGeometry args={[0.3, 32, 24]} />
+          {skin({ color: "#E0C7A5", roughness: 0.68 })}
+        </mesh>
+        {/* Wrinkle bar above brow */}
+        <mesh position={[0, 0.08, 0.34]} scale={[0.8, 0.06, 0.18]}>
+          <sphereGeometry args={[0.32, 24, 14]} />
+          {skin({ color: "#C9A985", roughness: 0.78 })}
+        </mesh>
+        {/* Jowl — left */}
+        <mesh position={[-0.22, -0.15, 0.16]} scale={[0.9, 0.95, 1.1]}>
+          <sphereGeometry args={[0.2, 36, 28]} />
+          {skin()}
+        </mesh>
+        {/* Jowl — right */}
+        <mesh position={[0.22, -0.15, 0.16]} scale={[0.9, 0.95, 1.1]}>
+          <sphereGeometry args={[0.2, 36, 28]} />
+          {skin()}
+        </mesh>
+        {/* Pushed-in pug muzzle — dark velvet */}
+        <mesh position={[0, -0.1, 0.32]} scale={[1.05, 0.72, 0.85]}>
+          <sphereGeometry args={[0.2, 36, 28]} />
+          <meshPhysicalMaterial
+            color={muzzle}
+            roughness={0.75}
+            metalness={0}
+            sheen={0.3}
+            sheenColor="#5A3520"
+            clearcoat={0.05}
+          />
+        </mesh>
+        {/* Wet nose pad — strong clearcoat for that glossy "wet" read */}
+        <mesh position={[0, -0.02, 0.47]} scale={[1.1, 0.85, 0.85]}>
+          <sphereGeometry args={[0.08, 32, 24]} />
+          <meshPhysicalMaterial
+            color="#0B0608"
+            roughness={0.25}
+            metalness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.12}
+            sheen={0.4}
+            sheenColor="#553028"
+          />
+        </mesh>
+        {/* Eyes — deep amber-black with full clearcoat */}
+        <mesh position={[-0.16, 0.06, 0.32]}>
+          <sphereGeometry args={[0.075, 32, 24]} />
+          <meshPhysicalMaterial color="#0B0508" roughness={0.18} clearcoat={1.0} clearcoatRoughness={0.06} />
+        </mesh>
+        <mesh position={[0.16, 0.06, 0.32]}>
+          <sphereGeometry args={[0.075, 32, 24]} />
+          <meshPhysicalMaterial color="#0B0508" roughness={0.18} clearcoat={1.0} clearcoatRoughness={0.06} />
+        </mesh>
+        {/* Catch-light specks */}
+        <mesh position={[-0.14, 0.09, 0.39]}>
+          <sphereGeometry args={[0.022, 12, 12]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+        <mesh position={[0.18, 0.09, 0.39]}>
+          <sphereGeometry args={[0.022, 12, 12]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+        {/* Floppy velvet ears */}
+        <mesh position={[-0.32, 0.18, 0.0]} rotation={[0.2, -0.2, -0.5]} scale={[0.85, 1.15, 0.55]}>
+          <sphereGeometry args={[0.14, 28, 22]} />
+          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.4} sheenColor="#7A4A2E" />
+        </mesh>
+        <mesh position={[0.32, 0.18, 0.0]} rotation={[0.2, 0.2, 0.5]} scale={[0.85, 1.15, 0.55]}>
+          <sphereGeometry args={[0.14, 28, 22]} />
+          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.4} sheenColor="#7A4A2E" />
+        </mesh>
+        {/* HORNS — canonical bull horns, every pug wears them */}
+        <Horn position={[-0.22, 0.36, 0.02]} mirror={-1} />
+        <Horn position={[0.22, 0.36, 0.02]} mirror={1} />
+      </group>
+
+      {/* LEGS — capsule uppers with paw pads and toe nubs */}
+      <group ref={frontLeft} position={[-0.28, 0.22, 0.32]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0, -0.36, 0.02]} scale={[1.1, 0.6, 1.3]}>
+          <sphereGeometry args={[0.1, 24, 18]} />
+          {skin({ color: dark, roughness: 0.85 })}
+        </mesh>
+        {[-0.05, 0, 0.05].map((tx, ti) => (
+          <mesh key={ti} position={[tx, -0.38, 0.1]}>
+            <sphereGeometry args={[0.025, 12, 10]} />
+            {skin({ color: dark, roughness: 0.85 })}
+          </mesh>
+        ))}
+      </group>
+      <group ref={frontRight} position={[0.28, 0.22, 0.32]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0, -0.36, 0.02]} scale={[1.1, 0.6, 1.3]}>
+          <sphereGeometry args={[0.1, 24, 18]} />
+          {skin({ color: dark, roughness: 0.85 })}
+        </mesh>
+        {[-0.05, 0, 0.05].map((tx, ti) => (
+          <mesh key={ti} position={[tx, -0.38, 0.1]}>
+            <sphereGeometry args={[0.025, 12, 10]} />
+            {skin({ color: dark, roughness: 0.85 })}
+          </mesh>
+        ))}
+      </group>
+      <group ref={backLeft} position={[-0.28, 0.22, -0.32]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0, -0.36, -0.02]} scale={[1.1, 0.6, 1.3]}>
+          <sphereGeometry args={[0.1, 24, 18]} />
+          {skin({ color: dark, roughness: 0.85 })}
+        </mesh>
+        {[-0.05, 0, 0.05].map((tx, ti) => (
+          <mesh key={ti} position={[tx, -0.38, -0.1]}>
+            <sphereGeometry args={[0.025, 12, 10]} />
+            {skin({ color: dark, roughness: 0.85 })}
+          </mesh>
+        ))}
+      </group>
+      <group ref={backRight} position={[0.28, 0.22, -0.32]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0, -0.36, -0.02]} scale={[1.1, 0.6, 1.3]}>
+          <sphereGeometry args={[0.1, 24, 18]} />
+          {skin({ color: dark, roughness: 0.85 })}
+        </mesh>
+        {[-0.05, 0, 0.05].map((tx, ti) => (
+          <mesh key={ti} position={[tx, -0.38, -0.1]}>
+            <sphereGeometry args={[0.025, 12, 10]} />
+            {skin({ color: dark, roughness: 0.85 })}
+          </mesh>
+        ))}
+      </group>
+
+      {/* Curly tail — beefier torus with a tip knob */}
+      <group ref={tail} position={[0, 0.78, -0.5]}>
+        <mesh rotation={[0.6, 0, 0]}>
+          <torusGeometry args={[0.1, 0.06, 16, 32, Math.PI * 1.7]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0.06, -0.04, -0.08]}>
+          <sphereGeometry args={[0.045, 18, 14]} />
+          {skin()}
+        </mesh>
+      </group>
+    </>
+  );
+}
+
+
+
 export function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "default", idle = false }) {
   const root = useRef();
   const body = useRef();
@@ -397,6 +628,15 @@ export function Bullpug({ refY, refX, sliding, running, shieldActive, skinId = "
     <group ref={root} rotation={[0, Math.PI, 0]}>
       {skinId === "skeletal" ? (
         <SkeletonBody
+          frontLeft={frontLeft}
+          frontRight={frontRight}
+          backLeft={backLeft}
+          backRight={backRight}
+          tail={tail}
+          head={head}
+        />
+      ) : skinId === "default" ? (
+        <GuardianBody
           frontLeft={frontLeft}
           frontRight={frontRight}
           backLeft={backLeft}
