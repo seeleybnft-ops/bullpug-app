@@ -310,36 +310,38 @@ function SkeletonBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
 }
 
 /**
- * GuardianBody — high-quality default-skin pug.
+ * GuardianBody — sculpted procedural default-skin pug.
  *
- * Used only when skinId === "default" (the "Guardian" skin). Replaces the
- * low-poly sphere stack with a higher-poly composition and tuned PBR
- * materials so the canonical Bullpug feels noticeably sculpted:
+ * Used only when skinId === "default" (the "Guardian" skin). Hand-tuned
+ * procedural rebuild — no more uniform sphere stack. Real pug character:
  *
- *   • Body / head / muzzle bumped to 64×48 sphere segments (smooth silhouette)
- *   • Heavy pug brow ridge + a wrinkle bar above it
- *   • Real jowls flanking the muzzle (the floppy cheek pouches pugs are
- *     known for)
- *   • Pushed-in snout with a wet, clearcoated nose pad and amber eyes
- *     with proper catch-light specs
- *   • Floppy velvet ears (sheened, warm rim color)
- *   • Paws with three toe nubs and dark pad on the bottom
- *   • Curly torus tail with a small knob at the tip
+ *   • PEAR-SHAPED BARREL — chest sphere (wide, forward) + mid belly +
+ *     haunch sphere (narrower, back). Reads as a chunky pug torso, not
+ *     a single egg.
+ *   • Shoulder blade bumps that catch light differently than the chest.
+ *   • Heavy brow shelf + 3 stacked brow wrinkles + signature snout crease.
+ *   • Pushed-in flat snout (flattened ellipsoid, not a sphere) with
+ *     heavy hanging jowls flanking it.
+ *   • Wet clearcoated nose pad with two visible nostril dots.
+ *   • Deep-set eyes under the brow + tongue tip + mouth crease.
+ *   • Floppy oversized ears with sheen rim.
+ *   • Stubby short legs with 4-toe paws and dark paw pads.
+ *   • Proper double-coil curly tail built from a CatmullRom TubeGeometry,
+ *     with a tip knob.
  *
- * Material: meshPhysicalMaterial with `sheen` (warm rim that simulates
- * soft fuzz/subsurface) + subtle `clearcoat` for healthy skin sheen.
- * Refs (frontLeft, frontRight, backLeft, backRight, tail, head) are
- * forwarded from `Bullpug` so the existing run-cycle / idle wag
- * animations work unchanged.
+ * Material: meshPhysicalMaterial with sheen (warm faux-subsurface) +
+ * subtle clearcoat. Refs are forwarded so run-cycle / idle animations
+ * still work.
  */
 function GuardianBody({ frontLeft, frontRight, backLeft, backRight, tail, head }) {
   const cream = "#F0DCC4";
   const bellyColor = "#FFE9CC";
   const dark = "#3A2718";
   const muzzle = "#2A1A10";
+  const wrinkleShade = "#B89370";
 
-  // Tuned PBR material spec — wrapped in a factory so individual parts
-  // can override color/roughness while sharing the sheen + clearcoat pass.
+  // Tuned PBR factory — sheen for soft fuzz read, light clearcoat for
+  // healthy skin sheen, low metalness (organic).
   const skin = (overrides = {}) => (
     <meshPhysicalMaterial
       color={cream}
@@ -355,184 +357,235 @@ function GuardianBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
     />
   );
 
-  return (
-    <>
-      {/* BODY — chunky barrel, high-poly */}
-      <mesh position={[0, 0.55, 0]} scale={[1.05, 0.98, 1.35]} castShadow>
-        <sphereGeometry args={[0.5, 64, 48]} />
+  // Pre-baked double-curl tail curve. 1.6 turns of a tightening spiral
+  // that rises off the haunch, then loops down and back inward — the
+  // classic pug pig-tail silhouette.
+  const tailCurve = useMemo(() => {
+    const pts = [];
+    const segs = 36;
+    const turns = 1.6;
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const a = t * Math.PI * 2 * turns;
+      const r = 0.085 - t * 0.045; // radius tightens toward the tip
+      const x = Math.sin(a) * r;
+      const y = -Math.cos(a) * r + r; // shift so base sits at origin
+      const z = t * 0.04;             // gentle drift away from body
+      pts.push(new THREE.Vector3(x, y, z));
+    }
+    return new THREE.CatmullRomCurve3(pts);
+  }, []);
+
+  // Helper: render a single leg with paw + 4 toes. zSign = +1 for front,
+  // -1 for back so the toe nubs sit on the correct (forward) side of the paw.
+  const Leg = ({ refLeg, x, z, zSign }) => (
+    <group ref={refLeg} position={[x, 0.22, z]}>
+      {/* Upper leg — stubbier than before (length 0.16 vs 0.22) for that
+          classic short-legged pug stance */}
+      <mesh position={[0, -0.14, 0]} castShadow>
+        <capsuleGeometry args={[0.14, 0.16, 16, 28]} />
         {skin()}
       </mesh>
-      {/* Belly highlight — paler cream, nudged slightly forward */}
-      <mesh position={[0, 0.38, 0.06]} scale={[0.82, 0.55, 1.0]}>
-        <sphereGeometry args={[0.5, 48, 36]} />
+      {/* Paw pad */}
+      <mesh position={[0, -0.3, 0.03 * zSign]} scale={[1.25, 0.55, 1.45]}>
+        <sphereGeometry args={[0.1, 24, 18]} />
+        {skin({ color: dark, roughness: 0.85 })}
+      </mesh>
+      {/* 4 toe nubs */}
+      {[-0.07, -0.024, 0.024, 0.07].map((tx, ti) => (
+        <mesh key={ti} position={[tx, -0.32, 0.11 * zSign]}>
+          <sphereGeometry args={[0.025, 14, 10]} />
+          {skin({ color: dark, roughness: 0.85 })}
+        </mesh>
+      ))}
+    </group>
+  );
+
+  return (
+    <>
+      {/* ───── BODY — pear-shaped barrel (3 overlapping spheres) ───── */}
+      {/* Chest sphere — wide, forward, lifts the silhouette toward the head */}
+      <mesh position={[0, 0.6, 0.22]} scale={[1.2, 1.08, 1.0]} castShadow>
+        <sphereGeometry args={[0.46, 64, 48]} />
+        {skin()}
+      </mesh>
+      {/* Mid belly — slightly fuller, drops down */}
+      <mesh position={[0, 0.5, 0]} scale={[1.05, 0.95, 1.1]}>
+        <sphereGeometry args={[0.46, 64, 48]} />
+        {skin()}
+      </mesh>
+      {/* Haunch — smaller, lifted back end (typical pug rump tilt) */}
+      <mesh position={[0, 0.62, -0.24]} scale={[0.95, 0.95, 0.85]}>
+        <sphereGeometry args={[0.42, 48, 36]} />
+        {skin()}
+      </mesh>
+      {/* Cream belly highlight — paler underside */}
+      <mesh position={[0, 0.3, 0.08]} scale={[0.85, 0.42, 1.15]}>
+        <sphereGeometry args={[0.46, 48, 32]} />
         {skin({ color: bellyColor, sheenColor: "#FFD4B0" })}
       </mesh>
-      {/* Chest tuft — slight forward swell so the silhouette isn't a pure sphere */}
-      <mesh position={[0, 0.5, 0.4]} scale={[0.7, 0.55, 0.4]}>
-        <sphereGeometry args={[0.32, 32, 24]} />
+      {/* Chest tuft — small forward swell breaks up the silhouette */}
+      <mesh position={[0, 0.52, 0.5]} scale={[0.65, 0.55, 0.35]}>
+        <sphereGeometry args={[0.3, 32, 24]} />
         {skin({ color: bellyColor, roughness: 0.72 })}
       </mesh>
+      {/* Shoulder blade bumps — catch light differently from the barrel */}
+      <mesh position={[-0.3, 0.78, 0.28]} scale={[0.75, 0.7, 0.75]}>
+        <sphereGeometry args={[0.16, 28, 22]} />
+        {skin({ roughness: 0.62 })}
+      </mesh>
+      <mesh position={[0.3, 0.78, 0.28]} scale={[0.75, 0.7, 0.75]}>
+        <sphereGeometry args={[0.16, 28, 22]} />
+        {skin({ roughness: 0.62 })}
+      </mesh>
 
-      {/* HEAD GROUP — driven by the existing head ref */}
-      <group ref={head} position={[0, 1.05, 0.55]}>
-        {/* Cranium */}
-        <mesh castShadow>
+      {/* ───── HEAD ───── */}
+      <group ref={head} position={[0, 1.08, 0.55]}>
+        {/* Cranium — slightly wider than tall, very pug */}
+        <mesh scale={[1.1, 0.95, 1.0]} castShadow>
           <sphereGeometry args={[0.4, 64, 48]} />
           {skin()}
         </mesh>
-        {/* Heavy pug brow ridge */}
-        <mesh position={[0, 0.18, 0.22]} scale={[1.05, 0.32, 0.7]}>
+        {/* Cheek bulges — heavier than jowls, give the round face */}
+        <mesh position={[-0.3, -0.06, 0.1]} scale={[0.9, 0.95, 0.95]}>
+          <sphereGeometry args={[0.18, 32, 24]} />
+          {skin()}
+        </mesh>
+        <mesh position={[0.3, -0.06, 0.1]} scale={[0.9, 0.95, 0.95]}>
+          <sphereGeometry args={[0.18, 32, 24]} />
+          {skin()}
+        </mesh>
+        {/* Brow shelf — heavy, drops over eyes */}
+        <mesh position={[0, 0.16, 0.24]} scale={[1.15, 0.32, 0.7]}>
           <sphereGeometry args={[0.3, 32, 24]} />
           {skin({ color: "#E0C7A5", roughness: 0.68 })}
         </mesh>
-        {/* Wrinkle bar above brow */}
-        <mesh position={[0, 0.08, 0.34]} scale={[0.8, 0.06, 0.18]}>
-          <sphereGeometry args={[0.32, 24, 14]} />
-          {skin({ color: "#C9A985", roughness: 0.78 })}
+        {/* Brow wrinkles — 3 stacked ribs (signature pug forehead) */}
+        <mesh position={[0, 0.2, 0.34]} scale={[0.78, 0.05, 0.1]}>
+          <sphereGeometry args={[0.3, 24, 14]} />
+          {skin({ color: wrinkleShade, roughness: 0.78 })}
         </mesh>
-        {/* Jowl — left */}
-        <mesh position={[-0.22, -0.15, 0.16]} scale={[0.9, 0.95, 1.1]}>
+        <mesh position={[0, 0.12, 0.37]} scale={[0.82, 0.045, 0.09]}>
+          <sphereGeometry args={[0.3, 24, 14]} />
+          {skin({ color: wrinkleShade, roughness: 0.78 })}
+        </mesh>
+        <mesh position={[0, 0.04, 0.39]} scale={[0.72, 0.04, 0.08]}>
+          <sphereGeometry args={[0.3, 24, 14]} />
+          {skin({ color: wrinkleShade, roughness: 0.78 })}
+        </mesh>
+        {/* Hanging jowls — bigger, drop below the muzzle */}
+        <mesh position={[-0.2, -0.24, 0.18]} scale={[0.85, 1.1, 1.05]}>
           <sphereGeometry args={[0.2, 36, 28]} />
           {skin()}
         </mesh>
-        {/* Jowl — right */}
-        <mesh position={[0.22, -0.15, 0.16]} scale={[0.9, 0.95, 1.1]}>
+        <mesh position={[0.2, -0.24, 0.18]} scale={[0.85, 1.1, 1.05]}>
           <sphereGeometry args={[0.2, 36, 28]} />
           {skin()}
         </mesh>
-        {/* Pushed-in pug muzzle — dark velvet */}
-        <mesh position={[0, -0.1, 0.32]} scale={[1.05, 0.72, 0.85]}>
+        {/* PUSHED-IN FLAT SNOUT — flattened ellipsoid (y small, x wide,
+            z short) so it reads pug-flat, not snouty */}
+        <mesh position={[0, -0.1, 0.36]} scale={[1.15, 0.55, 0.55]}>
           <sphereGeometry args={[0.2, 36, 28]} />
           <meshPhysicalMaterial
             color={muzzle}
-            roughness={0.75}
+            roughness={0.78}
             metalness={0}
             sheen={0.3}
             sheenColor="#5A3520"
             clearcoat={0.05}
           />
         </mesh>
-        {/* Wet nose pad — strong clearcoat for that glossy "wet" read */}
-        <mesh position={[0, -0.02, 0.47]} scale={[1.1, 0.85, 0.85]}>
-          <sphereGeometry args={[0.08, 32, 24]} />
+        {/* Signature snout crease — the dark vertical wrinkle above the nose */}
+        <mesh position={[0, -0.02, 0.44]} scale={[0.55, 0.07, 0.08]}>
+          <sphereGeometry args={[0.2, 20, 14]} />
+          <meshPhysicalMaterial color="#1A0B05" roughness={0.85} />
+        </mesh>
+        {/* Wet nose pad — strong clearcoat */}
+        <mesh position={[0, -0.05, 0.48]} scale={[1.15, 0.82, 0.55]}>
+          <sphereGeometry args={[0.085, 32, 24]} />
           <meshPhysicalMaterial
             color="#0B0608"
-            roughness={0.25}
+            roughness={0.22}
             metalness={0.15}
             clearcoat={1.0}
-            clearcoatRoughness={0.12}
+            clearcoatRoughness={0.1}
             sheen={0.4}
             sheenColor="#553028"
           />
         </mesh>
-        {/* Eyes — deep amber-black with full clearcoat */}
-        <mesh position={[-0.16, 0.06, 0.32]}>
-          <sphereGeometry args={[0.075, 32, 24]} />
-          <meshPhysicalMaterial color="#0B0508" roughness={0.18} clearcoat={1.0} clearcoatRoughness={0.06} />
+        {/* Nostril dots */}
+        <mesh position={[-0.028, -0.07, 0.525]}>
+          <sphereGeometry args={[0.013, 12, 12]} />
+          <meshBasicMaterial color="#000000" />
         </mesh>
-        <mesh position={[0.16, 0.06, 0.32]}>
-          <sphereGeometry args={[0.075, 32, 24]} />
-          <meshPhysicalMaterial color="#0B0508" roughness={0.18} clearcoat={1.0} clearcoatRoughness={0.06} />
+        <mesh position={[0.028, -0.07, 0.525]}>
+          <sphereGeometry args={[0.013, 12, 12]} />
+          <meshBasicMaterial color="#000000" />
+        </mesh>
+        {/* Mouth crease — subtle dark line under the snout */}
+        <mesh position={[0, -0.24, 0.38]} rotation={[0.25, 0, 0]} scale={[0.5, 0.04, 0.04]}>
+          <sphereGeometry args={[0.2, 16, 10]} />
+          <meshBasicMaterial color="#1A0B05" />
+        </mesh>
+        {/* Tongue tip — tiny pink peek */}
+        <mesh position={[0, -0.27, 0.36]} scale={[0.26, 0.04, 0.18]}>
+          <sphereGeometry args={[0.2, 16, 12]} />
+          <meshStandardMaterial color="#D87A82" roughness={0.4} />
+        </mesh>
+        {/* Deep-set eyes — bigger, slightly lower, tucked under the brow */}
+        <mesh position={[-0.16, 0.02, 0.34]}>
+          <sphereGeometry args={[0.085, 32, 24]} />
+          <meshPhysicalMaterial color="#0B0508" roughness={0.16} clearcoat={1.0} clearcoatRoughness={0.05} />
+        </mesh>
+        <mesh position={[0.16, 0.02, 0.34]}>
+          <sphereGeometry args={[0.085, 32, 24]} />
+          <meshPhysicalMaterial color="#0B0508" roughness={0.16} clearcoat={1.0} clearcoatRoughness={0.05} />
         </mesh>
         {/* Catch-light specks */}
-        <mesh position={[-0.14, 0.09, 0.39]}>
-          <sphereGeometry args={[0.022, 12, 12]} />
+        <mesh position={[-0.14, 0.05, 0.42]}>
+          <sphereGeometry args={[0.024, 12, 12]} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
-        <mesh position={[0.18, 0.09, 0.39]}>
-          <sphereGeometry args={[0.022, 12, 12]} />
+        <mesh position={[0.18, 0.05, 0.42]}>
+          <sphereGeometry args={[0.024, 12, 12]} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
-        {/* Floppy velvet ears */}
-        <mesh position={[-0.32, 0.18, 0.0]} rotation={[0.2, -0.2, -0.5]} scale={[0.85, 1.15, 0.55]}>
-          <sphereGeometry args={[0.14, 28, 22]} />
-          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.4} sheenColor="#7A4A2E" />
+        {/* Floppy oversized ears (bigger than option d) */}
+        <mesh position={[-0.34, 0.14, -0.02]} rotation={[0.3, -0.15, -0.55]} scale={[0.7, 1.45, 0.55]}>
+          <sphereGeometry args={[0.16, 28, 22]} />
+          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.5} sheenColor="#7A4A2E" />
         </mesh>
-        <mesh position={[0.32, 0.18, 0.0]} rotation={[0.2, 0.2, 0.5]} scale={[0.85, 1.15, 0.55]}>
-          <sphereGeometry args={[0.14, 28, 22]} />
-          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.4} sheenColor="#7A4A2E" />
+        <mesh position={[0.34, 0.14, -0.02]} rotation={[0.3, 0.15, 0.55]} scale={[0.7, 1.45, 0.55]}>
+          <sphereGeometry args={[0.16, 28, 22]} />
+          <meshPhysicalMaterial color={dark} roughness={0.82} sheen={0.5} sheenColor="#7A4A2E" />
         </mesh>
         {/* HORNS — canonical bull horns, every pug wears them */}
         <Horn position={[-0.22, 0.36, 0.02]} mirror={-1} />
         <Horn position={[0.22, 0.36, 0.02]} mirror={1} />
       </group>
 
-      {/* LEGS — capsule uppers with paw pads and toe nubs */}
-      <group ref={frontLeft} position={[-0.28, 0.22, 0.32]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
-          {skin()}
-        </mesh>
-        <mesh position={[0, -0.36, 0.02]} scale={[1.1, 0.6, 1.3]}>
-          <sphereGeometry args={[0.1, 24, 18]} />
-          {skin({ color: dark, roughness: 0.85 })}
-        </mesh>
-        {[-0.05, 0, 0.05].map((tx, ti) => (
-          <mesh key={ti} position={[tx, -0.38, 0.1]}>
-            <sphereGeometry args={[0.025, 12, 10]} />
-            {skin({ color: dark, roughness: 0.85 })}
-          </mesh>
-        ))}
-      </group>
-      <group ref={frontRight} position={[0.28, 0.22, 0.32]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
-          {skin()}
-        </mesh>
-        <mesh position={[0, -0.36, 0.02]} scale={[1.1, 0.6, 1.3]}>
-          <sphereGeometry args={[0.1, 24, 18]} />
-          {skin({ color: dark, roughness: 0.85 })}
-        </mesh>
-        {[-0.05, 0, 0.05].map((tx, ti) => (
-          <mesh key={ti} position={[tx, -0.38, 0.1]}>
-            <sphereGeometry args={[0.025, 12, 10]} />
-            {skin({ color: dark, roughness: 0.85 })}
-          </mesh>
-        ))}
-      </group>
-      <group ref={backLeft} position={[-0.28, 0.22, -0.32]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
-          {skin()}
-        </mesh>
-        <mesh position={[0, -0.36, -0.02]} scale={[1.1, 0.6, 1.3]}>
-          <sphereGeometry args={[0.1, 24, 18]} />
-          {skin({ color: dark, roughness: 0.85 })}
-        </mesh>
-        {[-0.05, 0, 0.05].map((tx, ti) => (
-          <mesh key={ti} position={[tx, -0.38, -0.1]}>
-            <sphereGeometry args={[0.025, 12, 10]} />
-            {skin({ color: dark, roughness: 0.85 })}
-          </mesh>
-        ))}
-      </group>
-      <group ref={backRight} position={[0.28, 0.22, -0.32]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.22, 16, 28]} />
-          {skin()}
-        </mesh>
-        <mesh position={[0, -0.36, -0.02]} scale={[1.1, 0.6, 1.3]}>
-          <sphereGeometry args={[0.1, 24, 18]} />
-          {skin({ color: dark, roughness: 0.85 })}
-        </mesh>
-        {[-0.05, 0, 0.05].map((tx, ti) => (
-          <mesh key={ti} position={[tx, -0.38, -0.1]}>
-            <sphereGeometry args={[0.025, 12, 10]} />
-            {skin({ color: dark, roughness: 0.85 })}
-          </mesh>
-        ))}
-      </group>
+      {/* ───── LEGS — stubby with 4-toe paws ───── */}
+      <Leg refLeg={frontLeft} x={-0.28} z={0.32} zSign={1} />
+      <Leg refLeg={frontRight} x={0.28} z={0.32} zSign={1} />
+      <Leg refLeg={backLeft} x={-0.28} z={-0.32} zSign={-1} />
+      <Leg refLeg={backRight} x={0.28} z={-0.32} zSign={-1} />
 
-      {/* Curly tail — beefier torus with a tip knob */}
-      <group ref={tail} position={[0, 0.78, -0.5]}>
-        <mesh rotation={[0.6, 0, 0]}>
-          <torusGeometry args={[0.1, 0.06, 16, 32, Math.PI * 1.7]} />
+      {/* ───── DOUBLE-CURL TAIL — TubeGeometry along a CatmullRom curve ───── */}
+      <group ref={tail} position={[0, 0.88, -0.5]}>
+        <mesh>
+          <tubeGeometry args={[tailCurve, 64, 0.05, 12, false]} />
           {skin()}
         </mesh>
-        <mesh position={[0.06, -0.04, -0.08]}>
-          <sphereGeometry args={[0.045, 18, 14]} />
-          {skin()}
-        </mesh>
+        {/* Tip knob — sits at the end of the curve (last point) */}
+        {(() => {
+          const tip = tailCurve.getPoint(1);
+          return (
+            <mesh position={[tip.x, tip.y, tip.z]}>
+              <sphereGeometry args={[0.04, 18, 14]} />
+              {skin()}
+            </mesh>
+          );
+        })()}
       </group>
     </>
   );
