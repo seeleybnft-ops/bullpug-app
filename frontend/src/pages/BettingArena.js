@@ -8,12 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX, Loader2, Bone, Skull } from "lucide-react";
 import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence, winFeedback, loseFeedback, challengeCreatedFeedback, clickFeedback } from "@/utils/sounds";
 import "@/styles/animations.css";
 import ArenaChat from "@/components/ArenaChat";
+import PugPitFaceOff from "@/components/PugPitFaceOff";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+/**
+ * Tier helper — maps a bet amount (SOL) onto the Pug Pit stakes ladder.
+ * Drives the stakes-meter label/color and the face-off backdrop tier.
+ */
+function stakeTier(amountSol) {
+  const a = parseFloat(amountSol || 0);
+  if (a >= 2)    return { name: "Cosmic Showdown", color: "#FF3A8A", percent: 100 };
+  if (a >= 0.5)  return { name: "Coliseum Bout",   color: "#F5D300", percent: 80 };
+  if (a >= 0.05) return { name: "Pit Match",       color: "#D946EF", percent: 50 };
+  return                  { name: "Backyard Scuffle", color: "#00FFA3", percent: 20 };
+}
 
 /**
  * Send SOL to escrow wallet with wallet prompt
@@ -74,9 +87,12 @@ export default function BettingArena() {
       <div className="max-w-5xl mx-auto px-6 md:px-12">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
+            {/* Crossed-bone fight stamp on the left */}
+            <Bone className="w-6 h-6 sm:w-7 sm:h-7 text-[#00FFA3]" style={{ transform: "rotate(45deg)" }} />
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }} data-testid="arena-title">
-              {t('betting.title').split(' ')[0]} <span className="text-[#00FFA3] neon-text">{t('betting.title').split(' ')[1] || 'Arena'}</span>
+              PUG <span className="text-[#00FFA3] neon-text">PIT</span>
             </h1>
+            <Skull className="w-6 h-6 sm:w-7 sm:h-7 text-[#D946EF]" />
             <button
               onClick={toggleSound}
               data-testid="sound-toggle"
@@ -86,13 +102,13 @@ export default function BettingArena() {
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
           </div>
-          <p className="text-slate-500 text-sm">{t('betting.subtitle', { rake: config.rake_percent })}</p>
+          <p className="text-slate-500 text-sm">Alpha-vs-alpha SOL wagers. {config.rake_percent}% house cut · provably fair · escrowed on-chain.</p>
           <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
             <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border-[#00FFA3]/30 text-[10px]">
               <Wallet className="w-3 h-3 mr-1" /> {t('betting.solOnly')}
             </Badge>
             <Badge className="bg-[#F5D300]/10 text-[#F5D300] border-[#F5D300]/30 text-[10px]" data-testid="jackpot-contribution-badge">
-              <Trophy className="w-3 h-3 mr-1" /> 25% of rake → Cosmic Runner Jackpot
+              <Trophy className="w-3 h-3 mr-1" /> 25% of cut → Cosmic Runner Jackpot
             </Badge>
             <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
               {t('betting.disclaimer')}
@@ -103,7 +119,7 @@ export default function BettingArena() {
         {!connected && (
           <div className="glass-card rounded-2xl p-8 text-center mb-8" data-testid="connect-wallet-prompt">
             <Wallet className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-            <p className="text-slate-400 mb-2">{t('betting.connectWalletToPlay')}</p>
+            <p className="text-slate-400 mb-2">Connect your wallet to enter the pit.</p>
             <p className="text-xs text-slate-600">{t('betting.p2pRequiresWallet')}</p>
           </div>
         )}
@@ -112,11 +128,11 @@ export default function BettingArena() {
           <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-white/10 rounded-xl p-1 mb-8">
             <TabsTrigger value="coin-toss" data-testid="tab-coin-toss"
               className="data-[state=active]:bg-[#00FFA3]/10 data-[state=active]:text-[#00FFA3] rounded-lg font-bold text-xs uppercase">
-              <Swords className="w-4 h-4 mr-2" />{t('betting.coinFlip.title')}
+              <Swords className="w-4 h-4 mr-2" />Snarl-Off
             </TabsTrigger>
             <TabsTrigger value="pot" data-testid="tab-pot"
               className="data-[state=active]:bg-[#D946EF]/10 data-[state=active]:text-[#D946EF] rounded-lg font-bold text-xs uppercase">
-              <Trophy className="w-4 h-4 mr-2" />{t('betting.pot.title')}
+              <Trophy className="w-4 h-4 mr-2" />Pack Pile
             </TabsTrigger>
           </TabsList>
           <TabsContent value="coin-toss">
@@ -142,6 +158,9 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
   const [betAmount, setBetAmount] = useState("0.1");
   const [choice, setChoice] = useState("heads");
   const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
+  const [playerSkin] = useState(() => {
+    try { return localStorage.getItem("bullpugSkin") || "default"; } catch { return "default"; }
+  });
   const [creating, setCreating] = useState(false);
   const [accepting, setAccepting] = useState(null);
   const [result, setResult] = useState(null);
@@ -149,6 +168,10 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [transferStep, setTransferStep] = useState(null); // 'prompting', 'signing', 'confirming'
+  // Pug Pit face-off opponent context. Set when the player accepts a
+  // challenge (so the face-off card knows whose mini-pug to render on
+  // the right) and cleared when the result toast is dismissed.
+  const [faceOff, setFaceOff] = useState(null);
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -228,6 +251,13 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
     clickFeedback();
     setAccepting(challenge.id);
     setTransferStep('prompting');
+    // Surface the face-off card with this opponent (creator side) so the
+    // player sees their pug squaring off against the creator's.
+    setFaceOff({
+      opponentWallet: challenge.creator_wallet,
+      opponentName: challenge.creator_name || "Challenger",
+      mode: "idle",
+    });
 
     try {
       // Step 1: Prompt wallet to transfer SOL to escrow (matching bet amount)
@@ -245,6 +275,7 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
       toast.success("Transfer confirmed! Flipping coin...");
       
       setIsFlipping(true);
+      setFaceOff(prev => prev ? { ...prev, mode: "clashing" } : prev);
       
       // Step 2: Accept challenge on backend with tx signature
       const clientSeed = Math.random().toString(36).slice(2, 18);
@@ -262,6 +293,7 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
       playCoinFlipSequence(won, () => {
         setIsFlipping(false);
         setResult({ ...data, won, my_wallet: walletAddress });
+        setFaceOff(prev => prev ? { ...prev, mode: won ? "win" : "loss" } : prev);
         
         if (won) {
           winFeedback();
@@ -278,6 +310,7 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
       axios.get(`${API}/betting/history?limit=10`).then(r => setHistory(r.data.history)).catch(() => {});
     } catch (e) {
       setIsFlipping(false);
+      setFaceOff(null);
       playSoundIfEnabled('error');
       if (e.message?.includes('User rejected')) {
         toast.error("Transaction cancelled by user");
@@ -335,18 +368,41 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
         </div>
 
         <div>
-          <label className="text-xs text-slate-500 uppercase mb-1 block">{t('betting.coinFlip.yourPick')}</label>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Your side</label>
           <div className="grid grid-cols-2 gap-2">
-            {["heads", "tails"].map(c => (
-              <button key={c} onClick={() => setChoice(c)} data-testid={`choice-${c}`}
-                className={`py-3 rounded-xl text-sm font-bold uppercase transition-all ${
-                  choice === c ? "bg-[#00FFA3] text-black scale-[1.02]" : "bg-white/5 text-slate-400 hover:bg-white/10"
-                }`}>
-                {c === "heads" ? `🪙 ${t('betting.coinFlip.heads')}` : `⭐ ${t('betting.coinFlip.tails')}`}
-              </button>
-            ))}
+            <button onClick={() => setChoice("heads")} data-testid="choice-heads"
+              className={`py-3 rounded-xl text-sm font-bold uppercase transition-all flex items-center justify-center gap-2 ${
+                choice === "heads" ? "bg-[#F5D300] text-black scale-[1.02] shadow-lg shadow-[#F5D300]/30" : "bg-white/5 text-slate-400 hover:bg-white/10"
+              }`}>
+              <Bone className="w-4 h-4" /> BONE
+            </button>
+            <button onClick={() => setChoice("tails")} data-testid="choice-tails"
+              className={`py-3 rounded-xl text-sm font-bold uppercase transition-all flex items-center justify-center gap-2 ${
+                choice === "tails" ? "bg-[#D946EF] text-white scale-[1.02] shadow-lg shadow-[#D946EF]/30" : "bg-white/5 text-slate-400 hover:bg-white/10"
+              }`}>
+              <Skull className="w-4 h-4" /> SKULL
+            </button>
           </div>
         </div>
+
+        {/* Stakes Meter — tier ladder that grows with the bet amount */}
+        {(() => {
+          const tier = stakeTier(betAmount);
+          return (
+            <div data-testid="stakes-meter">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Stakes</span>
+                <span className="text-[10px] uppercase font-bold" style={{ color: tier.color }}>{tier.name}</span>
+              </div>
+              <div className="relative h-2 rounded-full bg-black/40 border border-white/5 overflow-hidden">
+                <div className="pugpit-stakes-track absolute inset-y-0 left-0" style={{ width: `${tier.percent}%`, opacity: 0.85 }} />
+              </div>
+              <p className="text-[9px] text-slate-600 mt-1">
+                Backyard · Pit · Coliseum · Cosmic
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs space-y-1">
           <div className="flex justify-between"><span className="text-slate-500">{t('betting.coinFlip.opponentBet')}:</span><span className="text-white">{betAmount} SOL</span></div>
@@ -405,32 +461,66 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
           </div>
         )}
 
-        {/* Flipping Animation */}
+        {/* Snarl-Off Animation — face-off when an opponent context exists,
+            otherwise fall back to the legacy disk-flip */}
         {isFlipping && (
-          <div className="glass-card rounded-xl p-8 text-center mb-4">
-            <div className="coin-flip-animation inline-block">
-              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#F5D300] to-[#D4AF37] flex items-center justify-center text-3xl border-4 border-[#FFE066] shadow-lg">
-                🪙
+          <div className="glass-card rounded-xl p-6 text-center mb-4" data-testid="snarl-off-animation">
+            {faceOff ? (
+              <>
+                <PugPitFaceOff
+                  playerSkin={playerSkin}
+                  playerName={displayName}
+                  opponentWallet={faceOff.opponentWallet}
+                  opponentName={faceOff.opponentName}
+                  mode="clashing"
+                  size={120}
+                />
+                <p className="text-amber-400 mt-4 text-sm uppercase font-bold tracking-wider animate-pulse" style={{ fontFamily: "Orbitron, sans-serif" }}>
+                  Snarl-Off in progress…
+                </p>
+              </>
+            ) : (
+              <div className="coin-flip-animation inline-block">
+                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#F5D300] to-[#D4AF37] flex items-center justify-center border-4 border-[#FFE066] shadow-lg">
+                  <Bone className="w-9 h-9 text-black" />
+                </div>
+                <p className="text-slate-400 mt-4 text-sm animate-pulse">Bone vs Skull…</p>
               </div>
-            </div>
-            <p className="text-slate-400 mt-4 text-sm animate-pulse">{t('betting.coinFlip.flipping')}...</p>
+            )}
           </div>
         )}
 
         {result && !isFlipping && (
           <div className={`glass-card rounded-xl p-5 border-2 ${result.won ? "border-[#00FFA3] win-pulse" : "border-red-500 lose-pulse"}`} data-testid="flip-result">
             <div className="text-center">
+              {faceOff && (
+                <div className="mb-4">
+                  <PugPitFaceOff
+                    playerSkin={playerSkin}
+                    playerName={displayName}
+                    opponentWallet={faceOff.opponentWallet}
+                    opponentName={faceOff.opponentName}
+                    mode={result.won ? "win" : "loss"}
+                    size={110}
+                  />
+                </div>
+              )}
               <div className={`coin-result-animation inline-block mb-3`}>
-                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl border-4 ${
-                  result.outcome === 'heads' ? 'bg-amber-500/20 border-amber-500' : 'bg-[#00C2FF]/20 border-[#00C2FF]'
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center border-4 ${
+                  result.outcome === 'heads' ? 'bg-[#F5D300]/20 border-[#F5D300]' : 'bg-[#D946EF]/20 border-[#D946EF]'
                 }`}>
-                  {result.outcome === 'heads' ? '🪙' : '⭐'}
+                  {result.outcome === 'heads' ? <Bone className="w-7 h-7 text-[#F5D300]" /> : <Skull className="w-7 h-7 text-[#D946EF]" />}
                 </div>
               </div>
               <p className={`text-2xl font-black ${result.won ? "text-[#00FFA3]" : "text-red-400"}`} style={{ fontFamily: 'Orbitron' }}>
-                {result.won ? t('betting.coinFlip.youWon', { amount: result.payout_sol }) : t('betting.coinFlip.youLost')}
+                {result.won ? "TOP DOG" : "TAIL TUCKED"}
               </p>
-              <p className="text-sm text-slate-400 mt-1">{t('betting.coinFlip.coinLandedOn')}: <span className="text-white font-bold uppercase">{result.outcome}</span></p>
+              <p className="text-sm text-slate-400 mt-1">
+                {result.won
+                  ? `+${result.payout_sol} SOL · Pit landed on `
+                  : `Pit landed on `}
+                <span className="text-white font-bold uppercase">{result.outcome === 'heads' ? 'BONE' : 'SKULL'}</span>
+              </p>
               <div className="mt-3 p-3 rounded-lg bg-black/50 text-left">
                 <p className="text-[10px] text-slate-500 uppercase mb-1">{t('betting.coinFlip.provablyFair')}</p>
                 <p className="text-[10px] text-slate-400 break-all">{t('betting.coinFlip.serverSeed')}: {result.server_seed}</p>
@@ -444,8 +534,8 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
         {openChallenges.length === 0 ? (
           <div className="glass-card rounded-xl p-10 text-center">
             <Swords className="w-10 h-10 mx-auto mb-3 text-slate-700" />
-            <p className="text-slate-500">{t('betting.coinFlip.noChallenges')}</p>
-            <p className="text-xs text-slate-600 mt-1">{t('betting.coinFlip.createOrWait')}</p>
+            <p className="text-slate-500">No challengers in the pit yet.</p>
+            <p className="text-xs text-slate-600 mt-1">Roar first — create a challenge and summon a pack.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -461,19 +551,20 @@ function P2PCoinFlip({ walletAddress, connected, config, wallet, connection }) {
                       <p className="text-[10px] text-slate-500">{c.creator_wallet?.slice(0, 8)}...</p>
                     </div>
                   </div>
-                  <Badge className={`text-[10px] ${c.creator_choice === "heads" ? "bg-amber-500/10 text-amber-400" : "bg-[#00C2FF]/10 text-[#00C2FF]"}`}>
-                    {t('betting.coinFlip.picked')} {c.creator_choice}
+                  <Badge className={`text-[10px] flex items-center gap-1 ${c.creator_choice === "heads" ? "bg-[#F5D300]/10 text-[#F5D300]" : "bg-[#D946EF]/10 text-[#D946EF]"}`}>
+                    {c.creator_choice === "heads" ? <Bone className="w-3 h-3" /> : <Skull className="w-3 h-3" />}
+                    {c.creator_choice === "heads" ? "BONE" : "SKULL"}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-2xl font-black text-[#00FFA3]" style={{ fontFamily: 'Orbitron' }}>{c.bet_amount_sol} SOL</p>
-                    <p className="text-[10px] text-slate-500">{t('betting.coinFlip.youPick')}: {c.creator_choice === "heads" ? t('betting.coinFlip.tails').toUpperCase() : t('betting.coinFlip.heads').toUpperCase()}</p>
+                    <p className="text-[10px] text-slate-500">You get {c.creator_choice === "heads" ? "SKULL" : "BONE"}</p>
                   </div>
                   <Button onClick={() => acceptChallenge(c)} disabled={accepting === c.id || !connected}
                     data-testid={`accept-${c.id}`}
                     className="bg-[#D946EF] text-white font-bold rounded-lg px-4 py-2 text-xs uppercase hover:scale-[1.02] transition-transform">
-                    {accepting === c.id ? t('betting.coinFlip.flipping') : t('betting.coinFlip.accept')}
+                    {accepting === c.id ? "Snarling…" : "Enter Pit"}
                   </Button>
                 </div>
               </div>

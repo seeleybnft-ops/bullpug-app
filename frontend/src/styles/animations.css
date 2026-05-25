@@ -252,3 +252,48 @@
 .rare-glow {
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
 }
+
+/* ───────────────────── Pug Pit (P2P Arena) ───────────────────── */
+
+@keyframes pugpitLungeLeft {
+  0%   { transform: translateX(0)   rotate(0deg) scale(1); }
+  35%  { transform: translateX(35px) rotate(-6deg) scale(1.08); }
+  55%  { transform: translateX(35px) rotate(-6deg) scale(1.08); }
+  100% { transform: translateX(0)   rotate(0deg) scale(1); }
+}
+@keyframes pugpitLungeRight {
+  0%   { transform: translateX(0)    rotate(0deg)  scale(1); }
+  35%  { transform: translateX(-35px) rotate(6deg) scale(1.08); }
+  55%  { transform: translateX(-35px) rotate(6deg) scale(1.08); }
+  100% { transform: translateX(0)    rotate(0deg)  scale(1); }
+}
+@keyframes pugpitRear {
+  0%   { transform: rotate(0deg)  scale(1); filter: drop-shadow(0 0 0 transparent); }
+  40%  { transform: rotate(-10deg) scale(1.12); filter: drop-shadow(0 0 18px #F5D300); }
+  100% { transform: rotate(-6deg) scale(1.08); filter: drop-shadow(0 0 12px #F5D300); }
+}
+@keyframes pugpitTuck {
+  0%   { transform: rotate(0deg) scale(1);    opacity: 1; }
+  100% { transform: rotate(5deg) scale(0.9);  opacity: 0.55; }
+}
+
+.pugpit-lunge-left  { animation: pugpitLungeLeft  2s ease-in-out 1; }
+.pugpit-lunge-right { animation: pugpitLungeRight 2s ease-in-out 1; }
+.pugpit-rear        { animation: pugpitRear       0.6s ease-out forwards; }
+.pugpit-tuck        { animation: pugpitTuck       0.5s ease-out forwards; }
+
+/* Stakes meter — gradient track with a moving glow at the current tier */
+@keyframes stakesShimmer {
+  0%   { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+.pugpit-stakes-track {
+  background: linear-gradient(90deg,
+    #00FFA3 0%, #00FFA3 25%,
+    #D946EF 25%, #D946EF 60%,
+    #F5D300 60%, #F5D300 85%,
+    #FF3A8A 85%, #FF3A8A 100%);
+  background-size: 200% 100%;
+  animation: stakesShimmer 8s linear infinite;
+}
+

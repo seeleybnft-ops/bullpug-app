@@ -28,6 +28,32 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 160 — Pug Pit PvP Theming (P2P Arena) (Feb 25, 2026)
+
+User picked Concept D from the arena themeing suggestions: full fighting-game treatment for the P2P Arena, skin-aware mini-pug face-off using the live sculpted geometry.
+
+### What changed
+- **Header rebrand**: "Bullpug Arena" → **PUG PIT** with crossed bone (rotated 45°) + skull lucide icons flanking the title; tagline "Alpha-vs-alpha SOL wagers. 2.5% house cut · provably fair · escrowed on-chain."
+- **Tab labels**: Coin Toss → **SNARL-OFF**, Pot → **PACK PILE**.
+- **Side select**: Heads/Tails → **BONE** (lucide `Bone` icon, gold) vs **SKULL** (lucide `Skull` icon, magenta). Backend choice values stay literally `"heads"` / `"tails"` so the existing wallet/escrow/lamport math is untouched. UI labels alone change.
+- **Stakes Meter**: shimmer-gradient bar tied to bet size via `stakeTier()` helper — Backyard Scuffle (< 0.05 SOL) → Pit Match → Coliseum Bout → Cosmic Showdown (2+ SOL).
+- **`PugPitFaceOff` component** (`/app/frontend/src/components/PugPitFaceOff.js`):
+  - Renders player's equipped Cosmic Runner skin (left) vs opponent's deterministic skin (right) using the live `SkinPreview3D` → `Bullpug` → `SculptedPugBody` path — exact same sculpt as the game and Skin Store.
+  - Opponent skin chosen by a djb2-style hash of their wallet address so the same opponent always shows the same skin (no backend changes required).
+  - Four modes: `idle`, `clashing` (mid-flip lunge), `win` (rear + gold glow), `loss` (tail-tuck + dim) — driven by CSS keyframes in `animations.css`.
+- **Wired into `acceptChallenge`**: opens face-off in `clashing` mode the moment the player accepts, switches to `win`/`loss` when `playCoinFlipSequence` resolves. Existing audio + haptic + confetti flow preserved.
+- **Open-challenge cards**: BONE/SKULL badges with lucide icons + "Enter Pit" CTA + "You get SKULL/BONE" hint.
+- **Empty state copy**: "No challengers in the pit yet. Roar first — create a challenge and summon a pack."
+- **Result reveal**: "TOP DOG" / "TAIL TUCKED" headers; "Pit landed on BONE/SKULL"; bone/skull icons replace the old 🪙/⭐ emojis.
+
+### Tested
+- `/betting` route renders the full Pug Pit layout with no console errors. Lint clean.
+- Existing wallet/escrow flow (`createChallenge`, `sendSolToEscrow`, `acceptChallenge`, `cancelChallenge`) untouched — backend payload still uses `"heads"`/`"tails"`.
+
+### Notes
+- The Pack Pile (winner-pot) tab still uses its original copy. If you want the same fighting-game treatment carried into Pack Pile too, that's a quick follow-up — say the word.
+- Snarl-Off mid-flip + face-off poses require a real challenge accept to surface; can't be fully captured in a static smoke test but the state plumbing is verified by lint + zero console errors.
+
 ## Iteration 159 — Black Hole Inward-Suction Particle Stream (Feb 25, 2026)
 
 Added `BlackHoleSuction` — a 28-particle `instancedMesh` spiraling cosmic dust into the void to telegraph the hazard from a distance.
