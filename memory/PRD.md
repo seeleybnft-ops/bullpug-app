@@ -28,6 +28,29 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 155 — Sculpted PugBody Applied to All Skins (Feb 25, 2026)
+
+User confirmed the sculpted Guardian look. Rolled the same procedural sculpt out to every non-skeletal skin (10 skins): Ethereal, Diamond, Gold, Silver, Heatmap, Radioactive, Zombie, Aqua, Inferno, Cyber. Skeletal still uses its dedicated `SkeletonBody` (full skull/ribcage/spine model).
+
+### Refactor
+- Renamed `GuardianBody` → `SculptedPugBody` and made it accept `skinId` + `sk` props so the same sculpt drives every variant.
+- Added a `shade(hex, factor)` helper near `SKIN_VISUALS` that derives darker/lighter variants of any color. The brow shelf and 3 brow wrinkles are auto-computed as `shade(sk.body, 0.1)` and `shade(sk.body, 0.28)`; sheen rims use a 25%-lighter tint of body or `sk.dark`.
+- New adaptive material factory inside `SculptedPugBody`:
+  - **Diamond** (`skinId === "diamond"`): full `meshPhysicalMaterial` transmission pass on every body part (IOR 2.4, attenuation cyan, clearcoat 1.0, transparent) — light actually refracts through it.
+  - **Metallics** (`sk.metalness >= 0.6`: Gold, Silver, Cyber): sheen off, `clearcoat 0.5 / clearcoatRoughness 0.15`, `envMapIntensity 1.2` for the polished read.
+  - **Organic / glow** (everything else): sheen `0.55` with body-tinted sheen rim + `clearcoat 0.2` for healthy skin gloss.
+- **Glowing eyes** for emissive skins (`sk.emissiveIntensity > 0.3`: Radioactive, Fire, Ethereal, Heatmap, Water): eyes self-light with `meshStandardMaterial` emissive + `toneMapped={false}` and the white catch-light specs are skipped since the eye glow takes their place.
+- Snout, snout crease, mouth crease, ears, paw pads all derive their tint from `sk.dark` so each skin colors its dark accents consistently.
+- Robot antenna preserved (renders when `sk.extra === "robot"`).
+- Nose pad, nostril dots, tongue tip, horns and catch-lights stay skin-agnostic so the pug "read" is consistent.
+
+### Removed (dead code)
+- Legacy low-poly sphere-stack fallback (`<>` branch with the old 28×22 spheres) — every skin now goes through `SculptedPugBody`.
+- The shared `bodyMat` constant in `Bullpug` (was only used by the removed fallback). Bullpug's render is now a clean two-way branch: `skinId === "skeletal"` → `SkeletonBody`, else → `SculptedPugBody`.
+
+### Tested
+Scripted localStorage skin swap + `/game/3d` capture confirms Gold (metallic + orbital shine ring), Diamond (transmission), Radioactive (green glow + sparkles), Fire / Inferno (lava cracks + flame plume), Ethereal (purple halo), Cyber / Robot (antenna). All VFX overlays still attach correctly because `SkinSurface` and `SkinExtras` are unchanged. No console errors.
+
 ## Iteration 154 — Guardian Rear-Slim + Camera Pull-back (Feb 25, 2026)
 
 User reported the in-game rear view was bottom-heavy and asked to see more of the track. Default skin only.
