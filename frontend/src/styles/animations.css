@@ -297,3 +297,29 @@
   animation: stakesShimmer 8s linear infinite;
 }
 
+/* Pack Howl — gentle pulse + slight lift while the countdown ticks down.
+   Used by PackRingAvatar pugs in the Pack Pile ring during the final 10s. */
+@keyframes packHowl {
+  0%, 100% { transform: translateY(0) scale(1);     filter: drop-shadow(0 0 0 transparent); }
+  50%      { transform: translateY(-4px) scale(1.06); filter: drop-shadow(0 0 10px #F5D300); }
+}
+.packring-howl { animation: packHowl 0.8s ease-in-out infinite; }
+
+/* Bone drop — animates the giant golden bone falling into the pack center
+   when the winner is announced. Subtle 3D rotation + impact bounce. */
+@keyframes boneDrop {
+  0%   { transform: translate(-50%, -120%) rotate(-30deg) scale(0.6); opacity: 0; }
+  60%  { transform: translate(-50%, -50%)  rotate(15deg)  scale(1.15); opacity: 1; }
+  80%  { transform: translate(-50%, -50%)  rotate(-8deg)  scale(0.95); opacity: 1; }
+  100% { transform: translate(-50%, -50%)  rotate(0deg)   scale(1);    opacity: 1; }
+}
+.bone-drop { animation: boneDrop 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* Center bone idle pulse — used between draws to telegraph "prize lives here" */
+@keyframes bonePulse {
+  0%, 100% { filter: drop-shadow(0 0 10px #F5D300) drop-shadow(0 0 18px rgba(245,211,0,0.4)); transform: translate(-50%, -50%) scale(1); }
+  50%      { filter: drop-shadow(0 0 18px #F5D300) drop-shadow(0 0 28px rgba(245,211,0,0.7)); transform: translate(-50%, -50%) scale(1.08); }
+}
+.bone-pulse { animation: bonePulse 2.4s ease-in-out infinite; }
+
+

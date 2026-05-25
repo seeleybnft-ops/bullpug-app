@@ -28,6 +28,32 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 161 — Pack Pile: "The Pack Howl" Themed (Feb 25, 2026)
+
+User asked to extend the Pug Pit theme to the Pack Pile (Winner-Take-All) tab with a fitting animation concept. Built **"The Pack Howl"** — pug avatars circle a golden bone in the center; tension builds during the countdown via `packHowl` pulse; bone drops + winner rears (horns-up glow) while others tail-tuck dim when the alpha is named.
+
+### What changed
+- **Text rebrand throughout**: "Join Pot" → "Howl Into the Pack", "Current Pot" → "Pack Pile", "Entries" → "Pack size", "Participants" → "The Pack", "Join Pot" btn → "Throw Bone In", "Joining" → "Howling", "Pot Countdown" → "Pack Howl in…", "Winner" → "TOP DOG", participant share → "howl share", help block rewritten in pack/alpha voice.
+- **Stakes Meter** ported to Pack Pile (Backyard / Pit / Coliseum / Cosmic).
+- **New `PackRingAvatar` component** (`/app/frontend/src/components/PackRingAvatar.js`): live `SkinPreview3D` mini-pug + colored glow ring + bottom alpha-initial badge. Reuses the same `djb2`-hash skin-for-wallet helper that the Snarl-Off face-off uses, so the same alpha always wears the same skin everywhere. `forceSkin` prop lets the player's row use their actual equipped skin.
+- **The Howl Ring**: replaced the abstract initials roulette with a circular pack formation —
+  - Outer aurora swirl (gold/pink/green gradient blur).
+  - Original probability-wheel SVG retained underneath but muted (60% opacity) for visual "stage" — math + odds stay intact.
+  - Up to 12 `PackRingAvatar` pugs positioned around the ring via polar coords (`cos/sin × 124px radius`). Overflow shows a "+N more" pip.
+  - **Center golden bone** (lucide `Bone` in a gold orb): `bone-pulse` keyframe by default (telegraphs the prize), `bone-drop` keyframe with overshoot when a winner is announced.
+- **Winner moment animation hook**: new `winnerCelebration` state holds the WS `pot_winner` payload for 4.5s after announcement. During that window the bone drops, the winning avatar plays `pugpit-rear` (gold-glow horns-up), and every other avatar plays `pugpit-tuck` (rotate + dim).
+- **Tension build-up**: when `countdown ≤ 10`, every avatar switches to `packring-howl` keyframe (gentle lift + gold drop-shadow) and the underlying probability wheel speeds up.
+
+### CSS additions (`animations.css`)
+- `packHowl` — looping translateY -4px + scale 1.06 + gold drop-shadow.
+- `boneDrop` — 0.9s cubic-bezier impact with overshoot + minor rotation.
+- `bonePulse` — 2.4s idle pulse on the center bone (scale 1 → 1.08, brightening drop-shadow).
+
+### Tested
+- `/betting` → Pack Pile tab loads cleanly. Layout matches design: "HOWL INTO THE PACK" left card, "PACK PILE / PACK SIZE" right card, "Throw Bone In" CTA (gold→magenta gradient), Pack Tier meter, pack-themed waiting state ("Start the pack. Throw the first bone in…"), bone-iconed empty state, "How the howl works" rewritten ruleset.
+- Zero console errors, lint clean for both `BettingArena.js` and `PackRingAvatar.js`.
+- Howl Ring + drop celebration require live pot entries / WS messages, so visual was verified by JSX path runtime success + zero errors (cannot easily smoke-test with no live participants).
+
 ## Iteration 160 — Pug Pit PvP Theming (P2P Arena) (Feb 25, 2026)
 
 User picked Concept D from the arena themeing suggestions: full fighting-game treatment for the P2P Arena, skin-aware mini-pug face-off using the live sculpted geometry.

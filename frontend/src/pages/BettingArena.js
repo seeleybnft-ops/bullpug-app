@@ -13,6 +13,7 @@ import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequen
 import "@/styles/animations.css";
 import ArenaChat from "@/components/ArenaChat";
 import PugPitFaceOff from "@/components/PugPitFaceOff";
+import PackRingAvatar from "@/components/PackRingAvatar";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -600,6 +601,10 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
   const [joining, setJoining] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [transferStep, setTransferStep] = useState(null);
+  // Pack-howl celebration — when a winner is announced via WS, set this
+  // briefly so the ring can play the bone-drop + winner-rear animation
+  // before the pot resets.
+  const [winnerCelebration, setWinnerCelebration] = useState(null);
 
   useEffect(() => {
     const wsUrl = process.env.REACT_APP_BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
@@ -615,6 +620,14 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
       if (msg.type === "pot_winner") {
         toast.success(t('betting.pot.won', { name: msg.data.winner_name, amount: msg.data.payout_sol }));
         setCountdown(null);
+        // Hold the celebration on screen for 4s before clearing so the
+        // bone-drop + rear/tuck animations have time to play.
+        setWinnerCelebration({
+          winner_wallet: msg.data.winner_wallet,
+          winner_name: msg.data.winner_name,
+          payout_sol: msg.data.payout_sol,
+        });
+        setTimeout(() => setWinnerCelebration(null), 4500);
       }
     };
     axios.get(`${API}/betting/pot`).then(r => {
@@ -698,20 +711,20 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Join Pot */}
+      {/* Join Pack — left column */}
       <div className="glass-card rounded-2xl p-6 space-y-5">
         <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-          <Trophy className="w-4 h-4 text-[#D946EF]" /> {t('betting.pot.joinPot')}
+          <Bone className="w-4 h-4 text-[#F5D300]" /> Howl Into the Pack
         </h3>
 
         <div>
-          <label className="text-xs text-slate-500 uppercase mb-1 block">{t('betting.pot.yourName')}</label>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Your alpha name</label>
           <Input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={20}
             className="bg-black/50 border-white/10 text-white" />
         </div>
 
         <div>
-          <label className="text-xs text-slate-500 uppercase mb-1 block">{t('betting.pot.betAmount')}</label>
+          <label className="text-xs text-slate-500 uppercase mb-1 block">Bone in (SOL)</label>
           <Input type="number" step="0.001" min="0.005" max="10" value={betAmount} onChange={e => setBetAmount(e.target.value)}
             className="bg-black/50 border-white/10 text-white text-lg font-bold" data-testid="pot-bet-input" />
           <div className="flex gap-2 mt-2">
@@ -722,69 +735,85 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-slate-600 mt-1">Min 0.005 SOL · Stacking allowed up to 10 SOL total per round</p>
+          <p className="text-[10px] text-slate-600 mt-1">Min 0.005 SOL · the bigger your bone, the louder your howl (up to 10 SOL total).</p>
         </div>
+
+        {/* Stakes Meter — same tier ladder used by Snarl-Off */}
+        {(() => {
+          const tier = stakeTier(betAmount);
+          return (
+            <div data-testid="stakes-meter-pack">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Pack tier</span>
+                <span className="text-[10px] uppercase font-bold" style={{ color: tier.color }}>{tier.name}</span>
+              </div>
+              <div className="relative h-2 rounded-full bg-black/40 border border-white/5 overflow-hidden">
+                <div className="pugpit-stakes-track absolute inset-y-0 left-0" style={{ width: `${tier.percent}%`, opacity: 0.85 }} />
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="p-3 rounded-lg bg-[#D946EF]/10 border border-[#D946EF]/30">
           <p className="text-xs text-slate-400">
-            {t('betting.pot.higherBetHigherChance', { rake: pot.rake_percent })}
+            Bigger bone = louder howl = better odds. House takes {pot.rake_percent}%; 25% of that bolsters the Cosmic Runner Jackpot.
           </p>
         </div>
 
         <Button onClick={joinPot} disabled={joining || !connected} data-testid="join-pot-btn"
-          className="w-full bg-[#D946EF] text-white font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
-          {joining ? t('betting.pot.joining') : t('betting.pot.joinBtn')}
+          className="w-full bg-gradient-to-r from-[#D946EF] to-[#F5D300] text-black font-bold rounded-xl py-5 text-sm uppercase hover:scale-[1.02] transition-transform">
+          {joining ? "Howling…" : "Throw Bone In"}
         </Button>
 
         <div className="text-center">
           <p className="text-[10px] text-slate-600">
-            {t('betting.pot.rakeGoesTo')}: <span className="text-slate-400">{config.distribution_wallet?.slice(0, 12)}...</span>
+            Pile escrow: <span className="text-slate-400">{config.distribution_wallet?.slice(0, 12)}...</span>
           </p>
         </div>
       </div>
 
-      {/* Pot Status */}
+      {/* Pack Pile Status — right column */}
       <div className="lg:col-span-2 space-y-4">
         <div className="glass-card rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <p className="text-xs text-slate-500 uppercase">{t('betting.pot.currentPot')}</p>
-              <p className="text-4xl font-black text-[#D946EF]" style={{ fontFamily: 'Orbitron' }}>
+              <p className="text-xs text-slate-500 uppercase">Pack Pile</p>
+              <p className="text-4xl font-black text-[#F5D300]" style={{ fontFamily: 'Orbitron' }}>
                 {pot.total_amount_sol?.toFixed(2) || "0.00"} <span className="text-lg">SOL</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-500 uppercase">{t('betting.pot.entries')}</p>
+              <p className="text-xs text-slate-500 uppercase">Pack size</p>
               <p className="text-2xl font-black text-white" style={{ fontFamily: 'Orbitron' }}>{pot.entry_count || 0}</p>
             </div>
           </div>
 
-          {/* Countdown Timer - Shows when 2+ participants */}
+          {/* Countdown — Pack Howl tension build */}
           {pot.countdown_started && countdown !== null && countdown > 0 && (
             <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[#FF6B6B]/20 to-[#D946EF]/20 border border-[#FF6B6B]/40 animate-pulse">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#FF6B6B]/30 flex items-center justify-center">
-                    <span className="text-xl">⏱️</span>
+                    <Bone className="w-5 h-5 text-[#F5D300]" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase">Draw Countdown</p>
-                    <p className="text-sm text-white">Winner will be selected when timer ends!</p>
+                    <p className="text-xs text-slate-400 uppercase">Pack Howl in…</p>
+                    <p className="text-sm text-white">One alpha walks away with the whole pile.</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`text-3xl font-black ${countdown <= 10 ? 'text-[#FF6B6B] animate-bounce' : 'text-[#D946EF]'}`} 
+                  <p className={`text-3xl font-black ${countdown <= 10 ? 'text-[#FF6B6B] animate-bounce' : 'text-[#F5D300]'}`} 
                      style={{ fontFamily: 'Orbitron' }}
                      data-testid="pot-countdown">
                     {formatCountdown(countdown)}
                   </p>
-                  <p className="text-[10px] text-slate-500">seconds remaining</p>
+                  <p className="text-[10px] text-slate-500">until the howl</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Waiting for participants message - Enhanced */}
+          {/* Waiting for participants */}
           {!pot.countdown_started && pot.entry_count < 2 && (
             <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[#D946EF]/10 to-[#00FFA3]/10 border border-[#D946EF]/30">
               <div className="flex items-center justify-between">
@@ -801,12 +830,12 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
                   </div>
                   <div>
                     <p className="text-sm font-bold text-white">
-                      {pot.entry_count === 0 ? "Be the first to join!" : "1 player waiting..."}
+                      {pot.entry_count === 0 ? "Start the pack." : "Pack of 1. Needs another howl."}
                     </p>
                     <p className="text-xs text-slate-400">
                       {pot.entry_count === 0 
-                        ? "Start the pot and wait for a challenger"
-                        : "Join now to trigger the 60s countdown!"}
+                        ? "Throw the first bone in and wait for the pack to gather."
+                        : "One more alpha triggers the 60-second howl."}
                     </p>
                   </div>
                 </div>
@@ -824,195 +853,189 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    {pot.entry_count || 0}/2 players
+                    {pot.entry_count || 0}/2 alphas
                   </p>
                 </div>
               </div>
               {pot.entry_count === 1 && (
                 <div className="mt-3 pt-3 border-t border-white/10">
                   <p className="text-xs text-center text-[#00FFA3] animate-pulse">
-                    ⚡ One more player triggers the countdown! ⚡
+                    One more bone triggers the howl
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {pot.winner && (
+          {(pot.winner || winnerCelebration) && (
             <div className="p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30 mb-4">
               <p className="text-sm font-bold text-[#00FFA3]">
-                {t('betting.pot.won', { name: pot.winner.winner_name, amount: pot.winner.payout_sol })}
+                TOP DOG: {(winnerCelebration?.winner_name || pot.winner?.winner_name)} took {(winnerCelebration?.payout_sol || pot.winner?.payout_sol)} SOL.
               </p>
             </div>
           )}
 
           {pot.entries && pot.entries.length > 0 ? (
             <div className="space-y-4">
-              {/* SPIN WHEEL - Live Odds Spinner like Solpot */}
-              <div className="relative flex justify-center mb-6">
-                <div className="relative w-64 h-64">
-                  {/* Outer glow ring */}
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#D946EF]/30 via-[#00FFA3]/30 to-[#D946EF]/30 blur-xl animate-spin" style={{ animationDuration: '8s' }} />
-                  
-                  {/* Main wheel container */}
-                  <div className="absolute inset-2 rounded-full bg-black/80 border-4 border-[#D946EF]/50 overflow-hidden">
-                    <svg viewBox="0 0 100 100" className="w-full h-full" style={{ animation: pot.countdown_started && countdown && countdown <= 10 ? 'spin 0.5s linear infinite' : 'spin 3s linear infinite' }}>
+              {/* ───── HOWL RING — pug avatars circling a golden bone ───── */}
+              <div className="relative flex justify-center mb-6" data-testid="howl-ring">
+                <div className="relative w-72 h-72">
+                  {/* Outer aurora — gold/pink/green swirl behind the ring */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#F5D300]/25 via-[#D946EF]/25 to-[#00FFA3]/25 blur-2xl animate-spin" style={{ animationDuration: '10s' }} />
+
+                  {/* Probability wheel — kept under the avatars for visual
+                      "stage" but muted; the real tension is the avatar ring */}
+                  <div className="absolute inset-3 rounded-full bg-black/80 border-2 border-[#D946EF]/30 overflow-hidden opacity-60">
+                    <svg viewBox="0 0 100 100" className="w-full h-full" style={{ animation: pot.countdown_started && countdown && countdown <= 10 ? 'spin 0.5s linear infinite' : 'spin 6s linear infinite' }}>
                       <defs>
                         {pot.entries.map((entry, i) => (
                           <linearGradient key={`grad-${i}`} id={`segment-grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 50%)`} />
-                            <stop offset="100%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 80%, 35%)`} />
+                            <stop offset="0%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 35%)`} />
+                            <stop offset="100%" stopColor={`hsl(${(i * 360 / pot.entries.length + 280) % 360}, 80%, 20%)`} />
                           </linearGradient>
                         ))}
                       </defs>
-                      
                       {pot.entries.map((entry, i) => {
                         const total = pot.entries.length;
                         const startAngle = (i / total) * 360 - 90;
                         const endAngle = ((i + 1) / total) * 360 - 90;
                         const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
-                        
                         const startRad = (startAngle * Math.PI) / 180;
                         const endRad = (endAngle * Math.PI) / 180;
-                        
                         const x1 = 50 + 45 * Math.cos(startRad);
                         const y1 = 50 + 45 * Math.sin(startRad);
                         const x2 = 50 + 45 * Math.cos(endRad);
                         const y2 = 50 + 45 * Math.sin(endRad);
-                        
                         return (
                           <path
                             key={i}
                             d={`M 50 50 L ${x1} ${y1} A 45 45 0 ${largeArc} 1 ${x2} ${y2} Z`}
                             fill={`url(#segment-grad-${i})`}
-                            stroke="rgba(255,255,255,0.3)"
+                            stroke="rgba(255,255,255,0.15)"
                             strokeWidth="0.5"
                           />
                         );
                       })}
-                      
-                      {/* Center circle */}
-                      <circle cx="50" cy="50" r="12" fill="url(#center-grad)" stroke="#D946EF" strokeWidth="1" />
-                      <defs>
-                        <radialGradient id="center-grad">
-                          <stop offset="0%" stopColor="#1a1a2e" />
-                          <stop offset="100%" stopColor="#0a0a15" />
-                        </radialGradient>
-                      </defs>
-                      
-                      {/* Player initials on segments */}
-                      {pot.entries.map((entry, i) => {
-                        const total = pot.entries.length;
-                        const midAngle = ((i + 0.5) / total) * 360 - 90;
-                        const midRad = (midAngle * Math.PI) / 180;
-                        const textX = 50 + 28 * Math.cos(midRad);
-                        const textY = 50 + 28 * Math.sin(midRad);
-                        
-                        return (
-                          <text
-                            key={`text-${i}`}
-                            x={textX}
-                            y={textY}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fill="white"
-                            fontSize="6"
-                            fontWeight="bold"
-                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
-                          >
-                            {entry.display_name?.slice(0, 3).toUpperCase() || '???'}
-                          </text>
-                        );
-                      })}
                     </svg>
                   </div>
-                  
-                  {/* Pointer/Arrow at top */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
-                    <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[20px] border-t-[#00FFA3] drop-shadow-lg" />
-                  </div>
-                  
-                  {/* Center pot amount */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center">
-                      <p className="text-2xl font-black text-[#D946EF]" style={{ fontFamily: 'Orbitron', textShadow: '0 0 10px rgba(217,70,239,0.5)' }}>
-                        {pot.total_amount_sol?.toFixed(2)}
+
+                  {/* Center golden bone — pulses idle, drops on winner reveal */}
+                  <div
+                    className={`absolute top-1/2 left-1/2 ${winnerCelebration ? 'bone-drop' : 'bone-pulse'}`}
+                    style={{ transform: 'translate(-50%, -50%)' }}
+                    data-testid="pack-center-bone"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FFE680] to-[#D4AF37] flex items-center justify-center border-4 border-[#FFE066] shadow-2xl">
+                      <Bone className="w-10 h-10 text-black" strokeWidth={2.5} />
+                    </div>
+                    <div className="text-center mt-1">
+                      <p className="text-[10px] text-[#F5D300] uppercase tracking-wider font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                        {pot.total_amount_sol?.toFixed(2)} SOL
                       </p>
-                      <p className="text-[10px] text-slate-400 uppercase">SOL</p>
                     </div>
                   </div>
-                  
-                  {/* Spinning particles around wheel */}
-                  <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
-                    {[...Array(8)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute w-2 h-2 rounded-full bg-[#00FFA3]"
-                        style={{
-                          top: '50%',
-                          left: '50%',
-                          transform: `rotate(${i * 45}deg) translateY(-130px)`,
-                          animation: `pulse 1.5s ease-in-out ${i * 0.2}s infinite`,
-                          opacity: 0.6
-                        }}
-                      />
-                    ))}
-                  </div>
+
+                  {/* Pug avatars around the ring — capped at 12 visible so
+                      the ring stays readable. Beyond that we show a "+N" pip. */}
+                  {(() => {
+                    const visible = pot.entries.slice(0, 12);
+                    const total = visible.length;
+                    const radius = 124; // px from center
+                    const winnerWallet = winnerCelebration?.winner_wallet || pot.winner?.winner_wallet;
+                    const tense = pot.countdown_started && countdown && countdown <= 10;
+                    return visible.map((entry, i) => {
+                      const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+                      const x = Math.cos(angle) * radius;
+                      const y = Math.sin(angle) * radius;
+                      const isWinner = winnerWallet && entry.wallet_address === winnerWallet;
+                      const isPlayer = walletAddress && entry.wallet_address?.includes(walletAddress.slice(0, 6));
+                      let pose = "idle";
+                      if (winnerCelebration) pose = isWinner ? "rear" : "tuck";
+                      else if (tense) pose = "howl";
+                      return (
+                        <div
+                          key={`av-${i}`}
+                          className="absolute top-1/2 left-1/2"
+                          style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+                        >
+                          <PackRingAvatar
+                            walletStr={entry.wallet_address}
+                            initial={entry.display_name?.charAt(0) || "?"}
+                            size={46}
+                            pose={pose}
+                            isPlayer={isPlayer}
+                            forceSkin={isPlayer ? (typeof window !== "undefined" ? localStorage.getItem("bullpugSkin") || "default" : "default") : null}
+                          />
+                        </div>
+                      );
+                    });
+                  })()}
+
+                  {/* "+N more" pip when pack overflows */}
+                  {pot.entries.length > 12 && (
+                    <div className="absolute bottom-0 right-0 bg-[#D946EF] text-white text-[10px] font-bold rounded-full px-2 py-1">
+                      +{pot.entries.length - 12} more
+                    </div>
+                  )}
                 </div>
               </div>
-              
+
               <style>{`
                 @keyframes spin {
                   from { transform: rotate(0deg); }
                   to { transform: rotate(360deg); }
                 }
-                @keyframes pulse {
-                  0%, 100% { opacity: 0.3; transform: scale(0.8) rotate(var(--rotation)) translateY(-130px); }
-                  50% { opacity: 1; transform: scale(1.2) rotate(var(--rotation)) translateY(-130px); }
-                }
               `}</style>
               
-              {/* Participant list */}
-              <p className="text-xs text-slate-500 uppercase mb-2">{t('betting.pot.participants')}</p>
-              {pot.entries.map((e, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: `hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 40%)` }}
-                    >
-                      {e.display_name?.charAt(0) || "?"}
+              {/* The Pack — participant roster */}
+              <p className="text-xs text-slate-500 uppercase mb-2">The Pack</p>
+              {pot.entries.map((e, i) => {
+                const winnerWallet = winnerCelebration?.winner_wallet || pot.winner?.winner_wallet;
+                const isWinner = winnerWallet && e.wallet_address === winnerWallet;
+                return (
+                  <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isWinner ? "bg-[#F5D300]/10 border-[#F5D300]/40" : "bg-white/[0.02] border-white/5"}`}>
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        style={{ backgroundColor: `hsl(${(i * 360 / pot.entries.length + 280) % 360}, 70%, 40%)` }}
+                      >
+                        {e.display_name?.charAt(0) || "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white flex items-center gap-2">
+                          {e.display_name}
+                          {isWinner && <span className="text-[10px] text-[#F5D300] font-black uppercase">Top dog</span>}
+                        </p>
+                        <p className="text-[10px] text-slate-500">{e.wallet_address}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{e.display_name}</p>
-                      <p className="text-[10px] text-slate-500">{e.wallet_address}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-[#D946EF]">{e.amount_sol} SOL</p>
+                      <p className="text-[10px] text-[#00FFA3]">{e.probability}% howl share</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-[#D946EF]">{e.amount_sol} SOL</p>
-                    <p className="text-[10px] text-[#00FFA3]">{e.probability}% {t('betting.pot.chance')}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
-              <Trophy className="w-10 h-10 mx-auto mb-3 text-slate-700" />
-              <p className="text-slate-500">{t('betting.pot.noEntries')}</p>
+              <Bone className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p className="text-slate-500">Empty pack. No bones in the pile yet.</p>
             </div>
           )}
         </div>
 
         <div className="glass-card rounded-xl p-4">
-          <p className="text-xs text-slate-500 mb-2">{t('betting.pot.howItWorks')}</p>
+          <p className="text-xs text-slate-500 mb-2">How the howl works</p>
           <ul className="text-xs text-slate-400 space-y-1">
-            <li>• {t('betting.pot.rule1')}</li>
-            <li>• {t('betting.pot.rule2')}</li>
-            <li>• {t('betting.pot.rule3')} ({pot.rake_percent}% {t('betting.coinFlip.rake').toLowerCase()})</li>
-            <li>• {t('betting.pot.rule4')}</li>
+            <li>• Throw a bone in (any size SOL). The bigger the bone, the louder your howl.</li>
+            <li>• When two or more alphas are in, a 60-second countdown starts.</li>
+            <li>• When the timer hits zero the pack howls and the pile goes to one alpha — odds proportional to bone size.</li>
+            <li>• House takes {pot.rake_percent}%. 25% of that swells the Cosmic Runner Jackpot.</li>
           </ul>
         </div>
       </div>
+
     </div>
   );
 }
