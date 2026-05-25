@@ -1587,6 +1587,75 @@ const OBSTACLE_DEFS = {
 };
 const POWERUP_TYPES = ["shield", "magnet", "multiplier"];
 
+/**
+ * Cosmic dust particles spiraling inward into the black hole's void.
+ * Built on `instancedMesh` so a single draw call covers 28 particles —
+ * cheap enough that we render this on every black-hole obstacle.
+ *
+ * Each particle holds its own polar state (angle, radius, tangential
+ * speed, base size). Per-frame we:
+ *   • advance the angle (tangential swirl) ~1.4 rad/s with a per-particle
+ *     speed multiplier
+ *   • shrink the radius (inward pull) ~0.32 units/s
+ *   • when a particle crosses the event horizon (r < 0.35) we respawn
+ *     it at the outer rim with a fresh random angle
+ *   • size attenuates with radius so particles taper as they get sucked
+ *     in — sells the gravity well telegraph from a distance
+ *
+ * Rendered as a tiny 8×6 sphere with a soft purple-white basic material
+ * (toneMapped=false so it stays bright against the dark void center).
+ * Lives inside the rotated black_hole group, so the disc plane is local
+ * XY — particles naturally swirl in the same plane as the accretion ring.
+ */
+function BlackHoleSuction() {
+  const meshRef = useRef();
+  const PARTICLE_COUNT = 28;
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const particles = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      arr.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: 0.65 + Math.random() * 1.15,
+        speed: 0.7 + Math.random() * 0.6,
+        size: 0.022 + Math.random() * 0.020,
+      });
+    }
+    return arr;
+  }, []);
+
+  useFrame((_, dt) => {
+    if (!meshRef.current) return;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.angle += p.speed * dt * 1.4;
+      p.radius -= dt * 0.32;
+      if (p.radius < 0.35) {
+        p.radius = 1.7 + Math.random() * 0.15;
+        p.angle = Math.random() * Math.PI * 2;
+      }
+      dummy.position.set(
+        Math.cos(p.angle) * p.radius,
+        Math.sin(p.angle) * p.radius,
+        0.025,
+      );
+      const s = p.size * Math.max(0.35, p.radius / 1.6);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[null, null, PARTICLE_COUNT]}>
+      <sphereGeometry args={[1, 8, 6]} />
+      <meshBasicMaterial color="#E9D5FF" transparent opacity={0.9} toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
+
 function Obstacle({ type, refData }) {
   const ref = useRef();
   const halo = useRef();
@@ -1689,6 +1758,8 @@ function Obstacle({ type, refData }) {
           <ringGeometry args={[0.95, 1.15, 48]} />
           <meshBasicMaterial color="#7C3AED" transparent opacity={0.25} side={THREE.DoubleSide} />
         </mesh>
+        {/* Inward suction — cosmic dust spiraling into the void */}
+        <BlackHoleSuction />
         <pointLight intensity={0.7} color="#D946EF" distance={4} />
       </group>
     );

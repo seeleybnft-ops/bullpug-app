@@ -28,6 +28,24 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 159 — Black Hole Inward-Suction Particle Stream (Feb 25, 2026)
+
+Added `BlackHoleSuction` — a 28-particle `instancedMesh` spiraling cosmic dust into the void to telegraph the hazard from a distance.
+
+### Behavior
+- 28 small purple-white spheres held in polar state `{ angle, radius, speed, size }`.
+- Per frame: angle advances ~1.4 rad/s × per-particle speed multiplier (tangential swirl); radius shrinks ~0.32 units/s (inward pull); particles that cross the event horizon (`r < 0.35`) respawn at the outer rim with a fresh random angle.
+- Size attenuates linearly with radius — particles taper as they get sucked in.
+- Material is a `meshBasicMaterial` with `toneMapped={false}` so they stay bright against the dark void center.
+- Lives inside the rotated `black_hole` group, so the disc plane is local XY — particles naturally swirl in the same plane as the accretion ring and remain camera-facing thanks to the iteration-158 forward rotation.
+
+### Performance
+- Single draw call via `instancedMesh(28)`. Negligible cost.
+
+### Tested
+- Temporarily lowered `minStage: 3 → 1` to force-spawn a black hole at the start of a run, captured `/game/3d` at 6m showing the void clearly centered + accretion ring + faint particle field around it. `minStage` reverted to `3` after verification.
+- Lint clean, no console errors.
+
 ## Iteration 158 — App-wide Procedural Env Map + Blackhole Forward-Facing Fix (Feb 25, 2026)
 
 ### Procedural CubeTexture extended to all skins
