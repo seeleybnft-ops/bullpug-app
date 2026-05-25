@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import { Zap, Trophy, Users, Wallet, RefreshCw, Swords, Volume2, VolumeX, Loader2, Bone, Skull } from "lucide-react";
-import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence, winFeedback, loseFeedback, challengeCreatedFeedback, clickFeedback } from "@/utils/sounds";
+import { playSoundIfEnabled, isSoundEnabled, setSoundEnabled, playCoinFlipSequence, winFeedback, loseFeedback, challengeCreatedFeedback, clickFeedback, playPackHowl, playBark } from "@/utils/sounds";
 import "@/styles/animations.css";
 import ArenaChat from "@/components/ArenaChat";
 import PugPitFaceOff from "@/components/PugPitFaceOff";
@@ -605,6 +605,10 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
   // briefly so the ring can play the bone-drop + winner-rear animation
   // before the pot resets.
   const [winnerCelebration, setWinnerCelebration] = useState(null);
+  // Pack-howl audio one-shot — fires when the countdown crosses below
+  // 10s. Cleared whenever a new round starts (countdown jumps back up
+  // or pot clears) so it can re-arm next round.
+  const howlPlayedRef = useRef(false);
 
   useEffect(() => {
     const wsUrl = process.env.REACT_APP_BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://");
@@ -620,6 +624,8 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
       if (msg.type === "pot_winner") {
         toast.success(t('betting.pot.won', { name: msg.data.winner_name, amount: msg.data.payout_sol }));
         setCountdown(null);
+        // Sharp bark on the bone-drop moment.
+        playBark();
         // Hold the celebration on screen for 4s before clearing so the
         // bone-drop + rear/tuck animations have time to play.
         setWinnerCelebration({
@@ -641,7 +647,17 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
 
   // Countdown timer effect
   useEffect(() => {
-    if (countdown === null || countdown <= 0) return;
+    if (countdown === null || countdown <= 0) {
+      // Re-arm howl for the next round.
+      if (countdown === null) howlPlayedRef.current = false;
+      return;
+    }
+    // Fire the pack-howl chorus exactly once when the countdown enters
+    // the final 10s — telegraphs the alpha selection moment.
+    if (countdown <= 10 && !howlPlayedRef.current) {
+      howlPlayedRef.current = true;
+      playPackHowl();
+    }
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {

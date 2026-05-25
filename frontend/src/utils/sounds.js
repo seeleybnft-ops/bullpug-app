@@ -133,6 +133,11 @@ const sounds = {
   swoosh: { frequency: 300, duration: 0.15, type: 'sawtooth', gain: 0.1 },
   // Big-win celebration — arpeggio fanfare (handled specially below)
   bigWin: { frequency: 660, duration: 1.4, type: 'sine', gain: 0.3 },
+  // Pug Pit sounds — sub-bass howl for Pack Pile tension build (≤10s),
+  // sharp bark for the bone-drop winner reveal. Both routed through the
+  // existing oscillator pipeline so they respect the user's mute toggle.
+  howl: { frequency: 220, duration: 0.9, type: 'sawtooth', gain: 0.18 },
+  bark: { frequency: 320, duration: 0.18, type: 'square', gain: 0.25 },
 };
 
 // Play a tone
@@ -169,6 +174,15 @@ export function playTone(soundName) {
       oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.1);
       oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.2);
       oscillator.frequency.setValueAtTime(1320, audioContext.currentTime + 0.3);
+    } else if (soundName === 'howl') {
+      // Dog howl tail-off — pitch rises then drops, like a real howl
+      oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(380, audioContext.currentTime + 0.25);
+      oscillator.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + sound.duration);
+    } else if (soundName === 'bark') {
+      // Sharp bark — quick downward chirp
+      oscillator.frequency.setValueAtTime(420, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + sound.duration);
     }
     
     gainNode.gain.setValueAtTime(sound.gain, audioContext.currentTime);
@@ -218,6 +232,26 @@ export function playSoundIfEnabled(soundName) {
   if (isSoundEnabled()) {
     playTone(soundName);
   }
+}
+
+/**
+ * Pack-howl chorus — 4 overlapping `howl` tones at staggered offsets so
+ * the result reads as a pack of pugs howling together, not a single
+ * lone tone. Used in the Pack Pile when the countdown drops below 10s.
+ * Respects the user's sound-enabled preference.
+ */
+export function playPackHowl() {
+  if (!isSoundEnabled() || !audioContext) return;
+  const offsets = [0, 120, 260, 410]; // ms between each "pup joining in"
+  offsets.forEach((delay) => setTimeout(() => playTone('howl'), delay));
+}
+
+/**
+ * Single sharp bark — used the moment the bone drops + the alpha is
+ * declared. Quick, satisfying punctuation on the win reveal.
+ */
+export function playBark() {
+  playSoundIfEnabled('bark');
 }
 
 // Haptic feedback for mobile devices

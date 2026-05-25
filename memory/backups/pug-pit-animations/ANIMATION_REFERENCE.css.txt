@@ -1,0 +1,173 @@
+/**
+ * Pug Pit & Pack Pile — Animation Source Reference
+ * --------------------------------------------------
+ * All animation-related code for the P2P Arena lives in three places.
+ * This file is a single read-only snapshot you can keep alongside the
+ * project for review/revert.
+ *
+ *  1) CSS keyframes — appended to /app/frontend/src/styles/animations.css
+ *  2) React components
+ *      • PugPitFaceOff.js   — Snarl-Off 1v1 face-off (this folder)
+ *      • PackRingAvatar.js  — Pack Pile circular pack avatar (this folder)
+ *  3) Audio cues (programmatic, no asset files) — see the snippets below.
+ *
+ * Last verified: Feb 25, 2026 (iteration 162, Pack-howl audio wired)
+ */
+
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 1) CSS keyframes  (appended to /app/frontend/src/styles/animations.css)
+ * ───────────────────────────────────────────────────────────────────── */
+
+/*  Snarl-Off (1v1) keyframes
+    ───────────────────────── */
+
+@keyframes pugpitLungeLeft {
+  0%   { transform: translateX(0)   rotate(0deg) scale(1); }
+  35%  { transform: translateX(35px) rotate(-6deg) scale(1.08); }
+  55%  { transform: translateX(35px) rotate(-6deg) scale(1.08); }
+  100% { transform: translateX(0)   rotate(0deg) scale(1); }
+}
+@keyframes pugpitLungeRight {
+  0%   { transform: translateX(0)    rotate(0deg)  scale(1); }
+  35%  { transform: translateX(-35px) rotate(6deg) scale(1.08); }
+  55%  { transform: translateX(-35px) rotate(6deg) scale(1.08); }
+  100% { transform: translateX(0)    rotate(0deg)  scale(1); }
+}
+@keyframes pugpitRear {
+  0%   { transform: rotate(0deg)  scale(1);    filter: drop-shadow(0 0 0 transparent); }
+  40%  { transform: rotate(-10deg) scale(1.12); filter: drop-shadow(0 0 18px #F5D300); }
+  100% { transform: rotate(-6deg) scale(1.08); filter: drop-shadow(0 0 12px #F5D300); }
+}
+@keyframes pugpitTuck {
+  0%   { transform: rotate(0deg) scale(1);    opacity: 1; }
+  100% { transform: rotate(5deg) scale(0.9);  opacity: 0.55; }
+}
+
+.pugpit-lunge-left  { animation: pugpitLungeLeft  2s ease-in-out 1; }
+.pugpit-lunge-right { animation: pugpitLungeRight 2s ease-in-out 1; }
+.pugpit-rear        { animation: pugpitRear       0.6s ease-out forwards; }
+.pugpit-tuck        { animation: pugpitTuck       0.5s ease-out forwards; }
+
+/*  Stakes meter — gradient track with a moving glow at the current tier */
+
+@keyframes stakesShimmer {
+  0%   { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+.pugpit-stakes-track {
+  background: linear-gradient(90deg,
+    #00FFA3 0%, #00FFA3 25%,
+    #D946EF 25%, #D946EF 60%,
+    #F5D300 60%, #F5D300 85%,
+    #FF3A8A 85%, #FF3A8A 100%);
+  background-size: 200% 100%;
+  animation: stakesShimmer 8s linear infinite;
+}
+
+
+/*  Pack Pile keyframes
+    ─────────────────── */
+
+/* Gentle pulse + slight lift on PackRingAvatar pugs in the final 10s. */
+@keyframes packHowl {
+  0%, 100% { transform: translateY(0) scale(1);     filter: drop-shadow(0 0 0 transparent); }
+  50%      { transform: translateY(-4px) scale(1.06); filter: drop-shadow(0 0 10px #F5D300); }
+}
+.packring-howl { animation: packHowl 0.8s ease-in-out infinite; }
+
+/* Bone drop — the giant golden bone falling into the pack center on
+   the winner reveal. 3D-ish rotation + impact bounce overshoot. */
+@keyframes boneDrop {
+  0%   { transform: translate(-50%, -120%) rotate(-30deg) scale(0.6); opacity: 0; }
+  60%  { transform: translate(-50%, -50%)  rotate(15deg)  scale(1.15); opacity: 1; }
+  80%  { transform: translate(-50%, -50%)  rotate(-8deg)  scale(0.95); opacity: 1; }
+  100% { transform: translate(-50%, -50%)  rotate(0deg)   scale(1);    opacity: 1; }
+}
+.bone-drop { animation: boneDrop 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* Center-bone idle pulse — "prize lives here" between draws. */
+@keyframes bonePulse {
+  0%, 100% { filter: drop-shadow(0 0 10px #F5D300) drop-shadow(0 0 18px rgba(245,211,0,0.4)); transform: translate(-50%, -50%) scale(1); }
+  50%      { filter: drop-shadow(0 0 18px #F5D300) drop-shadow(0 0 28px rgba(245,211,0,0.7)); transform: translate(-50%, -50%) scale(1.08); }
+}
+.bone-pulse { animation: bonePulse 2.4s ease-in-out infinite; }
+
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 2) Audio cues  (added to /app/frontend/src/utils/sounds.js)
+ * ───────────────────────────────────────────────────────────────────── */
+
+// Added to the `sounds` map:
+//
+//   howl: { frequency: 220, duration: 0.9, type: 'sawtooth', gain: 0.18 },
+//   bark: { frequency: 320, duration: 0.18, type: 'square',   gain: 0.25 },
+//
+// Added to playTone()'s frequency-sweep ladder:
+//
+//   } else if (soundName === 'howl') {
+//     // Dog howl tail-off — pitch rises then drops, like a real howl
+//     oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+//     oscillator.frequency.linearRampToValueAtTime(380, audioContext.currentTime + 0.25);
+//     oscillator.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + sound.duration);
+//   } else if (soundName === 'bark') {
+//     // Sharp bark — quick downward chirp
+//     oscillator.frequency.setValueAtTime(420, audioContext.currentTime);
+//     oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + sound.duration);
+//   }
+//
+// New exported helpers:
+
+export function playPackHowl() {
+  // 4 staggered "pup joining in" howls — pack chorus effect.
+  if (!isSoundEnabled() || !audioContext) return;
+  const offsets = [0, 120, 260, 410];
+  offsets.forEach((delay) => setTimeout(() => playTone('howl'), delay));
+}
+
+export function playBark() {
+  playSoundIfEnabled('bark');
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 3) Where the animations are triggered  (in BettingArena.js)
+ * ───────────────────────────────────────────────────────────────────── */
+
+//  Snarl-Off (P2PCoinFlip)
+//  ───────────────────────
+//
+//  On accept:        setFaceOff({ opponentWallet, opponentName, mode: "clashing" })
+//  On result (won):  setFaceOff(prev => ({ ...prev, mode: "win" }))
+//  On result (loss): setFaceOff(prev => ({ ...prev, mode: "loss" }))
+//
+//  Rendered by:
+//    <PugPitFaceOff
+//      playerSkin={playerSkin}
+//      playerName={displayName}
+//      opponentWallet={faceOff.opponentWallet}
+//      opponentName={faceOff.opponentName}
+//      mode="clashing" | "win" | "loss" | "idle"
+//      size={120}
+//    />
+
+
+//  Pack Pile (P2PPotSystem)
+//  ────────────────────────
+//
+//  Idle:           Center bone uses .bone-pulse, avatars use pose="idle"
+//  countdown ≤10s: avatars use pose="howl"; playPackHowl() fires once via howlPlayedRef
+//  pot_winner WS:  setWinnerCelebration({ winner_wallet, winner_name, payout_sol })
+//                  + playBark()
+//                  → for 4.5s: winner avatar pose="rear", others pose="tuck",
+//                    center bone uses .bone-drop
+//
+//  Rendered by:
+//    <PackRingAvatar
+//      walletStr={entry.wallet_address}
+//      initial={entry.display_name?.charAt(0)}
+//      size={46}
+//      pose="idle" | "howl" | "rear" | "tuck"
+//      isPlayer={...}
+//      forceSkin={isPlayer ? localStorage.bullpugSkin : null}
+//    />

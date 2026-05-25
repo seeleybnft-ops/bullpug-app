@@ -28,6 +28,42 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 162 — Pug Pit Audio: Pack Howl + Bone-Drop Bark + Animation Backups (Feb 25, 2026)
+
+### Audio wired (programmatic, no asset files)
+Added two new tones to `/app/frontend/src/utils/sounds.js`:
+- `howl` — 0.9s sawtooth, frequency rises 220 → 380 then exponentially drops to 110. Classic dog-howl tail-off shape.
+- `bark` — 0.18s square, sharp 420 → 180 chirp. Quick punctuation.
+
+Two new exported helpers:
+- `playPackHowl()` — fires 4 staggered `howl` tones at `[0, 120, 260, 410]` ms offsets to read as a multi-pug chorus, not a lone tone. Respects the user mute toggle.
+- `playBark()` — single `bark`. Wraps `playSoundIfEnabled('bark')`.
+
+### Wired into `BettingArena.js`
+- New `howlPlayedRef` ref guards a one-shot fire-per-round. Inside the `countdown` timer effect: when `countdown <= 10 && !howlPlayedRef.current`, the chorus plays once. Ref clears whenever `countdown === null` so it re-arms for the next round.
+- `playBark()` fires the moment a `pot_winner` WS message arrives (alongside the existing `winnerCelebration` payload).
+
+### Animation file backups
+Saved copies of every animation-related source for the user:
+
+```
+/app/memory/backups/pug-pit-animations/
+  ├─ PugPitFaceOff.js            (Snarl-Off 1v1 face-off component)
+  ├─ PackRingAvatar.js           (Pack Pile circular pack avatar)
+  └─ ANIMATION_REFERENCE.css.txt (CSS keyframes + audio cues + trigger map — single
+                                   read-only reference document)
+```
+
+`ANIMATION_REFERENCE.css.txt` contains:
+- All Snarl-Off keyframes (`pugpitLungeLeft`, `pugpitLungeRight`, `pugpitRear`, `pugpitTuck`) and the `pugpit-stakes-track` shimmer.
+- All Pack Pile keyframes (`packHowl`, `boneDrop`, `bonePulse`).
+- The new `howl` / `bark` sound entries and the `playPackHowl()` / `playBark()` helpers (commented as snippets).
+- A "Where the animations are triggered" map showing exactly which state changes drive each pose / sound in `BettingArena.js`.
+
+### Tested
+- `/betting` → Pack Pile tab renders cleanly with all themed UI. Zero console errors. Lint clean.
+- Howl + bark audio require a live round/winner to actually play. Triggers are state-gated and exercise paths verified by lint + page render.
+
 ## Iteration 161 — Pack Pile: "The Pack Howl" Themed (Feb 25, 2026)
 
 User asked to extend the Pug Pit theme to the Pack Pile (Winner-Take-All) tab with a fitting animation concept. Built **"The Pack Howl"** — pug avatars circle a golden bone in the center; tension builds during the countdown via `packHowl` pulse; bone drops + winner rears (horns-up glow) while others tail-tuck dim when the alpha is named.
