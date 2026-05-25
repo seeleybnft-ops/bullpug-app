@@ -28,6 +28,23 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 154 — Guardian Rear-Slim + Camera Pull-back (Feb 25, 2026)
+
+User reported the in-game rear view was bottom-heavy and asked to see more of the track. Default skin only.
+
+### Body
+- Haunch sphere: radius `0.42 → 0.36` (~14% smaller), scale `[0.95, 0.95, 0.85] → [0.82, 0.86, 0.78]`, tucked forward `z: -0.24 → -0.18`. Combined rear-volume reduction ≈ 22%.
+- Mid-belly z-scale tightened `1.1 → 1.0` so it no longer bleeds back into the haunch from the camera's POV.
+- Back legs tucked forward `z: -0.32 → -0.26` to track the slimmer rear.
+- Tail anchor pulled forward `z: -0.5 → -0.4` to follow the new haunch position.
+
+### Camera
+- `CosmicRunner3DScene` Canvas camera: `position [0, 2.7, 4.5] → [0, 3.0, 5.4]` (~20% pull-back, slight raise), `fov 70 → 72`.
+- Result: more of the track is visible ahead, near-side obstacles read earlier.
+
+### Tested
+Screenshot of `/game/3d` after Begin Run shows the rear gameplay view: slimmer rear silhouette, expanded track visibility, no console errors.
+
 ## Iteration 153 — Guardian Skin Sculpted Procedural Rebuild (option b) (Feb 25, 2026)
 
 Replaced the option-d polished-primitive Guardian with a hand-tuned procedural sculpt. Default skin only — every other skin still uses its original sphere stack.

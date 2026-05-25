@@ -409,14 +409,19 @@ function GuardianBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
         <sphereGeometry args={[0.46, 64, 48]} />
         {skin()}
       </mesh>
-      {/* Mid belly — slightly fuller, drops down */}
-      <mesh position={[0, 0.5, 0]} scale={[1.05, 0.95, 1.1]}>
+      {/* Mid belly — slightly fuller, drops down. z-scale tightened
+          from 1.1 → 1.0 so the back of the barrel doesn't bleed into
+          the haunch from the rear camera view. */}
+      <mesh position={[0, 0.5, 0]} scale={[1.05, 0.95, 1.0]}>
         <sphereGeometry args={[0.46, 64, 48]} />
         {skin()}
       </mesh>
-      {/* Haunch — smaller, lifted back end (typical pug rump tilt) */}
-      <mesh position={[0, 0.62, -0.24]} scale={[0.95, 0.95, 0.85]}>
-        <sphereGeometry args={[0.42, 48, 36]} />
+      {/* Haunch — smaller, lifted back end (typical pug rump tilt).
+          Slimmed ~20% (radius 0.42 → 0.36, scale tightened, tucked closer
+          to the mid-belly) so the rear view from the gameplay camera
+          stops reading as bottom-heavy. */}
+      <mesh position={[0, 0.6, -0.18]} scale={[0.82, 0.86, 0.78]}>
+        <sphereGeometry args={[0.36, 48, 36]} />
         {skin()}
       </mesh>
       {/* Cream belly highlight — paler underside */}
@@ -567,11 +572,12 @@ function GuardianBody({ frontLeft, frontRight, backLeft, backRight, tail, head }
       {/* ───── LEGS — stubby with 4-toe paws ───── */}
       <Leg refLeg={frontLeft} x={-0.28} z={0.32} zSign={1} />
       <Leg refLeg={frontRight} x={0.28} z={0.32} zSign={1} />
-      <Leg refLeg={backLeft} x={-0.28} z={-0.32} zSign={-1} />
-      <Leg refLeg={backRight} x={0.28} z={-0.32} zSign={-1} />
+      <Leg refLeg={backLeft} x={-0.26} z={-0.26} zSign={-1} />
+      <Leg refLeg={backRight} x={0.26} z={-0.26} zSign={-1} />
 
-      {/* ───── DOUBLE-CURL TAIL — TubeGeometry along a CatmullRom curve ───── */}
-      <group ref={tail} position={[0, 0.88, -0.5]}>
+      {/* DOUBLE-CURL TAIL — TubeGeometry along a CatmullRom curve.
+          Anchor pulled forward (z=-0.4 vs -0.5) to follow the slimmed haunch. */}
+      <group ref={tail} position={[0, 0.85, -0.4]}>
         <mesh>
           <tubeGeometry args={[tailCurve, 64, 0.05, 12, false]} />
           {skin()}
@@ -2294,7 +2300,7 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
   return (
     <div className={`relative w-full h-full ${className}`} data-testid="runner-3d-scene">
       <Canvas
-        camera={{ position: [0, 2.7, 4.5], fov: 70 }}
+        camera={{ position: [0, 3.0, 5.4], fov: 72 }}
         dpr={DPR_CAP}
         gl={{
           antialias: true,
