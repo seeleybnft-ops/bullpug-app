@@ -598,6 +598,13 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
   const [pot, setPot] = useState({ total_amount_sol: 0, entries: [], status: "open", rake_percent: 2.5, countdown_started: false, remaining_seconds: null });
   const [betAmount, setBetAmount] = useState("0.1");
   const [displayName, setDisplayName] = useState(() => localStorage.getItem("bullpugName") || "Guardian");
+  // Player skin lookup — try/catch wrapped because `localStorage` access can
+  // throw a SecurityError in sandboxed iframes / private-browsing contexts
+  // (the `typeof window` guard isn't enough). Mirrors the safe pattern
+  // used in P2PCoinFlip above.
+  const [playerSkin] = useState(() => {
+    try { return localStorage.getItem("bullpugSkin") || "default"; } catch { return "default"; }
+  });
   const [joining, setJoining] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [transferStep, setTransferStep] = useState(null);
@@ -980,7 +987,7 @@ function P2PPotSystem({ walletAddress, connected, config, wallet, connection }) 
                             size={46}
                             pose={pose}
                             isPlayer={isPlayer}
-                            forceSkin={isPlayer ? (typeof window !== "undefined" ? localStorage.getItem("bullpugSkin") || "default" : "default") : null}
+                            forceSkin={isPlayer ? playerSkin : null}
                           />
                         </div>
                       );
