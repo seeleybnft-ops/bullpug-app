@@ -28,6 +28,23 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 158 — App-wide Procedural Env Map + Blackhole Forward-Facing Fix (Feb 25, 2026)
+
+### Procedural CubeTexture extended to all skins
+- Removed the `isGuardian` gate from the cube-env-map memo. The env map is now built once per `(sk.body, sk.dark)` palette pair, so every skin gets its own tinted version (gold → warm yellow, water → cyan, zombie → moss, etc) with no hardcoded per-skin assets.
+- Material factory now emits the env map for every skin including Diamond (which keeps its transmission/IOR config but now also reflects the procedural cube).
+- `sheen` (soft-fuzz rim) restored on every non-metal, non-Diamond skin. Metallics (Gold, Silver, Cyber) keep `sheen: 0` but gain better reflections from the env map.
+- Inline materials (snout, nose pad, ears) now apply `sheen + envMap` unconditionally instead of via the previous `isGuardian` spread.
+
+### Blackhole orientation fix
+- `Obstacle` component for `type === "black_hole"`: rotation changed from `[-Math.PI / 2.2, 0, 0]` (≈ -82° pitch, lying nearly flat on the track — only the thin edge faced the player) to `[Math.PI / 12, 0, 0]` (≈ 15° pitch-back, wide circle facing the camera).
+- Result: player now sees the full void + accretion ring + halo head-on. Hazard reads from a much greater distance.
+
+### Tested
+- Default Guardian preview + in-game `/game/3d` render the full sculpted pug with visible sheen rim — no glitching.
+- Gold / Fire / Water / Diamond regression captures all render with their VFX intact (orbital ring / flame plume / sparkles / transmission).
+- Lint clean, no console errors.
+
 ## Iteration 157 — Guardian Sheen Restored via Procedural CubeTexture (Feb 25, 2026)
 
 Re-enabled the soft-fuzz `sheen` rim on the Guardian default skin, gated behind a tiny procedural `THREE.CubeTexture` env map so the previous "missing-IBL → sheen renders black/invisible" failure can't repeat. Other 10 skins stay on the safe no-sheen path from iteration 156.

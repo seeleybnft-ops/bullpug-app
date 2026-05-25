@@ -368,60 +368,59 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
   const isDiamond = skinId === "diamond";
   const isMetal = sk.metalness >= 0.6;
   const isGlow = sk.emissiveIntensity > 0.3;
-  // Guardian (default) gets the soft-fuzz sheen rim back, paired with a
-  // tiny procedural CubeTexture env map below. Other skins still go
-  // through the no-sheen path that fixed the iteration-156 glitch.
-  const isGuardian = skinId === "default";
 
   // Derived accent colors. Brow is a slightly darker shade of the body
-  // (10%); wrinkles are clearly darker (28%). Sheen rim is a 25%-lighter
-  // tint of the body — only consumed by the Guardian material.
+  // (10%); wrinkles are clearly darker (28%). Sheen rim uses a lighter
+  // body tint; ear / snout sheen uses a lighter dark-accent tint.
   const browColor = useMemo(() => shade(sk.body, 0.1), [sk.body]);
   const wrinkleColor = useMemo(() => shade(sk.body, 0.28), [sk.body]);
   const creaseColor = useMemo(() => shade(sk.dark, 0.4), [sk.dark]);
   const sheenRimColor = useMemo(() => shade(sk.body, -0.25), [sk.body]);
   const darkSheenColor = useMemo(() => shade(sk.dark, -0.3), [sk.dark]);
 
-  // Procedural CubeTexture env map — only built when Guardian is equipped.
-  // Six 64×64 canvas faces with soft warm-sky / cool-shadow gradients give
-  // `meshPhysicalMaterial.sheen` and `clearcoat` something to sample
-  // without touching the buggy drei `<Environment>` HDR loader (which
-  // crashes through the Cloudflare-proxied preview with a postMessage
-  // CloneError).
-  const guardianEnvMap = useMemo(() => {
-    if (!isGuardian || typeof document === "undefined") return null;
+  // Procedural CubeTexture env map — built per-skin so each pug's reflections
+  // (and the sheen rim on organic skins) sample tones from its own palette.
+  // 6 face × 64×64 canvas (~24KB total). No network fetch — bypasses the
+  // drei `<Environment>` HDR loader which crashed through the Cloudflare
+  // proxy with a postMessage CloneError.
+  const envMap = useMemo(() => {
+    if (typeof document === "undefined") return null;
     const size = 64;
-    const faces = [];
-    // Cube face order: +X, -X, +Y (top), -Y (bottom), +Z, -Z
-    const faceColors = [
-      ["#C9A074", "#3A2718"], // +X side  (warm mid → shadow)
-      ["#C9A074", "#3A2718"], // -X side
-      ["#FFE9CC", "#E8C18A"], // +Y top   (sky)
-      ["#2A1A10", "#0A0805"], // -Y bottom (deep shadow)
-      ["#C9A074", "#3A2718"], // +Z side
-      ["#C9A074", "#3A2718"], // -Z side
+    const topCol = shade(sk.body, -0.18); // lightened body — fake "sky"
+    const midCol = sk.body;
+    const botCol = shade(sk.dark, 0.1);   // slightly darker accent
+    const deepCol = shade(sk.dark, 0.55); // very dark — fake "ground"
+    const sideStops = [midCol, botCol];
+    const faceStops = [
+      sideStops,         // +X
+      sideStops,         // -X
+      [topCol, midCol],  // +Y (top / sky)
+      [deepCol, "#020207"], // -Y (bottom / ground)
+      sideStops,         // +Z
+      sideStops,         // -Z
     ];
+    const faces = [];
     for (let i = 0; i < 6; i++) {
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext("2d");
       const grad = ctx.createLinearGradient(0, 0, 0, size);
-      grad.addColorStop(0, faceColors[i][0]);
-      grad.addColorStop(1, faceColors[i][1]);
+      grad.addColorStop(0, faceStops[i][0]);
+      grad.addColorStop(1, faceStops[i][1]);
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);
       faces.push(canvas);
     }
-    const cubeTex = new THREE.CubeTexture(faces);
-    cubeTex.colorSpace = THREE.SRGBColorSpace;
-    cubeTex.needsUpdate = true;
-    return cubeTex;
-  }, [isGuardian]);
+    const tex = new THREE.CubeTexture(faces);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }, [sk.body, sk.dark]);
 
   // Adaptive material factory. Diamond branches into transmission for
-  // body parts. Guardian re-enables sheen (backed by the procedural
-  // cube env map). All other skins stay on the safe no-sheen path.
+  // body parts. All other skins get the env map; organic skins also
+  // re-enable `sheen` for the soft-fuzz rim glow.
   const skin = (overrides = {}) => {
     if (isDiamond && !overrides.color) {
       return (
@@ -440,26 +439,8 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
           clearcoatRoughness={0.04}
           transparent
           opacity={0.95}
+          envMap={envMap}
           envMapIntensity={1.4}
-          {...overrides}
-        />
-      );
-    }
-    if (isGuardian) {
-      return (
-        <meshPhysicalMaterial
-          color={sk.body}
-          emissive={sk.emissive}
-          emissiveIntensity={sk.emissiveIntensity}
-          metalness={sk.metalness}
-          roughness={sk.roughness}
-          sheen={0.55}
-          sheenRoughness={0.55}
-          sheenColor={sheenRimColor}
-          clearcoat={0.3}
-          clearcoatRoughness={0.5}
-          envMap={guardianEnvMap}
-          envMapIntensity={0.9}
           {...overrides}
         />
       );
@@ -471,9 +452,13 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
         emissiveIntensity={sk.emissiveIntensity}
         metalness={sk.metalness}
         roughness={sk.roughness}
+        sheen={isMetal ? 0 : 0.55}
+        sheenRoughness={0.55}
+        sheenColor={sheenRimColor}
         clearcoat={isMetal ? 0.6 : 0.3}
         clearcoatRoughness={isMetal ? 0.15 : 0.5}
-        envMapIntensity={isMetal ? 1.2 : 0.65}
+        envMap={envMap}
+        envMapIntensity={isMetal ? 1.2 : 0.9}
         {...overrides}
       />
     );
@@ -601,11 +586,9 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.78}
             metalness={sk.metalness * 0.5}
             clearcoat={0.05}
-            {...(isGuardian ? {
-              sheen: 0.3,
-              sheenColor: darkSheenColor,
-              envMap: guardianEnvMap,
-            } : {})}
+            sheen={isMetal ? 0 : 0.3}
+            sheenColor={darkSheenColor}
+            envMap={envMap}
           />
         </mesh>
         {/* Signature snout crease */}
@@ -622,11 +605,9 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             metalness={0.15}
             clearcoat={1.0}
             clearcoatRoughness={0.1}
-            {...(isGuardian ? {
-              sheen: 0.4,
-              sheenColor: "#553028",
-              envMap: guardianEnvMap,
-            } : {})}
+            sheen={0.4}
+            sheenColor="#553028"
+            envMap={envMap}
           />
         </mesh>
         {/* Nostril dots */}
@@ -698,11 +679,9 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.82}
             metalness={sk.metalness * 0.6}
             clearcoat={0.1}
-            {...(isGuardian ? {
-              sheen: 0.5,
-              sheenColor: darkSheenColor,
-              envMap: guardianEnvMap,
-            } : {})}
+            sheen={isMetal ? 0 : 0.5}
+            sheenColor={darkSheenColor}
+            envMap={envMap}
           />
         </mesh>
         <mesh position={[0.34, 0.14, -0.02]} rotation={[0.3, 0.15, 0.55]} scale={[0.7, 1.45, 0.55]}>
@@ -712,11 +691,9 @@ function SculptedPugBody({ frontLeft, frontRight, backLeft, backRight, tail, hea
             roughness={0.82}
             metalness={sk.metalness * 0.6}
             clearcoat={0.1}
-            {...(isGuardian ? {
-              sheen: 0.5,
-              sheenColor: darkSheenColor,
-              envMap: guardianEnvMap,
-            } : {})}
+            sheen={isMetal ? 0 : 0.5}
+            sheenColor={darkSheenColor}
+            envMap={envMap}
           />
         </mesh>
         {/* HORNS — every pug wears them */}
@@ -1687,8 +1664,11 @@ function Obstacle({ type, refData }) {
 
   if (type === "black_hole") {
     // Dangerous gravity well — flat dark ellipse with a purple accretion ring.
+    // Rotation tuned so the WIDE face of the circle faces forward toward the
+    // player (slight 15° pitch-back for character) instead of lying flat on
+    // the track, which made the hazard hard to spot at a distance.
     return (
-      <group ref={ref} rotation={[-Math.PI / 2.2, 0, 0]}>
+      <group ref={ref} rotation={[Math.PI / 12, 0, 0]}>
         {/* Void center */}
         <mesh>
           <circleGeometry args={[0.55, 36]} />
