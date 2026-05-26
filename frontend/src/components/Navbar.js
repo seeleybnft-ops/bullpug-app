@@ -168,7 +168,7 @@ export default function Navbar() {
         </div>
 
         {open && (
-          <div className="lg:hidden pb-4 border-t border-white/5 mt-2 pt-3 space-y-1">
+          <div className="lg:hidden pb-4 border-t border-white/5 mt-2 pt-3 space-y-1" data-testid="mobile-menu-drawer">
             {NAV_LINKS.map(link => (
               <Link
                 key={link.path}
@@ -186,6 +186,70 @@ export default function Navbar() {
                 {link.comingSoon && <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>}
               </Link>
             ))}
+
+            {/* Admin link — only shown when an admin wallet is connected */}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold ${
+                  location.pathname === '/admin' ? 'bg-red-500/10 text-red-400' : 'text-red-400/70'
+                }`}
+                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+                data-testid="mobile-nav-admin"
+              >
+                Admin
+              </Link>
+            )}
+
+            {/* Profile + Messages — only when wallet connected */}
+            {connected && (
+              <>
+                <Link
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5"
+                  data-testid="mobile-nav-profile"
+                >
+                  <User size={14} /> Profile
+                </Link>
+                <Link
+                  to="/messages"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5"
+                  data-testid="mobile-nav-messages"
+                >
+                  <MessageSquare size={14} /> Messages
+                </Link>
+              </>
+            )}
+
+            {/* Action row — language + socials + notification bell. Keeps
+                everything from the desktop top-bar reachable on mobile. */}
+            <div className="flex items-center justify-around gap-2 pt-3 mt-2 border-t border-white/5">
+              <LanguageSwitcher />
+              <NotificationBell />
+              <a
+                href="https://x.com/Bullpugcoin"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-[#00FFA3]/50 transition-all"
+                data-testid="mobile-nav-x"
+              >
+                <FaXTwitter size={14} />
+              </a>
+              <a
+                href="https://t.me/bullpugcoinchat"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-[#00C2FF] hover:border-[#00C2FF]/50 transition-all"
+                data-testid="mobile-nav-telegram"
+              >
+                <MessageCircle size={14} />
+              </a>
+            </div>
           </div>
         )}
       </div>

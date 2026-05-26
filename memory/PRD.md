@@ -28,6 +28,30 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 164 — Real i18n Translations for All 10 Languages + Mobile Menu Fix (Feb 26, 2026)
+
+### Mobile menu (urgent)
+- **Root cause**: In `Navbar.js`, the row containing Admin / X / Telegram / Messages / Profile / NotificationBell / LanguageSwitcher / OperatorQuickGlance was wrapped in `hidden sm:flex` — which only hid at < 640px, but the mobile drawer (line 170+) was just rendering NAV_LINKS. So on a phone the Globe icon literally wasn't reachable.
+- **Fix**: Mobile drawer now also renders Admin (when admin wallet connected), Profile + Messages (when wallet connected), and a bottom action row containing the LanguageSwitcher, NotificationBell, X link, and Telegram link. All entries get `data-testid="mobile-nav-*"` for testability. The desktop top-bar inline icons are unchanged.
+
+### i18n: real translations for 8 languages
+- **Root cause**: `config.js` was advertising 10 languages in `supportedLanguages` and the LanguageSwitcher, but the i18n resources block had `zh / ja / ko / de / fr / pt / ru / ar` explicitly aliased to `enTranslations` with literal "fallback to English" comments. Picking JP "worked" (lang code changed, checkmark stuck) but the bundle was still English so nothing rendered.
+- **Translation pipeline** (`/tmp/translate_i18n.py`): one-shot async script via `emergentintegrations` + Claude Sonnet 4.5 that sent the full English JSON to the LLM for each missing language with strict instructions to preserve keys, `{{var}}` placeholders, and brand terms (Bullpug, SOL, P2P, etc.). Output saved as `/tmp/translations/{lang}.json` for review.
+- **Patch script** (`/tmp/patch_config.py`): replaced the 8 fallback lines in `config.js` with real refs (`zh: { translation: zhTranslations }` etc.) and injected the JSON-derived const declarations above the `i18n.use(...)` chain.
+- **Backup**: pre-patch `config.js` saved at `/app/memory/backups/config.js.pre-i18n.bak`.
+- **Verified**: switched the live preview to `ja` via localStorage — visible Japanese rendering across nav, betting form, opponent challenge cards, recent flips. All placeholders (`{{rake}}`, `{{amount}}`, `{{name}}`) preserved verbatim in every locale checked (ja/zh/de/ar). Lint clean, zero console errors.
+
+### KNOWN GAP — Pug Pit theming strings still hardcoded English
+The Pug Pit redesign (iterations 160-161) introduced many new strings directly in JSX without routing through `t()`. These remain English in all locales:
+- `PUG PIT`, header tagline, `25% of cut → Cosmic Runner Jackpot`, `Alpha-vs-alpha SOL wagers`, "Connect your wallet to enter the pit"
+- Tabs `SNARL-OFF` / `PACK PILE`
+- Choice buttons `BONE` / `SKULL`, stake tier names (Backyard / Pit / Coliseum / Cosmic), "Your side"
+- Card labels `BONE` badge, `Enter Pit`, `Snarling…`, `You get SKULL`
+- Result headers `TOP DOG` / `TAIL TUCKED`
+- Pack Pile copy: "Howl Into the Pack", "Throw Bone In", "Pack Pile", "Pack size", "How the howl works", "Empty pack…", winner toast lines, etc.
+
+Fix would be: add new keys under `betting.pugPit.*` and `betting.pack.*` in `enTranslations`, re-run the translate script for those keys only, wire each through `t()` in `BettingArena.js`. ~45 min of focused work. Flagged here for the user to decide priority.
+
 ## Iteration 163 — "What's New in this build" Toast (Feb 25, 2026)
 
 One-shot post-deploy announcement so returning users notice the recent batch (Pug Pit theming, sculpted pugs, blackhole fix, howl audio).
