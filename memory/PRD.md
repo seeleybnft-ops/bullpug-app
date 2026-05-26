@@ -28,6 +28,30 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 167 — One-Shot Cache Bust on Build Mismatch (Feb 26, 2026)
+
+Launch hardening: returning users whose browser has the previous build aggressively cached (HTML/JS bundles, stale `localStorage` keys, future precaching service workers) now get an invisible one-time refresh on first visit after a deploy. No more "I reloaded and it's still showing the old UI" reports.
+
+### Implementation (`/app/frontend/src/index.js`)
+- New constant `BULLPUG_BUILD_ID = "2026-02-26-pug-pit-eng-lock"`. Bump it on every deploy that ships breaking visual / behavioural changes.
+- IIFE runs BEFORE React mounts:
+  1. If `localStorage.bullpugLastBuildId === BULLPUG_BUILD_ID` → no-op return.
+  2. Otherwise wipe `caches.keys()` (CacheStorage) + unregister all SWs except the push handler at `/sw-push.js` (preserves notification permissions).
+  3. Write the new build id, set `sessionStorage.bullpugBuildBustReloaded`, then `location.replace()` with a `?_b=<id>` query param so the main document bypasses HTTP-cache.
+- Reload-loop guard via `sessionStorage.bullpugBuildBustReloaded` — if a tab has already reloaded once this session, the second pass is a no-op even if the localStorage write somehow failed.
+- Whole block is try/catch wrapped — storage failure (private mode / sandboxed iframe / cross-origin) falls through to normal render. App never bricks on a permission error.
+
+### Tested
+End-to-end via Playwright:
+1. Fresh boot → `bullpugLastBuildId` written, no reload (correct no-op).
+2. Seeded `OLD-BUILD-ID-2026-01-01` + cleared session flag → reload → URL gained `?_b=<current>`, localStorage updated, session flag set, page rendered.
+3. Second reload → URL stayed same, no extra navigation. Loop guard verified.
+
+Lint clean, no PAGEERRORs.
+
+### How to use next deploy
+Bump `BULLPUG_BUILD_ID` (any unique string — date-suffix or semver works). Every existing user will get exactly one silent reload on their first visit after the deploy, after which their localStorage records the new id and subsequent visits are no-ops.
+
 ## Iteration 166 — Force English Language Lock (Feb 26, 2026)
 
 User reported the navbar still rendered in Chinese after hiding the switcher (their browser had `localStorage.i18nextLng = 'zh'` from earlier testing — the t()-routed nav items kept honoring that stored pref since the LanguageDetector was still active).
