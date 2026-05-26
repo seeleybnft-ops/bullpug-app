@@ -28,6 +28,24 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 166 — Force English Language Lock (Feb 26, 2026)
+
+User reported the navbar still rendered in Chinese after hiding the switcher (their browser had `localStorage.i18nextLng = 'zh'` from earlier testing — the t()-routed nav items kept honoring that stored pref since the LanguageDetector was still active).
+
+### Fix
+- `/app/frontend/src/i18n/config.js` (top of file): before i18n init, wipe `localStorage.i18nextLng` and `localStorage.bullpugLang`. Try/catch wrapped for sandboxed iframes / private mode.
+- Removed `.use(LanguageDetector)` from the init chain. Detector no longer reads from URL/cookie/navigator either.
+- Added explicit `lng: 'en'` to i18n.init options to force the active locale.
+
+### Result
+- Existing users whose browsers had a non-English locale stored now get auto-reset to English on the next load — no manual clear-storage needed.
+- New users boot directly into English. No way (UI or programmatic) for a language to leak through.
+- All 10 translation bundles remain in place for the future multilingual rollout.
+- Block is commented with PRD references so it can be cleanly removed when shipping the proper refactor.
+
+### Tested
+- Seeded `i18nextLng=zh + bullpugLang=zh` in localStorage to reproduce the user's exact state, reloaded, confirmed both keys nullified and navbar back to English. Hero section also English (it's hardcoded anyway). Zero PAGEERRORs. Lint clean.
+
 ## Iteration 165 — Hide Language Switcher Pre-Launch (Feb 26, 2026)
 
 Per user decision: the full i18n refactor (extracting ~500-800 hardcoded English strings across 15+ pages and routing each through `t()`) is too large a change this close to launch. Switcher hidden in both desktop and mobile nav.

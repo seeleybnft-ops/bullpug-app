@@ -2,6 +2,23 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
+// PRE-LAUNCH LOCK-DOWN — the multilingual rollout was postponed (see PRD i165).
+// Wipe any previously-stored language preference so users who switched to
+// (e.g.) `zh` or `ja` during the brief window the switcher was live don't get
+// stuck with the navbar partially in that language now that the rest of the
+// site (HomePage hero, etc.) is still hardcoded English. When we ship the
+// proper i18n refactor post-launch, delete this block.
+if (typeof window !== "undefined") {
+  try {
+    // i18next-browser-languagedetector stores the picked lang under
+    // `i18nextLng` by default. Our LanguageSwitcher used the same key.
+    window.localStorage.removeItem("i18nextLng");
+    window.localStorage.removeItem("bullpugLang");
+  } catch (_) {
+    // Storage unavailable (sandboxed iframe / private mode) — no-op.
+  }
+}
+
 export const supportedLanguages = {
   en: { nativeName: 'English', flag: '🇺🇸' },
   es: { nativeName: 'Español', flag: '🇪🇸' },
@@ -1192,7 +1209,8 @@ const arTranslations = {
 };
 
 i18n
-  .use(LanguageDetector)
+  // LanguageDetector removed pre-launch — see PRD i165. Re-add when shipping
+  // the proper multilingual refactor.
   .use(initReactI18next)
   .init({
     resources: {
@@ -1207,6 +1225,7 @@ i18n
       ru: { translation: ruTranslations },
       ar: { translation: arTranslations },
     },
+    lng: 'en',           // Force English pre-launch.
     fallbackLng: 'en',
     supportedLngs: ['en', 'es', 'zh', 'ja', 'ko', 'de', 'fr', 'pt', 'ru', 'ar'],
     
