@@ -28,6 +28,25 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 165 — Hide Language Switcher Pre-Launch (Feb 26, 2026)
+
+Per user decision: the full i18n refactor (extracting ~500-800 hardcoded English strings across 15+ pages and routing each through `t()`) is too large a change this close to launch. Switcher hidden in both desktop and mobile nav.
+
+### Changes
+- `Navbar.js`: commented out the `<LanguageSwitcher />` mount in both the desktop top-bar (line 156) and the mobile drawer action row (line 230). Import kept, component file kept intact, route through `t()` still works — re-enabling is a one-line uncomment when we're ready to do the proper rollout.
+- Inline comments left at both mount points pointing back to this PRD entry so the next agent knows why and how to re-enable.
+
+### What's preserved for the future rollout
+- All 10 language resource bundles in `/app/frontend/src/i18n/config.js` (real translations for en, es, zh, ja, ko, de, fr, pt, ru, ar from iteration 164).
+- The `useTranslation` imports + `t()` calls already wired in `BettingArena.js` and the Navbar — those keep silently rendering English (since en is the active locale) and won't break anything.
+- `LanguageSwitcher` component file at `/app/frontend/src/components/LanguageSwitcher.js`.
+- Pre-iteration-164 `config.js` backup at `/app/memory/backups/config.js.pre-i18n.bak`.
+
+### Tested
+- Desktop (1920×900): no globe icon between X and Connect Wallet button.
+- Mobile (420×820): no globe icon in the drawer action row.
+- Page still renders correctly, no console errors, lint clean.
+
 ## Iteration 164 — Real i18n Translations for All 10 Languages + Mobile Menu Fix (Feb 26, 2026)
 
 ### Mobile menu (urgent)

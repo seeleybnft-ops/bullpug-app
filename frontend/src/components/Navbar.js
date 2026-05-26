@@ -153,7 +153,11 @@ export default function Navbar() {
                 </Link>
               )}
               <NotificationBell />
-              <LanguageSwitcher />
+              {/* LanguageSwitcher hidden pre-launch — multilingual rollout
+                  postponed to a dedicated post-launch project (see PRD i164).
+                  Component remains imported/installed so we can re-enable in
+                  one line. */}
+              {/* <LanguageSwitcher /> */}
               {isAdmin && <OperatorQuickGlance adminWallet={publicKey?.toBase58()} />}
             </div>
             <UnifiedWalletButton />
@@ -227,7 +231,8 @@ export default function Navbar() {
             {/* Action row — language + socials + notification bell. Keeps
                 everything from the desktop top-bar reachable on mobile. */}
             <div className="flex items-center justify-around gap-2 pt-3 mt-2 border-t border-white/5">
-              <LanguageSwitcher />
+              {/* LanguageSwitcher hidden pre-launch (see PRD i164). */}
+              {/* <LanguageSwitcher /> */}
               <NotificationBell />
               <a
                 href="https://x.com/Bullpugcoin"
