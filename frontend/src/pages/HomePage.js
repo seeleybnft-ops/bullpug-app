@@ -284,7 +284,7 @@ export default function HomePage() {
             {[
               { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
               { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
-              { icon: <Zap size={18} />, title: "P2P Arena", desc: "Provably fair coin toss & winner-take-all pots", link: "/betting", img: IMAGES.arena, color: "#00FFA3", comingSoon: true },
+              { icon: <Zap size={18} />, title: "Pug Pit", desc: "1v1 Snarl-Offs & Pack Pile winner-take-all rounds", link: "/betting", img: IMAGES.arena, color: "#00FFA3", comingSoon: true },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''} ${f.comingSoon ? 'ring-2 ring-[#F5D300]/30' : ''}`}>

@@ -53,7 +53,7 @@ const enTranslations = {
   nav: {
     home: 'Home',
     lore: 'Origins',
-    arena: 'P2P Arena',
+    arena: 'Pug Pit',
     game: 'Cosmic Runner',
     exitSim: 'Exit Sim',
     reflections: 'Reflections',
@@ -65,7 +65,7 @@ const enTranslations = {
   },
   // Betting Arena
   betting: {
-    title: 'P2P Arena',
+    title: 'Pug Pit',
     subtitle: 'Player vs Player • Real SOL • {{rake}}% Rake',
     solOnly: 'SOL Only',
     disclaimer: 'For entertainment - check local laws',
@@ -177,7 +177,7 @@ const esTranslations = {
   nav: {
     home: 'Inicio',
     lore: 'Historia',
-    arena: 'P2P Arena',
+    arena: 'Pug Pit',
     game: 'Juego',
     exitSim: 'Simulador',
     reflections: 'Reflexiones',
@@ -414,7 +414,7 @@ const jaTranslations = {
   "nav": {
     "home": "ホーム",
     "lore": "起源",
-    "arena": "P2P Arena",
+    "arena": "Pug Pit",
     "game": "コズミックランナー",
     "exitSim": "シム終了",
     "reflections": "リフレクション",
@@ -425,7 +425,7 @@ const jaTranslations = {
     "messages": "メッセージ"
   },
   "betting": {
-    "title": "P2P Arena",
+    "title": "Pug Pit",
     "subtitle": "対戦 • リアルSOL • レーキ{{rake}}%",
     "solOnly": "SOLのみ",
     "disclaimer": "娯楽用 - 現地法律を確認してください",
@@ -646,7 +646,7 @@ const deTranslations = {
   "nav": {
     "home": "Start",
     "lore": "Ursprünge",
-    "arena": "P2P Arena",
+    "arena": "Pug Pit",
     "game": "Cosmic Runner",
     "exitSim": "Sim verlassen",
     "reflections": "Reflexionen",
@@ -657,7 +657,7 @@ const deTranslations = {
     "messages": "Nachrichten"
   },
   "betting": {
-    "title": "P2P Arena",
+    "title": "Pug Pit",
     "subtitle": "Spieler vs Spieler • Echte SOL • {{rake}}% Rake",
     "solOnly": "Nur SOL",
     "disclaimer": "Zur Unterhaltung - prüfe lokale Gesetze",

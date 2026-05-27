@@ -29,7 +29,7 @@ export default function Footer() {
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
               ))}
               <Link to="/betting" className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-2">
-                P2P Arena <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>
+                Pug Pit <span className="text-[8px] px-1.5 py-0.5 bg-[#F5D300]/20 text-[#F5D300] rounded-full">SOON</span>
               </Link>
             </div>
           </div>

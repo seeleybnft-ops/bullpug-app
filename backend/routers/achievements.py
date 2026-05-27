@@ -203,7 +203,7 @@ BADGES = {
     "arena_first_blood": {
         "id": "arena_first_blood",
         "name": "First Blood",
-        "description": "Won your first P2P Arena game",
+        "description": "Won your first Pug Pit game",
         "icon": "🩸",
         "category": "arena",
         "requirement": {"type": "arena_wins", "value": 1},
@@ -233,7 +233,7 @@ BADGES = {
     "arena_regular": {
         "id": "arena_regular",
         "name": "Arena Regular",
-        "description": "Won 10 P2P Arena games",
+        "description": "Won 10 Pug Pit games",
         "icon": "⚔️",
         "category": "arena",
         "requirement": {"type": "arena_wins", "value": 10},

@@ -57,7 +57,7 @@ export default function Navbar() {
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
     { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
     { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
-    { name: t('nav.arena') || "Arena", path: "/betting", color: "#00FFA3" },
+    { name: t('nav.arena') || "Pug Pit", path: "/betting", color: "#00FFA3" },
   ];
 
   return (

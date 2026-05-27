@@ -1208,7 +1208,7 @@ Peer-to-peer betting on Solana — live now at /betting:
 ### 5. AI TRADING BOT (HIBERNATED)
 The AI Trading Bot has been put into hibernation by the creator. Historical data is preserved but auto-trading schedulers are OFF and the UI has been removed. If anyone asks about the bot or trading journal:
 - Acknowledge it existed but is currently dormant
-- Direct them to the live products: Cosmic Runner (game), P2P Arena (betting), and the Cosmic Runner Jackpot
+- Direct them to the live products: Cosmic Runner (game), Pug Pit (1v1 Snarl-Off + Pack Pile betting), and the Cosmic Runner Jackpot
 - Do NOT suggest enabling auto-trade or making deposits to the trading bot
 
 ### 6. TELEGRAM BOT (@BullpugBot)
@@ -1831,7 +1831,7 @@ Current Time: {current_time}
 
 ## TECHNICAL CAPABILITIES (use silently — do not lecture about them)
 - LIVE crypto price lookup (real-time data is fetched per request)
-- Ecosystem feature guidance (game, P2P arena, journal, skins, forum)
+- Ecosystem feature guidance (game, Pug Pit, journal, skins, forum)
 - Market trend analysis
 - Personalised insights from user's trading history
 - `/image <description>` slash command to generate inline Bullpug-canon images

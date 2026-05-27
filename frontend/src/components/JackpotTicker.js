@@ -150,7 +150,7 @@ export default function JackpotTicker() {
                 className="text-slate-400 text-sm mt-4 max-w-xl leading-relaxed"
                 style={{ fontFamily: "Space Grotesk, sans-serif" }}
               >
-                Every coin flip and pot round in the P2P Arena tops up this jackpot.
+                Every coin flip and pot round in the Pug Pit tops up this jackpot.
                 The top 10 Cosmic Runner scorers split the prize pool every 3 days —
                 the #1 runner takes <span className="text-[#F5D300] font-bold">25%</span>.
               </p>
@@ -165,7 +165,7 @@ export default function JackpotTicker() {
                 <Link to="/betting" data-testid="jackpot-cta-arena">
                   <button className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-transparent border border-white/20 text-slate-200 font-bold text-xs uppercase tracking-wider hover:border-white/40 hover:bg-white/5 transition-colors">
                     <Trophy className="w-4 h-4" />
-                    P2P Arena
+                    Pug Pit
                   </button>
                 </Link>
                 <button
@@ -234,7 +234,7 @@ export default function JackpotTicker() {
                     </span>
                     <p className="text-xs text-slate-300 mt-1.5 leading-snug">
                       <span className="text-[#F5D300] font-bold">25%</span> of every
-                      P2P Arena rake auto-streams here in real time.
+                      Pug Pit rake auto-streams here in real time.
                     </p>
                   </div>
                   <div className="hidden sm:flex flex-col items-end text-right">

@@ -69,7 +69,7 @@ export default function EscrowHealthCard({ adminWallet }) {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-[0.25em] font-bold mb-0.5" style={{ color: style.color }}>
-              Escrow · P2P Arena
+              Escrow · Pug Pit
             </p>
             <h3
               className="text-base md:text-lg font-bold text-white tracking-tight"
