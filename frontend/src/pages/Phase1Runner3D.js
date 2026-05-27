@@ -2278,6 +2278,10 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
   const runningRef = useRef({ running: false });
   const totalCoinsRef = useRef(0);
   const lastDistanceRef = useRef(0);
+  // Touch surface for swipe controls. Attached to the root viewport so we
+  // can `preventDefault()` only inside the game and not break the rest of
+  // the page (HUD buttons, modals, etc.).
+  const touchSurfaceRef = useRef(null);
 
   // Keep runningRef in sync with prop
   useEffect(() => {
@@ -2313,17 +2317,48 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
     return () => window.removeEventListener("keydown", onKey);
   }, [fireAction]);
 
-  // Touch swipe
+  // Touch swipe — bound to the game viewport (not `window`) so we can
+  // block the browser's native scroll / pinch-zoom inside the play area
+  // without affecting the rest of the site.
+  //
+  // Mobile bug being fixed here:
+  //   The old handlers were attached to `window` with `passive: true`,
+  //   which (a) cannot call `preventDefault()` and (b) had no `touchmove`
+  //   listener. The browser was therefore free to scroll the underlying
+  //   page and rubber-band / pinch-zoom the viewport while the player
+  //   swiped to change lanes. The action still fired on `touchend`, but
+  //   the page also visibly moved around.
+  //
+  // Fix:
+  //   • `touch-action: none` on the viewport (set inline below on the
+  //     root <div>) tells the browser "don't claim this gesture".
+  //   • Listeners are attached to that viewport with `passive: false`
+  //     and `touchmove` calls `preventDefault()` while running so even
+  //     stubborn UAs that ignore touch-action still can't scroll.
+  //   • `touchstart` is also non-passive so iOS Safari treats the entire
+  //     gesture as ours from the very first frame.
   useEffect(() => {
-    let startX = 0, startY = 0, startT = 0;
+    const surface = touchSurfaceRef.current;
+    if (!surface) return;
+    let startX = 0, startY = 0, startT = 0, tracking = false;
+
     const onStart = (e) => {
       if (!runningRef.current.running) return;
       const t = e.changedTouches?.[0];
       if (!t) return;
-      startX = t.clientX; startY = t.clientY; startT = performance.now();
+      tracking = true;
+      startX = t.clientX;
+      startY = t.clientY;
+      startT = performance.now();
+    };
+    const onMove = (e) => {
+      // While the game is running, swallow every touchmove inside the
+      // viewport so the browser can't scroll the page or pinch-zoom.
+      if (runningRef.current.running && e.cancelable) e.preventDefault();
     };
     const onEnd = (e) => {
-      if (!runningRef.current.running) return;
+      if (!runningRef.current.running || !tracking) return;
+      tracking = false;
       const t = e.changedTouches?.[0];
       if (!t) return;
       const dx = t.clientX - startX;
@@ -2335,11 +2370,17 @@ export const CosmicRunner3DScene = forwardRef(function CosmicRunner3DScene(
       if (ax > ay) fireAction(dx > 0 ? "right" : "left");
       else fireAction(dy > 0 ? "slide" : "jump");
     };
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchend", onEnd, { passive: true });
+
+    // `passive: false` is required so preventDefault() actually works.
+    surface.addEventListener("touchstart", onStart, { passive: false });
+    surface.addEventListener("touchmove", onMove, { passive: false });
+    surface.addEventListener("touchend", onEnd, { passive: false });
+    surface.addEventListener("touchcancel", onEnd, { passive: false });
     return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchend", onEnd);
+      surface.removeEventListener("touchstart", onStart);
+      surface.removeEventListener("touchmove", onMove);
+      surface.removeEventListener("touchend", onEnd);
+      surface.removeEventListener("touchcancel", onEnd);
     };
   }, [fireAction]);
 
@@ -2522,7 +2563,22 @@ export default function Phase1Runner3D() {
   const multSec = Math.ceil(powerups.multiplier / 1000);
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden" data-testid="runner-3d-page">
+    <div
+      ref={touchSurfaceRef}
+      className="relative w-full h-screen bg-black overflow-hidden"
+      style={{
+        // Stop the browser from interpreting in-game swipes as scroll /
+        // pinch-zoom. Without this, every left/right/up/down swipe on
+        // mobile also scrolls the page behind the canvas and rubber-bands
+        // the viewport. Paired with the non-passive touch listeners above.
+        touchAction: "none",
+        overscrollBehavior: "contain",
+        // Block iOS Safari's long-press text/image callout while playing.
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+      }}
+      data-testid="runner-3d-page"
+    >
       <CosmicRunner3DScene
         ref={sceneRef}
         playing={running}
