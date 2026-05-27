@@ -54,13 +54,12 @@ export default function RakeJackpotCard() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // `authFetch` is axios under the hood — it resolves with `{status, data}`
+    // and rejects on non-2xx. Treating it as fetch (`.ok` / `.json()`) made
+    // every healthy 200 render as `Failed to load: HTTP 200`.
     authFetch(`${API}/admin/rake-summary`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((j) => {
-        if (!cancelled) setData(j);
+      .then((r) => {
+        if (!cancelled) setData(r.data);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message || String(e));

@@ -61,13 +61,13 @@ export default function ClientErrorsCard() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // NOTE: `authFetch` is an axios call, not the fetch API — it resolves
+    // with `{status, data, ...}` and rejects on non-2xx, so there is no
+    // `.ok` / `.json()` to check. Treating it as fetch caused every
+    // successful 200 to be rendered as `Failed to load: HTTP 200`.
     authFetch(`${API}/client-errors/grouped?limit=25&hours=24`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((j) => {
-        if (!cancelled) setData(j);
+      .then((r) => {
+        if (!cancelled) setData(r.data);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message || String(e));
