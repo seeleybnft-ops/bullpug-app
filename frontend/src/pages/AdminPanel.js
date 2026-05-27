@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import EscrowHealthCard from "@/components/EscrowHealthCard";
 import RakeJackpotCard from "@/components/RakeJackpotCard";
+import ClientErrorsCard from "@/components/ClientErrorsCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -349,7 +350,10 @@ export default function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="rake">
-            <RakeJackpotCard />
+            <div className="space-y-6">
+              <RakeJackpotCard />
+              <ClientErrorsCard />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

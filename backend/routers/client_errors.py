@@ -24,9 +24,10 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from utils.admin_auth import require_admin_jwt
 from utils.database import db
 
 router = APIRouter(prefix="/client-errors", tags=["client-errors"])
@@ -95,10 +96,10 @@ async def capture_client_error(payload: ClientErrorPayload, request: Request):
 
 
 @router.get("/recent")
-async def recent_client_errors(limit: int = 50):
-    """Admin/ops view of the latest client errors. Public-readable for now
-    so the user can sanity-check ingestion right after deploy; we can
-    SIWS-gate it post-launch if it becomes noisy."""
+async def recent_client_errors(
+    limit: int = 50, wallet: str = Depends(require_admin_jwt)
+):
+    """SIWS-gated list of the latest client errors."""
     limit = max(1, min(200, limit))
     cursor = (
         db.client_errors.find({}, {"_id": 0})
@@ -107,3 +108,81 @@ async def recent_client_errors(limit: int = 50):
     )
     items = await cursor.to_list(length=limit)
     return {"items": items, "count": len(items)}
+
+
+@router.get("/grouped")
+async def grouped_client_errors(
+    limit: int = 25,
+    hours: int = 24,
+    wallet: str = Depends(require_admin_jwt),
+):
+    """SIWS-gated rollup of client errors grouped by fingerprint.
+
+    A "fingerprint" is `kind:::message` — the same shape the frontend
+    de-dupes on. For each group we return:
+      • count        — total reports in the window
+      • last_seen    — most recent ISO timestamp
+      • first_seen   — earliest ISO timestamp in window
+      • build_ids    — distinct build_ids that hit this error (capped to 5)
+      • urls         — distinct URLs (capped to 3) for fast triage
+      • sample_stack — first non-null stack snippet (capped 600 chars)
+
+    Sorted by `count` desc so launch-day fires bubble to the top.
+    """
+    limit = max(1, min(100, limit))
+    hours = max(1, min(24 * 30, hours))
+
+    # Pure mongo aggregation — fast even at 100k+ docs because the count
+    # accumulation happens server-side and we ship only `limit` groups.
+    cutoff = datetime.now(timezone.utc).timestamp() - hours * 3600
+    cutoff_iso = datetime.fromtimestamp(cutoff, tz=timezone.utc).isoformat()
+
+    pipeline = [
+        {"$match": {"received_at": {"$gte": cutoff_iso}}},
+        {
+            "$group": {
+                "_id": {
+                    "$concat": [
+                        {"$ifNull": ["$kind", "unknown"]},
+                        ":::",
+                        {"$ifNull": ["$message", ""]},
+                    ]
+                },
+                "count": {"$sum": 1},
+                "last_seen": {"$max": "$received_at"},
+                "first_seen": {"$min": "$received_at"},
+                "build_ids": {"$addToSet": "$build_id"},
+                "urls": {"$addToSet": "$url"},
+                "kind": {"$first": "$kind"},
+                "message": {"$first": "$message"},
+                "sample_stack": {"$first": "$stack"},
+            }
+        },
+        {"$sort": {"count": -1, "last_seen": -1}},
+        {"$limit": limit},
+    ]
+
+    cursor = db.client_errors.aggregate(pipeline)
+    raw = await cursor.to_list(length=limit)
+
+    items = []
+    for g in raw:
+        items.append(
+            {
+                "fingerprint": g["_id"],
+                "kind": g.get("kind") or "unknown",
+                "message": g.get("message") or "",
+                "count": g.get("count", 0),
+                "first_seen": g.get("first_seen"),
+                "last_seen": g.get("last_seen"),
+                "build_ids": [b for b in (g.get("build_ids") or []) if b][:5],
+                "urls": [u for u in (g.get("urls") or []) if u][:3],
+                "sample_stack": (g.get("sample_stack") or "")[:600],
+            }
+        )
+
+    return {
+        "items": items,
+        "count": len(items),
+        "window_hours": hours,
+    }

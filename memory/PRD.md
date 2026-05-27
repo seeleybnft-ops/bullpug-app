@@ -28,7 +28,33 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
-## Iteration 169 — Global Error Boundary + Client-Error Capture Endpoint (Feb 26, 2026)
+## Iteration 170 — Client Crashes Admin Dashboard (Feb 26, 2026)
+
+Turned the raw `/api/client-errors/recent` ingestion endpoint from i169 into an actual ops dashboard inside the existing Admin Panel.
+
+### Backend
+- New `GET /api/client-errors/grouped?hours=24&limit=25` (SIWS-protected via `require_admin_jwt`). Mongo aggregation pipeline groups by `kind:::message` fingerprint, accumulates `count`, captures `first_seen/last_seen` timestamps, `addToSet` for distinct `build_ids` (capped to 5) and `urls` (capped to 3), and picks the first non-null sample stack (truncated to 600 chars). Sorted by `count desc` so launch-day fires bubble to the top.
+- `GET /api/client-errors/recent` upgraded from public to SIWS-gated (was only "public for now" per the i169 comment; now properly locked down).
+- Window cap: `hours` accepts 1–720 (30d), `limit` accepts 1–100.
+
+### Frontend
+- New `<ClientErrorsCard>` (`/app/frontend/src/components/ClientErrorsCard.js`):
+  - Uses the same `useSiwsAdmin` hook + `authFetch` pattern as `RakeJackpotCard` so auth/refresh story is shared.
+  - Polls `/grouped?limit=25&hours=24` every 60s + manual refresh button.
+  - Each group row shows: count (bold red, Orbitron) · kind chip (color-coded — react-render red, unhandled-rejection amber, window-error slate) · message · relative last-seen time.
+  - Expandable detail (ChevronDown) reveals: first-seen, all build_ids, distinct URLs hit, sample stack in a scroll-capped pre block.
+  - Empty state: "No client errors in the last 24h. Pack is healthy. 🦴"
+  - Auto-hides when `!isAdmin` so the card never leaks data on the SIWS gate screen.
+- Mounted in `AdminPanel.js` inside the existing "rake" tab, wrapped with `<RakeJackpotCard>` in a `space-y-6` container.
+
+### Tested
+1. Seeded 3 duplicate react-render errors + 1 window-error via curl.
+2. `GET /grouped` without bearer → 401 (auth gate works).
+3. `GET /grouped` with valid SIWS JWT (forged via JWT_SECRET for the test) → returns 4 fingerprint groups sorted by count, with the 3-count react-render row first. All fields populated correctly (build_ids array, urls array, sample_stack, first/last seen ISO timestamps).
+4. AdminPanel renders cleanly (zero PAGEERRORs) with the proper SIWS gate visible to non-admins; card mount path is correct.
+5. Lint clean Python + JS.
+
+
 
 Launch hardening: any uncaught JS error in production now auto-reports to the backend with the exact build id attached, so we get a first-class signal for crashes instead of relying on user bug reports.
 
