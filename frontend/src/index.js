@@ -7,6 +7,7 @@ import axios from "axios";
 import "@/index.css";
 import '@solana/wallet-adapter-react-ui/styles.css';
 import App from "@/App";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 /**
  * Build-id cache bust
@@ -119,6 +120,8 @@ if ('serviceWorker' in navigator) {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

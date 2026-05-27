@@ -56,6 +56,7 @@ from routers.ledger import router as ledger_router
 from routers.price_alerts import router as price_alerts_router
 from routers.big_wins import router as big_wins_router
 from routers.arena_chat import router as arena_chat_router
+from routers.client_errors import router as client_errors_router
 from utils.admin_auth import router as admin_auth_router
 
 # Orphan routers — imported above for code preservation, intentionally NOT
@@ -74,5 +75,6 @@ ALL_ROUTERS = [
     push_notifications_router, multichain_copy_router,
     runner_alerts_router, ledger_router,
     price_alerts_router, big_wins_router, arena_chat_router,
+    client_errors_router,
     admin_auth_router,
 ]

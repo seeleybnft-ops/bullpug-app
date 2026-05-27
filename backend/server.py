@@ -374,6 +374,9 @@ _CSRF_EXEMPT_PATHS = {
     "/api/webhook/stripe",       # Stripe verifies via signature header
     "/api/admin/force-seed",     # Server-to-server diagnostic
     "/api/admin/rpc-diagnostic", # Server-to-server diagnostic
+    "/api/client-errors",        # Client crash reporter — best-effort intake
+                                  # from possibly-broken pages where the
+                                  # CSRF header may itself be the failure.
 }
 _CSRF_EXEMPT_PREFIXES = (
     "/api/ws/",

@@ -28,6 +28,42 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 169 — Global Error Boundary + Client-Error Capture Endpoint (Feb 26, 2026)
+
+Launch hardening: any uncaught JS error in production now auto-reports to the backend with the exact build id attached, so we get a first-class signal for crashes instead of relying on user bug reports.
+
+### Backend
+- New router `/app/backend/routers/client_errors.py` mounted at `/api/client-errors`:
+  - `POST /` accepts a validated `ClientErrorPayload` (message, stack, component_stack, source/line/col, url, user_agent, build_id, kind, optional wallet). Hard length caps so a hostile client can't pour MBs through validators.
+  - `GET /recent?limit=50` returns the latest entries (`_id` excluded) for ops sanity-checking. SIWS-gateable post-launch if it gets noisy.
+  - Per-IP sliding-window rate limit (30 inserts / 60s / IP) — drops over-limit reports silently with 202 so a render-loop can't DOS the endpoint. Always returns 202; never errors back so the frontend's fire-and-forget fetch can't be tempted to retry during an outage.
+- Persists to `db.client_errors`. Includes `received_at` (ISO UTC) and truncated client IP.
+- `_CSRF_EXEMPT_PATHS` in `server.py` extended with `/api/client-errors` — error reports often originate from broken pages where the CSRF header may itself be the failure source.
+- Wired into `routers/__init__.py` ALL_ROUTERS export.
+
+### Frontend
+- New top-level `<ErrorBoundary>` component (`/app/frontend/src/components/ErrorBoundary.js`):
+  - React class component using `componentDidCatch` to catch render/lifecycle errors.
+  - Graceful fallback UI on render error: themed glass card with "Something tripped the pack" headline, the offending message in monospace, a Reload button, and the build id footer. Replaces the white-screen-of-death.
+  - On mount installs (idempotent) two `window` listeners — `error` and `unhandledrejection` — so non-React crashes are reported too.
+  - Reporter uses `fetch(..., { keepalive: true })` so reports survive page unload during fatal crashes.
+  - Fingerprint dedupe (message + first stack frame, max 200 cached fingerprints) prevents a render-loop from spamming hundreds of identical reports.
+  - Pulls `build_id` from `process.env.REACT_APP_BULLPUG_BUILD_ID` (the auto-bumped value from i168) so every report is tied to the exact build.
+  - Optional `wallet` field read from `localStorage.walletAddress` — useful for triaging "this user keeps crashing".
+- `<App />` now wrapped in `<ErrorBoundary>` inside `index.js`.
+
+### Tested
+1. Direct curl POST → `{"status":"accepted"}`; visible in `/recent`.
+2. Browser: triggered `setTimeout(() => { throw new Error('e2e-smoke-uncaught'); })` → window.error listener fired → fetch landed → Mongo row stored with `kind=window-error`, `build_id=0.1.0-dev` (auto-bumped), `message="Uncaught Error: e2e-smoke-uncaught"`. Full pipeline confirmed.
+3. CSRF middleware bypass verified (no `X-Bullpug-CSRF` rejection on the exempt path).
+4. Lint clean Python + JS.
+
+### How to view captured errors
+```
+GET $REACT_APP_BACKEND_URL/api/client-errors/recent?limit=50
+```
+Returns the most recent reports with build_id, kind (`react-render` / `window-error` / `unhandled-rejection`), url, stack, etc.
+
 ## Iteration 168 — Auto-Bumping BUILD_ID at Build Time (Feb 26, 2026)
 
 User asked to remove the manual `BULLPUG_BUILD_ID` bump-on-deploy step. Wired the build id to auto-generate from `package.json` version + epoch timestamp inside `craco.config.js`, eliminating the "forgot to update the ID" risk.
