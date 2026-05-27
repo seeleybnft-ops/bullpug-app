@@ -7,6 +7,27 @@ require("dotenv").config();
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
 const isDevServer = process.env.NODE_ENV !== "production";
 
+// ─────────────────────────────────────────────────────────────────────
+// Auto-bumping build id — feeds the cache-bust IIFE in `src/index.js`.
+//
+// On production builds we stamp `<package.version>-<epoch>` so every
+// deploy yields a fresh id, guaranteeing one silent reload per user
+// per deploy without anyone having to remember to bump a constant.
+//
+// In dev (craco start / hot reload) we use a stable string so the dev
+// preview doesn't try to force-reload itself on every webpack restart.
+//
+// CRA auto-exposes any process.env.REACT_APP_* set BEFORE webpack init
+// (which is exactly here in craco.config.js), so index.js can read it
+// from `process.env.REACT_APP_BULLPUG_BUILD_ID`.
+// ─────────────────────────────────────────────────────────────────────
+if (!process.env.REACT_APP_BULLPUG_BUILD_ID) {
+  const pkg = require("./package.json");
+  process.env.REACT_APP_BULLPUG_BUILD_ID = isDevServer
+    ? `${pkg.version}-dev`
+    : `${pkg.version}-${Date.now()}`;
+}
+
 // Environment variable overrides
 const config = {
   enableHealthCheck: process.env.ENABLE_HEALTH_CHECK === "true",

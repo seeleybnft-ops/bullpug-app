@@ -28,6 +28,25 @@ Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "C
 - **Custodial Wallet:** `CFzZRc76yEDEqxp2ssrfxdDCLQ8ctEBcs2TrMfGJtZMg`
 - **Helius API Key:** `93caf7e7-7ab2-49bb-b298-35e6ad3f4765` (updated Apr 2026)
 
+## Iteration 168 — Auto-Bumping BUILD_ID at Build Time (Feb 26, 2026)
+
+User asked to remove the manual `BULLPUG_BUILD_ID` bump-on-deploy step. Wired the build id to auto-generate from `package.json` version + epoch timestamp inside `craco.config.js`, eliminating the "forgot to update the ID" risk.
+
+### Implementation
+- `craco.config.js`: new pre-webpack block that sets `process.env.REACT_APP_BULLPUG_BUILD_ID` to:
+  - `${pkg.version}-${Date.now()}` on production builds → unique per deploy
+  - `${pkg.version}-dev` in dev (craco start) → stable across HMR so the dev preview doesn't force-reload every webpack restart
+- CRA auto-exposes any `REACT_APP_*` env var set before webpack init, so `index.js` reads it via `process.env.REACT_APP_BULLPUG_BUILD_ID`.
+- Hardcoded fallback `"2026-02-26-pug-pit-eng-lock"` retained as a safety net in `index.js` if the env var is somehow missing (e.g. file executed outside the build pipeline). Comment updated to clarify that manual bumping is NOT needed for normal deploys.
+
+### Tested
+Restarted frontend supervisor. Loaded `/` in browser — `localStorage.bullpugLastBuildId` reads `0.1.0-dev` (matches dev pattern). Page renders cleanly (HOME / ORIGINS / COSMIC RUNNER nav; hero; WHAT'S NEW toast). Zero PAGEERRORs.
+
+### Net result
+- Manual bump step removed: deploy → build ID auto-fresh → all users get one silent reload on their first post-deploy visit, no human intervention.
+- Dev preview is stable: webpack restarts don't trigger reload cycles since the dev id is constant.
+- Existing localStorage state (`bullpugLastBuildId` from i167) keeps working — first prod build under the new system writes a new id, triggers one bust, then settles.
+
 ## Iteration 167 — One-Shot Cache Bust on Build Mismatch (Feb 26, 2026)
 
 Launch hardening: returning users whose browser has the previous build aggressively cached (HTML/JS bundles, stale `localStorage` keys, future precaching service workers) now get an invisible one-time refresh on first visit after a deploy. No more "I reloaded and it's still showing the old UI" reports.

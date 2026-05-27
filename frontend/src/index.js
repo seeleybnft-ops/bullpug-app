@@ -11,10 +11,16 @@ import App from "@/App";
 /**
  * Build-id cache bust
  * --------------------
- * Bump `BULLPUG_BUILD_ID` whenever a deploy ships changes that must
- * not be served from a stale browser cache (HTML, JS bundles, stuck
- * localStorage state, etc.). On every boot we compare the constant
- * against `localStorage.bullpugLastBuildId`; on mismatch we:
+ * `BULLPUG_BUILD_ID` is injected at build time by craco.config.js:
+ *   • Production builds → `<pkg.version>-<epoch>` (unique per deploy)
+ *   • Dev server        → `<pkg.version>-dev`     (stable across HMR)
+ *
+ * The hardcoded fallback exists only if the env var was somehow missing
+ * (e.g. running this file outside the build pipeline). Bump it manually
+ * in that edge case; for normal deploys you do NOT need to touch it.
+ *
+ * On every boot we compare the constant against
+ * `localStorage.bullpugLastBuildId`; on mismatch we:
  *
  *   1. Wipe the entire CacheStorage (covers any future precaching SWs
  *      and the offline cache fallback some browsers populate).
@@ -31,7 +37,8 @@ import App from "@/App";
  * sandboxed iframe) falls through to the normal render path so we never
  * brick the app on a permission error.
  */
-const BULLPUG_BUILD_ID = "2026-02-26-pug-pit-eng-lock";
+const BULLPUG_BUILD_ID =
+  process.env.REACT_APP_BULLPUG_BUILD_ID || "2026-02-26-pug-pit-eng-lock";
 
 (function cacheBustBoot() {
   if (typeof window === "undefined") return;
