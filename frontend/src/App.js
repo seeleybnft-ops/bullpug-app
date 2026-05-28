@@ -119,8 +119,8 @@ function App() {
       <WalletProvider wallets={wallets} onError={onError} autoConnect={shouldAutoConnect}>
         <WalletModalProvider>
           <EVMWalletProvider>
-            <PrivateAccessGate>
-              <BrowserRouter>
+            <BrowserRouter>
+              <PrivateAccessGate>
                 <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
                   <Navbar />
                   <Routes>
@@ -148,8 +148,8 @@ function App() {
                 <WhatsNewToast />
                 <Toaster theme="dark" />
               </div>
-            </BrowserRouter>
-          </PrivateAccessGate>
+            </PrivateAccessGate>
+          </BrowserRouter>
           </EVMWalletProvider>
         </WalletModalProvider>
       </WalletProvider>
