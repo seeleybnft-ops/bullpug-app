@@ -1660,11 +1660,20 @@ function Obstacle({ type, refData }) {
   const ref = useRef();
   const halo = useRef();
   const beam = useRef();
+  // Meteors get a dedicated inner spinner so the rock body rotates while
+  // the flame trail stays locked behind the comet in world space. If we
+  // spun the outer group (like every other obstacle), the trail would
+  // swing sideways every revolution.
+  const rockSpin = useRef();
   useFrame((_, dt) => {
     if (ref.current) {
       ref.current.position.copy(refData.position);
-      // Subtle spin keeps shapes interesting without disturbing the hitbox.
-      ref.current.rotation.y += dt * 0.6;
+      if (type === "meteor") {
+        if (rockSpin.current) rockSpin.current.rotation.y += dt * 0.6;
+      } else {
+        // Subtle spin keeps shapes interesting without disturbing the hitbox.
+        ref.current.rotation.y += dt * 0.6;
+      }
     }
     if (halo.current) halo.current.rotation.z += dt * 1.6;
     if (beam.current) beam.current.material.opacity = 0.18 + Math.abs(Math.sin(performance.now() * 0.004)) * 0.18;
@@ -1672,18 +1681,26 @@ function Obstacle({ type, refData }) {
 
   if (type === "meteor") {
     // Fiery comet — bright rock with hot wireframe + trailing flame tail.
+    // Rock body is in an inner `rockSpin` group so it can rotate while
+    // the trail cones below stay aligned with the meteor's travel
+    // direction (locked along -Z in local space → "behind" the comet
+    // toward the camera).
     return (
       <group ref={ref}>
-        <mesh>
-          <icosahedronGeometry args={[0.4, 1]} />
-          <meshStandardMaterial color="#FFB179" emissive="#FF4500" emissiveIntensity={0.7} roughness={0.55} flatShading metalness={0.2} />
-        </mesh>
-        {/* Hot lava cracks */}
-        <mesh scale={[1.01, 1.01, 1.01]}>
-          <icosahedronGeometry args={[0.4, 0]} />
-          <meshBasicMaterial color="#FFE0A0" transparent opacity={0.8} wireframe />
-        </mesh>
-        {/* Comet tail — three nested cones streaking back */}
+        <group ref={rockSpin}>
+          <mesh>
+            <icosahedronGeometry args={[0.4, 1]} />
+            <meshStandardMaterial color="#FFB179" emissive="#FF4500" emissiveIntensity={0.7} roughness={0.55} flatShading metalness={0.2} />
+          </mesh>
+          {/* Hot lava cracks */}
+          <mesh scale={[1.01, 1.01, 1.01]}>
+            <icosahedronGeometry args={[0.4, 0]} />
+            <meshBasicMaterial color="#FFE0A0" transparent opacity={0.8} wireframe />
+          </mesh>
+        </group>
+        {/* Comet tail — three nested cones streaking back. Stays OUTSIDE
+            rockSpin so the trail does not swing sideways as the rock
+            rotates. */}
         <mesh position={[0, 0, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
           <coneGeometry args={[0.32, 0.9, 16, 1, true]} />
           <meshBasicMaterial color="#FF4500" transparent opacity={0.65} side={THREE.DoubleSide} depthWrite={false} />
