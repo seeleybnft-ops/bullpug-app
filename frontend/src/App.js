@@ -28,6 +28,7 @@ import AdminAuthGate from "@/components/AdminAuthGate";
 import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
 import WhatsNewToast from "@/components/WhatsNewToast";
+import usePageviewTracker from "@/hooks/usePageviewTracker";
 import Messages from "@/pages/Messages";
 import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
@@ -54,6 +55,14 @@ const isInAppBrowser = () => {
   // Only check for in-app browsers on mobile devices
   return isMobile && /WebView|wv|FBAN|FBAV|Instagram|Twitter|Line|WhatsApp/i.test(userAgent);
 };
+
+// Tiny render-less component that lives inside <BrowserRouter> so it can
+// use the `useLocation`-based pageview hook. Mounted once near the top of
+// the tree — the hook is idempotent and self-debounced.
+function RouteAnalytics() {
+  usePageviewTracker();
+  return null;
+}
 
 function App() {
   const [isReady, setIsReady] = useState(false);
@@ -120,6 +129,7 @@ function App() {
         <WalletModalProvider>
           <EVMWalletProvider>
             <BrowserRouter>
+              <RouteAnalytics />
               <PrivateAccessGate>
                 <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
                   <Navbar />

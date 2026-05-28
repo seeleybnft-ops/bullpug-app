@@ -14,6 +14,7 @@ import {
 import EscrowHealthCard from "@/components/EscrowHealthCard";
 import RakeJackpotCard from "@/components/RakeJackpotCard";
 import ClientErrorsCard from "@/components/ClientErrorsCard";
+import TrafficCard from "@/components/TrafficCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -353,6 +354,7 @@ export default function AdminPanel() {
             <div className="space-y-6">
               <RakeJackpotCard />
               <ClientErrorsCard />
+              <TrafficCard />
             </div>
           </TabsContent>
         </Tabs>

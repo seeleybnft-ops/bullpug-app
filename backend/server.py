@@ -377,6 +377,10 @@ _CSRF_EXEMPT_PATHS = {
     "/api/client-errors",        # Client crash reporter — best-effort intake
                                   # from possibly-broken pages where the
                                   # CSRF header may itself be the failure.
+    "/api/analytics/track",      # Pageview tracker — best-effort, no PII,
+                                  # rate-limited at the router. Exempt so a
+                                  # broken CSRF interceptor on a crashing
+                                  # page can't poison the traffic data.
 }
 _CSRF_EXEMPT_PREFIXES = (
     "/api/ws/",
