@@ -8,11 +8,13 @@ import os
 import uuid
 import httpx
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from services.daily_drop import get_drop_for_user, get_todays_drop, _today_utc
 from utils.database import db
+from utils.admin_auth import require_admin_jwt
+from fastapi import Depends
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 logger = logging.getLogger(__name__)
@@ -816,6 +818,42 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
             "session_id": session_id,
             "has_live_data": False,
         }
+
+
+# === TINKERPUG ADMIN LOGGER =============================================
+# One document per chat turn (user message + assistant reply). Lets the
+# admin panel review what people are asking and how Tinkerpug responds
+# without having to scrape per-wallet upsert blobs in `chat_history`.
+#
+# `chat_history` is per-wallet upsert (anonymous visitors invisible);
+# `tinkerpug_turns` is append-only and one doc per turn, so we get a
+# chronological feed including anonymous sessions.
+async def _log_tinkerpug_turn(
+    session_id: str,
+    wallet_address: Optional[str],
+    user_message: str,
+    assistant_message: str,
+    kind: str = "text",
+    has_live_data: bool = False,
+) -> None:
+    """Fire-and-forget Mongo write. Never raises — analytics must never
+    break the user-facing chat response."""
+    try:
+        doc = {
+            "session_id": (session_id or "anon")[:64],
+            "wallet": (wallet_address or "")[:64] or None,
+            # Defensive truncation: caps any single row at ~16KB of text.
+            "user_message": (user_message or "")[:8000],
+            "assistant_message": (assistant_message or "")[:8000],
+            "kind": kind,  # "text" or "image"
+            "has_live_data": bool(has_live_data),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.tinkerpug_turns.insert_one(doc)
+    except Exception as e:
+        logger.warning("Failed to log Tinkerpug turn: %s", e)
+
+
 
 
 @router.post("/chat")
@@ -1908,8 +1946,16 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
                         response,
                         flags=re.IGNORECASE,
                     ).strip()
+                    final_response = cleaned or img_resp.get("response") or "Here's the render."
+                    await _log_tinkerpug_turn(
+                        chat.session_id,
+                        chat.wallet_address,
+                        chat.message,
+                        final_response,
+                        kind="image",
+                    )
                     return await _maybe_attach_daily_drop({
-                        "response": cleaned or img_resp.get("response") or "Here's the render.",
+                        "response": final_response,
                         "image_base64": img_resp["image_base64"],
                         "session_id": chat.session_id,
                         "has_live_data": False,
@@ -1926,7 +1972,16 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
             oldest_sessions = list(chat_sessions.keys())[:50]
             for session_id in oldest_sessions:
                 chat_sessions.pop(session_id, None)
-        
+
+        await _log_tinkerpug_turn(
+            chat.session_id,
+            chat.wallet_address,
+            chat.message,
+            response,
+            kind="text",
+            has_live_data=bool(real_time_data or specific_prices),
+        )
+
         return await _maybe_attach_daily_drop({
             "response": response, 
             "session_id": chat.session_id,
@@ -2398,3 +2453,51 @@ async def get_tradeable_assets():
     except Exception as e:
         logger.error(f"Failed to get tradeable assets: {e}")
         return {"assets": [], "error": str(e)}
+
+
+
+# ============================================================================
+# TINKERPUG ADMIN — review interactions logged by `_log_tinkerpug_turn`
+# ============================================================================
+@router.get("/tinkerpug-chats")
+async def admin_tinkerpug_chats(
+    limit: int = 100,
+    hours: int = 24 * 7,
+    session_id: Optional[str] = None,
+    wallet: str = Depends(require_admin_jwt),
+):
+    """SIWS-gated paginated feed of recent Tinkerpug exchanges.
+
+    Returns the most recent turns (capped by `limit`, default 100) within
+    the last `hours` window (default 7d). Optionally filter by a specific
+    `session_id` to read a single thread end-to-end.
+
+    Response shape is flat (one row per turn) so the frontend can group by
+    session_id on demand without a second roundtrip.
+    """
+    limit = max(1, min(500, limit))
+    hours = max(1, min(24 * 90, hours))
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    query: Dict = {"ts": {"$gte": cutoff}}
+    if session_id:
+        query["session_id"] = session_id[:64]
+
+    cursor = (
+        db.tinkerpug_turns.find(query, {"_id": 0})
+        .sort("ts", -1)
+        .limit(limit)
+    )
+    items = await cursor.to_list(length=limit)
+
+    # Group counts for the header strip
+    total_in_window = await db.tinkerpug_turns.count_documents({"ts": {"$gte": cutoff}})
+    sessions = await db.tinkerpug_turns.distinct("session_id", {"ts": {"$gte": cutoff}})
+
+    return {
+        "items": items,
+        "count": len(items),
+        "total_in_window": total_in_window,
+        "unique_sessions": len(sessions),
+        "window_hours": hours,
+    }

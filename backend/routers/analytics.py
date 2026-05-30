@@ -93,21 +93,78 @@ def _normalise_path(path: Optional[str]) -> str:
 
 
 def _normalise_referer(ref: Optional[str], own_host: str) -> Optional[str]:
-    """Return external host or None for same-origin / empty refs."""
+    """Return canonical external host or None for same-origin / empty refs.
+
+    Canonicalisations applied:
+      • Strip scheme, query, fragment, port.
+      • Drop the `www.` prefix.
+      • Collapse known social/redirector hosts into their canonical brand
+        so traffic from `t.co`, `x.com`, `mobile.twitter.com`, `nitter.*`
+        all aggregates under `twitter.com` in the admin card.
+    """
     if not ref:
         return None
     try:
         host = urlparse(ref).netloc.lower()
         if not host or host == own_host.lower():
             return None
-        # Strip port + www. prefix so "google.com" and "www.google.com:443"
-        # collapse to one bucket in the leaderboard.
         host = host.split(":", 1)[0]
         if host.startswith("www."):
             host = host[4:]
+        # Brand canonicalisation table — keep the right side the canonical
+        # form we want to display in the admin card. Add more entries as
+        # we observe new sources in the data.
+        canonical_map = {
+            "t.co": "twitter.com",
+            "x.com": "twitter.com",
+            "mobile.twitter.com": "twitter.com",
+            "lnkd.in": "linkedin.com",
+            "l.facebook.com": "facebook.com",
+            "lm.facebook.com": "facebook.com",
+            "m.facebook.com": "facebook.com",
+            "fb.me": "facebook.com",
+            "out.reddit.com": "reddit.com",
+            "old.reddit.com": "reddit.com",
+            "youtu.be": "youtube.com",
+            "m.youtube.com": "youtube.com",
+        }
+        if host in canonical_map:
+            host = canonical_map[host]
+        # Also collapse any leftover `nitter.*` to twitter.
+        if host.startswith("nitter."):
+            host = "twitter.com"
         return host[:120]
     except Exception:
         return None
+
+
+# Known UTM values → canonical bucket. Lets shared links with explicit
+# `?utm_source=twitter` get attributed correctly even when the browser
+# strips the Referer header (which Twitter/X mobile apps do by default).
+_UTM_CANONICAL = {
+    "twitter": "twitter.com",
+    "x": "twitter.com",
+    "facebook": "facebook.com",
+    "fb": "facebook.com",
+    "instagram": "instagram.com",
+    "ig": "instagram.com",
+    "linkedin": "linkedin.com",
+    "reddit": "reddit.com",
+    "youtube": "youtube.com",
+    "discord": "discord.com",
+    "telegram": "telegram.org",
+    "tiktok": "tiktok.com",
+    "email": "email",
+    "newsletter": "email",
+}
+
+
+def _normalise_utm_source(utm: Optional[str]) -> Optional[str]:
+    """Lower-case + alias UTM source into our canonical bucket."""
+    if not utm:
+        return None
+    raw = utm.strip().lower()[:60]
+    return _UTM_CANONICAL.get(raw, raw or None)
 
 
 def _detect_device(ua: str) -> str:
@@ -124,6 +181,10 @@ def _detect_device(ua: str) -> str:
 class PageviewPayload(BaseModel):
     path: str = Field(max_length=400)
     referer: Optional[str] = Field(default=None, max_length=500)
+    # Optional UTM source — used when present as the authoritative
+    # attribution signal. Survives Referer stripping that Twitter/X and
+    # most mobile apps apply by default.
+    utm_source: Optional[str] = Field(default=None, max_length=80)
     # SPA route changes that happen too fast for the user to actually
     # consume the page (e.g. router redirects) get tagged so we can
     # exclude them from the totals if we ever want to.
@@ -139,9 +200,18 @@ async def track_pageview(payload: PageviewPayload, request: Request):
 
     ua = (request.headers.get("user-agent") or "")[:300]
     own_host = (request.headers.get("host") or "").lower()
+    referer_host = _normalise_referer(payload.referer, own_host)
+    utm_source = _normalise_utm_source(payload.utm_source)
+    # Effective source priority:
+    #   1. utm_source (user explicitly tagged it on the share link)
+    #   2. canonical referer host
+    #   3. None → "direct" bucket in the admin card
+    effective_source = utm_source or referer_host
     doc = {
         "path": _normalise_path(payload.path),
-        "referer": _normalise_referer(payload.referer, own_host),
+        "referer": referer_host,
+        "utm_source": utm_source,
+        "source": effective_source,
         "device": _detect_device(ua),
         "visitor": _visitor_hash(ip, ua),
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -217,8 +287,17 @@ async def analytics_summary(wallet: str = Depends(require_admin_jwt)):
     views_30d, uniques_30d = await _count_in_window(24 * 30)
 
     top_pages = await _top_by("path", 24 * 7, 8)
-    top_referers = await _top_by("referer", 24 * 7, 6)
+    # Aggregate on `source` (UTM-or-referer) instead of raw referer so
+    # canonicalised + tagged traffic share one bucket.
+    top_sources = await _top_by("source", 24 * 7, 6)
     sparkline = await _daily_sparkline(14)
+
+    # Count of "direct / no referrer" visits in the 7-day window so the
+    # admin can see how much traffic is invisible to source attribution.
+    cutoff_7d = (datetime.now(timezone.utc) - timedelta(hours=24 * 7)).isoformat()
+    direct_7d = await db.pageviews.count_documents(
+        {"ts": {"$gte": cutoff_7d}, "source": None}
+    )
 
     return {
         "windows": {
@@ -227,7 +306,11 @@ async def analytics_summary(wallet: str = Depends(require_admin_jwt)):
             "d30": {"views": views_30d, "uniques": uniques_30d},
         },
         "top_pages": top_pages,
-        "top_referers": top_referers,
+        # Renamed from `top_referers` so the frontend understands this
+        # includes UTM-attributed clicks. Old key kept for compatibility.
+        "top_sources": top_sources,
+        "top_referers": top_sources,
+        "direct_7d": direct_7d,
         "sparkline": sparkline,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

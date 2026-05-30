@@ -15,6 +15,7 @@ import EscrowHealthCard from "@/components/EscrowHealthCard";
 import RakeJackpotCard from "@/components/RakeJackpotCard";
 import ClientErrorsCard from "@/components/ClientErrorsCard";
 import TrafficCard from "@/components/TrafficCard";
+import TinkerpugChatsCard from "@/components/TinkerpugChatsCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -355,6 +356,7 @@ export default function AdminPanel() {
               <RakeJackpotCard />
               <ClientErrorsCard />
               <TrafficCard />
+              <TinkerpugChatsCard />
             </div>
           </TabsContent>
         </Tabs>

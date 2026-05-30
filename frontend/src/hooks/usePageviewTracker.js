@@ -29,6 +29,27 @@ export default function usePageviewTracker() {
     if (lastSentRef.current === path) return;
     lastSentRef.current = path;
 
+    // Extract UTM source from the current URL — this is the most reliable
+    // attribution signal because Twitter/X mobile and many privacy-default
+    // browsers strip the Referer header entirely, but URL params always
+    // survive. We persist it once per session so the user's later route
+    // changes also get attributed to the original campaign.
+    let utmSource = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const inUrl = params.get("utm_source");
+      if (inUrl) {
+        utmSource = inUrl;
+        try {
+          window.sessionStorage.setItem("bullpug_utm_source", inUrl);
+        } catch { /* ignore */ }
+      } else {
+        try {
+          utmSource = window.sessionStorage.getItem("bullpug_utm_source");
+        } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
     // Reset behaviour: don't block the user if backend is unreachable.
     try {
       fetch(`${API}/analytics/track`, {
@@ -37,6 +58,7 @@ export default function usePageviewTracker() {
         body: JSON.stringify({
           path,
           referer: document.referrer || null,
+          utm_source: utmSource || null,
           transition: "navigate",
         }),
         keepalive: true,

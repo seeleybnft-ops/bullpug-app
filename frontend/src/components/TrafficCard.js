@@ -84,6 +84,10 @@ export default function TrafficCard() {
   const sparkline = data?.sparkline || [];
   const { line, area } = buildSparklinePath(sparkline);
   const sparkTotal = sparkline.reduce((acc, p) => acc + (p.views || 0), 0);
+  const directViews = data?.direct_7d ?? 0;
+  // Prefer the new `top_sources` field (UTM-aware); fall back to the old
+  // `top_referers` shape for backwards compatibility during deploys.
+  const topSources = data?.top_sources || data?.top_referers || [];
 
   const windows = [
     { key: "h24", label: "24h", views: w.h24?.views, uniques: w.h24?.uniques, accent: "#00FFA3" },
@@ -221,15 +225,15 @@ export default function TrafficCard() {
         <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
           <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-2 flex items-center gap-1">
             <Globe2 className="w-3 h-3" />
-            Top referrers · 7d
+            Top sources · 7d
           </p>
           <ul className="space-y-1.5" data-testid="traffic-top-referers">
-            {(data?.top_referers || []).length === 0 ? (
+            {topSources.length === 0 ? (
               <li className="text-[11px] text-slate-500">
-                Mostly direct / same-origin traffic.
+                Mostly direct traffic so far.
               </li>
             ) : (
-              (data?.top_referers || []).map((r) => (
+              topSources.map((r) => (
                 <li
                   key={r.key}
                   className="flex items-center justify-between gap-2 text-[11px]"
@@ -240,6 +244,15 @@ export default function TrafficCard() {
                   <span className="text-slate-400 tabular-nums">{fmt(r.count)}</span>
                 </li>
               ))
+            )}
+            {directViews > 0 && (
+              <li
+                className="flex items-center justify-between gap-2 text-[11px] pt-1.5 mt-1.5 border-t border-white/5"
+                title="Visits with no Referer and no UTM tag — typed URL, app/Twitter mobile, or stripped by privacy settings"
+              >
+                <span className="text-slate-500 italic">direct / unknown</span>
+                <span className="text-slate-500 tabular-nums">{fmt(directViews)}</span>
+              </li>
             )}
           </ul>
         </div>
