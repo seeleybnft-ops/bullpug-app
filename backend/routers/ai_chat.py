@@ -760,10 +760,9 @@ _BULLPUG_IMAGE_STYLE = (
     "expressive round eyes, floppy ears, short jaw. Fur can be ANY color or "
     "pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic "
     "iridescent, etc.) — embrace bold variety. "
-    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe "
-    "aesthetic. Vivid neon-on-dark color palette with mint green (#00FFA3), "
-    "magenta (#D946EF), and gold (#FFD700) accents against deep midnight "
-    "backgrounds. No readable text, no logos, no watermarks."
+    "Cinematic, hyperdetailed digital art in the Bullpug universe aesthetic "
+    "— neon-lit, cyberpunk, warm gold against deep indigo, rich fur and "
+    "machine texture"
 )
 
 
@@ -777,7 +776,7 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
                 session_id=f"bullpug-image-{session_id}",
                 system_message=(
                     "You are Bullpug, the cosmic guardian. Generate ONE cinematic "
-                    "image matching the user's prompt in the Neuko universe style."
+                    "image matching the user's prompt in the Bullpug universe style."
                 ),
             )
             .with_model("gemini", "gemini-3.1-flash-image-preview")
@@ -791,7 +790,7 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
                 "response": (
                     f"My snout scanner picked up your request to render *“{prompt}”*, "
                     "but the signal came back empty. Try rephrasing or be more specific — "
-                    "the Mindverse rewards persistence."
+                    "the Archive rewards persistence."
                 ),
                 "session_id": session_id,
                 "has_live_data": False,
