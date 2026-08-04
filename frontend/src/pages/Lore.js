@@ -129,7 +129,7 @@ export default function Lore() {
 
   const handleShare = async () => {
     const shareText =
-      "I just entered the Neuko canon. The Bullpug Origins trailer hits different — pug-faced skyscrapers, Snout Scanners, and a 152 BPM signal in the noise. 🐾⚡";
+      "The Origins page is live — read the Bullpug canon: pug-faced skyscrapers, Snout Scanners, and a heartbeat in the noise. 🐾⚡";
     const url = `${window.location.origin}/lore`;
     try {
       if (navigator.share && typeof navigator.share === "function") {
@@ -304,7 +304,7 @@ export default function Lore() {
             title="The World He Calls Home"
             accent="#A78BFA"
             gradient="linear-gradient(135deg, #A78BFA 0%, #D946EF 100%)"
-            testid="chapter-mindverse"
+            testid="chapter-world"
           >
             <p>
               Bullpug's realm exists outside every map ever drawn of the{" "}
@@ -549,11 +549,11 @@ export default function Lore() {
                   className="text-xl md:text-2xl font-black text-white tracking-tight leading-snug"
                   style={{ fontFamily: "Orbitron, sans-serif" }}
                 >
-                  Spread the signal across the Mindverse.
+                  Spread the signal across the Between.
                 </h3>
                 <p className="text-sm text-slate-400 mt-2 max-w-lg leading-relaxed">
                   Re-watch the Origins trailer or share it with someone who's
-                  tired of being rugged. The Mindverse rewards persistence.
+                  tired of being rugged. The Archive rewards persistence.
                 </p>
               </div>
 

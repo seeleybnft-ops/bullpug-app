@@ -90,7 +90,7 @@ async def generate_one(item):
         LlmChat(
             api_key=api_key,
             session_id=f"lore-image-{slug}",
-            system_message="You are a cinematic concept artist for a sci-fi memecoin universe called the Neuko Mindverse. Generate one striking, photorealistic-yet-stylised image per prompt."
+            system_message="You are a cinematic concept artist for the sovereign Bullpughan universe — cyberpunk neon city of Newpug City, its Guardians, the PugChain, and the Between."
         )
         .with_model("gemini", MODEL)
         .with_params(modalities=["image", "text"])

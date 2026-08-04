@@ -1,9 +1,9 @@
-"""Daily Bullpug Drop — one AI-generated Neuko-universe image per USER per UTC day.
+"""Daily Bullpug Drop — one AI-generated Bullpughan universe image per USER per UTC day.
 
 Each user (wallet OR anonymous session) gets a unique drop deterministically
 seeded from `(user_key, date_utc)`. Variety comes from a hybrid prompt pool:
 30 canonical scenes + a dynamic word-bank assembler that generates fresh canon
-combinations on the fly (the Neuko universe is constantly expanding).
+combinations on the fly (the Bullpughan universe is constantly expanding).
 
 Every generation is persisted to MongoDB (`db.daily_drops`) for creator/admin
 reference — keyed by `(user_key, date_utc)`, indexed for fast pagination.
@@ -55,7 +55,7 @@ THEMED_DROPS = [
     ("PugChain Core", "Newpug City's PugChain core — a colossal glowing crystal pulsing with rhythmic green light"),
     ("The Elder's Scroll", "A Bullpughan elder reading the canon from a holographic scroll to a gathered audience"),
     ("Mountain Watch", "Bullpug standing watch on a mountaintop overlooking CryptoCanis at dawn, mist coiling below"),
-    ("Defenders of Newpug", "A team of Bullpughans defending Newpug City from shadowy MITER-Corp surveillance drones, holographic shields up"),
+    ("Defenders of Newpug", "A team of Bullpughans defending Newpug City from shadowy bad-actor forces, Snout Scanners active"),
     ("The Address", "Bullpug giving a speech to a vast crowd of Bullpughans, holographic stars and barks of prosperity overhead"),
 ]
 
@@ -92,7 +92,7 @@ _FRESH_OBJECTS = [
     "a shoal of mooncheese fish", "a holographic ledger floating in mid-air",
     "a cluster of orbiting SOL coins", "a colossal stone pug-arch",
     "a forest of token-blossom trees", "a ribbon of magenta liquidity",
-    "the Mindverse's heartbeat signal", "a fleet of MITER-Corp drone shadows",
+    "the Between's heartbeat signal", "a fleet of Shadow Bear forces shadows",
     "a candle-lit Festival lantern", "a glowing token vault",
     "a wave of green soundwaves", "an obsidian Snout Scanner",
     "a Newpug City rooftop garden", "a constellation map written in starlight",
@@ -102,10 +102,10 @@ _FRESH_OBJECTS = [
 ]
 _FRESH_LOCATIONS = [
     "in the heart of Newpug City", "above CryptoCanis' icy rings",
-    "deep in the unmapped Mindverse", "atop the Bull constellation",
+    "deep in the unmapped the Between", "atop the Bull constellation",
     "inside a holographic PugChain ledger", "on the rooftop of the PugChain Tower",
     "in the catacombs beneath the Festival grounds", "across the mooncheese plains",
-    "at the edge of the Mindverse map", "inside a frozen moment of trading time",
+    "at the edge of the the Between map", "inside a frozen moment of trading time",
     "below a sky raining moon-cheese crumbs", "in a hidden Newpug alley",
     "on the steps of the Guardians' Hall", "above a glowing token reef",
     "inside a memory crystal", "in a cosmic library of canon scrolls",
@@ -131,10 +131,9 @@ _BULLPUG_STYLE_SUFFIX = (
     "expressive round eyes, floppy ears, short jaw. Fur can be ANY color or "
     "pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic "
     "iridescent, etc.) — embrace bold variety. "
-    "Cinematic, hyperdetailed digital art in the Bullpug / Neuko universe "
-    "aesthetic. Vivid neon-on-dark color palette with mint green (#00FFA3), "
-    "magenta (#D946EF), and gold (#FFD700) accents against deep midnight "
-    "backgrounds. No readable text, no logos, no watermarks. "
+    "Cinematic, hyperdetailed digital art in the Bullpug universe aesthetic — "
+    "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture. "
+    "No readable text, no logos, no watermarks. "
     "Wide cinematic composition."
 )
 
@@ -227,7 +226,8 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                     session_id=f"daily-drop-{date_utc}-{user_key[:12]}",
                     system_message=(
                         "You are Bullpug, the cosmic guardian. Generate ONE cinematic image "
-                        "matching the user's scene description in the Neuko universe style."
+                        "matching the user's scene description in the Bullpug universe aesthetic — "
+                        "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture."
                     ),
                 )
                 .with_model("gemini", "gemini-3.1-flash-image-preview")

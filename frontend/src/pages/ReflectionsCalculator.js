@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import { Coins, TrendingUp, Calendar, DollarSign, Percent, Sparkles, RefreshCw, Info, ExternalLink } from "lucide-react";
+import { Coins, TrendingUp, Calendar, DollarSign, Percent, Sparkles, RefreshCw, Info } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -94,14 +94,6 @@ export default function ReflectionsCalculator() {
                   <p className="text-[10px] text-slate-500">To Blowfish</p>
                 </div>
               </div>
-              <a 
-                href="https://blowfish.neuko.ai/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-[#00FFA3] hover:underline mt-2"
-              >
-                Learn more about Blowfish <ExternalLink className="w-3 h-3" />
-              </a>
             </div>
           </div>
         </div>

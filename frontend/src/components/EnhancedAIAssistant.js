@@ -20,7 +20,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Canonical Tinkerpug welcome greeting. Used both for the first-open
 // auto-greeting AND when the user clears the chat — so deleting always
 // resets back to a known, on-canon Archive intro.
-const TINKERPUG_GREETING = "Hey there. I'm **Tinkerpug**, keeper of the Bullpug Archive. I can help you with:\n\n- **Bullpug Lore** — Newpug City, the Guardians, the Mindverse, the feats. Just ask.\n- **Live coin prices** — \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** — \"What's trending on Solana?\"\n\nWhere do you want to dig first?";
+const TINKERPUG_GREETING = "Hey there. I'm **Tinkerpug**, keeper of the Bullpug Archive. I can help you with:\n\n- **Bullpug Lore** — Newpug City, the Guardians, the Between, the feats. Just ask.\n- **Live coin prices** — \"What's the price of SOL?\" or \"Show me BTC price\"\n- **Trending coins** — \"What's trending on Solana?\"\n\nWhere do you want to dig first?";
 
 const buildGreetingMessage = () => ({
   role: "assistant",

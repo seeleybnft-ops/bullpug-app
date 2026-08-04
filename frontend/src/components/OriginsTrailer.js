@@ -4,7 +4,7 @@ import { X, Volume2, VolumeX, SkipForward, Share2, Check } from "lucide-react";
 const STORAGE_KEY = "bullpug_origins_trailer_seen_v1";
 
 // Shareable text + URL — defined once so re-runs / re-opens use the same copy.
-const SHARE_TEXT = "I just entered the Neuko canon. The Bullpug Origins trailer hits different — pug-faced skyscrapers, Snout Scanners, and a 152 BPM signal in the noise. 🐾⚡";
+const SHARE_TEXT = "The Origins page is live — read the Bullpug canon: pug-faced skyscrapers, Snout Scanners, and a heartbeat in the noise. 🐾⚡";
 function getShareUrl() {
   if (typeof window === "undefined") return "https://bullpug.io/lore";
   return `${window.location.origin}/lore`;
@@ -159,7 +159,7 @@ export default function OriginsTrailer() {
           <div className="absolute top-3 left-3 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/60 border border-[#00FFA3]/40 backdrop-blur-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00FFA3] animate-pulse" />
             <span className="text-[9px] uppercase tracking-[0.2em] text-[#00FFA3] font-bold">
-              Neuko Canon
+              Bullpug Canon
             </span>
           </div>
 
