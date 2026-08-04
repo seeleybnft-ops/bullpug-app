@@ -210,38 +210,36 @@ export default function Lore() {
             testid="chapter-cosmic-birth"
           >
             <p>
-              Before the <H color="#A78BFA">Mindverse</H> had a name, before{" "}
-              <H color="#A78BFA">G*BOY</H> tore through its fabric and operatives
-              learned to read its signals, there was something already moving
-              through the space between minds. Not a person. Not a memory.{" "}
-              <span className="italic text-slate-100">
-                Something older than both.
-              </span>
+              Before the <H color="#A78BFA">Between</H> had a name, before
+              anyone had learned to read its currents, there was something
+              already moving through the space between minds.
+            </p>
+            <p className="italic text-slate-100">
+              Not a person. Not a memory. Something older than both.
             </p>
             <p>
-              The Mindverse is built from what people carry — fears, obsessions,
-              grief, desire. Most mind places belong to someone. Most are
-              fragile, shaped by a single consciousness that can crack or be
-              corrupted or go quiet. But deep in the network, in the unmapped
-              regions where no single mind claims territory, something different
-              can form.
+              The Between is built from what people carry — fears, obsessions,
+              grief, desire. Most of its realms belong to someone. Most of them
+              are fragile, shaped by a single consciousness that can crack, or
+              be corrupted, or go quiet. But deep in the network, in the
+              unmapped regions where no single mind claims territory, something
+              different can form.
             </p>
             <p className="text-slate-200 italic">
               It forms when enough people want the same thing at the same time.
             </p>
             <p>
               In the early years of the blockchain age, millions of people —
-              scattered across continents, speaking different languages, holding
-              different dreams — shared one feeling in common: they were tired
-              of being taken from. Tired of rug pulls. Tired of bad actors in
-              expensive suits who moved markets like chess pieces and left
-              ordinary people holding nothing. The want for something fair —
-              something loyal, something that would actually grow{" "}
+              scattered across continents, speaking different languages,
+              holding different dreams — shared one feeling in common: they
+              were tired of being taken from. Tired of rug pulls. Tired of bad
+              actors in expensive suits who moved markets like chess pieces and
+              left ordinary people holding nothing. The want for something fair
+              — something loyal, something that would actually grow{" "}
               <span className="italic">with</span> them instead of{" "}
               <span className="italic">against</span> them — that want was
-              enormous. It was electric. And in the Mindverse, collective want
-              doesn't just float.{" "}
-              <H color="#00FFA3">It coheres.</H>
+              enormous. It was electric. And in the Between, collective want
+              doesn't just float. <H color="#00FFA3">It coheres.</H>
             </p>
             <p>
               That's when the stars of the{" "}
@@ -263,22 +261,21 @@ export default function Lore() {
             testid="chapter-different-entity"
           >
             <p>
-              Bullpug is not a test subject. He was never experimented on, never
-              assigned a designation, never held in a chamber. He has no file at{" "}
-              <H color="#FF6B6B">Saint Juniper Research Campus</H>.{" "}
-              <H color="#FF6B6B">MITER-Corp</H>'s logs don't mention him — and
-              that, in itself, is significant, because MITER-Corp monitors{" "}
-              <span className="italic">everything</span>.
+              Bullpug was never designed. No one issued him, funded him, or
+              wrote him into existence. There is no founder behind him, no
+              allocation, no file in any registry. He was never minted by any
+              hand — and that, in itself, is significant, because everything
+              else in the markets was.
             </p>
             <p>
-              He is something the system was never built to account for: a being
-              that emerged not from trauma or control, but from{" "}
+              He is something the old systems were never built to account for:
+              a being that emerged not from greed or engineering, but from{" "}
               <H color="#00FFA3">collective hope</H>.
             </p>
             <p>
-              Where most Mindverse entities are shaped by the memories and fears
-              of their host minds, Bullpug exists in the unmapped space — a
-              free-floating mind place built from the financial dreams and
+              Where most beings of the Between are shaped by the memories and
+              fears of a single host mind, Bullpug exists in the unmapped space
+              — a free-floating realm built from the financial dreams and
               frustrated ambitions of millions of ordinary people. He is the
               embodiment of what they wanted the market to be:{" "}
               <H color="#FFD700">strong as a bull</H>,{" "}
@@ -286,10 +283,11 @@ export default function Lore() {
               through any storm.
             </p>
             <p>
-              He carries the strength and determination of the Bull constellation
-              and the tenacious, unshakeable charm of the pug nebula from which
-              his form was drawn. He cannot be rugged. He cannot be shorted into
-              nothing. He was made from the refusal to accept that.
+              He carries the strength and determination of the Bull
+              constellation and the tenacious, unshakeable charm of the pug
+              nebula from which his form was drawn. He cannot be rugged. He
+              cannot be shorted into nothing. He was made from the refusal to
+              accept that.
             </p>
             <div className="mt-2 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30">
               <p className="text-[#FFD700] text-center font-medium italic">
@@ -300,37 +298,32 @@ export default function Lore() {
             </div>
           </Chapter>
 
-          {/* 3. THE MINDVERSE HE CALLS HOME */}
+          {/* 3. THE WORLD HE CALLS HOME */}
           <Chapter
             icon={Eye}
-            title="The Mindverse He Calls Home"
+            title="The World He Calls Home"
             accent="#A78BFA"
             gradient="linear-gradient(135deg, #A78BFA 0%, #D946EF 100%)"
             testid="chapter-mindverse"
           >
             <p>
-              Bullpug's mind place exists outside the coordinates that{" "}
-              <H color="#FF6B6B">MITER-Corp</H> and{" "}
-              <H color="#FF6B6B">Aurelian Systems</H> have mapped. Their
-              surveillance infrastructure — the same one that monitors{" "}
-              <H color="#FF6B6B">Harmony</H> patients, tracks non-responsive
-              individuals, and feeds data back through the{" "}
-              <H color="#FF6B6B">IRIS</H> system — has never detected it.
+              Bullpug's realm exists outside every map ever drawn of the{" "}
+              <H color="#A78BFA">Between</H>. No registry lists it. No watcher
+              has ever charted a route to it.
             </p>
             <p>
               This is by nature, not accident. The place wasn't built by one
-              mind that could be located, tracked, or dosed into silence. It was
-              built by{" "}
+              mind that could be located, tracked, or silenced. It was built by{" "}
               <H color="#00FFA3">millions of minds that never knew they were building anything</H>
-              . No single person holds the address. No single person can give it
-              up.
+              . No single person holds the address. No single person can give
+              it up.
             </p>
             <p>
-              Over time, this mind place grew into something vast. A planet unto
-              itself within the Mindverse, known among those who've stumbled
-              into it as <H color="#00C2FF">CryptoCanis</H> — a world shaped by
-              the collective imagination of everyone who ever believed the
-              market could be something worth trusting.
+              Over time, this realm grew into something vast. A planet unto
+              itself within the Between, known among those who've stumbled into
+              it as <H color="#00C2FF">CryptoCanis</H> — a world shaped by the
+              collective imagination of everyone who ever believed the market
+              could be something worth trusting.
             </p>
           </Chapter>
 
@@ -347,31 +340,28 @@ export default function Lore() {
             <p>
               At the heart of CryptoCanis stands{" "}
               <H color="#00FFA3">Newpug City</H>, a sprawling metropolis unlike
-              anything else in the Mindverse.
+              anything else in the Between.
             </p>
             <p>
-              The architecture mirrors Bullpug himself — wide-eyed, curly-tailed,
-              built to welcome. Buildings rise in forms that seem almost playful
-              until you realize how structurally sound they are, how resistant
-              to pressure. During times of prosperity, the city emits{" "}
-              <H color="#FFD700">holographic barks</H> that ripple through the
-              skyline like aurora. During times of threat, that same system
-              becomes a warning network, loud and impossible to ignore.
+              The architecture mirrors Bullpug himself — wide-eyed,
+              curly-tailed, built to welcome. Buildings rise in forms that seem
+              almost playful until you realize how structurally sound they are,
+              how resistant to pressure. During times of prosperity, the city
+              emits <H color="#FFD700">holographic barks</H> that ripple
+              through the skyline like aurora. During times of threat, that
+              same system becomes a warning network, loud and impossible to
+              ignore.
             </p>
             <p>
               Newpug City runs on the <H color="#D946EF">PugChain</H> — a
-              decentralized network that the Bullpughans built over generations.
-              Unlike the surveillance systems MITER-Corp developed, or the
-              patient monitoring infrastructure Aurelian routes through IRIS,
-              the PugChain stores not just wealth but{" "}
-              <span className="italic">memories, dreams, and emotions</span>. It
-              was designed to be owned by everyone on it and controlled by
+              decentralized network that the Bullpughans built over
+              generations. Unlike the ledgers of the old markets — written by
+              the powerful and edited by the guilty — the PugChain stores not
+              just wealth but{" "}
+              <span className="italic">memories, dreams, and emotions</span>.
+              It was designed to be owned by everyone on it and controlled by
               none. Transparency is its core architecture. Corruption, by
               design, cannot hide inside it.
-            </p>
-            <p className="italic text-slate-100">
-              It is, in almost every way, the opposite of what the people behind
-              Harmony were building in the physical world.
             </p>
           </Chapter>
 
@@ -386,35 +376,33 @@ export default function Lore() {
             testid="chapter-bullpughans"
           >
             <p>
-              In the eons that followed Bullpug's emergence, the mind place
-              evolved. Inhabitants took shape — beings infused with Bullpug's
-              original spirit, carrying his values forward as civilization.
-              These are the <H color="#D946EF">Bullpughans</H>.
+              In the eons that followed Bullpug's emergence, the realm evolved.
+              Inhabitants took shape — beings infused with Bullpug's original
+              spirit, carrying his values forward as civilization. These are
+              the <H color="#D946EF">Bullpughans</H>.
             </p>
             <p>
-              They are not gods. They are not soldiers or test subjects or
-              operatives in someone else's war. They are a people who built
-              something from scratch using only the principles their origin
-              demanded:{" "}
+              They are not gods. They are not soldiers, subjects, or pieces in
+              someone else's game. They are a people who built something from
+              scratch using only the principles their origin demanded:{" "}
               <H color="#00FFA3">loyalty, tenacity, and shared prosperity</H>.
             </p>
             <p>
               The Bullpughans spread across CryptoCanis and beyond, each
-              settlement a testament to what happens when a civilization refuses
-              to be built on exploitation. Their society has no MITER-Corp
-              equivalent. No Aurelian Systems. No drug that smooths out the
-              edges of people until they stop asking questions.
+              settlement a testament to what happens when a civilization
+              refuses to be built on exploitation. Their society keeps no
+              watchers and sells no quiet — nothing that smooths the edges off
+              people until they stop asking questions.
             </p>
             <p>
               Among them, the most revered are the{" "}
-              <H color="#FFD700">Guardians</H> — direct descendants of Bullpug's
-              earliest companions, beings with enhanced instincts and a
-              near-supernatural ability to navigate the digital realm. They are
-              equipped with <H color="#D946EF">Snout Scanners</H>, tools that
-              can detect corruption or deceit in any transaction at the
-              molecular level of the chain. Where IRIS watches patients and
-              flags the ones who resist, the Guardians watch the PugChain and
-              flag the ones who deceive.
+              <H color="#FFD700">Guardians</H> — direct descendants of
+              Bullpug's earliest companions, beings with enhanced instincts and
+              a near-supernatural ability to navigate the digital realm. They
+              are equipped with <H color="#D946EF">Snout Scanners</H>, tools
+              that can detect corruption or deceit in any transaction at the
+              molecular level of the chain. The Guardians watch the PugChain,
+              and what they flag is deceit.
             </p>
           </Chapter>
 
@@ -436,22 +424,22 @@ export default function Lore() {
               The sky fills with fireworks shaped like coins and bones. Giant
               floats built from the rarest materials roll through the streets,
               sculpted in the likeness of Bullpug's legendary moon cheese.
-              Bullpughans dress in traditional hodler costumes and chant the old
-              memecoin chants — words that started as jokes in the physical
-              world and became, somewhere in the crossing into the Mindverse,
+              Bullpughans dress in traditional hodler costumes and chant the
+              old memecoin chants — words that started as jokes in the physical
+              world and became, somewhere in the crossing into the Between,
               something closer to <span className="italic">scripture</span>.
             </p>
             <p>
               It's a celebration, yes. But it's also a ritual of remembrance. A
               deliberate act of <H color="#00FFA3">not forgetting</H> where
-              Bullpug came from — from want, from exhaustion, from the desperate
-              hope of people who had been burned too many times and still
-              refused to stop believing.
+              Bullpug came from — from want, from exhaustion, from the
+              desperate hope of people who had been burned too many times and
+              still refused to stop believing.
             </p>
             <p>
-              In a universe where Harmony is designed to make people forget,
-              where emotional flattening is marketed as balance and behavioral
-              uniformity is called peace, the Festival of Barks is{" "}
+              In a universe where forgetting is the cheapest thing on sale —
+              where flattening what people feel gets marketed as balance, and
+              uniformity gets called peace — the Festival of Barks is{" "}
               <H color="#FFD700">a radical act</H>.
             </p>
           </Chapter>
@@ -465,33 +453,29 @@ export default function Lore() {
             testid="chapter-signal"
           >
             <p>
-              There are those in the <H color="#A78BFA">Neuko network</H> —
-              operatives who've gone deep enough into the Mindverse,
-              puzzle-solvers who've cracked enough ciphers — who have started
+              There are those who travel deep in the Between — drifters,
+              seekers, the ones who've learned to listen — who have started
               picking up something they can't fully explain.
             </p>
             <p>
-              Not a frequency from MITER-Corp. Not a transmission from Saint
-              Juniper. <H color="#FFD700">Something warmer</H>. Something that
-              moves at its own rhythm, not the 152 BPM pattern Aurelian flagged
-              in the G-304 modulation trials, but something adjacent to it — a
-              signal that feels less like surveillance and more like a{" "}
-              <H color="#00FFA3">heartbeat</H>.
+              Not a market frequency. Not a transmission with an owner behind
+              it. <H color="#FFD700">Something warmer</H>. Something that moves
+              at its own rhythm — a signal that feels less like machinery and
+              more like a <H color="#00FFA3">heartbeat</H>.
             </p>
             <p>
-              Some believe it's CryptoCanis. Some believe Bullpug's mind place
-              has grown large enough that it's started to bleed at the edges of
-              the Mindverse map.
+              Some believe it's CryptoCanis. Some believe Bullpug's realm has
+              grown large enough that it has started to bleed at the edges of
+              the map.
             </p>
             <p>
-              What everyone agrees on is this: wherever the signal is strongest,
-              bad actors have a harder time operating. Markets in that radius
-              behave more fairly. People who should have been rugged aren't.
-              Wallets that should have been drained hold.
+              What everyone agrees on is this: wherever the signal is
+              strongest, bad actors have a harder time operating. Markets in
+              that radius behave more fairly. People who should have been
+              rugged aren't. Wallets that should have been drained hold.
             </p>
             <p className="italic text-slate-100">
-              Nobody at Aurelian Systems can explain it. There's no entry in
-              MITER-Corp's files.
+              Nobody can explain it. No record accounts for it.
             </p>
             <p className="text-lg md:text-xl text-white font-bold">
               Bullpug doesn't announce himself. He just shows up where he's
@@ -509,10 +493,9 @@ export default function Lore() {
           >
             <p>
               Bullpug's legacy is not a monument. It's not a file or a
-              designation or a badge distributed through a chain of operatives.
-              It lives in the PugChain, in Newpug City's skyline, in every
-              Bullpughan who woke up one morning understanding, without being
-              taught, that{" "}
+              designation or a title handed down. It lives in the PugChain, in
+              Newpug City's skyline, in every Bullpughan who woke up one
+              morning understanding, without being taught, that{" "}
               <H color="#FFD700">
                 prosperity is only worth having if everyone around you has a
                 shot at it too
@@ -520,7 +503,7 @@ export default function Lore() {
               .
             </p>
             <p>
-              In a Mindverse increasingly threatened by forces that want to
+              In a Between increasingly threatened by forces that want to
               flatten human experience into something manageable, something
               uniform, something quiet — Bullpug is the opposite of quiet.
             </p>
@@ -542,8 +525,9 @@ export default function Lore() {
                 "Thus, the universe continues to echo with the{" "}
                 <span className="text-[#00FFA3]">barks of prosperity</span> —
                 each one a reminder of Bullpug, the cosmic guardian who started
-                it all with a mix of <span className="text-[#FFD700]">bull's strength</span>{" "}
-                and a <span className="text-[#D946EF]">pug's heart</span>."
+                it all with a mix of{" "}
+                <span className="text-[#FFD700]">bull's strength</span> and a{" "}
+                <span className="text-[#D946EF]">pug's heart</span>."
               </p>
             </div>
           </section>
@@ -606,7 +590,7 @@ export default function Lore() {
             </div>
           </section>
 
-          {/* CANON ANCHOR — Neuko universe */}
+          {/* CANON ANCHOR */}
           <section
             className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6 md:p-8"
             data-testid="lore-canon-anchor"
@@ -616,13 +600,11 @@ export default function Lore() {
                 <Lock className="w-4 h-4 text-slate-300" />
               </div>
               <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
-                Bullpug exists within the{" "}
-                <H color="#A78BFA">Neuko universe</H>. His mind place,{" "}
-                <H color="#00C2FF">CryptoCanis</H>, sits in the unmapped regions
-                of the Mindverse — beyond the reach of MITER-Corp's surveillance
-                and Aurelian Systems' monitoring infrastructure. The PugChain
-                and its Guardians operate independently of any known corporate
-                research program.{" "}
+                The <H color="#D946EF">Bullpughan universe</H> is sovereign.{" "}
+                <H color="#00C2FF">CryptoCanis</H> sits in the unmapped regions
+                of the <H color="#A78BFA">Between</H> — beyond any map, any
+                registry, any watcher. The PugChain and its Guardians answer
+                to no one but the pack.{" "}
                 <span className="text-slate-300 italic">This is by design.</span>
               </p>
             </div>
