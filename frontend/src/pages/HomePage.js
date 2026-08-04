@@ -82,6 +82,58 @@ export default function HomePage() {
     axios.get(`${API}/tokenomics/stats`).then(r => setStats(r.data)).catch(() => {});
   }, []);
 
+  // Bullpug Gallery — live-fetch daily drops + user-generated images, then
+  // cycle a rolling 8-tile window every ~6 seconds so the grid feels alive
+  // as new drops land. Falls back to the static GALLERY placeholders when
+  // the API returns nothing yet (fresh deploy) or the request fails.
+  const [galleryFeed, setGalleryFeed] = useState([]);
+  const [galleryOffset, setGalleryOffset] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API}/ai/gallery/recent?limit=24`)
+      .then((r) => {
+        if (cancelled) return;
+        const items = (r.data?.images || [])
+          .filter((it) => typeof it.image_base64 === "string" && it.image_base64.length > 32);
+        setGalleryFeed(items);
+      })
+      .catch(() => { /* fall through to static placeholders */ });
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    if (galleryFeed.length <= 8) return;
+    const t = setInterval(() => {
+      setGalleryOffset((o) => (o + 1) % galleryFeed.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [galleryFeed.length]);
+
+  // Compose the 8 tiles rendered on the page — either a rolling slice of the
+  // live feed or the static GALLERY fallback so the section never looks empty.
+  const galleryTiles = (() => {
+    const TILES = 8;
+    if (galleryFeed.length === 0) {
+      return GALLERY.slice(0, TILES).map((src, i) => ({
+        key: `static-${i}`,
+        src,
+        alt: `Bullpug #${i + 1}`,
+        source: "static",
+      }));
+    }
+    const out = [];
+    for (let i = 0; i < TILES; i++) {
+      const item = galleryFeed[(galleryOffset + i) % galleryFeed.length];
+      out.push({
+        key: `${item.src}-${item.created_at}-${i}`,
+        src: item.image_base64,
+        alt: item.caption || `Bullpug gallery #${i + 1}`,
+        source: item.src, // "daily_drop" | "user"
+      });
+    }
+    return out;
+  })();
+
   const handleSubscribe = async () => {
     if (!email) return toast.error("Enter your email");
     setSubscribing(true);
@@ -284,7 +336,7 @@ export default function HomePage() {
             {[
               { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
               { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
-              { icon: <Zap size={18} />, title: "Pug Pit", desc: "1v1 Snarl-Offs & Pack Pile winner-take-all rounds", link: "/betting", img: IMAGES.arena, color: "#00FFA3", comingSoon: true },
+              { icon: <Flame size={18} />, title: "Pugburn", desc: "Reclaim locked SOL from old airdrop and dust accounts — no fees", link: "/pugburn", img: IMAGES.arena, color: "#F5D300" },
             ].map((f, i) => (
               <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
                 <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''} ${f.comingSoon ? 'ring-2 ring-[#F5D300]/30' : ''}`}>
@@ -373,16 +425,38 @@ export default function HomePage() {
       {/* RECENT JACKPOT WINNERS - Below Tokenomics */}
       <RecentWinners />
 
-      {/* GALLERY */}
+      {/* GALLERY — cycles through most-recent daily drops + user-generated
+          Tinkerpug `/image` outputs. Auto-rotates every ~6s and falls back
+          to the static GALLERY placeholders if the API is empty (e.g. very
+          first deploy before any images exist). */}
       <section className="py-24 md:py-32" data-testid="gallery-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-16" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             BULLPUG <span className="text-[#D946EF]">Gallery</span>
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {GALLERY.map((img, i) => (
-              <div key={i} className="rounded-xl overflow-hidden border border-white/5 hover:border-[#D946EF]/40 transition-all duration-300 group">
-                <img src={img} alt={`Bullpug #${i + 1}`} className="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+          <p className="text-slate-500 text-sm text-center mb-16" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Fresh Bullpughan visions — daily drops and community-generated art.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="gallery-grid">
+            {galleryTiles.map((img, i) => (
+              <div key={img.key} className="rounded-xl overflow-hidden border border-white/5 hover:border-[#D946EF]/40 transition-all duration-300 group relative">
+                <img
+                  src={img.src}
+                  alt={img.alt}
+                  className="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500"
+                  loading="lazy"
+                  data-testid={`gallery-tile-${i}`}
+                />
+                {img.source === "user" && (
+                  <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#D946EF]/40 text-[#D946EF] backdrop-blur-sm">
+                    Community
+                  </span>
+                )}
+                {img.source === "daily_drop" && (
+                  <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#00FFA3]/40 text-[#00FFA3] backdrop-blur-sm">
+                    Daily Drop
+                  </span>
+                )}
               </div>
             ))}
           </div>

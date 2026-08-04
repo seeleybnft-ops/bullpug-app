@@ -144,7 +144,9 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
               // Previous Tinkerpug greeting that included Market sentiment + Trade analysis bullets
               (c.includes("keeper of the Bullpug archive") && c.includes("Market sentiment")) ||
               // Older lowercase "archive" greeting that opened with "Hey there!"
-              (c.includes("keeper of the Bullpug archive") && c.includes("Hey there!"))
+              (c.includes("keeper of the Bullpug archive") && c.includes("Hey there!")) ||
+              // Previous Tinkerpug greeting that referenced retired-canon "Mindverse"
+              (c.includes("keeper of the Bullpug Archive") && c.includes("Mindverse"))
             );
           });
           setMessages(cleaned);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Trophy, TrendingUp, Gamepad2, ChevronLeft, ChevronRight, Crown, Zap, Users, Star, Coins } from "lucide-react";
+import { Trophy, TrendingUp, Gamepad2, ChevronLeft, ChevronRight, Crown, Users, Star, Coins } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -177,24 +177,7 @@ export default function CommunitySpotlight() {
                 )}
 
                 {slide.id === "activity" && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <SpotlightCard icon={<Zap className="w-4 h-4" />} accent="#00C2FF" label="Arena · Live">
-                      <div className="space-y-4">
-                        {[
-                          { label: "Pot SOL (live)", value: (platformStats?.pot_total_sol || 0).toFixed(3), color: "#00C2FF" },
-                          { label: "Active Players", value: platformStats?.active_traders || 0, color: "#00FFA3" },
-                          { label: "Big Wins (24h)", value: platformStats?.big_wins_24h || 0, color: "#D946EF" },
-                        ].map((s, i) => (
-                          <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
-                            <span className="text-xs text-slate-400">{s.label}</span>
-                            <span className="text-sm font-bold font-mono" style={{ color: s.color }}>{s.value}</span>
-                          </div>
-                        ))}
-                        <Link to="/betting" className="block text-center text-xs text-[#00C2FF]/70 hover:text-[#00C2FF] transition-colors" data-testid="spotlight-open-arena-link">
-                          Enter the Arena &rarr;
-                        </Link>
-                      </div>
-                    </SpotlightCard>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <SpotlightCard icon={<Trophy className="w-4 h-4" />} accent="#F5D300" label="Competitions">
                       <div className="text-center py-6">
                         <Trophy className="w-8 h-8 text-[#F5D300]/30 mx-auto mb-3" />

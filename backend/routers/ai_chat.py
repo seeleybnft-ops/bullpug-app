@@ -800,9 +800,23 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         image_data = img.get("data") or ""
         mime = img.get("mime_type") or "image/png"
         caption = text.strip() if text else f"*“{prompt}”* — fresh from the PugChain canvas. 🐾"
+        image_base64 = f"data:{mime};base64,{image_data}"
+        # Persist to the public gallery feed so user-generated images show up
+        # in the homepage Bullpug Gallery cycle. Fire-and-forget — never break
+        # the chat response if the write fails.
+        try:
+            await db.user_generated_images.insert_one({
+                "session_id": session_id,
+                "prompt": (prompt or "")[:400],
+                "caption": (caption or "")[:600],
+                "image_base64": image_base64,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as _e:
+            logger.warning("Failed to persist user-generated image: %s", _e)
         return {
             "response": caption,
-            "image_base64": f"data:{mime};base64,{image_data}",
+            "image_base64": image_base64,
             "session_id": session_id,
             "has_live_data": False,
             "kind": "image",
@@ -1534,6 +1548,53 @@ _ADMIN_WALLETS = {
     "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",
     "qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs",
 }
+
+
+@router.get("/gallery/recent")
+async def public_gallery_recent(limit: int = 12):
+    """Public homepage-gallery feed.
+
+    Merges the two image sources that exist in the system:
+      • `daily_drops` — one AI image per user per UTC day (Bullpug daily drop)
+      • `user_generated_images` — images produced live via the `/image`
+        slash-command in Tinkerpug chat
+
+    Returned in reverse-chronological order, deduped nothing (each row is
+    independently interesting). Payload includes the base64 data URL so the
+    client can render inline without a second roundtrip.
+    """
+    limit = max(1, min(30, limit))
+    per_source = limit  # over-fetch so the merge can trim to `limit`
+
+    drops = await db.daily_drops.find(
+        {"image_base64": {"$exists": True, "$ne": None}},
+        {"_id": 0, "image_base64": 1, "created_at": 1, "date_utc": 1,
+         "theme": 1, "scene": 1},
+    ).sort("created_at", -1).limit(per_source).to_list(per_source)
+
+    user_imgs = await db.user_generated_images.find(
+        {}, {"_id": 0, "image_base64": 1, "created_at": 1,
+             "prompt": 1, "caption": 1},
+    ).sort("created_at", -1).limit(per_source).to_list(per_source)
+
+    def _norm(row, source):
+        return {
+            "src": source,
+            "image_base64": row.get("image_base64"),
+            "created_at": row.get("created_at") or "",
+            "caption": (
+                row.get("caption")
+                or row.get("scene")
+                or row.get("theme")
+                or ""
+            )[:200],
+        }
+
+    merged = [_norm(r, "daily_drop") for r in drops] + [
+        _norm(r, "user") for r in user_imgs
+    ]
+    merged.sort(key=lambda r: r["created_at"], reverse=True)
+    return {"images": merged[:limit], "count": min(len(merged), limit)}
 
 
 @router.get("/daily-drops/admin")
