@@ -304,7 +304,11 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                         "The attached reference image is the canonical Bullpug — a fawn pug with "
                         "dark ridged bull horns, a cybernetic segmented tail, an armoured left "
                         "foreleg, and a techno collar. Preserve these identifying features "
-                        "exactly; vary pose, framing, expression, and setting per the prompt."
+                        "exactly; vary pose, framing, expression, and setting per the prompt. "
+                        "Never include gold coins, currency symbols, price imagery, Ethereum logos, "
+                        "Bitcoin symbols, or any financial market iconography in the generated images. "
+                        "The Bullpug universe is a story world — scenes should depict characters, "
+                        "locations, lore events, and the Between. Keep imagery narrative, not financial."
                     ),
                 )
                 .with_model("gemini", "gemini-3.1-flash-image-preview")

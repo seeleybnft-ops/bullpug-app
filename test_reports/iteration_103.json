@@ -1,0 +1,20 @@
+{
+  "summary": "Regression retest of Tinkerpug /image voice guardrail on POST /api/ai/chat. 3/3 attempts PASS with different session_ids. Two attempts hit the (new) hardcoded fallback 'Direct from the Archive — *\"bullpug at Newpug City rooftop\"*. The record holds. 🐾' (voice-retest-1 & -2). The third attempt received an LLM-generated caption 'The Archive holds this record.  Direct from the Genesis Vault.' — also on-voice. No forbidden phrase ('fresh from the PugChain canvas', 'let me compile', 'while we wait', 'I\\'ll generate', 'AI image', etc.) appeared in any response. All responses contained expected archive/vault/record hints. Guardrail fix is effective for both the fallback path and the LLM caption emission path. daily_drop guardrail was NOT re-tested per request.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tinkerpug_image_voice.py",
+    "/app/test_reports/pytest/tinkerpug_voice_iter103.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Voice guardrail now enforced in two independent places (LLM system_message + hardcoded fallback). Consider extracting the fallback caption template into a module-level constant next to the system_message so future edits stay in sync."
+  ],
+  "updated_files": ["/app/backend/tests/test_tinkerpug_image_voice.py"],
+  "success_rate": {"backend": "100% (3/3 /image voice attempts pass)"},
+  "seed_data_creation": "3 rows written to db.user_generated_images as side-effects of /image calls; safe to ignore/purge.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Guardrail regression is green. If further changes touch _generate_image_response in /app/backend/routers/ai_chat.py, rerun `pytest /app/backend/tests/test_tinkerpug_image_voice.py -v -s` (needs REACT_APP_BACKEND_URL exported from /app/frontend/.env; test uses os.environ.get with no default). The parametrized test hits the /image slash-command path 3× (~15s each due to Gemini image gen).",
+  "rca of the issue": "Previously the /image path (ai_chat.py `_generate_image_response`) used a bespoke minimal system_message and a hardcoded fallback caption 'fresh from the PugChain canvas' that bypassed the archive-voice guardrail. Main agent's fix (a) rewrote the image LLM's system_message to instruct in-character caption emission and (b) replaced the hardcoded fallback with 'Direct from the Archive — *{prompt}*. The record holds. 🐾'. Retest confirms both branches now comply."
+}
