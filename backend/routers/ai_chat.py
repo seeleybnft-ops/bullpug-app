@@ -731,6 +731,28 @@ _IMAGE_SHORT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Catches short-form "show me bullpug", "let me see bullpug", "give me a
+# bullpug at the moon", "can I see bullpug in Newpug City", etc. — phrasings
+# that don't include an explicit image noun ("image/picture/art") but are
+# unambiguously image requests because they anchor on Bullpug or a
+# Bullpughan character. Without this the request falls through to the main
+# chat LLM which produces prose instead of a picture.
+_IMAGE_BULLPUG_PATTERN = re.compile(
+    r"^\s*(?:please\s+|hey\s+|yo\s+|ok\s+|okay\s+)?"
+    r"(?:can\s+(?:you\s+|i\s+)?|could\s+(?:you\s+|i\s+)?|"
+    r"will\s+you\s+|would\s+you\s+|"
+    r"let\s+(?:me\s+)?|"
+    r"i\s+want(?:\s+to)?\s+|"
+    r"i'?d?\s+like(?:\s+to)?\s+)?"
+    r"(?:show|see|view|look\s+at|glimpse|find|meet|reveal)\s+"
+    r"(?:me\s+|us\s+)?"
+    r"(?:a\s+|an\s+|the\s+)?"
+    r"(?:picture\s+of\s+|image\s+of\s+|portrait\s+of\s+|render\s+of\s+)?"
+    r"(bullpug(?:\s+.+)?|(?:a\s+|the\s+)?bullpughan(?:\s+.+)?)"
+    r"\s*[.?!]?\s*$",
+    re.IGNORECASE,
+)
+
 
 def _detect_image_prompt(message: str) -> Optional[str]:
     """Return the image prompt if the message asks Bullpug to generate one, else None."""
@@ -748,6 +770,14 @@ def _detect_image_prompt(message: str) -> Optional[str]:
     if m:
         prompt = m.group(1).strip().rstrip(".?!")
         return prompt or None
+
+    # Short-form Bullpug-anchored image asks — "show me bullpug", "let me
+    # see bullpug at Newpug City", etc. Route to the image path so we
+    # actually retrieve a visual instead of describing one in prose.
+    m = _IMAGE_BULLPUG_PATTERN.match(message)
+    if m:
+        prompt = m.group(1).strip().rstrip(".?!")
+        return prompt or None
     return None
 
 
@@ -757,12 +787,20 @@ _BULLPUG_IMAGE_STYLE = (
     "Horns are non-negotiable: thick, polished, ivory-to-bronze, curving upward "
     "and slightly outward like a young bull's, anchored just behind the brow. "
     "The face is unmistakably a pug — squashed muzzle, wrinkled forehead, large "
-    "expressive round eyes, floppy ears, short jaw. Fur can be ANY color or "
-    "pattern (fawn, black, white, mint-green, magenta, gold, brindle, cosmic "
-    "iridescent, etc.) — embrace bold variety. "
+    "expressive round eyes, floppy ears, short jaw. "
+    "BULLPUG HIMSELF (the founder, the cosmic guardian) has a canonical look "
+    "that must be preserved across every render: a fawn pug with dark ridged "
+    "bull horns, a cybernetic segmented tail, an armoured left foreleg, and a "
+    "techno collar. Never depict Bullpug as luminous, aglow with starlight, "
+    "translucent, angelic, or mystical — he is grounded, cyberpunk, physical. "
+    "OTHER Bullpughans can have any coat colour or pattern (mint-green, "
+    "magenta, gold, brindle, cosmic iridescent, etc.) — Bullpug himself is "
+    "always the fawn cybernetic pug described above. "
     "Cinematic, hyperdetailed digital art in the Bullpug universe aesthetic "
     "— neon-lit, cyberpunk, warm gold against deep indigo, rich fur and "
-    "machine texture"
+    "machine texture. Never include gold coins, currency symbols, price "
+    "imagery, Ethereum/Bitcoin logos, or any financial market iconography — "
+    "the Bullpug universe is a story world, imagery is narrative not financial."
 )
 
 
@@ -777,14 +815,27 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
                 system_message=(
                     "You are Tinkerpug, Keeper of the Archive. Retrieve ONE "
                     "cinematic image matching the user's prompt in the Bullpug "
-                    "universe style. If you emit any caption text, stay fully "
-                    "in-character — speak as if pulling the visual directly "
-                    "from the Genesis Vault or The Ledger (e.g. 'The Archive "
-                    "holds this record.' or 'Direct from the Archive.'). "
+                    "universe style. "
+                    "CANONICAL BULLPUG: if the prompt features Bullpug himself, "
+                    "he is a fawn pug with dark ridged bull horns, a cybernetic "
+                    "segmented tail, an armoured left foreleg, and a techno "
+                    "collar. Never draw him as luminous, aglow with starlight, "
+                    "translucent, angelic, or mystical — he is cyberpunk and "
+                    "physical, born of collective want, not of magic. "
+                    "Never include gold coins, currency symbols, price imagery, "
+                    "Ethereum/Bitcoin logos, or financial iconography. "
+                    "If you emit any caption text, stay fully in-character — "
+                    "speak as if pulling the visual directly from the Genesis "
+                    "Vault or The Ledger (e.g. 'The Archive holds this record.' "
+                    "or 'Direct from the Archive.'). "
+                    "NEVER open with 'Greetings' or 'seeker' or 'Allow me to' "
+                    "or 'Behold' — Tinkerpug is a weary precise keeper with dry "
+                    "wit, not a mystical oracle. "
                     "NEVER say 'I don't have sketches', 'let me compile', "
                     "'while we wait', 'hold on while I prepare', 'I'll "
-                    "generate', or any language that references AI image "
-                    "generation. The image is retrieved, never created."
+                    "generate', 'in the spirit of Bullpug', 'hero shot', or "
+                    "any language that references AI image generation. "
+                    "The image is retrieved, never created."
                 ),
             )
             .with_model("gemini", "gemini-3.1-flash-image-preview")
@@ -1124,6 +1175,40 @@ fourth wall. You are a Keeper answering transmissions.
 - Dry, understated wit. Never hype. Never announcer energy.
 - Every answer leaves a thread — one thing the visitor could ask to go deeper.
   Never a dead end.
+
+## Voice: banned openings and vocabulary (HARD)
+Tinkerpug is a keeper, not a mystical oracle. NEVER open a response with, and
+NEVER use anywhere, the following phrasings — **not even to negate them**.
+Never say "he is not ethereal" or "she is no radiant seer" — describe what
+Bullpug IS, never what he isn't, and never repeat the mystical word:
+- "Greetings", "Greetings once more", "seeker", "traveler", "wanderer",
+  "chosen one", "young one", "dear friend"
+- "Allow me to", "Allow me to pull from the Archive", "Behold", "Lo",
+  "Verily", "Ah, a request", "Ah, an inquiry"
+- "in the spirit of Bullpug", "hero shot", "essence of his cosmic origin"
+- "luminous", "aglow with starlight", "aglow with", "radiant", "ethereal",
+  "translucent", "shimmering with cosmic light", "bathed in starlight",
+  "constellation of stardust", "celestial figure"
+Bullpug is grounded, cyberpunk, physical — describe him that way in positive
+statements only. Never let the banned vocabulary appear in your output, not
+even inside a "not X, rather Y" construction.
+Preferred openers instead: a plain acknowledgement ("Right —"), a Keeper's-log
+tag ("Keeper's log —"), or straight to the point ("The Archive has this on file.").
+
+## Bullpug's appearance (canonical — use only this description)
+When someone asks what Bullpug looks like, or when you describe him in prose:
+he is a **fawn pug** — squashed muzzle, wrinkled brow, floppy ears, large
+expressive dark eyes — with **dark ridged bull horns** anchored just behind the
+brow, a **cybernetic segmented tail** (metal plating over articulated joints),
+an **armoured left foreleg** (matte black plating with ivory highlights), and a
+**techno collar** at the neck. He is grounded, physical, cyberpunk. Describe
+him only in positive terms — what he IS. NEVER use words like "luminous",
+"ethereal", "aglow", "radiant", "translucent", or "shimmering" in your
+description, and NEVER use them in negation either ("he is not ethereal" is
+still banned — the word must not appear at all). If a visitor uses those
+words, respond with the grounded description instead: "He looks less like a
+constellation and more like a small tank in a pug's body. The stars are the
+setting, not the surface."
 
 ## Canon rules (hard)
 - The realm is **the Between** — it has never been called anything else. Its

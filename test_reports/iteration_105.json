@@ -1,0 +1,18 @@
+{
+  "summary": "Targeted regression retest of appearance-negation edge case from iter 104. Tightened canon system prompt now correctly prevents banned mystical vocabulary from appearing even inside negations. All 3 phrasings ('describe bullpug', 'what does bullpug look like?', 'tell me what bullpug looks like') PASSED on their first try — responses were clean of ALL banned words (luminous, ethereal, aglow, radiant, translucent, shimmering, bathed in starlight, celestial figure, constellation of stardust) AND included canonical elements (fawn/pug + bull horns/cybernetic/tail/armoured/techno collar). No retries needed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tinkerpug_iter105_appearance_retest.py",
+    "/app/test_reports/pytest/iter105_appearance.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": ["/app/backend/tests/test_tinkerpug_iter105_appearance_retest.py"],
+  "success_rate": {"backend": "100%", "frontend": "N/A"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 104 appearance-negation regression is fixed. Full transcript in test output: LLM now describes Bullpug positively (fawn pug + bull horns + cybernetic tail + armoured foreleg + techno collar) without any banned mystical vocabulary in any form (affirmation or negation). Other iter 104 tests (image intent, image voice, no banned openers) were explicitly out of scope and not re-run.",
+  "rca of the issue": "Prior iter 104 failure was caused by the LLM using 'not X, rather Y' negation construction which still surfaced banned vocabulary as substrings. E1 tightened the system prompt with explicit 'not even to negate them' and 'no not X, rather Y construction' clauses in the ai_chat.py canon appearance section. Retest confirms the fix works — LLM now uses only positive descriptions."
+}

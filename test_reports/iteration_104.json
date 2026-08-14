@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 104 backend regression for Tinkerpug fixes. Created /app/backend/tests/test_tinkerpug_iter104.py (8 parametrized tests) covering: (1) short-form image intent detection, (2) image caption voice, (3) canon appearance in prose, (4) no banned voice openers on greetings. Result: 7/8 PASSED. All 3 short-form phrasings ('show me bullpug', 'let me see bullpug at Newpug City', 'can I see bullpug') successfully returned real data:image/ base64 payloads with archive/vault/ledger framed captions — Fix 1 confirmed working. Voice guardrails on greetings all clean (no 'Greetings', 'seeker', etc). Only failure: for 'describe bullpug', the response contained the banned word 'ethereal' — but in a NEGATION context ('He's no ethereal figure; rather, he's grounded...'). This is voice drift where the LLM still surfaces the mystical vocab even to disclaim it. The 'what does bullpug look like?' variant passed cleanly. Canon elements (fawn, pug, bull horns, cybernetic tail, armoured foreleg, techno collar) were correctly referenced in both appearance responses.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/ai/chat",
+        "issue": "Prompt: For message='describe bullpug' (session appearance-2), response contains 'ethereal' inside a negation clause: \"He's no ethereal figure; rather, he's grounded, like a small tank in a pug's body...\". Also uses 'materialized from a collective want ... from the Bull constellation and the pug nebula' which is mildly mystical framing. Consider strengthening the banned-vocabulary section of the system prompt to disallow banned tokens even in negated/dismissive form, or explicitly instruct: 'Do not mention the words you are avoiding, even to deny them.' The 'what does bullpug look like?' variant was clean, so the drift is inconsistent across phrasings."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tinkerpug_iter104.py",
+    "/app/test_reports/pytest/iter104_results.xml"
+  ],
+  "action_items": [
+    "Optional prompt hardening in /app/backend/routers/ai_chat.py bullpug_knowledge — add explicit rule that banned mystical words (luminous, ethereal, radiant, aglow, translucent, shimmering, bathed in starlight) must not appear even as negations or comparisons. Currently the model dodges them 3/4 times but leaks 'ethereal' in dismissive framing."
+  ],
+  "critical_code_review_comments": [
+    "Fix 1 (short-form image intent via _IMAGE_BULLPUG_PATTERN) is working reliably — 3/3 phrasings hit _generate_image_response and returned base64 without any retries needed.",
+    "Image captions consistently use Archive/Ledger/Vault framing across all 3 short-form asks — new banned-openers section is effective for the image path.",
+    "Text-only voice path is 5/6 clean; single leakage of 'ethereal' in a negation shows the banned-vocab rule isn't strong enough to prevent the model from referencing the banned terms even when disclaiming them."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "87.5% (7/8)", "frontend": "N/A"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_tinkerpug_iter104.py is reusable regression. Run with: export $(grep -v '^#' /app/frontend/.env | xargs) && pytest backend/tests/test_tinkerpug_iter104.py -v -s. Total runtime ~90s (3 image gens at Gemini speed dominate). If main agent tightens the prompt for banned mystical vocab, rerun to confirm 8/8.",
+  "rca_of_the_issue": "For the 'describe bullpug' variant, the LLM's response includes 'He's no ethereal figure' — the model is using the banned word to negate/dismiss it, which still surfaces the mystical vocab. The system-prompt banned-openers/vocabulary section likely only enforces avoidance of the word as a descriptor of Bullpug, not as a term appearing anywhere in the reply. Mitigation: add explicit instruction in bullpug_knowledge banned vocab section: 'Do not use these words at all, including in negations, comparisons, or dismissals.'"
+}
