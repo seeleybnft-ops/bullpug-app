@@ -1,0 +1,18 @@
+{
+  "summary": "Iter 106 Bullpug vs Tinkerpug disambiguation: 8/8 tests passed. All three Bullpug image asks ('show me bullpug', 'let me see bullpug at Newpug City', '/image bullpug on a rooftop') returned non-empty image_base64 (>1MB payloads) with archive-voice captions ('Direct from the archive...', 'the record holds'). All three Tinkerpug image asks ('show me tinkerpug', 'let me see tinkerpug in his workshop', '/image tinkerpug at his workbench') also correctly routed to image path and returned image_base64. Source-code checks confirmed: _IMAGE_BULLPUG_PATTERN now captures 'tinkerpug|bullpug|bullpughan'; _tag_character helper exists emitting 'SUBJECT: TINKERPUG' and 'SUBJECT: BULLPUG' headers; _detect_image_prompt calls _tag_character on both NL and short-form match paths; _BULLPUG_IMAGE_STYLE and _generate_image_response system_message both contain the 'CHARACTER DISAMBIGUATION' block plus the 'Bullpug has NO cybernetic parts' rule. Prose appearance for 'what does bullpug look like?' passed first try: no cybernetic-tail / armoured-foreleg / techno-collar / segmented-tail references, no banned mystical vocabulary (luminous, ethereal, aglow, radiant, translucent, shimmering), and included canon terms (fawn + pug + bull horns).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tinkerpug_iter106_disambiguation.py",
+    "/app/test_reports/pytest/iter106_disamb.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": ["/app/backend/tests/test_tinkerpug_iter106_disambiguation.py"],
+  "success_rate": {"backend": "100%", "frontend": "N/A"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Disambiguation fix verified end-to-end. Bullpug image asks: caption text now leaks the internal 'SUBJECT: BULLPUG — ...' header directly into the user-facing response for short-form asks like 'show me bullpug' and 'let me see bullpug at Newpug City' (visible in test log: 'direct from the archive — *subject: bullpug — the founder...'). Not a blocking issue (archive-voice hint still present, image returned) but worth noting: the model is echoing the prompt-tag header verbatim in its caption. The full-natural '/image bullpug on a rooftop' variant produced a clean caption ('direct from the archive — *bullpug on a rooftop*. the record holds.'). If a follow-up cares about caption cleanliness for short-form asks, consider stripping/not-including the SUBJECT header in the user-visible caption path, or instructing the caption model to never echo the SUBJECT line.",
+  "rca of the issue": "N/A — no failures. Note for main agent: caption for short-form Bullpug asks includes the raw 'SUBJECT: BULLPUG — ...' disambiguation header in the response text. Functionality works; only cosmetic if you want cleaner user-facing captions."
+}

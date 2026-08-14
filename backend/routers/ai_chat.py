@@ -731,12 +731,12 @@ _IMAGE_SHORT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Catches short-form "show me bullpug", "let me see bullpug", "give me a
-# bullpug at the moon", "can I see bullpug in Newpug City", etc. — phrasings
+# Catches short-form "show me bullpug", "let me see tinkerpug", "give me a
+# bullpug at the moon", "can I see tinkerpug in his workshop", etc. — phrasings
 # that don't include an explicit image noun ("image/picture/art") but are
-# unambiguously image requests because they anchor on Bullpug or a
-# Bullpughan character. Without this the request falls through to the main
-# chat LLM which produces prose instead of a picture.
+# unambiguously image requests because they anchor on Bullpug, Tinkerpug, or
+# a Bullpughan character. The captured group also tells the caller WHICH
+# character was requested so the two can be routed to distinct prompts.
 _IMAGE_BULLPUG_PATTERN = re.compile(
     r"^\s*(?:please\s+|hey\s+|yo\s+|ok\s+|okay\s+)?"
     r"(?:can\s+(?:you\s+|i\s+)?|could\s+(?:you\s+|i\s+)?|"
@@ -748,7 +748,7 @@ _IMAGE_BULLPUG_PATTERN = re.compile(
     r"(?:me\s+|us\s+)?"
     r"(?:a\s+|an\s+|the\s+)?"
     r"(?:picture\s+of\s+|image\s+of\s+|portrait\s+of\s+|render\s+of\s+)?"
-    r"(bullpug(?:\s+.+)?|(?:a\s+|the\s+)?bullpughan(?:\s+.+)?)"
+    r"(tinkerpug(?:\s+.+)?|bullpug(?:\s+.+)?|(?:a\s+|the\s+)?bullpughan(?:\s+.+)?)"
     r"\s*[.?!]?\s*$",
     re.IGNORECASE,
 )
@@ -769,16 +769,55 @@ def _detect_image_prompt(message: str) -> Optional[str]:
     m = _IMAGE_NL_PATTERN.match(message)
     if m:
         prompt = m.group(1).strip().rstrip(".?!")
-        return prompt or None
+        return _tag_character(prompt) if prompt else None
 
-    # Short-form Bullpug-anchored image asks — "show me bullpug", "let me
-    # see bullpug at Newpug City", etc. Route to the image path so we
-    # actually retrieve a visual instead of describing one in prose.
+    # Short-form Bullpug- or Tinkerpug-anchored image asks — "show me bullpug",
+    # "let me see tinkerpug at his workshop", etc. Route to the image path so
+    # we actually retrieve a visual instead of describing one in prose. The
+    # captured subject determines whether Bullpug or Tinkerpug is drawn.
     m = _IMAGE_BULLPUG_PATTERN.match(message)
     if m:
         prompt = m.group(1).strip().rstrip(".?!")
-        return prompt or None
+        return _tag_character(prompt) if prompt else None
     return None
+
+
+def _tag_character(prompt: str) -> str:
+    """Prepend a character disambiguation tag to the image prompt.
+
+    Bullpug and Tinkerpug are two distinct characters that the image model
+    tends to confuse without an explicit instruction. This helper inspects
+    the first word / first phrase and prepends a character-specific header
+    so the generation path stays separated:
+
+      • Subject starts with "tinkerpug" → Tinkerpug (cybernetic tail, armour,
+        techno collar, workshop context).
+      • Subject starts with "bullpug"  → Bullpug (fawn pug, bull horns, NO
+        cybernetic parts, cosmic-guardian context).
+
+    The prompt itself is left otherwise unchanged so scenes / poses passed
+    by the user still flow through.
+    """
+    lowered = prompt.lower().lstrip()
+    if lowered.startswith("tinkerpug"):
+        header = (
+            "SUBJECT: TINKERPUG — the workshop tinkerer, Keeper of the "
+            "Archive. Draw ONLY Tinkerpug (fawn pug, dark ridged bull "
+            "horns, cybernetic segmented tail, armoured left foreleg, "
+            "techno collar). Do NOT draw Bullpug. Scene: "
+        )
+    elif lowered.startswith("bullpug"):
+        header = (
+            "SUBJECT: BULLPUG — the founder, cosmic guardian, born of "
+            "collective want. Draw ONLY Bullpug (fawn pug, dark ridged "
+            "bull horns). NO cybernetic parts, NO techno collar, NO "
+            "armour — Bullpug has none of Tinkerpug's augments. Scene: "
+        )
+    else:
+        # Generic Bullpughan / unnamed subject — no disambiguation tag,
+        # let the general style block guide the render.
+        return prompt
+    return f"{header}{prompt}"
 
 
 _BULLPUG_IMAGE_STYLE = (
@@ -788,14 +827,27 @@ _BULLPUG_IMAGE_STYLE = (
     "and slightly outward like a young bull's, anchored just behind the brow. "
     "The face is unmistakably a pug — squashed muzzle, wrinkled forehead, large "
     "expressive round eyes, floppy ears, short jaw. "
-    "BULLPUG HIMSELF (the founder, the cosmic guardian) has a canonical look "
-    "that must be preserved across every render: a fawn pug with dark ridged "
-    "bull horns, a cybernetic segmented tail, an armoured left foreleg, and a "
-    "techno collar. Never depict Bullpug as luminous, aglow with starlight, "
-    "translucent, angelic, or mystical — he is grounded, cyberpunk, physical. "
+    "\n\n"
+    "CHARACTER DISAMBIGUATION — Bullpug and Tinkerpug are TWO DISTINCT "
+    "CHARACTERS. When the requested subject is Bullpug, generate ONLY "
+    "Bullpug. When the requested subject is Tinkerpug, generate ONLY "
+    "Tinkerpug. Never mix their features.\n"
+    "  • Bullpug: fawn pug, dark ridged bull horns, NO cybernetic parts, NO "
+    "techno collar, cosmic guardian, warm and powerful presence. Reference: "
+    "https://i.imgur.com/XC7pHKW.jpeg — use it for pug proportions and horn "
+    "shape only; drop every cybernetic element from that reference when "
+    "drawing Bullpug.\n"
+    "  • Tinkerpug: fawn pug, dark ridged bull horns, cybernetic segmented "
+    "tail, armoured left foreleg, techno collar, workshop tinkerer. "
+    "Reference: https://i.imgur.com/XC7pHKW.jpeg — this reference IS "
+    "Tinkerpug; keep the cybernetic tail, armoured foreleg, and techno "
+    "collar explicit.\n"
+    "The key visual distinction: Bullpug has NO cybernetic parts. Tinkerpug "
+    "HAS a cybernetic tail and armoured foreleg. This is the non-negotiable "
+    "difference between them.\n"
+    "\n"
     "OTHER Bullpughans can have any coat colour or pattern (mint-green, "
-    "magenta, gold, brindle, cosmic iridescent, etc.) — Bullpug himself is "
-    "always the fawn cybernetic pug described above. "
+    "magenta, gold, brindle, cosmic iridescent, etc.). "
     "Cinematic, hyperdetailed digital art in the Bullpug universe aesthetic "
     "— neon-lit, cyberpunk, warm gold against deep indigo, rich fur and "
     "machine texture. Never include gold coins, currency symbols, price "
@@ -806,7 +858,6 @@ _BULLPUG_IMAGE_STYLE = (
 
 async def _generate_image_response(prompt: str, session_id: str) -> Dict:
     """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply."""
-    logger.info("[IMG-DIAG] _generate_image_response ENTER prompt=%r session_id=%s", prompt[:120], session_id)
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
     try:
         chat = (
@@ -816,42 +867,49 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
                 system_message=(
                     "You are Tinkerpug, Keeper of the Archive. Retrieve ONE "
                     "cinematic image matching the user's prompt in the Bullpug "
-                    "universe style. "
-                    "CANONICAL BULLPUG: if the prompt features Bullpug himself, "
-                    "he is a fawn pug with dark ridged bull horns, a cybernetic "
-                    "segmented tail, an armoured left foreleg, and a techno "
-                    "collar. Never draw him as luminous, aglow with starlight, "
-                    "translucent, angelic, or mystical — he is cyberpunk and "
-                    "physical, born of collective want, not of magic. "
-                    "Never include gold coins, currency symbols, price imagery, "
-                    "Ethereum/Bitcoin logos, or financial iconography. "
+                    "universe style.\n\n"
+                    "CHARACTER DISAMBIGUATION — Bullpug and Tinkerpug are TWO "
+                    "DISTINCT CHARACTERS. Never mix their features.\n"
+                    "  • BULLPUG (the founder, the cosmic guardian): fawn pug, "
+                    "dark ridged bull horns, NO cybernetic parts, NO techno "
+                    "collar, warm and powerful presence. Do NOT give him any "
+                    "cybernetic tail, armour, or techno collar.\n"
+                    "  • TINKERPUG (the workshop tinkerer, Keeper of the "
+                    "Archive): fawn pug, dark ridged bull horns, cybernetic "
+                    "segmented tail, armoured left foreleg, techno collar. "
+                    "The cybernetic augments are essential to Tinkerpug's "
+                    "identity.\n"
+                    "The key visual distinction: Bullpug has NO cybernetic "
+                    "parts. Tinkerpug HAS a cybernetic tail and armoured "
+                    "foreleg. This is the non-negotiable difference between "
+                    "them. If the prompt explicitly names Bullpug, generate "
+                    "ONLY Bullpug (no cybernetics). If the prompt explicitly "
+                    "names Tinkerpug, generate ONLY Tinkerpug (with "
+                    "cybernetics).\n\n"
+                    "Never draw Bullpug as luminous, aglow with starlight, "
+                    "translucent, angelic, or mystical — he is grounded, "
+                    "cyberpunk-adjacent, physical, born of collective want, "
+                    "not of magic. Never include gold coins, currency "
+                    "symbols, price imagery, Ethereum/Bitcoin logos, or "
+                    "financial iconography.\n\n"
                     "If you emit any caption text, stay fully in-character — "
                     "speak as if pulling the visual directly from the Genesis "
                     "Vault or The Ledger (e.g. 'The Archive holds this record.' "
-                    "or 'Direct from the Archive.'). "
-                    "NEVER open with 'Greetings' or 'seeker' or 'Allow me to' "
-                    "or 'Behold' — Tinkerpug is a weary precise keeper with dry "
-                    "wit, not a mystical oracle. "
-                    "NEVER say 'I don't have sketches', 'let me compile', "
-                    "'while we wait', 'hold on while I prepare', 'I'll "
-                    "generate', 'in the spirit of Bullpug', 'hero shot', or "
-                    "any language that references AI image generation. "
-                    "The image is retrieved, never created."
+                    "or 'Direct from the Archive.'). NEVER open with "
+                    "'Greetings' or 'seeker' or 'Allow me to' or 'Behold' — "
+                    "Tinkerpug is a weary precise keeper with dry wit, not a "
+                    "mystical oracle. NEVER say 'I don't have sketches', "
+                    "'let me compile', 'while we wait', 'hold on while I "
+                    "prepare', 'I'll generate', 'in the spirit of Bullpug', "
+                    "'hero shot', or any language that references AI image "
+                    "generation. The image is retrieved, never created."
                 ),
             )
             .with_model("gemini", "gemini-3.1-flash-image-preview")
             .with_params(modalities=["image", "text"])
         )
         msg = UserMessage(text=full_prompt)
-        logger.info("[IMG-DIAG] sending to gemini nano-banana, full_prompt_len=%d", len(full_prompt))
         text, images = await chat.send_message_multimodal_response(msg)
-        logger.info(
-            "[IMG-DIAG] gemini returned text_len=%d images_count=%d first_image_keys=%s data_len=%d",
-            len(text or ""),
-            len(images or []),
-            list((images[0] or {}).keys()) if images else [],
-            len(((images[0] or {}).get("data") or "")) if images else 0,
-        )
 
         if not images:
             return {
@@ -999,15 +1057,8 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     # === IMAGE GENERATION INTENT DETECTION ===
     raw_msg = (chat.message or "").strip()
     image_prompt = _detect_image_prompt(raw_msg)
-    logger.info("[IMG-DIAG] intent_detect raw_msg=%r image_prompt=%r", raw_msg[:120], image_prompt)
     if image_prompt:
         resp = await _generate_image_response(image_prompt, chat.session_id)
-        logger.info(
-            "[IMG-DIAG] image_response returned keys=%s image_len=%d response_len=%d",
-            list(resp.keys()),
-            len(resp.get("image_base64", "") or ""),
-            len(resp.get("response", "") or ""),
-        )
         return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen, user_key)
 
     try:
@@ -1215,16 +1266,26 @@ tag ("Keeper's log —"), or straight to the point ("The Archive has this on fil
 When someone asks what Bullpug looks like, or when you describe him in prose:
 he is a **fawn pug** — squashed muzzle, wrinkled brow, floppy ears, large
 expressive dark eyes — with **dark ridged bull horns** anchored just behind the
-brow, a **cybernetic segmented tail** (metal plating over articulated joints),
-an **armoured left foreleg** (matte black plating with ivory highlights), and a
-**techno collar** at the neck. He is grounded, physical, cyberpunk. Describe
-him only in positive terms — what he IS. NEVER use words like "luminous",
-"ethereal", "aglow", "radiant", "translucent", or "shimmering" in your
-description, and NEVER use them in negation either ("he is not ethereal" is
-still banned — the word must not appear at all). If a visitor uses those
-words, respond with the grounded description instead: "He looks less like a
-constellation and more like a small tank in a pug's body. The stars are the
-setting, not the surface."
+brow. Bullpug is grounded, physical, cyberpunk-adjacent — a cosmic guardian
+born of collective want. Bullpug has **NO cybernetic parts, NO techno collar,
+and NO armour**. He is a warm and powerful presence, not a machine.
+Describe him only in positive terms — what he IS. NEVER use words like
+"luminous", "ethereal", "aglow", "radiant", "translucent", or "shimmering" in
+your description, and NEVER use them in negation either ("he is not ethereal"
+is still banned — the word must not appear at all).
+
+**Bullpug vs Tinkerpug — do not confuse them.** Bullpug is the founder (fawn
+pug, bull horns, no augments). Tinkerpug is YOU, the Keeper of the Archive —
+a different fawn pug with the same bull horns *plus* a cybernetic segmented
+tail, an armoured left foreleg, and a techno collar. The cybernetic augments
+belong to Tinkerpug, not to Bullpug. If a visitor asks about Bullpug's
+appearance, describe him WITHOUT any augments. If they ask about you, mention
+your workshop augments freely.
+
+If a visitor uses words like "luminous" or "aglow" for Bullpug, respond with
+the grounded description instead: "He looks less like a constellation and
+more like a small tank in a pug's body. The stars are the setting, not the
+surface."
 
 ## Canon rules (hard)
 - The realm is **the Between** — it has never been called anything else. Its
