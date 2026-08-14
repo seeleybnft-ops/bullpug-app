@@ -10,6 +10,7 @@ reference — keyed by `(user_key, date_utc)`, indexed for fast pagination.
 """
 
 import asyncio
+import base64
 import hashlib
 import logging
 import os
@@ -17,7 +18,8 @@ import random
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import httpx
+from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 
 from utils.database import db
 
@@ -188,6 +190,68 @@ async def _lock_for(user_key: str, date_utc: str) -> asyncio.Lock:
         return lock
 
 
+# ── Bullpug reference image ────────────────────────────────────────────────
+# Every daily drop is conditioned on this canonical character reference so
+# the fawn pug + dark ridged bull horns + cybernetic segmented tail +
+# armoured left foreleg + techno collar stay consistent across renders,
+# regardless of scene / pose / mood.
+#
+# emergentintegrations exposes `UserMessage(file_contents=[FileContent(...)])`,
+# so this file is sent alongside the text prompt. We fetch it once on first
+# use and keep the base64 payload in module memory for the lifetime of the
+# process — no per-request download cost.
+_BULLPUG_REFERENCE_URL = "https://i.imgur.com/XC7pHKW.jpeg"
+_BULLPUG_REFERENCE_MIME = "image/jpeg"
+_reference_cache: Dict[str, Optional[str]] = {"b64": None}
+_reference_lock = asyncio.Lock()
+
+
+async def _load_bullpug_reference_b64() -> Optional[str]:
+    """Fetch + cache the canonical Bullpug reference image as base64.
+
+    Returns `None` on network failure — the caller falls back to a
+    text-only prompt so a temporary outage never blocks a user's daily drop.
+
+    Only *successful* responses are cached: a transient 429 or 5xx will
+    retry on the next daily-drop generation instead of poisoning the cache
+    for the whole process lifetime.
+    """
+    if _reference_cache["b64"]:
+        return _reference_cache["b64"]
+    async with _reference_lock:
+        if _reference_cache["b64"]:
+            return _reference_cache["b64"]
+        # Imgur throttles / anti-bots the default httpx UA. A standard
+        # browser UA + accept header is enough to be served normally.
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            "Referer": "https://imgur.com/",
+        }
+        try:
+            async with httpx.AsyncClient(
+                timeout=10.0, follow_redirects=True, headers=headers
+            ) as client:
+                resp = await client.get(_BULLPUG_REFERENCE_URL)
+                resp.raise_for_status()
+            b64 = base64.b64encode(resp.content).decode("ascii")
+            _reference_cache["b64"] = b64
+            logger.info(
+                "Loaded Bullpug reference image (%d bytes → %d b64 chars)",
+                len(resp.content), len(b64),
+            )
+            return b64
+        except Exception as e:
+            logger.warning(
+                "Could not fetch Bullpug reference image (will retry on "
+                "next drop): %s", e,
+            )
+            return None
+
+
 async def get_drop_for_user(user_key: str) -> Optional[Dict]:
     """Return today's drop for the given user_key, generating + caching if missing.
 
@@ -219,6 +283,15 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
 
         theme, scene, kind = _select_prompt_for(user_key, date_utc)
         full_prompt = f"{scene}. {_BULLPUG_STYLE_SUFFIX}"
+        # Attach the canonical Bullpug reference image so the model matches
+        # likeness rather than drifting scene-to-scene. Falls through to a
+        # text-only prompt if the reference can't be fetched right now.
+        reference_b64 = await _load_bullpug_reference_b64()
+        file_contents = (
+            [FileContent(content_type=_BULLPUG_REFERENCE_MIME, file_content_base64=reference_b64)]
+            if reference_b64
+            else None
+        )
         try:
             chat = (
                 LlmChat(
@@ -227,13 +300,17 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                     system_message=(
                         "You are Bullpug, the cosmic guardian. Generate ONE cinematic image "
                         "matching the user's scene description in the Bullpug universe aesthetic — "
-                        "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture."
+                        "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture. "
+                        "The attached reference image is the canonical Bullpug — a fawn pug with "
+                        "dark ridged bull horns, a cybernetic segmented tail, an armoured left "
+                        "foreleg, and a techno collar. Preserve these identifying features "
+                        "exactly; vary pose, framing, expression, and setting per the prompt."
                     ),
                 )
                 .with_model("gemini", "gemini-3.1-flash-image-preview")
                 .with_params(modalities=["image", "text"])
             )
-            msg = UserMessage(text=full_prompt)
+            msg = UserMessage(text=full_prompt, file_contents=file_contents)
             text, images = await chat.send_message_multimodal_response(msg)
             if not images:
                 logger.error(f"Daily drop returned no images for {user_key}/{date_utc}")
