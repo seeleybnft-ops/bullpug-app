@@ -804,14 +804,26 @@ def _tag_character(prompt: str) -> str:
             "SUBJECT: TINKERPUG — the workshop tinkerer, Keeper of the "
             "Archive. Draw ONLY Tinkerpug (fawn pug, dark ridged bull "
             "horns, cybernetic segmented tail, armoured left foreleg, "
-            "techno collar). Do NOT draw Bullpug. Scene: "
+            "techno collar). Do NOT draw Bullpug.\n"
+            "TINKERPUG NEGATIVE CONSTRAINTS — this character has NO galaxy "
+            "cape, NO cosmic medallion, NO nebula background, NO deep-space "
+            "setting. He has a cybernetic segmented tail and armoured left "
+            "foreleg. He exists in the neon city and workshop environments — "
+            "workbenches, tools, glowing PugChain hardware, Newpug City "
+            "alleys — not deep space.\nScene: "
         )
     elif lowered.startswith("bullpug"):
         header = (
             "SUBJECT: BULLPUG — the founder, cosmic guardian, born of "
             "collective want. Draw ONLY Bullpug (fawn pug, dark ridged "
             "bull horns). NO cybernetic parts, NO techno collar, NO "
-            "armour — Bullpug has none of Tinkerpug's augments. Scene: "
+            "armour — Bullpug has none of Tinkerpug's augments.\n"
+            "BULLPUG NEGATIVE CONSTRAINTS — this character has NO "
+            "cybernetic tail, NO armoured foreleg, NO techno collar, NO "
+            "workshop tools. He wears a flowing galaxy cape and a swirling "
+            "cosmic medallion. He exists in deep space and nebula "
+            "environments — starfields, cosmic dust, the unmapped Between "
+            "— not in the neon city and not at any workbench.\nScene: "
         )
     else:
         # Generic Bullpughan / unnamed subject — no disambiguation tag,
