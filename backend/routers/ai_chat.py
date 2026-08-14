@@ -806,6 +806,7 @@ _BULLPUG_IMAGE_STYLE = (
 
 async def _generate_image_response(prompt: str, session_id: str) -> Dict:
     """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply."""
+    logger.info("[IMG-DIAG] _generate_image_response ENTER prompt=%r session_id=%s", prompt[:120], session_id)
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
     try:
         chat = (
@@ -842,7 +843,15 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
             .with_params(modalities=["image", "text"])
         )
         msg = UserMessage(text=full_prompt)
+        logger.info("[IMG-DIAG] sending to gemini nano-banana, full_prompt_len=%d", len(full_prompt))
         text, images = await chat.send_message_multimodal_response(msg)
+        logger.info(
+            "[IMG-DIAG] gemini returned text_len=%d images_count=%d first_image_keys=%s data_len=%d",
+            len(text or ""),
+            len(images or []),
+            list((images[0] or {}).keys()) if images else [],
+            len(((images[0] or {}).get("data") or "")) if images else 0,
+        )
 
         if not images:
             return {
@@ -990,8 +999,15 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     # === IMAGE GENERATION INTENT DETECTION ===
     raw_msg = (chat.message or "").strip()
     image_prompt = _detect_image_prompt(raw_msg)
+    logger.info("[IMG-DIAG] intent_detect raw_msg=%r image_prompt=%r", raw_msg[:120], image_prompt)
     if image_prompt:
         resp = await _generate_image_response(image_prompt, chat.session_id)
+        logger.info(
+            "[IMG-DIAG] image_response returned keys=%s image_len=%d response_len=%d",
+            list(resp.keys()),
+            len(resp.get("image_base64", "") or ""),
+            len(resp.get("response", "") or ""),
+        )
         return await _maybe_attach_daily_drop(resp, chat.daily_drop_last_seen, user_key)
 
     try:
