@@ -869,8 +869,37 @@ _BULLPUG_IMAGE_STYLE = (
 
 
 async def _generate_image_response(prompt: str, session_id: str) -> Dict:
-    """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply."""
+    """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply.
+
+    The prompt is expected to have been passed through `_tag_character`,
+    so it starts with either `SUBJECT: BULLPUG` or `SUBJECT: TINKERPUG`
+    when the request unambiguously names one of the two. That prefix is
+    inspected here to fetch and attach the matching reference image;
+    generic Bullpughan prompts get no reference.
+    """
+    from services.daily_drop import (
+        _BULLPUG_REFERENCE_URL,
+        _TINKERPUG_REFERENCE_URL,
+        _REFERENCE_MIME,
+        _load_reference_b64,
+    )
+
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
+
+    # Character-aware reference selection. The tag comes from `_tag_character`.
+    if prompt.startswith("SUBJECT: TINKERPUG"):
+        ref_url = _TINKERPUG_REFERENCE_URL
+    elif prompt.startswith("SUBJECT: BULLPUG"):
+        ref_url = _BULLPUG_REFERENCE_URL
+    else:
+        ref_url = None  # generic Bullpughan — no reference
+    reference_b64 = await _load_reference_b64(ref_url) if ref_url else None
+    file_contents = (
+        [FileContent(content_type=_REFERENCE_MIME, file_content_base64=reference_b64)]
+        if reference_b64
+        else None
+    )
+
     try:
         chat = (
             LlmChat(
@@ -920,7 +949,7 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
             .with_model("gemini", "gemini-3.1-flash-image-preview")
             .with_params(modalities=["image", "text"])
         )
-        msg = UserMessage(text=full_prompt)
+        msg = UserMessage(text=full_prompt, file_contents=file_contents)
         text, images = await chat.send_message_multimodal_response(msg)
 
         if not images:

@@ -190,39 +190,35 @@ async def _lock_for(user_key: str, date_utc: str) -> asyncio.Lock:
         return lock
 
 
-# ── Bullpug reference image ────────────────────────────────────────────────
-# Every daily drop is conditioned on this canonical character reference so
-# the fawn pug + dark ridged bull horns + cybernetic segmented tail +
-# armoured left foreleg + techno collar stay consistent across renders,
-# regardless of scene / pose / mood.
-#
-# emergentintegrations exposes `UserMessage(file_contents=[FileContent(...)])`,
-# so this file is sent alongside the text prompt. We fetch it once on first
-# use and keep the base64 payload in module memory for the lifetime of the
-# process — no per-request download cost.
+# ── Character reference images ────────────────────────────────────────────
+# Two references — one per character — so daily drops depicting Bullpug
+# don't get Tinkerpug's cybernetic augments and vice-versa. The scene text
+# is inspected below to pick the right one; drops with no explicit
+# character mention default to the Bullpug reference (he's the universe's
+# namesake).
 _BULLPUG_REFERENCE_URL = "https://i.imgur.com/XC7pHKW.jpeg"
-_BULLPUG_REFERENCE_MIME = "image/jpeg"
-_reference_cache: Dict[str, Optional[str]] = {"b64": None}
+_TINKERPUG_REFERENCE_URL = "https://i.imgur.com/hXukVoJ.jpeg"
+_REFERENCE_MIME = "image/jpeg"
+_reference_cache: Dict[str, Optional[str]] = {
+    _BULLPUG_REFERENCE_URL: None,
+    _TINKERPUG_REFERENCE_URL: None,
+}
 _reference_lock = asyncio.Lock()
 
 
-async def _load_bullpug_reference_b64() -> Optional[str]:
-    """Fetch + cache the canonical Bullpug reference image as base64.
+async def _load_reference_b64(url: str) -> Optional[str]:
+    """Fetch + cache a character reference image as base64.
 
-    Returns `None` on network failure — the caller falls back to a
-    text-only prompt so a temporary outage never blocks a user's daily drop.
-
-    Only *successful* responses are cached: a transient 429 or 5xx will
-    retry on the next daily-drop generation instead of poisoning the cache
-    for the whole process lifetime.
+    Same resilient pattern as before: browser-like UA + Referer to avoid
+    Imgur throttling, only successful responses cached, transient failures
+    retry on the next drop instead of poisoning the cache for the process
+    lifetime. One cache entry per URL, both entries independent.
     """
-    if _reference_cache["b64"]:
-        return _reference_cache["b64"]
+    if _reference_cache.get(url):
+        return _reference_cache[url]
     async with _reference_lock:
-        if _reference_cache["b64"]:
-            return _reference_cache["b64"]
-        # Imgur throttles / anti-bots the default httpx UA. A standard
-        # browser UA + accept header is enough to be served normally.
+        if _reference_cache.get(url):
+            return _reference_cache[url]
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -235,21 +231,38 @@ async def _load_bullpug_reference_b64() -> Optional[str]:
             async with httpx.AsyncClient(
                 timeout=10.0, follow_redirects=True, headers=headers
             ) as client:
-                resp = await client.get(_BULLPUG_REFERENCE_URL)
+                resp = await client.get(url)
                 resp.raise_for_status()
             b64 = base64.b64encode(resp.content).decode("ascii")
-            _reference_cache["b64"] = b64
+            _reference_cache[url] = b64
             logger.info(
-                "Loaded Bullpug reference image (%d bytes → %d b64 chars)",
-                len(resp.content), len(b64),
+                "Loaded reference image %s (%d bytes → %d b64 chars)",
+                url, len(resp.content), len(b64),
             )
             return b64
         except Exception as e:
             logger.warning(
-                "Could not fetch Bullpug reference image (will retry on "
-                "next drop): %s", e,
+                "Could not fetch reference image %s (will retry on next "
+                "drop): %s", url, e,
             )
             return None
+
+
+def _pick_reference_for_scene(theme: str, scene: str) -> Optional[str]:
+    """Return the character reference URL that matches the drop's subject.
+
+    Rules:
+      • Any mention of "tinkerpug" in theme or scene → Tinkerpug reference.
+      • Otherwise (explicit Bullpug or unnamed) → Bullpug reference.
+      • Returns None only if both text fields are empty (shouldn't happen
+        for real drops but keeps the fallback path clean).
+    """
+    haystack = f"{theme or ''} {scene or ''}".lower()
+    if not haystack.strip():
+        return None
+    if "tinkerpug" in haystack:
+        return _TINKERPUG_REFERENCE_URL
+    return _BULLPUG_REFERENCE_URL
 
 
 async def get_drop_for_user(user_key: str) -> Optional[Dict]:
@@ -283,14 +296,30 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
 
         theme, scene, kind = _select_prompt_for(user_key, date_utc)
         full_prompt = f"{scene}. {_BULLPUG_STYLE_SUFFIX}"
-        # Attach the canonical Bullpug reference image so the model matches
-        # likeness rather than drifting scene-to-scene. Falls through to a
-        # text-only prompt if the reference can't be fetched right now.
-        reference_b64 = await _load_bullpug_reference_b64()
+        # Pick the right character reference per scene, then attach it. If
+        # the fetch fails for any reason we fall through to a text-only
+        # prompt so a user's daily drop is never blocked by an outage.
+        ref_url = _pick_reference_for_scene(theme, scene)
+        reference_b64 = await _load_reference_b64(ref_url) if ref_url else None
         file_contents = (
-            [FileContent(content_type=_BULLPUG_REFERENCE_MIME, file_content_base64=reference_b64)]
+            [FileContent(content_type=_REFERENCE_MIME, file_content_base64=reference_b64)]
             if reference_b64
             else None
+        )
+        is_tinkerpug = ref_url == _TINKERPUG_REFERENCE_URL
+        character_line = (
+            "The attached reference image is Tinkerpug — a fawn pug with "
+            "dark ridged bull horns, a cybernetic segmented tail, an armoured "
+            "left foreleg, and a techno collar. Preserve these identifying "
+            "features exactly; vary pose, framing, expression, and setting per "
+            "the prompt."
+            if is_tinkerpug
+            else "The attached reference image is Bullpug — a dark cosmic pug "
+            "with dark ridged bull horns, a flowing galaxy cape, and a "
+            "swirling cosmic medallion. He has NO cybernetic parts, NO techno "
+            "collar, NO armour — those augments belong to Tinkerpug. Preserve "
+            "Bullpug's identifying features exactly; vary pose, framing, "
+            "expression, and setting per the prompt."
         )
         try:
             chat = (
@@ -301,11 +330,8 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                         "You are Bullpug, the cosmic guardian. Generate ONE cinematic image "
                         "matching the user's scene description in the Bullpug universe aesthetic — "
                         "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture. "
-                        "The attached reference image is the canonical Bullpug — a fawn pug with "
-                        "dark ridged bull horns, a cybernetic segmented tail, an armoured left "
-                        "foreleg, and a techno collar. Preserve these identifying features "
-                        "exactly; vary pose, framing, expression, and setting per the prompt. "
-                        "Never include gold coins, currency symbols, price imagery, Ethereum logos, "
+                        + character_line +
+                        " Never include gold coins, currency symbols, price imagery, Ethereum logos, "
                         "Bitcoin symbols, or any financial market iconography in the generated images. "
                         "The Bullpug universe is a story world — scenes should depict characters, "
                         "locations, lore events, and the Between. Keep imagery narrative, not financial."

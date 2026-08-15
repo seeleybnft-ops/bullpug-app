@@ -1,0 +1,22 @@
+{
+  "summary": "Verified per-character reference image wiring in daily_drop.py + ai_chat.py. 13/13 pytest cases pass — source-code layout, cache independence at runtime, and end-to-end /api/ai/chat regression for both Bullpug and Tinkerpug image generation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_per_character_reference.py",
+    "/app/test_reports/pytest/iter108_per_char_ref.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Runtime confirmed: Bullpug ref b64 and Tinkerpug ref b64 are distinct blobs; both cache independently and second calls return same cached value (b2==b, t2==t).",
+    "_pick_reference_for_scene correctly picks Tinkerpug for 'tinkerpug' anywhere in theme+scene text (case-insensitive), defaults to Bullpug otherwise (including unnamed scenes and empty haystack falling through to Bullpug — note: docstring says returns None on both empty, but implementation only returns None when haystack.strip() is empty; this matches the review request wording).",
+    "ai_chat._generate_image_response imports both URLs + _REFERENCE_MIME + _load_reference_b64 from services.daily_drop and branches strictly on prompt.startswith('SUBJECT: TINKERPUG')/('SUBJECT: BULLPUG'); generic Bullpughan prompts correctly attach no reference (ref_url = None).",
+    "UserMessage(text=full_prompt, file_contents=file_contents) — file_contents attached on same call in both daily_drop.py (line 343) and ai_chat.py (line 952)."
+  ],
+  "updated_files": ["/app/backend/tests/test_per_character_reference.py"],
+  "success_rate": {"backend": "100%", "frontend": "N/A (backend-only run)"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter108 covers per-character reference wiring. Bullpug ref URL = https://i.imgur.com/XC7pHKW.jpeg, Tinkerpug ref URL = https://i.imgur.com/hXukVoJ.jpeg. Both loaders share one asyncio lock (_reference_lock) but independent cache slots. E2E image path takes ~15s per call and both characters returned image_base64 >50KB on first try (no retry needed). Reuse /app/backend/tests/test_per_character_reference.py as regression."
+}
