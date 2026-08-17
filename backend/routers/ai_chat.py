@@ -874,29 +874,61 @@ _BULLPUG_IMAGE_STYLE = (
 )
 
 
+def _clean_prompt_for_caption(prompt: str) -> str:
+    """Return the user-visible scene text with all internal routing removed.
+
+    Tagged prompts from `_tag_character` follow the shape
+    `"SUBJECT: <CHAR> — <negative constraints...>\nScene: <user text>"`.
+    Captions must never expose the SUBJECT header, the character
+    disambiguation block, or the NEGATIVE CONSTRAINTS boilerplate. Prefer
+    the tail after `"\\nScene: "`; if that marker is missing, cut at
+    `"SUBJECT:"`; otherwise return the prompt unchanged.
+    """
+    if not prompt:
+        return ""
+    if "\nScene: " in prompt:
+        return prompt.split("\nScene: ", 1)[1].strip()
+    if "SUBJECT:" in prompt:
+        return prompt.split("SUBJECT:", 1)[0].strip()
+    return prompt.strip()
+
+
 async def _generate_image_response(prompt: str, session_id: str) -> Dict:
     """Use Gemini Nano Banana to generate an image and return a Bullpug-flavoured reply.
 
     The prompt is expected to have been passed through `_tag_character`,
     so it starts with either `SUBJECT: BULLPUG` or `SUBJECT: TINKERPUG`
     when the request unambiguously names one of the two. That prefix is
-    inspected here to fetch and attach the matching reference image;
-    generic Bullpughan prompts get no reference.
+    inspected here to fetch and attach the matching reference image.
+
+    The generic (unnamed) case defaults to the Bullpug reference so the
+    model is never asked to generate the flagship pug from text alone —
+    character consistency depends on the FileContent attachment.
     """
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
 
     # Character-aware reference selection. The tag comes from `_tag_character`.
+    # Never fall through to text-only — untagged / generic requests get the
+    # Bullpug reference by default so pug proportions and horn shape stay
+    # anchored to canon.
     if prompt.startswith("SUBJECT: TINKERPUG"):
         ref_url = _TINKERPUG_REFERENCE_URL
+        ref_label = "TINKERPUG"
     elif prompt.startswith("SUBJECT: BULLPUG"):
         ref_url = _BULLPUG_REFERENCE_URL
+        ref_label = "BULLPUG"
     else:
-        ref_url = None  # generic Bullpughan — no reference
-    reference_b64 = await _load_reference_b64(ref_url) if ref_url else None
+        ref_url = _BULLPUG_REFERENCE_URL
+        ref_label = "BULLPUG (default)"
+    reference_b64 = await _load_reference_b64(ref_url)
     file_contents = (
         [FileContent(content_type=_REFERENCE_MIME, file_content_base64=reference_b64)]
         if reference_b64
         else None
+    )
+    logger.info(
+        "Image gen: ref=%s, attached=%s, session=%s",
+        ref_label, bool(file_contents), session_id,
     )
 
     try:
@@ -951,10 +983,14 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         msg = UserMessage(text=full_prompt, file_contents=file_contents)
         text, images = await chat.send_message_multimodal_response(msg)
 
+        # Clean, user-visible scene text — never contains SUBJECT / negative
+        # constraints / routing headers. Used for every caption branch below.
+        clean_prompt = _clean_prompt_for_caption(prompt)
+
         if not images:
             return {
                 "response": (
-                    f"My snout scanner picked up your request for *“{prompt}”*, "
+                    f"My snout scanner picked up your request for *“{clean_prompt}”*, "
                     "but the record came back sealed. Try rephrasing or be more "
                     "specific — the Archive rewards persistence."
                 ),
@@ -965,10 +1001,12 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         img = images[0]
         image_data = img.get("data") or ""
         mime = img.get("mime_type") or "image/png"
-        # Fallback caption if the image LLM emits no text of its own. Must
-        # stay on the approved voice list (archive / vault / ledger framing)
-        # and must NOT reference AI image generation.
-        caption = text.strip() if text else f"Direct from the Archive — *“{prompt}”*. The record holds. 🐾"
+        # Caption is ALWAYS the deterministic Archive template built from the
+        # cleaned scene text. The image LLM's own text is deliberately
+        # discarded — it has been observed to echo the internal SUBJECT
+        # header and negative-constraint block, which must never surface to
+        # the user. Deterministic template = zero risk of prompt leakage.
+        caption = f"Direct from the Archive — *“{clean_prompt}”*. The record holds. 🐾"
         image_base64 = f"data:{mime};base64,{image_data}"
         # Persist to the public gallery feed so user-generated images show up
         # in the homepage Bullpug Gallery cycle. Fire-and-forget — never break
@@ -976,7 +1014,7 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         try:
             await db.user_generated_images.insert_one({
                 "session_id": session_id,
-                "prompt": (prompt or "")[:400],
+                "prompt": (clean_prompt or "")[:400],
                 "caption": (caption or "")[:600],
                 "image_base64": image_base64,
                 "created_at": datetime.now(timezone.utc).isoformat(),
