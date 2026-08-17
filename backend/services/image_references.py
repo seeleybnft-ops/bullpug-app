@@ -8,11 +8,29 @@ visual anchor to Gemini prompts without conflating Bullpug and Tinkerpug.
 Kept in its own module so both callers can import safely without any
 circular import risk between the router layer and the service layer.
 
-Character canon:
-  • BULLPUG  — fawn/dark cosmic pug with dark ridged bull horns, cosmic
-    cape and medallion. NO cybernetics, NO techno collar, NO armour.
-  • TINKERPUG — fawn pug with dark ridged bull horns, cybernetic
-    segmented tail, armoured left foreleg, techno collar.
+────────────────────────────────────────────────────────────────────────
+CANONICAL VISUAL SOURCE OF TRUTH
+────────────────────────────────────────────────────────────────────────
+Two named reference files, uploaded by the creator, are the ONLY
+approved visual source for these characters. The Imgur URLs below host
+the exact same images.
+
+  • bullpug-reference.jpg   → BULLPUG_REFERENCE_URL
+    Bullpug — the cosmic guardian. DEEP DARK BLUE-BLACK fur (almost
+    black) with a faint cosmic shimmer, flowing galaxy cape, swirling
+    blue-purple cosmic medallion, large dark ridged bull horns,
+    nebula / deep-space background. NO cybernetic parts, NO techno
+    collar, NO armour, NO workshop elements, NO fawn / tan / brown fur.
+
+  • tinkerpug-reference.jpg → TINKERPUG_REFERENCE_URL
+    Tinkerpug — the Keeper of PugChain. Fawn / tan fur, cybernetic
+    segmented tail, armoured left foreleg, techno collar, neon
+    cyberpunk workshop environment. NO galaxy cape, NO cosmic medallion,
+    NO deep-space background.
+
+These are two completely distinct characters who share only the pug
+base form and bull horns. Everything else — fur colour, wardrobe,
+augments, environment — is different.
 """
 
 import asyncio
@@ -24,10 +42,44 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# ── Canonical filenames (documented source of truth) ─────────────────────
+# The Imgur URLs below host these exact files, uploaded by the creator.
+BULLPUG_REFERENCE_FILENAME = "bullpug-reference.jpg"
+TINKERPUG_REFERENCE_FILENAME = "tinkerpug-reference.jpg"
+
 # ── Public constants (imported by daily_drop.py and ai_chat.py) ──────────
 BULLPUG_REFERENCE_URL = "https://i.imgur.com/XC7pHKW.jpeg"
 TINKERPUG_REFERENCE_URL = "https://i.imgur.com/hXukVoJ.jpeg"
 REFERENCE_MIME = "image/jpeg"
+
+# ── Canonical character descriptions ─────────────────────────────────────
+# The single source of truth for what each character looks like. Any
+# system prompt that anchors a generation to a specific character MUST
+# paste this description verbatim so daily drops and interactive chat
+# image generation stay visually consistent. Fur colour is the primary
+# distinguishing feature for Bullpug and MUST NOT be paraphrased away.
+BULLPUG_CHARACTER_DESCRIPTION = (
+    "Bullpug — the cosmic guardian. Bullpug's fur is DEEP DARK "
+    "BLUE-BLACK, almost black, with a faint cosmic shimmer — like "
+    "starfield darkness made solid. NOT fawn, NOT tan, NOT brown. His "
+    "fur colour is the single most important distinguishing feature. "
+    "Dark as deep space with subtle blue-purple iridescence. He has "
+    "large dark ridged bull horns, a flowing galaxy cape, and a "
+    "swirling blue-purple cosmic medallion. He has NO cybernetic parts, "
+    "NO techno collar, NO armour, NO workshop tools — those augments "
+    "belong to Tinkerpug. He exists in deep space and nebula "
+    "environments — starfields, cosmic dust, the unmapped Between — "
+    "not in the neon city and not at any workbench."
+)
+
+TINKERPUG_CHARACTER_DESCRIPTION = (
+    "Tinkerpug — the Keeper of PugChain. Fawn / tan pug fur, dark "
+    "ridged bull horns, cybernetic segmented tail, armoured left "
+    "foreleg, techno collar. He exists in the neon cyberpunk workshop "
+    "and Newpug City alleys — workbenches, tools, glowing PugChain "
+    "hardware. He has NO galaxy cape, NO cosmic medallion, NO "
+    "deep-space background — those belong to Bullpug."
+)
 
 # Legacy aliases — historically these were underscore-prefixed inside
 # daily_drop.py. Keep the same names available so ai_chat.py's existing

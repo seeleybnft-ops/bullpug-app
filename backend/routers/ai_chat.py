@@ -821,15 +821,21 @@ def _tag_character(prompt: str) -> str:
     elif lowered.startswith("bullpug"):
         header = (
             "SUBJECT: BULLPUG — the founder, cosmic guardian, born of "
-            "collective want. Draw ONLY Bullpug (fawn pug, dark ridged "
-            "bull horns). NO cybernetic parts, NO techno collar, NO "
-            "armour — Bullpug has none of Tinkerpug's augments.\n"
+            "collective want. Draw ONLY Bullpug (pug base form, dark "
+            "ridged bull horns). NO cybernetic parts, NO techno collar, "
+            "NO armour — Bullpug has none of Tinkerpug's augments.\n"
+            "BULLPUG FUR COLOUR — Bullpug's fur is DEEP DARK BLUE-BLACK, "
+            "almost black, with a faint cosmic shimmer — like starfield "
+            "darkness made solid. NOT fawn, NOT tan, NOT brown. His fur "
+            "colour is the single most important distinguishing feature. "
+            "Dark as deep space with subtle blue-purple iridescence.\n"
             "BULLPUG NEGATIVE CONSTRAINTS — this character has NO "
             "cybernetic tail, NO armoured foreleg, NO techno collar, NO "
-            "workshop tools. He wears a flowing galaxy cape and a swirling "
-            "cosmic medallion. He exists in deep space and nebula "
-            "environments — starfields, cosmic dust, the unmapped Between "
-            "— not in the neon city and not at any workbench.\nScene: "
+            "workshop tools, NO fawn/tan/brown fur. He wears a flowing "
+            "galaxy cape and a swirling cosmic medallion. He exists in "
+            "deep space and nebula environments — starfields, cosmic "
+            "dust, the unmapped Between — not in the neon city and not "
+            "at any workbench.\nScene: "
         )
     else:
         # Generic Bullpughan / unnamed subject — no disambiguation tag,
