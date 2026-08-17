@@ -25,6 +25,8 @@ from services.image_references import (
     TINKERPUG_REFERENCE_URL as _TINKERPUG_REFERENCE_URL,
     REFERENCE_MIME as _REFERENCE_MIME,
     load_reference_b64 as _load_reference_b64,
+    BULLPUG_CHARACTER_DESCRIPTION,
+    TINKERPUG_CHARACTER_DESCRIPTION,
 )
 
 logger = logging.getLogger(__name__)
@@ -259,20 +261,26 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
             else None
         )
         is_tinkerpug = ref_url == _TINKERPUG_REFERENCE_URL
-        character_line = (
-            "The attached reference image is Tinkerpug — a fawn pug with "
-            "dark ridged bull horns, a cybernetic segmented tail, an armoured "
-            "left foreleg, and a techno collar. Preserve these identifying "
-            "features exactly; vary pose, framing, expression, and setting per "
-            "the prompt."
-            if is_tinkerpug
-            else "The attached reference image is Bullpug — a dark cosmic pug "
-            "with dark ridged bull horns, a flowing galaxy cape, and a "
-            "swirling cosmic medallion. He has NO cybernetic parts, NO techno "
-            "collar, NO armour — those augments belong to Tinkerpug. Preserve "
-            "Bullpug's identifying features exactly; vary pose, framing, "
-            "expression, and setting per the prompt."
-        )
+        # Character description is imported from services.image_references
+        # so daily drops and interactive chat image generation share ONE
+        # source of truth. The reference-anchoring lead sentence stays
+        # local because it references the FileContent attachment, which
+        # is a per-caller detail.
+        if is_tinkerpug:
+            character_line = (
+                "The attached reference image is Tinkerpug. "
+                + TINKERPUG_CHARACTER_DESCRIPTION
+                + " Preserve these identifying features exactly; vary "
+                "pose, framing, expression, and setting per the prompt."
+            )
+        else:
+            character_line = (
+                "The attached reference image is Bullpug. "
+                + BULLPUG_CHARACTER_DESCRIPTION
+                + " Preserve Bullpug's identifying features exactly — "
+                "especially the DEEP DARK BLUE-BLACK fur colour; vary "
+                "pose, framing, expression, and setting per the prompt."
+            )
         try:
             chat = (
                 LlmChat(
