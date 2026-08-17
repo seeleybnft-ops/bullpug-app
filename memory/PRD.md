@@ -1,5 +1,23 @@
 # Bullpug - Memecoin Full-Stack Application
 
+
+## Latest Changelog Entry (Feb 2026 — refactor + 422 fix)
+- **Refactor**: Extracted shared AI reference-image logic (`_BULLPUG_REFERENCE_URL`, `_TINKERPUG_REFERENCE_URL`, `_REFERENCE_MIME`, `_reference_cache`, `_reference_lock`, `_load_reference_b64`) from `services/daily_drop.py` into a new dedicated module `services/image_references.py`.
+- Both `services/daily_drop.py` and `routers/ai_chat.py` now import from `services.image_references` at module top-level (no more lazy in-function imports, no circular-import risk).
+- **Bug fix**: `/api/ai/history/save` was returning 422 Unprocessable Entity because `EnhancedAIAssistant.js` was posting `role: "drop"` UI-only messages that lacked a `content` field (violating the Pydantic model). Fixed by filtering `saveToMongoDB` to persist only `role === "user" | "assistant"` messages with normalised `{role, content, timestamp, hasLiveData}` shape. Daily-drop cards remain persisted server-side in the `daily_drops` collection.
+- **Verified on preview** (`cosmic-runner-hub.preview.emergentagent.com`):
+  - `POST /api/ai/chat "show me bullpug"` → 200 OK, image returned
+  - `POST /api/ai/chat "/image bullpug on a cosmic hilltop"` → 200 OK, 1.1 MB image
+  - `POST /api/ai/chat "/image tinkerpug repairing a snout scanner"` → 200 OK, 1.2 MB image
+  - `POST /api/ai/history/save` with new filtered payload → 200 OK
+  - `POST /api/ai/history/save` with old buggy payload (drop role) → still 422 (confirms root cause)
+- **Files changed**:
+  - CREATED: `/app/backend/services/image_references.py`
+  - MODIFIED: `/app/backend/services/daily_drop.py` (imports from new module)
+  - MODIFIED: `/app/backend/routers/ai_chat.py` (top-level import; removed lazy import)
+  - MODIFIED: `/app/frontend/src/components/EnhancedAIAssistant.js` (filter history payload)
+- **Production deployment**: User must click the **Deploy** button in Emergent to push preview → production. Preview is confirmed healthy.
+
 ## Original Problem Statement
 Build a full-stack, responsive website for the memecoin "Bullpug" featuring a "Cosmic Runner" game, P2P Betting Arena, user profiles, AI-powered Trading Journal with an integrated AI Trading Bot.
 

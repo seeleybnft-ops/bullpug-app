@@ -181,12 +181,27 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
   // Save messages to MongoDB (debounced)
   const saveToMongoDB = useCallback(async (messagesToSave) => {
     if (!walletAddress || messagesToSave.length === 0) return;
-    
+
+    // Filter to only user/assistant text turns before persisting. UI-only
+    // roles like "drop" (daily-drop card) or "loading" carry no `content`
+    // field and would fail the backend Pydantic validation (422). The
+    // daily-drop is already persisted server-side in the daily_drops
+    // collection, so dropping it from history is safe and correct.
+    const persistable = messagesToSave
+      .filter(m => m && (m.role === "user" || m.role === "assistant"))
+      .map(m => ({
+        role: m.role,
+        content: typeof m.content === "string" ? m.content : "",
+        timestamp: m.timestamp,
+        hasLiveData: !!m.hasLiveData,
+      }));
+    if (persistable.length === 0) return;
+
     try {
       await axios.post(`${API}/ai/history/save`, {
         wallet_address: walletAddress,
         session_id: sessionId,
-        messages: messagesToSave
+        messages: persistable
       });
     } catch (e) {
       console.error("Failed to save chat history:", e);

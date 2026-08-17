@@ -10,7 +10,6 @@ reference — keyed by `(user_key, date_utc)`, indexed for fast pagination.
 """
 
 import asyncio
-import base64
 import hashlib
 import logging
 import os
@@ -18,10 +17,15 @@ import random
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
-import httpx
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 
 from utils.database import db
+from services.image_references import (
+    BULLPUG_REFERENCE_URL as _BULLPUG_REFERENCE_URL,
+    TINKERPUG_REFERENCE_URL as _TINKERPUG_REFERENCE_URL,
+    REFERENCE_MIME as _REFERENCE_MIME,
+    load_reference_b64 as _load_reference_b64,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -191,61 +195,9 @@ async def _lock_for(user_key: str, date_utc: str) -> asyncio.Lock:
 
 
 # ── Character reference images ────────────────────────────────────────────
-# Two references — one per character — so daily drops depicting Bullpug
-# don't get Tinkerpug's cybernetic augments and vice-versa. The scene text
-# is inspected below to pick the right one; drops with no explicit
-# character mention default to the Bullpug reference (he's the universe's
-# namesake).
-_BULLPUG_REFERENCE_URL = "https://i.imgur.com/XC7pHKW.jpeg"
-_TINKERPUG_REFERENCE_URL = "https://i.imgur.com/hXukVoJ.jpeg"
-_REFERENCE_MIME = "image/jpeg"
-_reference_cache: Dict[str, Optional[str]] = {
-    _BULLPUG_REFERENCE_URL: None,
-    _TINKERPUG_REFERENCE_URL: None,
-}
-_reference_lock = asyncio.Lock()
-
-
-async def _load_reference_b64(url: str) -> Optional[str]:
-    """Fetch + cache a character reference image as base64.
-
-    Same resilient pattern as before: browser-like UA + Referer to avoid
-    Imgur throttling, only successful responses cached, transient failures
-    retry on the next drop instead of poisoning the cache for the process
-    lifetime. One cache entry per URL, both entries independent.
-    """
-    if _reference_cache.get(url):
-        return _reference_cache[url]
-    async with _reference_lock:
-        if _reference_cache.get(url):
-            return _reference_cache[url]
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-            "Referer": "https://imgur.com/",
-        }
-        try:
-            async with httpx.AsyncClient(
-                timeout=10.0, follow_redirects=True, headers=headers
-            ) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-            b64 = base64.b64encode(resp.content).decode("ascii")
-            _reference_cache[url] = b64
-            logger.info(
-                "Loaded reference image %s (%d bytes → %d b64 chars)",
-                url, len(resp.content), len(b64),
-            )
-            return b64
-        except Exception as e:
-            logger.warning(
-                "Could not fetch reference image %s (will retry on next "
-                "drop): %s", url, e,
-            )
-            return None
+# Reference URLs, mime type, cache and loader all live in
+# `services.image_references` — imported at the top of this module.
+# This function picks WHICH of the two references matches a given scene.
 
 
 def _pick_reference_for_scene(theme: str, scene: str) -> Optional[str]:

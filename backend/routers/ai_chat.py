@@ -12,6 +12,12 @@ from datetime import datetime, timezone, timedelta
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from services.daily_drop import get_drop_for_user, get_todays_drop, _today_utc
+from services.image_references import (
+    BULLPUG_REFERENCE_URL as _BULLPUG_REFERENCE_URL,
+    TINKERPUG_REFERENCE_URL as _TINKERPUG_REFERENCE_URL,
+    REFERENCE_MIME as _REFERENCE_MIME,
+    load_reference_b64 as _load_reference_b64,
+)
 from utils.database import db
 from utils.admin_auth import require_admin_jwt
 from fastapi import Depends
@@ -877,13 +883,6 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
     inspected here to fetch and attach the matching reference image;
     generic Bullpughan prompts get no reference.
     """
-    from services.daily_drop import (
-        _BULLPUG_REFERENCE_URL,
-        _TINKERPUG_REFERENCE_URL,
-        _REFERENCE_MIME,
-        _load_reference_b64,
-    )
-
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
 
     # Character-aware reference selection. The tag comes from `_tag_character`.
