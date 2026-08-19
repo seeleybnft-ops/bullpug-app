@@ -21,12 +21,15 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 DAILY_DROP = (BACKEND_DIR / "services/daily_drop.py").read_text()
 AI_CHAT = (BACKEND_DIR / "routers/ai_chat.py").read_text()
+IMAGE_REFS = (BACKEND_DIR / "services/image_references.py").read_text()
 
 
 # ── Source code verification — daily_drop.py ──────────────────────────
 class TestDailyDropSource:
     def test_bullpug_reference_url_constant(self):
-        assert "_BULLPUG_REFERENCE_URL = \"https://i.imgur.com/XC7pHKW.jpeg\"" in DAILY_DROP
+        # Constants moved from daily_drop.py to services/image_references.py.
+        # This assertion tracks the current source of truth (fawn Bullpug canon).
+        assert "BULLPUG_REFERENCE_URL = \"https://i.imgur.com/JxxdOKG.jpeg\"" in IMAGE_REFS
 
     def test_tinkerpug_reference_url_constant(self):
         assert "_TINKERPUG_REFERENCE_URL = \"https://i.imgur.com/hXukVoJ.jpeg\"" in DAILY_DROP
