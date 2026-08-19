@@ -52,12 +52,14 @@ export default function Navbar() {
     }
   };
 
+  // Game (Cosmic Runner) and Pug Pit (betting arena) links are parked
+  // during the pre-launch private testing period. The underlying routes
+  // (`/game`, `/betting`) are still wired in App.js so we can re-enable
+  // them by restoring these entries when the features launch.
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
-    { name: t('nav.game') || "Game", path: "/game", color: "#00C2FF" },
     { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
-    { name: t('nav.arena') || "Pug Pit", path: "/betting", color: "#00FFA3" },
   ];
 
   return (

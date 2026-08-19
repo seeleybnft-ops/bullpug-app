@@ -21,9 +21,11 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Ecosystem</h4>
             <div className="flex flex-col gap-2">
+              {/* Cosmic Runner / Skin Store parked during private testing
+                  — will return when those features launch. */}
               {[
-                {t:"Cosmic Runner", p:"/game"},
-                {t:"Skin Store", p:"/skins"},
+                {t:"Origins", p:"/lore"},
+                {t:"PugBurn", p:"/pugburn"},
                 {t:"Forum", p:"/forum"}
               ].map(l=>(
                 <Link key={l.p} to={l.p} className="text-sm text-slate-500 hover:text-white transition-colors">{l.t}</Link>
@@ -42,14 +44,14 @@ export default function Footer() {
                 className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1">
                 Telegram <ExternalLink size={11} />
               </a>
-              <Link to="/showcase" className="text-sm text-slate-500 hover:text-white transition-colors">Skin Showcase</Link>
+              {/* Skin Showcase parked — reinstate when the skin store launches. */}
             </div>
           </div>
 
           <div>
             <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Legal</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Disclaimer: $BULLPUG is a memecoin. Crypto investments carry risk. Betting features are for entertainment purposes only. Check your local laws before participating.
+              Disclaimer: $BULLPUG is a memecoin. Crypto investments carry risk. Check your local laws before participating.
             </p>
           </div>
         </div>

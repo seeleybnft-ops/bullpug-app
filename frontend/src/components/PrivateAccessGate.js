@@ -7,14 +7,14 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Lock, ArrowRight, Shield } from "lucide-react";
 
-const ACCESS_KEY = "bullpug_private_access";
-const VALID_HASH = "bullpug2026";
+const ACCESS_KEY = "bullpug_private_access_v2";
+const VALID_HASH = "Pugchain2026";
 
-// Routes that bypass the password gate. Origins (the lore page) is
-// public during the private testing period so it can be shared as the
-// main marketing surface; everything else still requires the access
-// code. Keep this list tight — anything added here is fully public.
-const PUBLIC_PATHS = new Set(["/lore"]);
+// Routes that bypass the password gate. Currently empty — the entire
+// site is password-protected during the private testing period. Add
+// public paths here if a specific route needs to be shareable without
+// the access code.
+const PUBLIC_PATHS = new Set();
 
 export default function PrivateAccessGate({ children }) {
   const location = useLocation();

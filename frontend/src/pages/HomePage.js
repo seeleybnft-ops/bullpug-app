@@ -42,8 +42,10 @@ const TOKEN_DIST = [
   { name: "Liquidity Pool", value: 100, color: "#00FFA3" },
 ];
 
+// Roadmap — Blowfish reference removed pending clarification;
+// Speed Run Game item parked during private testing period.
 const ROADMAP = [
-  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Fair Launch via Blowfish", "Website launch", "Initial lore reveal", "Speed Run Game"], status: "current" },
+  { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Website launch", "Initial lore reveal", "Tinkerpug AI assistant"], status: "current" },
   { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Staking activation", "NFT collection", "Plushie store launch", "Governance implementation", "Strategic partnerships"], status: "upcoming" },
   { phase: "Phase 3", title: "Expansion", date: "Q4 2026", items: ["More to come"], status: "upcoming" },
 ];
@@ -166,11 +168,15 @@ export default function HomePage() {
               Meet Bullpug, the fearless and loyal guardian of the Memecoin Universe. Born from a cosmic mix-up when the stars of the Bull constellation collided with the energy of a pug-shaped nebula.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link to="/game">
-                <Button data-testid="hero-game-btn" className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm">
-                  <Rocket className="w-4 h-4 mr-2" /> Play Cosmic Runner
-                </Button>
-              </Link>
+              {/* Cosmic Runner CTA parked during private testing — will
+                  return when the game re-launches. */}
+              <Button
+                onClick={() => window.dispatchEvent(new CustomEvent("tinkerpug:open"))}
+                data-testid="hero-tinkerpug-btn"
+                className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm"
+              >
+                <Bot className="w-4 h-4 mr-2" /> Ask Tinkerpug
+              </Button>
             </div>
             <div className="flex gap-4 pt-2">
               <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer" data-testid="hero-x-link" className="text-slate-500 hover:text-[#00FFA3] transition-colors text-sm">@bullpugcoin</a>
@@ -294,14 +300,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* COSMIC RUNNER JACKPOT — LIVE TICKER */}
-      <JackpotTicker />
+      {/* COSMIC RUNNER JACKPOT — parked during private testing.
+          Imports retained so this block can be reinstated verbatim
+          when the Cosmic Runner game launches. */}
+      {false && <JackpotTicker />}
 
       {/* TODAY'S BULLPUG DAILY DROP (auto-hides if no drop yet today) */}
       <LatestDropWidget />
 
-      {/* COMMUNITY SPOTLIGHT */}
-      <CommunitySpotlight />
+      {/* COMMUNITY SPOTLIGHT — parked during private testing period. */}
+      {false && <CommunitySpotlight />}
 
       {/* LORE */}
       <section className="py-24 md:py-32" data-testid="lore-section">
@@ -335,10 +343,14 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
-              { icon: <Gamepad2 size={18} />, title: "Cosmic Runner", desc: "Navigate cosmic challenges as Bullpug, collect Moon Cheese", link: "/game", img: IMAGES.game, color: "#F5D300" },
+              // Cosmic Runner tile parked — Tinkerpug AI takes its slot
+              // for the private testing period. Restore the old entry
+              // (Gamepad2 icon, `/game` link, IMAGES.game) when the
+              // Cosmic Runner game re-launches.
+              { icon: <Bot size={18} />, title: "Tinkerpug AI", desc: "Ask Tinkerpug anything — lore, market signals, or generate a Bullpughan scene on demand", onClick: () => window.dispatchEvent(new CustomEvent("tinkerpug:open")), img: IMAGES.aiAssistant, color: "#D946EF" },
               { icon: <Flame size={18} />, title: "Pugburn", desc: "Reclaim locked SOL from old airdrop and dust accounts — no fees", link: "/pugburn", img: IMAGES.arena, color: "#F5D300" },
-            ].map((f, i) => (
-              <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
+            ].map((f, i) => {
+              const cardInner = (
                 <div className={`glass-card rounded-2xl overflow-hidden hover:-translate-y-1 transition-all duration-300 ${f.isNew ? 'ring-2 ring-[#D946EF]/50' : ''} ${f.comingSoon ? 'ring-2 ring-[#F5D300]/30' : ''}`}>
                   <div className="h-44 overflow-hidden relative">
                     <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -363,13 +375,36 @@ export default function HomePage() {
                     <p className="text-slate-500 text-xs">{f.desc}</p>
                   </div>
                 </div>
-              </Link>
-            ))}
+              );
+              // Tiles with an onClick trigger a JS event (e.g. open the
+              // Tinkerpug chat modal) instead of navigating.
+              if (f.onClick) {
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={f.onClick}
+                    className="group text-left"
+                    data-testid={`feature-card-${i}`}
+                  >
+                    {cardInner}
+                  </button>
+                );
+              }
+              return (
+                <Link to={f.link} key={i} className="group" data-testid={`feature-card-${i}`}>
+                  {cardInner}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* TOKENOMICS */}
+      {/* TOKENOMICS — parked until $BULLPUG token launches with a
+          contract address. Restore this block verbatim once the
+          contract is live and update the stats card accordingly. */}
+      {false && (
       <section className="py-24 md:py-32" data-testid="tokenomics-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
@@ -421,9 +456,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* RECENT JACKPOT WINNERS - Below Tokenomics */}
-      <RecentWinners />
+      {/* RECENT JACKPOT WINNERS — parked with the Cosmic Runner game.
+          Reinstate together when the game re-launches. */}
+      {false && <RecentWinners />}
 
       {/* GALLERY — cycles through most-recent daily drops + user-generated
           Tinkerpug `/image` outputs. Auto-rotates every ~6s and falls back

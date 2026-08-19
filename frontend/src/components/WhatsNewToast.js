@@ -23,15 +23,15 @@ import { Sparkles } from "lucide-react";
 
 // Bump this string whenever you want all users to see a new announcement.
 // Keep it short and readable; old IDs are kept commented for reference.
-const BUILD_ID = "2026-02-25-pug-pit";
+const BUILD_ID = "2026-02-27-canon-lock";
 
 // Highlights array — drives the toast's bullet list. Keep punchy and
 // player-facing (no internal jargon like "iteration 161").
 const HIGHLIGHTS = [
-  "Pug Pit fighting-game theme — Snarl-Off + Pack Pile",
-  "Sculpted pugs with PBR materials across all skins",
-  "Black hole reworked — now reads from a distance",
-  "New howl + bark audio for Pack Pile drops",
+  "Bullpug canon locked — the fawn guardian across the whole site",
+  "Origins page rewritten — new artwork for every chapter",
+  "Tinkerpug AI upgraded with the Visual Canon Ledger",
+  "New Ecosystem tile — ask Tinkerpug anything, right from home",
 ];
 
 export default function WhatsNewToast() {
