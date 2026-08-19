@@ -11,7 +11,7 @@ import OperatorQuickGlance from "./OperatorQuickGlance";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const LOGO = "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
+const LOGO = "/bullpug-canon.jpg";
 
 // Check if wallet is admin
 const ADMIN_WALLETS = [

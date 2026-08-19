@@ -16,7 +16,7 @@ import {
 import OriginsTrailer from "../components/OriginsTrailer";
 
 const LOGO =
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
+  "/bullpug-canon.jpg";
 
 // Reusable chapter card — keeps visual rhythm consistent
 function Chapter({ icon: Icon, title, accent, gradient, image, imageAlt, children, testid }) {

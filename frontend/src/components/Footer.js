@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 
-const LOGO = "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/o46e15vc_BULLPUG.jfif";
+const LOGO = "/bullpug-canon.jpg";
 
 export default function Footer() {
   return (
