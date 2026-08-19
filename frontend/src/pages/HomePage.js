@@ -23,10 +23,10 @@ const IMAGES = {
   birthday: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/5w17pptk__eda5997e-289f-4f2c-916b-329017a171d6.jfif",
   maid: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/2sae826h_25.10.2024_17.06.12_REC.png",
   journal: "/images/journal-bullpug.jfif",
-  aiAssistant: "https://customer-assets.emergentagent.com/job_7cd24e51-411f-4346-a028-e9b4e7530f5e/artifacts/sf7c7buf__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
+  aiAssistant: "/tinkerpug-ecosystem.jpg",
   tradingBot: "https://customer-assets.emergentagent.com/job_eece36b0-bd7c-41e3-9663-864558bfa54c/artifacts/79azcfdc_image%20-%202026-03-04T094746.318.jpg",
   origins: "/bullpug-canon.jpg",
-  arena: "https://customer-assets.emergentagent.com/job_cosmic-pug-game/artifacts/21uetroq__b0085b46-ef12-44f5-a395-fe4cf39e34bf.jfif",
+  arena: "/pugburn-canon.jpg",
 };
 
 const GALLERY = [

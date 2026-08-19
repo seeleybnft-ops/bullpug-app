@@ -27,8 +27,11 @@ the exact same images, and identical copies are cached on disk under
   • tinkerpug-reference.jpg → TINKERPUG_REFERENCE_URL
     Tinkerpug — the Keeper of PugChain. Fawn / tan fur, cybernetic
     segmented tail, armoured left foreleg, techno collar, neon
-    cyberpunk workshop environment. NO galaxy cape, NO cosmic medallion,
-    NO deep-space background.
+    cyberpunk workshop environment with holographic PugChain hardware
+    and glowing circuit-board workbench. NO galaxy cape, NO cosmic
+    medallion, NO deep-space background. An additional on-disk
+    reference (tinkerpug-reference-2.jpg) is retained for archival /
+    future rotation.
 
 These are two completely distinct characters who share only the pug
 base form (fawn fur, bull horns). Wardrobe, augments, and environment
@@ -51,7 +54,7 @@ TINKERPUG_REFERENCE_FILENAME = "tinkerpug-reference.jpg"
 
 # ── Public constants (imported by daily_drop.py and ai_chat.py) ──────────
 BULLPUG_REFERENCE_URL = "https://i.imgur.com/JxxdOKG.jpeg"
-TINKERPUG_REFERENCE_URL = "https://i.imgur.com/hXukVoJ.jpeg"
+TINKERPUG_REFERENCE_URL = "https://customer-assets-agu9un31.emergentagent.net/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/u7tbnnep_tinkerpug-reference.jpg.jpg"
 REFERENCE_MIME = "image/jpeg"
 
 # ── Canonical character descriptions ─────────────────────────────────────

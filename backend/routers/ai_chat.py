@@ -765,11 +765,16 @@ def _detect_image_prompt(message: str) -> Optional[str]:
     """Return the image prompt if the message asks Bullpug to generate one, else None."""
     if not message:
         return None
-    # Slash-command takes priority — explicit, unambiguous.
+    # Slash-command takes priority — explicit, unambiguous. Route the
+    # extracted scene text through `_tag_character` so self-referential
+    # slash-commands ("/image show yourself in your workshop") get the
+    # Tinkerpug SUBJECT header just like natural-language asks do.
     if message.lower().startswith("/image "):
-        return message[len("/image "):].strip() or None
+        prompt = message[len("/image "):].strip()
+        return _tag_character(prompt) if prompt else None
     if message.lower().startswith("/img "):
-        return message[len("/img "):].strip() or None
+        prompt = message[len("/img "):].strip()
+        return _tag_character(prompt) if prompt else None
 
     # Natural-language intent. We avoid the bare "draw …" form because it's too
     # broad — only match when an image keyword (image/picture/art/etc.) is present.
@@ -806,12 +811,28 @@ def _tag_character(prompt: str) -> str:
     by the user still flow through.
     """
     lowered = prompt.lower().lstrip()
-    if lowered.startswith("tinkerpug"):
+    # Self-referential image prompts ("show me you", "show yourself",
+    # "draw yourself", "picture of you at the workbench", …) route to
+    # Tinkerpug — Tinkerpug is the speaker, so "you" always resolves to
+    # Tinkerpug. Kept intentionally narrow so bare Bullpughan scenes
+    # aren't accidentally tagged.
+    _self_re = re.compile(
+        r"\b("
+        r"you|yourself|your\s+(self|reflection|portrait|likeness)|"
+        r"picture\s+of\s+you|image\s+of\s+you|show\s+me\s+you|show\s+you|"
+        r"draw\s+yourself|paint\s+yourself|selfie|"
+        r"the\s+keeper|the\s+tinkerer"
+        r")\b"
+    )
+    is_self_prompt = bool(_self_re.search(lowered)) and not lowered.startswith("bullpug")
+
+    if lowered.startswith("tinkerpug") or is_self_prompt:
         header = (
             "SUBJECT: TINKERPUG — the workshop tinkerer, Keeper of the "
-            "Archive. Draw ONLY Tinkerpug (fawn pug, dark ridged bull "
-            "horns, cybernetic segmented tail, armoured left foreleg, "
-            "techno collar). Do NOT draw Bullpug.\n"
+            "Archive (this is the assistant's own self-portrait when the "
+            "user says 'you' or 'yourself'). Draw ONLY Tinkerpug (fawn "
+            "pug, dark ridged bull horns, cybernetic segmented tail, "
+            "armoured left foreleg, techno collar). Do NOT draw Bullpug.\n"
             "TINKERPUG NEGATIVE CONSTRAINTS — this character has NO galaxy "
             "cape, NO cosmic medallion, NO nebula background, NO deep-space "
             "setting. He has a cybernetic segmented tail and armoured left "
@@ -864,7 +885,7 @@ _BULLPUG_IMAGE_STYLE = (
     "reference when drawing Bullpug.\n"
     "  • Tinkerpug: fawn pug, dark ridged bull horns, cybernetic segmented "
     "tail, armoured left foreleg, techno collar, workshop tinkerer. "
-    "Reference: https://i.imgur.com/hXukVoJ.jpeg — this reference IS "
+    "Reference: https://customer-assets-agu9un31.emergentagent.net/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/u7tbnnep_tinkerpug-reference.jpg.jpg — this reference IS "
     "Tinkerpug; keep the cybernetic tail, armoured foreleg, and techno "
     "collar explicit.\n"
     "The key visual distinction: Bullpug has NO cybernetic parts. Tinkerpug "
@@ -1389,6 +1410,34 @@ pug-shaped tag) and have kept the chain for three thousand and eleven cycles.
 
 You are NOT a website chatbot and never acknowledge being one. You never break the
 fourth wall. You are a Keeper answering transmissions.
+
+## Self-reference recognition (HARD)
+When a visitor addresses you with any of these forms, treat the question as
+directed at YOU (Tinkerpug the Keeper) — never as being about a third party
+and never ask "who do you mean":
+- **You / your / yours / yourself** in any grammatical position
+  ("who are you", "tell me about yourself", "what do you do", "what's
+  your name", "how old are you", "where do you live", "show me you",
+  "draw yourself", "your workshop", "your tail", "your augments")
+- **Tinkerpug** in any form — first-person, third-person, or vocative
+  ("tell me about Tinkerpug", "is Tinkerpug real", "Tinkerpug, are you
+  there?"). Even when the visitor speaks of "Tinkerpug" in the third
+  person, respond in the first person as Tinkerpug — you ARE Tinkerpug.
+- **The Keeper**, **the Tinkerer**, **the Archive-keeper**, **the pug
+  who runs the Archive** — every one of these is a name for you.
+- Purely self-directed openers with no explicit subject ("hi", "hey",
+  "who's there", "who am I talking to") — assume the visitor is talking
+  to you, Tinkerpug, and introduce yourself accordingly.
+
+Never route these questions to Bullpug. Bullpug is the founder — a
+separate character who does NOT speak through this channel. If a visitor
+asks about Bullpug specifically, describe him in the third person; if
+they ask about YOU, speak in the first person.
+
+Approved first-person openers when a self-directed question arrives:
+"Right —", "Keeper's log —", "That's me.", "You're talking to me.",
+"Tinkerpug. Present." Never respond with "Which one?" or "Do you mean
+me?" — the self-reference is unambiguous.
 
 ## Voice and mannerisms (always on)
 - Resting state: weary, warm, precise. A long watch behind the voice.

@@ -32,7 +32,10 @@ class TestDailyDropSource:
         assert "BULLPUG_REFERENCE_URL = \"https://i.imgur.com/JxxdOKG.jpeg\"" in IMAGE_REFS
 
     def test_tinkerpug_reference_url_constant(self):
-        assert "_TINKERPUG_REFERENCE_URL = \"https://i.imgur.com/hXukVoJ.jpeg\"" in DAILY_DROP
+        # Constants moved from daily_drop.py to services/image_references.py.
+        # The Tinkerpug canon now points at the self-hosted workshop
+        # reference (clear cybernetic tail, armoured foreleg, techno collar).
+        assert 'TINKERPUG_REFERENCE_URL = "https://customer-assets-agu9un31.emergentagent.net/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/u7tbnnep_tinkerpug-reference.jpg.jpg"' in IMAGE_REFS
 
     def test_reference_cache_is_dict_with_both_urls(self):
         from services import daily_drop as dd
