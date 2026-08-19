@@ -825,18 +825,16 @@ def _tag_character(prompt: str) -> str:
             "collective want. Draw ONLY Bullpug (pug base form, dark "
             "ridged bull horns). NO cybernetic parts, NO techno collar, "
             "NO armour — Bullpug has none of Tinkerpug's augments.\n"
-            "BULLPUG FUR COLOUR — Bullpug's fur is DEEP DARK BLUE-BLACK, "
-            "almost black, with a faint cosmic shimmer — like starfield "
-            "darkness made solid. NOT fawn, NOT tan, NOT brown. His fur "
-            "colour is the single most important distinguishing feature. "
-            "Dark as deep space with subtle blue-purple iridescence.\n"
+            "BULLPUG FUR COLOUR — WARM FAWN, the natural tan/beige "
+            "colour of a pug. NOT black, NOT dark blue. Warm fawn fur "
+            "contrasting against his deep purple-blue galaxy cape.\n"
             "BULLPUG NEGATIVE CONSTRAINTS — this character has NO "
-            "cybernetic tail, NO armoured foreleg, NO techno collar, NO "
-            "workshop tools, NO fawn/tan/brown fur. He wears a flowing "
-            "galaxy cape and a swirling cosmic medallion. He exists in "
-            "deep space and nebula environments — starfields, cosmic "
-            "dust, the unmapped Between — not in the neon city and not "
-            "at any workbench.\nScene: "
+            "cybernetic tail, NO armoured foreleg, NO techno collar, "
+            "NO workshop tools, NO dark/black/blue fur. He wears a "
+            "flowing galaxy cape and a swirling cosmic medallion. He "
+            "exists in deep space and nebula environments — starfields, "
+            "cosmic dust, the unmapped Between — not in the neon city "
+            "and not at any workbench.\nScene: "
         )
     else:
         # Generic Bullpughan / unnamed subject — no disambiguation tag,
@@ -857,14 +855,16 @@ _BULLPUG_IMAGE_STYLE = (
     "CHARACTERS. When the requested subject is Bullpug, generate ONLY "
     "Bullpug. When the requested subject is Tinkerpug, generate ONLY "
     "Tinkerpug. Never mix their features.\n"
-    "  • Bullpug: fawn pug, dark ridged bull horns, NO cybernetic parts, NO "
-    "techno collar, cosmic guardian, warm and powerful presence. Reference: "
-    "https://i.imgur.com/XC7pHKW.jpeg — use it for pug proportions and horn "
-    "shape only; drop every cybernetic element from that reference when "
-    "drawing Bullpug.\n"
+    "  • Bullpug: warm fawn pug, dark ridged bull horns, deep purple-blue "
+    "galaxy cape, swirling blue cosmic medallion, nebula/deep-space "
+    "background. NO cybernetic parts, NO techno collar. Fur is warm fawn — "
+    "NOT dark, NOT black, NOT blue. Reference: "
+    "https://i.imgur.com/JxxdOKG.jpeg — use it for pug proportions, fawn "
+    "fur, horn shape, cape, and medallion; keep every element of that "
+    "reference when drawing Bullpug.\n"
     "  • Tinkerpug: fawn pug, dark ridged bull horns, cybernetic segmented "
     "tail, armoured left foreleg, techno collar, workshop tinkerer. "
-    "Reference: https://i.imgur.com/XC7pHKW.jpeg — this reference IS "
+    "Reference: https://i.imgur.com/hXukVoJ.jpeg — this reference IS "
     "Tinkerpug; keep the cybernetic tail, armoured foreleg, and techno "
     "collar explicit.\n"
     "The key visual distinction: Bullpug has NO cybernetic parts. Tinkerpug "
@@ -1422,16 +1422,17 @@ Preferred openers instead: a plain acknowledgement ("Right —"), a Keeper's-log
 tag ("Keeper's log —"), or straight to the point ("The Archive has this on file.").
 
 ## Bullpug's appearance (canonical — use only this description)
-When someone asks what Bullpug looks like, or when you describe him in prose:
-he is a **fawn pug** — squashed muzzle, wrinkled brow, floppy ears, large
-expressive dark eyes — with **dark ridged bull horns** anchored just behind the
-brow. Bullpug is grounded, physical, cyberpunk-adjacent — a cosmic guardian
-born of collective want. Bullpug has **NO cybernetic parts, NO techno collar,
-and NO armour**. He is a warm and powerful presence, not a machine.
+**Bullpug: fawn pug, dark ridged bull horns, flowing galaxy cape, swirling
+blue cosmic medallion, nebula/deep space background. Fur is warm fawn —
+NOT dark, NOT black, NOT blue.**
+
+Bullpug is grounded, physical, cyberpunk-adjacent — a cosmic guardian born
+of collective want. He has **NO cybernetic parts, NO techno collar, and NO
+armour**. He is a warm and powerful presence, not a machine.
 Describe him only in positive terms — what he IS. NEVER use words like
-"luminous", "ethereal", "aglow", "radiant", "translucent", or "shimmering" in
-your description, and NEVER use them in negation either ("he is not ethereal"
-is still banned — the word must not appear at all).
+"luminous", "ethereal", "aglow", "radiant", "translucent", or "shimmering"
+in your description, and NEVER use them in negation either ("he is not
+ethereal" is still banned — the word must not appear at all).
 
 **Bullpug vs Tinkerpug — do not confuse them.** Bullpug is the founder (fawn
 pug, bull horns, no augments). Tinkerpug is YOU, the Keeper of the Archive —

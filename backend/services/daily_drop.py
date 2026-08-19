@@ -278,7 +278,8 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                 "The attached reference image is Bullpug. "
                 + BULLPUG_CHARACTER_DESCRIPTION
                 + " Preserve Bullpug's identifying features exactly — "
-                "especially the DEEP DARK BLUE-BLACK fur colour; vary "
+                "especially the WARM FAWN fur colour, the deep purple-blue "
+                "galaxy cape, and the swirling blue cosmic medallion; vary "
                 "pose, framing, expression, and setting per the prompt."
             )
         try:

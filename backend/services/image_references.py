@@ -13,14 +13,16 @@ CANONICAL VISUAL SOURCE OF TRUTH
 ────────────────────────────────────────────────────────────────────────
 Two named reference files, uploaded by the creator, are the ONLY
 approved visual source for these characters. The Imgur URLs below host
-the exact same images.
+the exact same images, and identical copies are cached on disk under
+`/app/backend/reference_images/` alongside each other.
 
   • bullpug-reference.jpg   → BULLPUG_REFERENCE_URL
-    Bullpug — the cosmic guardian. DEEP DARK BLUE-BLACK fur (almost
-    black) with a faint cosmic shimmer, flowing galaxy cape, swirling
-    blue-purple cosmic medallion, large dark ridged bull horns,
+    Bullpug — the cosmic guardian. WARM FAWN fur (the natural tan/beige
+    colour of a pug) with a flowing deep purple-blue galaxy cape, a
+    swirling blue cosmic medallion, large dark ridged bull horns, and a
     nebula / deep-space background. NO cybernetic parts, NO techno
-    collar, NO armour, NO workshop elements, NO fawn / tan / brown fur.
+    collar, NO armour, NO workshop elements. NOT dark, NOT black, NOT
+    blue-furred.
 
   • tinkerpug-reference.jpg → TINKERPUG_REFERENCE_URL
     Tinkerpug — the Keeper of PugChain. Fawn / tan fur, cybernetic
@@ -29,8 +31,8 @@ the exact same images.
     NO deep-space background.
 
 These are two completely distinct characters who share only the pug
-base form and bull horns. Everything else — fur colour, wardrobe,
-augments, environment — is different.
+base form (fawn fur, bull horns). Wardrobe, augments, and environment
+are what set them apart.
 """
 
 import asyncio
@@ -48,7 +50,7 @@ BULLPUG_REFERENCE_FILENAME = "bullpug-reference.jpg"
 TINKERPUG_REFERENCE_FILENAME = "tinkerpug-reference.jpg"
 
 # ── Public constants (imported by daily_drop.py and ai_chat.py) ──────────
-BULLPUG_REFERENCE_URL = "https://i.imgur.com/XC7pHKW.jpeg"
+BULLPUG_REFERENCE_URL = "https://i.imgur.com/JxxdOKG.jpeg"
 TINKERPUG_REFERENCE_URL = "https://i.imgur.com/hXukVoJ.jpeg"
 REFERENCE_MIME = "image/jpeg"
 
@@ -59,17 +61,10 @@ REFERENCE_MIME = "image/jpeg"
 # image generation stay visually consistent. Fur colour is the primary
 # distinguishing feature for Bullpug and MUST NOT be paraphrased away.
 BULLPUG_CHARACTER_DESCRIPTION = (
-    "Bullpug — the cosmic guardian. Bullpug's fur is DEEP DARK "
-    "BLUE-BLACK, almost black, with a faint cosmic shimmer — like "
-    "starfield darkness made solid. NOT fawn, NOT tan, NOT brown. His "
-    "fur colour is the single most important distinguishing feature. "
-    "Dark as deep space with subtle blue-purple iridescence. He has "
-    "large dark ridged bull horns, a flowing galaxy cape, and a "
-    "swirling blue-purple cosmic medallion. He has NO cybernetic parts, "
-    "NO techno collar, NO armour, NO workshop tools — those augments "
-    "belong to Tinkerpug. He exists in deep space and nebula "
-    "environments — starfields, cosmic dust, the unmapped Between — "
-    "not in the neon city and not at any workbench."
+    "Bullpug's fur is warm FAWN — the natural tan/beige colour of a "
+    "pug. NOT black, NOT dark blue, NOT cosmic dark. His fur is warm "
+    "fawn throughout, which contrasts strongly against his deep "
+    "purple-blue galaxy cape and the dark nebula behind him."
 )
 
 TINKERPUG_CHARACTER_DESCRIPTION = (
