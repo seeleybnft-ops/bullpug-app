@@ -1,6 +1,11 @@
 # Bullpug - Memecoin Full-Stack Application
 
 
+## Latest Changelog Entry (Feb 2026 — Origins image swap)
+- Replaced `/app/frontend/public/lore/world-he-calls-home.jpg` with the user-supplied artwork (1168×784, 438.7 KB — glowing golden pug-spire citadel).
+- Visually verified on preview `/lore` under private-access gate `bullpug2026`. Image renders correctly above "The World He Calls Home" section; naturalWidth/height match the on-disk file.
+- Files changed: `/app/frontend/public/lore/world-he-calls-home.jpg` (replaced).
+
 ## Latest Changelog Entry (Feb 2026 — refactor + 422 fix)
 - **Refactor**: Extracted shared AI reference-image logic (`_BULLPUG_REFERENCE_URL`, `_TINKERPUG_REFERENCE_URL`, `_REFERENCE_MIME`, `_reference_cache`, `_reference_lock`, `_load_reference_b64`) from `services/daily_drop.py` into a new dedicated module `services/image_references.py`.
 - Both `services/daily_drop.py` and `routers/ai_chat.py` now import from `services.image_references` at module top-level (no more lazy in-function imports, no circular-import risk).
