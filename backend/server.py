@@ -219,6 +219,12 @@ async def startup_event():
         # Daily drop cache — unique per (user, day), indexed for admin gallery pagination
         await db.daily_drops.create_index([("user_key", 1), ("date_utc", 1)], unique=True)
         await db.daily_drops.create_index([("created_at", -1)])
+        # Visual Canon Ledger — one entry per canonical subject (location/object/scene).
+        # subject_tag is the primary key; status is queried heavily by both the
+        # lookup path and the admin panel's Canon/Pending tabs.
+        await db.visual_canon.create_index("subject_tag", unique=True)
+        await db.visual_canon.create_index("status")
+        await db.visual_canon.create_index([("status", 1), ("last_used_at", -1)])
         # Clean up legacy smart_money_signals (v1 had signature_1 unique index)
         try:
             indexes = await db.smart_money_signals.index_information()

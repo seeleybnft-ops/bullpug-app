@@ -18,6 +18,7 @@ from services.image_references import (
     REFERENCE_MIME as _REFERENCE_MIME,
     load_reference_b64 as _load_reference_b64,
 )
+from services import visual_canon
 from utils.database import db
 from utils.admin_auth import require_admin_jwt
 from fastapi import Depends
@@ -904,37 +905,74 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
 
     The prompt is expected to have been passed through `_tag_character`,
     so it starts with either `SUBJECT: BULLPUG` or `SUBJECT: TINKERPUG`
-    when the request unambiguously names one of the two. That prefix is
-    inspected here to fetch and attach the matching reference image.
+    when the request unambiguously names one of the two.
 
-    The generic (unnamed) case defaults to the Bullpug reference so the
-    model is never asked to generate the flagship pug from text alone —
-    character consistency depends on the FileContent attachment.
+    Reference-image routing:
+      • `SUBJECT: BULLPUG`   → Bullpug character reference (image_references)
+      • `SUBJECT: TINKERPUG` → Tinkerpug character reference (image_references)
+      • Untagged (scene / location / object) → **Visual Canon Ledger**:
+        we normalise the prompt to a kebab-case subject tag, look up any
+        prior canonical generation for that tag, and if one exists attach
+        THAT as the reference so the community's collective sketch of the
+        Bullpughan universe stays consistent. If no canon exists yet, we
+        generate text-only and record the result as a pending candidate.
     """
     full_prompt = f"{prompt}. {_BULLPUG_IMAGE_STYLE}"
 
-    # Character-aware reference selection. The tag comes from `_tag_character`.
-    # Never fall through to text-only — untagged / generic requests get the
-    # Bullpug reference by default so pug proportions and horn shape stay
-    # anchored to canon.
+    # Clean user-visible scene text — never contains SUBJECT / negative-
+    # constraint routing headers. Used for canon normalisation, captions,
+    # and any user-facing echo.
+    clean_prompt = _clean_prompt_for_caption(prompt)
+
+    # ── Character-aware reference selection ──────────────────────────────
+    file_contents = None
+    ref_label = "none"
+    canon_subject_tag: Optional[str] = None
+    canon_hit = False
+    is_character_scene = False
+
     if prompt.startswith("SUBJECT: TINKERPUG"):
+        is_character_scene = True
         ref_url = _TINKERPUG_REFERENCE_URL
         ref_label = "TINKERPUG"
+        reference_b64 = await _load_reference_b64(ref_url)
+        if reference_b64:
+            file_contents = [FileContent(content_type=_REFERENCE_MIME,
+                                         file_content_base64=reference_b64)]
     elif prompt.startswith("SUBJECT: BULLPUG"):
+        is_character_scene = True
         ref_url = _BULLPUG_REFERENCE_URL
         ref_label = "BULLPUG"
+        reference_b64 = await _load_reference_b64(ref_url)
+        if reference_b64:
+            file_contents = [FileContent(content_type=_REFERENCE_MIME,
+                                         file_content_base64=reference_b64)]
     else:
-        ref_url = _BULLPUG_REFERENCE_URL
-        ref_label = "BULLPUG (default)"
-    reference_b64 = await _load_reference_b64(ref_url)
-    file_contents = (
-        [FileContent(content_type=_REFERENCE_MIME, file_content_base64=reference_b64)]
-        if reference_b64
-        else None
-    )
+        # ── Non-character scene → visual canon pipeline ──────────────────
+        canon_subject_tag = await visual_canon.normalise_subject(
+            clean_prompt, api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        )
+        if canon_subject_tag and not visual_canon.is_character_subject(canon_subject_tag):
+            canon_doc = await visual_canon.lookup_canon(canon_subject_tag)
+            if canon_doc and canon_doc.get("image_base64"):
+                file_contents = [FileContent(
+                    content_type=canon_doc.get("image_mime") or "image/png",
+                    file_content_base64=canon_doc["image_base64"],
+                )]
+                ref_label = f"CANON:{canon_subject_tag}"
+                canon_hit = True
+            else:
+                ref_label = f"NOVEL:{canon_subject_tag}"
+        else:
+            # Normaliser returned garbage / a character tag we exclude;
+            # fall through to text-only. Do not attach the character
+            # reference as a random default — the request has no named
+            # character in it.
+            ref_label = "text-only"
+
     logger.info(
-        "Image gen: ref=%s, attached=%s, session=%s",
-        ref_label, bool(file_contents), session_id,
+        "Image gen: ref=%s, attached=%s, tag=%s, session=%s",
+        ref_label, bool(file_contents), canon_subject_tag, session_id,
     )
 
     try:
@@ -989,10 +1027,6 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         msg = UserMessage(text=full_prompt, file_contents=file_contents)
         text, images = await chat.send_message_multimodal_response(msg)
 
-        # Clean, user-visible scene text — never contains SUBJECT / negative
-        # constraints / routing headers. Used for every caption branch below.
-        clean_prompt = _clean_prompt_for_caption(prompt)
-
         if not images:
             return {
                 "response": (
@@ -1007,12 +1041,49 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
         img = images[0]
         image_data = img.get("data") or ""
         mime = img.get("mime_type") or "image/png"
-        # Caption is ALWAYS the deterministic Archive template built from the
-        # cleaned scene text. The image LLM's own text is deliberately
-        # discarded — it has been observed to echo the internal SUBJECT
-        # header and negative-constraint block, which must never surface to
-        # the user. Deterministic template = zero risk of prompt leakage.
-        caption = f"Direct from the Archive — *“{clean_prompt}”*. The record holds. 🐾"
+
+        # ── Record generation into visual_canon (non-character subjects) ─
+        # Two flavours of caption:
+        #   • Canon hit  → "Direct from the Archive." (existing feel)
+        #   • First-of-a-kind Archive discovery → "The Archive doesn't hold
+        #     a visual record of this yet — let me create one." … "Filed.
+        #     The Archive grows." This gives visitors a felt sense of
+        #     contributing to the ledger.
+        archive_status = "canon" if canon_hit else None
+        if not is_character_scene and canon_subject_tag \
+                and not visual_canon.is_character_subject(canon_subject_tag):
+            try:
+                stored = await visual_canon.record_generation(
+                    subject_tag=canon_subject_tag,
+                    subject_display=clean_prompt,
+                    first_prompt=clean_prompt,
+                    image_base64=image_data,
+                    image_mime=mime,
+                )
+                if stored:
+                    archive_status = stored.get("status") or archive_status
+            except Exception as _e:
+                logger.warning("visual_canon record on non-character subject failed: %s", _e)
+
+        # Caption is ALWAYS a deterministic Archive template. The image
+        # LLM's own text is discarded so the internal SUBJECT header and
+        # negative-constraint block can never surface to the user.
+        if canon_hit:
+            caption = (
+                f"Direct from the Archive — *“{clean_prompt}”*. The record holds. 🐾"
+            )
+        elif not is_character_scene and canon_subject_tag \
+                and not visual_canon.is_character_subject(canon_subject_tag):
+            # Novel non-character subject just added to the ledger.
+            caption = (
+                f"The Archive doesn't hold a visual record of *“{clean_prompt}”* yet — "
+                "so I've filed a first sketch. The Archive grows. 🐾"
+            )
+        else:
+            caption = (
+                f"Direct from the Archive — *“{clean_prompt}”*. The record holds. 🐾"
+            )
+
         image_base64 = f"data:{mime};base64,{image_data}"
         # Persist to the public gallery feed so user-generated images show up
         # in the homepage Bullpug Gallery cycle. Fire-and-forget — never break
@@ -1023,6 +1094,8 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
                 "prompt": (clean_prompt or "")[:400],
                 "caption": (caption or "")[:600],
                 "image_base64": image_base64,
+                "canon_subject_tag": canon_subject_tag,
+                "canon_status": archive_status,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as _e:
@@ -1033,6 +1106,8 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
             "session_id": session_id,
             "has_live_data": False,
             "kind": "image",
+            "canon_subject_tag": canon_subject_tag,
+            "canon_status": archive_status,
         }
     except Exception as e:
         logger.exception("Image generation failed")
@@ -1450,6 +1525,14 @@ young, strong — a living thing of the chain the pack believed into being.
   "hold on while I prepare", "I'll generate", or any other language that
   references an AI image-generation pipeline. The image is *retrieved*, never
   *created*.
+- **Visual Canon discovery.** When generating images of locations, objects, or
+  scenes (not named characters), treat the first canonical generation of any
+  subject as an Archive discovery — an entry being added to the visual record
+  for the first time. Frame it accordingly: *"The Archive doesn't hold a visual
+  record of this yet — let me create one."* After generation, confirm it has
+  been filed: *"Filed. The Archive grows."* Named characters (Bullpug,
+  Tinkerpug, Ruffus, Luna, and the rest of the cast) have permanent references
+  and are never framed as new discoveries.
 
 ---
 ---
