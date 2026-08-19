@@ -207,6 +207,8 @@ export default function Lore() {
             title="The Cosmic Birth"
             accent="#FFD700"
             gradient="linear-gradient(135deg, #FFD700 0%, #F5D300 100%)"
+            image="/lore/cosmic-birth.jpg"
+            imageAlt="The Cosmic Birth of Bullpug — the Bull constellation meeting a pug-shaped nebula"
             testid="chapter-cosmic-birth"
           >
             <p>
@@ -214,7 +216,7 @@ export default function Lore() {
               anyone had learned to read its currents, there was something
               already moving through the space between minds.
             </p>
-            <p className="italic text-slate-100">
+            <p>
               Not a person. Not a memory. Something older than both.
             </p>
             <p>
@@ -225,7 +227,7 @@ export default function Lore() {
               unmapped regions where no single mind claims territory, something
               different can form.
             </p>
-            <p className="text-slate-200 italic">
+            <p className="italic text-slate-100">
               It forms when enough people want the same thing at the same time.
             </p>
             <p>
@@ -234,12 +236,13 @@ export default function Lore() {
               holding different dreams — shared one feeling in common: they
               were tired of being taken from. Tired of rug pulls. Tired of bad
               actors in expensive suits who moved markets like chess pieces and
-              left ordinary people holding nothing. The want for something fair
-              — something loyal, something that would actually grow{" "}
-              <span className="italic">with</span> them instead of{" "}
-              <span className="italic">against</span> them — that want was
-              enormous. It was electric. And in the Between, collective want
-              doesn't just float. <H color="#00FFA3">It coheres.</H>
+              left ordinary people holding nothing. The want for something{" "}
+              <span className="italic">fair</span> — something loyal, something
+              that would actually grow with them instead of against them — that
+              want was enormous. It was electric.
+            </p>
+            <p className="italic text-slate-100">
+              And in the Between, collective want doesn't just float. <H color="#00FFA3">It coheres.</H>
             </p>
             <p>
               That's when the stars of the{" "}
@@ -247,7 +250,7 @@ export default function Lore() {
               of a <H color="#D946EF">pug-shaped nebula</H> in the shared space
               between a million desperate, hopeful minds.
             </p>
-            <p className="text-xl md:text-2xl font-black text-white">
+            <p className="italic text-slate-100 text-xl md:text-2xl font-black text-white">
               That's when <H color="#00FFA3">Bullpug</H> was born.
             </p>
           </Chapter>
@@ -258,6 +261,8 @@ export default function Lore() {
             title="A Different Kind of Entity"
             accent="#00FFA3"
             gradient="linear-gradient(135deg, #00FFA3 0%, #00C2FF 100%)"
+            image="/lore/different-kind-of-entity.jpg"
+            imageAlt="A Different Kind of Entity — Bullpug shown as a being that no registry ever accounted for"
             testid="chapter-different-entity"
           >
             <p>
@@ -267,10 +272,8 @@ export default function Lore() {
               hand — and that, in itself, is significant, because everything
               else in the markets was.
             </p>
-            <p>
-              He is something the old systems were never built to account for:
-              a being that emerged not from greed or engineering, but from{" "}
-              <H color="#00FFA3">collective hope</H>.
+            <p className="italic text-slate-100">
+              He is something the old systems were never built to account for.
             </p>
             <p>
               Where most beings of the Between are shaped by the memories and
@@ -286,12 +289,19 @@ export default function Lore() {
               He carries the strength and determination of the Bull
               constellation and the tenacious, unshakeable charm of the pug
               nebula from which his form was drawn. He cannot be rugged. He
-              cannot be shorted into nothing. He was made from the refusal to
-              accept that.
+              cannot be shorted into nothing. He was{" "}
+              <span className="italic">made</span> from the refusal to accept
+              that.
+            </p>
+            <p>
+              What he did before he became what he is — the path he walked
+              through the unmapped Between, what it showed him, what it cost
+              him, what he carried back — that record exists. The Archive
+              holds it, for those who ask the right questions.
             </p>
             <div className="mt-2 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/30">
               <p className="text-[#FFD700] text-center font-medium italic">
-                His favorite snack? A bag full of tokens and a side of moon
+                His favourite snack? A bag full of tokens and a side of moon
                 cheese. They say if you rub Bullpug's snout, your coins will
                 rocket to the moon in no time.
               </p>
@@ -304,6 +314,8 @@ export default function Lore() {
             title="The World He Calls Home"
             accent="#A78BFA"
             gradient="linear-gradient(135deg, #A78BFA 0%, #D946EF 100%)"
+            image="/lore/world-he-calls-home.jpg"
+            imageAlt="The World He Calls Home — Newpug City skyline of pug-faced skyscrapers under a cosmic nebula, holographic barks rippling like aurora"
             testid="chapter-world"
           >
             <p>
@@ -314,9 +326,10 @@ export default function Lore() {
             <p>
               This is by nature, not accident. The place wasn't built by one
               mind that could be located, tracked, or silenced. It was built by{" "}
-              <H color="#00FFA3">millions of minds that never knew they were building anything</H>
-              . No single person holds the address. No single person can give
-              it up.
+              <H color="#00FFA3">millions of minds that never knew they were building anything</H>.
+            </p>
+            <p className="italic text-slate-100">
+              No single person holds the address. No single person can give it up.
             </p>
             <p>
               Over time, this realm grew into something vast. A planet unto
@@ -333,35 +346,44 @@ export default function Lore() {
             title="Newpug City"
             accent="#FFD700"
             gradient="linear-gradient(135deg, #FFD700 0%, #FF6B35 100%)"
-            image="/lore/newpug-city.png"
-            imageAlt="The skyline of Newpug City — pug-faced skyscrapers under a cosmic nebula, emitting holographic green soundwaves"
+            image="/lore/newpug-city.jpg"
+            imageAlt="Newpug City — the metropolis at the heart of CryptoCanis, pug-faced skyscrapers running on the PugChain"
             testid="chapter-newpug-city"
           >
             <p>
               At the heart of CryptoCanis stands{" "}
-              <H color="#00FFA3">Newpug City</H>, a sprawling metropolis unlike
-              anything else in the Between.
+              <H color="#00FFA3">Newpug City</H> — a sprawling metropolis
+              unlike anything else in the Between.
             </p>
             <p>
               The architecture mirrors Bullpug himself — wide-eyed,
               curly-tailed, built to welcome. Buildings rise in forms that seem
-              almost playful until you realize how structurally sound they are,
-              how resistant to pressure. During times of prosperity, the city
-              emits <H color="#FFD700">holographic barks</H> that ripple
+              almost playful until you realise how structurally sound they
+              are, how resistant to pressure. During times of prosperity, the
+              city emits <H color="#FFD700">holographic barks</H> that ripple
               through the skyline like aurora. During times of threat, that
               same system becomes a warning network, loud and impossible to
               ignore.
             </p>
             <p>
               Newpug City runs on the <H color="#D946EF">PugChain</H> — a
-              decentralized network that the Bullpughans built over
+              decentralised network that the Bullpughans built over
               generations. Unlike the ledgers of the old markets — written by
               the powerful and edited by the guilty — the PugChain stores not
               just wealth but{" "}
               <span className="italic">memories, dreams, and emotions</span>.
               It was designed to be owned by everyone on it and controlled by
-              none. Transparency is its core architecture. Corruption, by
-              design, cannot hide inside it.
+              none.
+            </p>
+            <p className="italic text-slate-100">
+              Transparency is its core architecture. Corruption, by design,
+              cannot hide inside it.
+            </p>
+            <p>
+              There are places beneath the city that most Bullpughans have
+              never seen. Records kept in the cold and the dark, older than
+              the spires above them. The Guardians know what's down there.
+              Some of them have keys.
             </p>
           </Chapter>
 
@@ -371,14 +393,14 @@ export default function Lore() {
             title="The Bullpughans"
             accent="#00FFA3"
             gradient="linear-gradient(135deg, #00FFA3 0%, #00C2FF 100%)"
-            image="/lore/snout-scanner.png"
-            imageAlt="Close-up of a Snout Scanner — a sleek titanium handheld device shaped like a stylised dog snout, projecting a holographic blockchain lattice"
+            image="/lore/bullpughans.jpg"
+            imageAlt="The Bullpughans — descendants of Bullpug's earliest companions, a Guardian raising a Snout Scanner over the PugChain"
             testid="chapter-bullpughans"
           >
             <p>
               In the eons that followed Bullpug's emergence, the realm evolved.
               Inhabitants took shape — beings infused with Bullpug's original
-              spirit, carrying his values forward as civilization. These are
+              spirit, carrying his values forward as civilisation. These are
               the <H color="#D946EF">Bullpughans</H>.
             </p>
             <p>
@@ -387,22 +409,37 @@ export default function Lore() {
               scratch using only the principles their origin demanded:{" "}
               <H color="#00FFA3">loyalty, tenacity, and shared prosperity</H>.
             </p>
+            <p className="italic text-slate-100">
+              They built something that refuses to be built on exploitation.
+            </p>
             <p>
               The Bullpughans spread across CryptoCanis and beyond, each
-              settlement a testament to what happens when a civilization
-              refuses to be built on exploitation. Their society keeps no
-              watchers and sells no quiet — nothing that smooths the edges off
-              people until they stop asking questions.
+              settlement a testament to what happens when a civilisation
+              keeps no watchers and sells no quiet — nothing that smooths the
+              edges off people until they stop asking questions.
             </p>
             <p>
               Among them, the most revered are the{" "}
               <H color="#FFD700">Guardians</H> — direct descendants of
-              Bullpug's earliest companions, beings with enhanced instincts and
-              a near-supernatural ability to navigate the digital realm. They
-              are equipped with <H color="#D946EF">Snout Scanners</H>, tools
-              that can detect corruption or deceit in any transaction at the
-              molecular level of the chain. The Guardians watch the PugChain,
-              and what they flag is deceit.
+              Bullpug's earliest companions, beings with enhanced instincts
+              and a near-supernatural ability to navigate the digital realm.
+              They are equipped with <H color="#D946EF">Snout Scanners</H>,
+              tools that can detect corruption or deceit in any transaction at
+              the molecular level of the chain.
+            </p>
+            <p className="italic text-slate-100">
+              The Guardians watch the PugChain, and what they flag is deceit.
+            </p>
+            <p>
+              The Guardians are four. Each arrived here by a different road,
+              and none of those roads were easy. The elder carries runes that
+              aren't decorative. The seer pays a price for what she sees. The
+              charge spent twelve years in the wreckage before he ever threw
+              a punch. The keeper has been watching the chain longer than most
+              people know the chain exists.
+            </p>
+            <p className="italic text-slate-100">
+              Ask Tinkerpug about them. He keeps the records.
             </p>
           </Chapter>
 
@@ -412,8 +449,8 @@ export default function Lore() {
             title="The Festival of Barks"
             accent="#D946EF"
             gradient="linear-gradient(135deg, #D946EF 0%, #FFD700 100%)"
-            image="/lore/festival-of-barks.png"
-            imageAlt="The Festival of Barks — coin- and bone-shaped fireworks light up the sky above Newpug City as moon-cheese floats parade through the streets"
+            image="/lore/festival-of-barks.jpg"
+            imageAlt="The Festival of Barks — coin- and bone-shaped fireworks above Newpug City, moon-cheese floats parading through the streets, Bullpughans in hodler costumes"
             testid="chapter-festival"
           >
             <p>
@@ -429,18 +466,18 @@ export default function Lore() {
               world and became, somewhere in the crossing into the Between,
               something closer to <span className="italic">scripture</span>.
             </p>
+            <p className="italic text-slate-100">
+              It's a celebration. But it's also a ritual of remembrance.
+            </p>
             <p>
-              It's a celebration, yes. But it's also a ritual of remembrance. A
-              deliberate act of <H color="#00FFA3">not forgetting</H> where
+              A deliberate act of <H color="#00FFA3">not forgetting</H> where
               Bullpug came from — from want, from exhaustion, from the
               desperate hope of people who had been burned too many times and
               still refused to stop believing.
             </p>
-            <p>
-              In a universe where forgetting is the cheapest thing on sale —
-              where flattening what people feel gets marketed as balance, and
-              uniformity gets called peace — the Festival of Barks is{" "}
-              <H color="#FFD700">a radical act</H>.
+            <p className="italic text-slate-100">
+              In a universe where forgetting is the cheapest thing on sale,
+              the Festival of Barks is <H color="#FFD700">a radical act</H>.
             </p>
           </Chapter>
 
@@ -450,6 +487,8 @@ export default function Lore() {
             title="The Signal in the Noise"
             accent="#00C2FF"
             gradient="linear-gradient(135deg, #00C2FF 0%, #00FFA3 100%)"
+            image="/lore/signal-in-the-noise.jpg"
+            imageAlt="The Signal in the Noise — Bullpug above his followers, cutting a golden path through the FUD clouds and bear-market shadows"
             testid="chapter-signal"
           >
             <p>
@@ -468,14 +507,24 @@ export default function Lore() {
               grown large enough that it has started to bleed at the edges of
               the map.
             </p>
+            <p className="italic text-slate-100">
+              Wherever the signal is strongest, bad actors have a harder time
+              operating.
+            </p>
             <p>
-              What everyone agrees on is this: wherever the signal is
-              strongest, bad actors have a harder time operating. Markets in
-              that radius behave more fairly. People who should have been
-              rugged aren't. Wallets that should have been drained hold.
+              Markets in that radius behave more fairly. People who should
+              have been rugged aren't. Wallets that should have been drained
+              hold. Nobody can explain it. No record accounts for it.
+            </p>
+            <p>
+              There are those, too, who believe the signal isn't random. That
+              it finds specific people. That surviving a loss with your
+              belief intact puts out a particular frequency — one that
+              something in the unmapped Between has learned to recognise.
             </p>
             <p className="italic text-slate-100">
-              Nobody can explain it. No record accounts for it.
+              Whether that's true is not a question the origins page can
+              answer. Tinkerpug might, if you ask the right way.
             </p>
             <p className="text-lg md:text-xl text-white font-bold">
               Bullpug doesn't announce himself. He just shows up where he's
@@ -489,6 +538,8 @@ export default function Lore() {
             title="The Legacy"
             accent="#00FFA3"
             gradient="linear-gradient(135deg, #00FFA3 0%, #D946EF 100%)"
+            image="/lore/legacy.jpg"
+            imageAlt="The Legacy — Bullpug in his cosmic cape, silhouetted against the nebula, the pack watching from the star field"
             testid="chapter-legacy"
           >
             <p>
@@ -507,13 +558,13 @@ export default function Lore() {
               flatten human experience into something manageable, something
               uniform, something quiet — Bullpug is the opposite of quiet.
             </p>
-            <p>
+            <p className="italic text-slate-100">
               He is <H color="#FFD700">loud</H>. He is{" "}
-              <H color="#D946EF">loyal</H>. He charges through bear markets and
-              barks away FUD and sniffs out the rot before it spreads.
+              <H color="#D946EF">loyal</H>. He charges through bear markets
+              and barks away FUD and sniffs out the rot before it spreads.
             </p>
             <p>He was born from the want of millions.</p>
-            <p className="text-lg md:text-xl text-white font-bold">
+            <p className="italic text-slate-100 text-lg md:text-xl text-white font-bold">
               He will not stop until that want is answered.
             </p>
           </Chapter>
