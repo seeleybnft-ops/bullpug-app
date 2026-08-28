@@ -130,8 +130,12 @@ function App() {
           <EVMWalletProvider>
             <BrowserRouter>
               <RouteAnalytics />
-              <PrivateAccessGate>
-                <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
+              {/* PrivateAccessGate lifted — site is now fully public.
+                  To re-gate, wrap the <div> below in <PrivateAccessGate>
+                  … </PrivateAccessGate> and update the password in
+                  components/PrivateAccessGate.js. Import is kept so the
+                  re-enable is a one-line change. */}
+              <div className="min-h-screen bg-[#05050A] text-white relative overflow-x-hidden">
                   <Navbar />
                   <Routes>
                   <Route path="/" element={<HomePage />} />
@@ -158,8 +162,7 @@ function App() {
                 <WhatsNewToast />
                 <Toaster theme="dark" />
               </div>
-            </PrivateAccessGate>
-          </BrowserRouter>
+            </BrowserRouter>
           </EVMWalletProvider>
         </WalletModalProvider>
       </WalletProvider>
