@@ -159,7 +159,8 @@ function App() {
                 <EnhancedAIAssistant />
                 <BigWinToast />
                 <NotificationPermissionPrompt />
-                <WhatsNewToast />
+                {/* WhatsNewToast removed — pop-up parked. Re-enable by
+                    rendering <WhatsNewToast /> here again. */}
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>
