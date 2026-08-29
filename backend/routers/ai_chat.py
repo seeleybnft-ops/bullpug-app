@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 import httpx
+import asyncio
 import re
 from datetime import datetime, timezone, timedelta
 
@@ -19,6 +20,7 @@ from services.image_references import (
     load_reference_b64 as _load_reference_b64,
 )
 from services import visual_canon
+from services import archive_achievements
 from utils.database import db
 from utils.admin_auth import require_admin_jwt
 from fastapi import Depends
@@ -1192,6 +1194,27 @@ async def enhanced_ai_chat(chat: EnhancedChatMessage):
     if not EMERGENT_LLM_KEY:
         return {"response": "AI chat is currently unavailable. Please try again later.", "session_id": chat.session_id}
 
+    # ── Async unlock detection helper (Archive achievement system) ──────
+    # Fire-and-forget so it NEVER adds latency to the chat response. If a
+    # wallet is attached the exchange is classified against the Archive
+    # master entry list and any unlock is written to Mongo asynchronously.
+    # The frontend polls `/api/archive/unlocks` after each chat response
+    # to display the celebration on the next tick.
+    def _fire_unlock_detection(user_msg: str, tinkerpug_text: str) -> None:
+        if not chat.wallet_address or not user_msg or not tinkerpug_text:
+            return
+        try:
+            asyncio.create_task(archive_achievements.detect_and_record_unlock(
+                wallet_address=chat.wallet_address,
+                user_message=user_msg,
+                tinkerpug_response=tinkerpug_text,
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"archive-classifier-{chat.session_id}",
+            ))
+        except Exception as _e:
+            logger.warning("Failed to schedule archive unlock detection: %s", _e)
+
+
     # ── Image attachment size cap ────────────────────────────────────────
     # Hard-cap inbound vision-mode image attachments. Without this:
     #   • Malicious clients can pump 50MB base64 blobs and rack up our
@@ -1938,6 +1961,7 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
                         final_response,
                         kind="image",
                     )
+                    _fire_unlock_detection(chat.message, final_response)
                     return await _maybe_attach_daily_drop({
                         "response": final_response,
                         "image_base64": img_resp["image_base64"],
@@ -1965,6 +1989,7 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
             kind="text",
             has_live_data=bool(real_time_data or specific_prices),
         )
+        _fire_unlock_detection(chat.message, response)
 
         return await _maybe_attach_daily_drop({
             "response": response, 

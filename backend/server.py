@@ -238,6 +238,25 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Index creation (non-fatal): {e}")
 
+    # Archive Ledger indexes — isolated in their own try so a failure in the
+    # intelligence-collection block above (e.g. legacy smart_money_signals
+    # dup-key) never blocks the Archive from working.
+    try:
+        # Per-wallet lore unlocks. Unique compound so each entry unlocks at
+        # most once per wallet; wallet_address alone for fast "list this
+        # wallet's unlocks" queries; entry_id for admin aggregate stats
+        # ("how many wallets have unlocked X?").
+        await db.archive_unlocks.create_index(
+            [("wallet_address", 1), ("entry_id", 1)], unique=True,
+        )
+        await db.archive_unlocks.create_index("wallet_address")
+        await db.archive_unlocks.create_index("entry_id")
+        # Denormalised current-rank snapshot per wallet.
+        await db.archive_ranks.create_index("wallet_address", unique=True)
+        logger.info("MongoDB indexes created for archive collections")
+    except Exception as e:
+        logger.warning(f"Archive index creation (non-fatal): {e}")
+
     # Restore ledger state if deploying with a fresh database
     try:
         from services.post_deploy_init import run_post_deploy_init
