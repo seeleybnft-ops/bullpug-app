@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useTranslation } from "react-i18next";
-import { Menu, X, MessageCircle, MessageSquare, User, Flame } from "lucide-react";
+import { Menu, X, MessageCircle, MessageSquare, User, Flame, Radio } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import NotificationBell from "./NotificationBell";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -59,6 +59,9 @@ export default function Navbar() {
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
     { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
+    // The Archive — Tinkerpug's workspace, lore ledger, and daily-drop
+    // vault. Replaces the old floating corner widget.
+    { name: "The Archive", path: "/archive", icon: <Radio className="w-3 h-3" />, color: "#00C2FF", hasBorder: true },
     { name: "PugBurn", path: "/pugburn", icon: <Flame className="w-3 h-3" />, color: "#FF6B6B", hasBorder: true },
   ];
 

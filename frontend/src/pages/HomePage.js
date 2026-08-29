@@ -170,13 +170,14 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-3">
               {/* Cosmic Runner CTA parked during private testing — will
                   return when the game re-launches. */}
-              <Button
-                onClick={() => window.dispatchEvent(new CustomEvent("tinkerpug:open"))}
-                data-testid="hero-tinkerpug-btn"
-                className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm"
-              >
-                <Bot className="w-4 h-4 mr-2" /> Ask Tinkerpug
-              </Button>
+              <Link to="/archive">
+                <Button
+                  data-testid="hero-tinkerpug-btn"
+                  className="bg-[#00FFA3] text-black font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-[0_0_20px_rgba(0,255,163,0.4)] rounded-full px-8 py-5 text-sm"
+                >
+                  <Bot className="w-4 h-4 mr-2" /> Ask Tinkerpug
+                </Button>
+              </Link>
             </div>
             <div className="flex gap-4 pt-2">
               <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer" data-testid="hero-x-link" className="text-slate-500 hover:text-[#00FFA3] transition-colors text-sm">@bullpugcoin</a>
@@ -347,7 +348,7 @@ export default function HomePage() {
               // for the private testing period. Restore the old entry
               // (Gamepad2 icon, `/game` link, IMAGES.game) when the
               // Cosmic Runner game re-launches.
-              { icon: <Bot size={18} />, title: "Tinkerpug AI", desc: "Ask Tinkerpug anything — lore, market signals, or generate a Bullpughan scene on demand", onClick: () => window.dispatchEvent(new CustomEvent("tinkerpug:open")), img: IMAGES.aiAssistant, color: "#D946EF" },
+              { icon: <Bot size={18} />, title: "Tinkerpug AI", desc: "Ask Tinkerpug anything — lore, market signals, or generate a Bullpughan scene on demand", link: "/archive", img: IMAGES.aiAssistant, color: "#D946EF" },
               { icon: <Flame size={18} />, title: "Pugburn", desc: "Reclaim locked SOL from old airdrop and dust accounts — no fees", link: "/pugburn", img: IMAGES.arena, color: "#F5D300" },
             ].map((f, i) => {
               const cardInner = (

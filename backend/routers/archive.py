@@ -106,6 +106,55 @@ async def list_entries(wallet: Optional[str] = Query(None, description="Solana w
     }
 
 
+@router.get("/drops")
+async def list_drops(
+    wallet: Optional[str] = Query(None, description="Solana wallet address"),
+    page: int = Query(1, ge=1, description="Page number, 1-indexed"),
+    limit: int = Query(12, ge=1, le=48, description="Cards per page"),
+):
+    """Paginated daily-drop vault for a wallet, newest first.
+
+    Response:
+      {
+        "wallet": "...",
+        "page": 1,
+        "limit": 12,
+        "total": N,
+        "has_more": bool,
+        "drops": [
+          { "day_number", "date_utc", "scene_title", "caption",
+            "image_base64", "theme", "scene" },
+          ...
+        ]
+      }
+    """
+    w = _clean_wallet(wallet)
+    from utils.database import db as _db
+    try:
+        skip = (page - 1) * limit
+        total = await _db.daily_drops.count_documents({"user_key": w})
+        cursor = (
+            _db.daily_drops
+            .find({"user_key": w},
+                  {"_id": 0, "user_key": 0})
+            .sort("date_utc", -1)
+            .skip(skip)
+            .limit(limit)
+        )
+        drops = await cursor.to_list(length=limit)
+    except Exception:
+        drops = []
+        total = 0
+    return {
+        "wallet": w,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "has_more": (page * limit) < total,
+        "drops": drops,
+    }
+
+
 @router.get("/admin/stats", dependencies=[Depends(require_admin_jwt)])
 async def admin_archive_stats():
     """Aggregate stats — unlock counts per entry, rank distribution."""

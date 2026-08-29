@@ -219,12 +219,38 @@ def _pick_reference_for_scene(theme: str, scene: str) -> Optional[str]:
     return _BULLPUG_REFERENCE_URL
 
 
+def _derive_scene_title(theme: Optional[str], scene: str) -> str:
+    """Return a short 3-5 word title for the drop card.
+
+    The generator already produces a punchy `theme` for canonical drops
+    (e.g. "The Between's Heartbeat") and a subject-noun combination for
+    fresh drops (e.g. "Cosmic & the Ledger"). Both are good enough for
+    the card without an extra LLM round-trip. We just trim, title-case,
+    and cap length so the card never overflows.
+    """
+    raw = (theme or scene or "").strip()
+    if not raw:
+        return "Archive record"
+    # Cap to 5 words / 42 chars — the card lays out for this width.
+    words = raw.split()
+    if len(words) > 5:
+        raw = " ".join(words[:5])
+    if len(raw) > 42:
+        raw = raw[:42].rstrip(",.:;— ")
+    return raw
+
+
 async def get_drop_for_user(user_key: str) -> Optional[Dict]:
     """Return today's drop for the given user_key, generating + caching if missing.
 
     user_key should be the user's wallet address if available, otherwise the
     anonymous session_id. Each (user_key, date_utc) pair generates exactly one
     image, then locks for 24h until the UTC date rolls over.
+
+    When the drop just generated is this user's FIRST-EVER drop, we fire the
+    Archive Ledger `first-drop` unlock (event-only entry — not classifiable
+    from chat text). Runs fire-and-forget so the drop response is never
+    blocked on the achievement write.
     """
     date_utc = _today_utc()
 
@@ -309,11 +335,18 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
             img = images[0]
             mime = img.get("mime_type") or "image/png"
             data = img.get("data") or ""
+            # Sequential day_number per user_key — count-before-insert.
+            # Not strictly atomic under a race but the outer per-(user,day)
+            # lock keeps concurrent inserts for the same user serialised.
+            prior = await db.daily_drops.count_documents({"user_key": user_key})
+            day_number = prior + 1
             drop = {
                 "user_key": user_key,
                 "date_utc": date_utc,
+                "day_number": day_number,
                 "theme": theme,
                 "scene": scene,
+                "scene_title": _derive_scene_title(theme, scene),
                 "kind": kind,
                 "image_base64": f"data:{mime};base64,{data}",
                 "caption": (text or "").strip() or None,
@@ -324,6 +357,24 @@ async def get_drop_for_user(user_key: str) -> Optional[Dict]:
                 {"$setOnInsert": drop},
                 upsert=True,
             )
+            # Fire the Archive `first-drop` unlock the very first time a
+            # wallet ever gets a drop. Anonymous keys start with "anon-" —
+            # skip those, they have no ledger.
+            if day_number == 1 and not user_key.startswith("anon-"):
+                try:
+                    import asyncio as _asyncio
+                    from services import archive_achievements as _arch
+                    _asyncio.create_task(_arch.record_unlock(
+                        wallet_address=user_key,
+                        entry_id="first-drop",
+                        unlock_prompt="EVENT: first daily drop generated",
+                        tinkerpug_excerpt=(
+                            "The Archive generates a new record every day. "
+                            "This is where yours begins."
+                        ),
+                    ))
+                except Exception as _e:
+                    logger.warning("first-drop unlock scheduling failed: %s", _e)
             return await db.daily_drops.find_one(
                 {"user_key": user_key, "date_utc": date_utc}, {"_id": 0}
             )

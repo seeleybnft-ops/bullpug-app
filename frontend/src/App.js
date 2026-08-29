@@ -34,6 +34,7 @@ import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
 import PugBurn from "@/pages/PugBurn";
+import Archive from "@/pages/Archive";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -140,6 +141,7 @@ function App() {
                   <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
+                  <Route path="/archive" element={<Archive />} />
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/game/3d" element={<Phase1Runner3D />} />
                   <Route path="/pugburn" element={<PugBurn />} />
@@ -156,7 +158,10 @@ function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
                 <Footer />
-                <EnhancedAIAssistant />
+                {/* The floating Tinkerpug chat widget has moved to
+                    /archive (Phase B of the Archive feature). Import
+                    kept so a re-enable is trivial: render
+                    <EnhancedAIAssistant /> here again. */}
                 <BigWinToast />
                 <NotificationPermissionPrompt />
                 {/* WhatsNewToast removed — pop-up parked. Re-enable by
