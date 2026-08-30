@@ -1,0 +1,17 @@
+{
+  "summary": "CORS regression: verified adding https://pug-journal-2.emergent.host to CORS_ORIGINS. All 20 pytest cases passed against preview backend (REACT_APP_BACKEND_URL). Verified: .env contains all 3 origins; OPTIONS preflight for /api/archive/{entries,rank,drops,share} returns 200/204 with Access-Control-Allow-Origin echoed correctly for all 3 allowed origins; GET /api/archive/entries returns exactly 27 entries with ACAO=https://pug-journal-2.emergent.host; GET /api/archive/rank?wallet=TEST123 -> 200; GET /api/archive/drops?wallet=TEST123&page=1&limit=5 -> 200; POST /api/archive/share with X-Bullpug-CSRF:1 -> 200 with image_base64 field present; bullpug.com and cosmic-runner-hub preview origins still work (no regression); bogus origin https://not-allowed.example.com is NOT reflected in ACAO. Live server ACAO headers echo the specific origin (not '*'), confirming the running backend has picked up the updated CORS_ORIGINS value from .env.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_cors_pug_journal.py",
+    "/app/test_reports/pytest/cors_pug_journal.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": ["/app/backend/tests/test_cors_pug_journal.py"],
+  "success_rate": {"backend": "100%", "frontend": "not tested (skipped per request)"},
+  "seed_data_creation": "None (used TEST123 wallet in query params only; no data mutations persisted)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CORS test file /app/backend/tests/test_cors_pug_journal.py is a reusable regression for the archive CORS setup. If more origins are added later, extend ALLOWED_ORIGINS list. Preview backend uses dotenv (in-process); env vars are not visible in /proc/PID/environ, so validate via live ACAO header behaviour."
+}
