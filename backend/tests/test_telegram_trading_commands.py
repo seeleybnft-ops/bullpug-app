@@ -44,7 +44,7 @@ def setup_test_telegram_account(api_client):
     # Cleanup
     try:
         api_client.post(f"{BASE_URL}/api/telegram/unlink/{TEST_WALLET}")
-    except:
+    except Exception:
         pass
 
 

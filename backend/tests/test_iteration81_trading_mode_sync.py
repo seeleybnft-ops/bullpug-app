@@ -196,7 +196,7 @@ def cleanup():
     # Cleanup: Delete test wallet settings
     try:
         requests.delete(f"{BASE_URL}/api/ai-trader/settings/{TEST_WALLET}")
-    except:
+    except Exception:
         pass
 
 

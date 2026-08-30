@@ -139,6 +139,20 @@ async def get_active_competitions():
     }
 
 
+@router.get("/history")
+async def get_competition_history(limit: int = Query(20, ge=1, le=100)):
+    """Get past competitions."""
+    competitions = await db.trading_competitions.find(
+        {"status": "ended"},
+        {"_id": 0}
+    ).sort("ended_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "competitions": competitions,
+        "count": len(competitions)
+    }
+
+
 @router.get("/{competition_id}")
 async def get_competition(competition_id: str):
     """Get competition details."""
@@ -467,20 +481,6 @@ async def end_competition(competition_id: str):
         "message": f"Competition ended with {len(final_entries)} participants",
         "winners": winners[:10],
         "total_prize_distributed_sol": round(sum(w["prize_sol"] for w in winners), 6)
-    }
-
-
-@router.get("/history")
-async def get_competition_history(limit: int = Query(20, ge=1, le=100)):
-    """Get past competitions."""
-    competitions = await db.trading_competitions.find(
-        {"status": "ended"},
-        {"_id": 0}
-    ).sort("ended_at", -1).limit(limit).to_list(limit)
-    
-    return {
-        "competitions": competitions,
-        "count": len(competitions)
     }
 
 
