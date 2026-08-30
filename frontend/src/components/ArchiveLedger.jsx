@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import LoreCard from "./LoreCard";
 import RankBadge from "./RankBadge";
 import DailyDropVault from "./DailyDropVault";
+import ShareableCard from "./ShareableCard";
 import { Share2, BookOpen, Sparkles } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -74,6 +75,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
   const [rankData, setRankData] = useState(null);
   const [section, setSection] = useState("ledger"); // "ledger" | "drops"
   const [loading, setLoading] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Fetch entries + rank on mount / wallet change / external refresh
   useEffect(() => {
@@ -125,25 +127,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
   const rankColor = RANK_COLOR[rank || "none"];
   const progressPct = total ? (unlockedCount / total) * 100 : 0;
 
-  const shareArchive = () => {
-    const text =
-      rank === "keepers_circle"
-        ? "Keeper's Circle. The full record. Tinkerpug filed my signal in The Ledger. bullpug.com/archive 🐾⚡"
-        : rank === "archivist"
-        ? `Archivist rank — ${unlockedCount} of ${total} lore entries found. There's a full universe in here. bullpug.com/archive 🐾`
-        : rank === "seeker"
-        ? "Just reached Seeker rank in the Bullpug Archive. The chain runs deeper than I thought. Ask Tinkerpug: bullpug.com/archive 🐾"
-        : `${unlockedCount} of ${total} Archive entries discovered — building the record. bullpug.com/archive 🐾`;
-    const url = window.location.origin + "/archive";
-    if (navigator.share) {
-      navigator.share({ title: "Bullpug Archive", text, url }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${text}\n${url}`).then(
-        () => alert("Share text copied to clipboard."),
-        () => {}
-      );
-    }
-  };
+  const shareArchive = () => setShareOpen(true);
 
   return (
     <aside
@@ -246,6 +230,8 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
           <DailyDropVault wallet={wallet} />
         )}
       </div>
+
+      {shareOpen && <ShareableCard wallet={wallet} onClose={() => setShareOpen(false)} />}
     </aside>
   );
 }

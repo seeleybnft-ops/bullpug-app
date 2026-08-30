@@ -22,11 +22,17 @@ from `utils.admin_auth`.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from services import archive_achievements as archive
+from services import archive_share_card
 from utils.admin_auth import require_admin_jwt
 
 router = APIRouter(prefix="/archive", tags=["archive"])
+
+
+class ShareRequest(BaseModel):
+    wallet: str
 
 
 def _clean_wallet(w: Optional[str]) -> str:
@@ -159,3 +165,26 @@ async def list_drops(
 async def admin_archive_stats():
     """Aggregate stats — unlock counts per entry, rank distribution."""
     return await archive.admin_stats()
+
+
+@router.post("/share")
+async def generate_share(payload: ShareRequest):
+    """Generate the 1200×630 shareable Archive card PNG.
+
+    Returns `{ image_base64, mime, wallet, rank, rank_title, unlocked_count }`.
+    Base64 has no data-URL prefix — the client prepends it when rendering.
+    """
+    w = _clean_wallet(payload.wallet)
+    b64 = await archive_share_card.generate_share_card(w)
+    if not b64:
+        raise HTTPException(status_code=500, detail="failed to render share card")
+    snap = await archive.get_rank_snapshot(w)
+    return {
+        "wallet": w,
+        "image_base64": b64,
+        "mime": "image/png",
+        "rank": snap.get("rank"),
+        "rank_title": snap.get("rank_title"),
+        "unlocked_count": snap.get("unlocked_count"),
+        "total": snap.get("total"),
+    }

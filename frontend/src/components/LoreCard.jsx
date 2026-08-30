@@ -154,10 +154,22 @@ export default function LoreCard({ entry, onClick }) {
           </>
         ) : (
           <>
-            {/* PULL COPY — locked description must be fully visible.
-                Italicised, muted but readable — designed to make the
-                visitor want to unlock this. */}
-            <p className="text-[11px] leading-relaxed italic text-slate-500">
+            {/* Locked description is blurred to match the title —
+                shape-of-text is preserved so the card reads as sealed
+                content, but the words themselves are unreadable and
+                unsearchable. italic + slate colour survives underneath
+                the blur so the visual language stays consistent with
+                the unlocked state. */}
+            <p
+              aria-hidden="true"
+              className="text-[11px] leading-relaxed italic text-slate-500 select-none"
+              style={{
+                filter: "blur(6px)",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                pointerEvents: "none",
+              }}
+            >
               {entry.locked_desc}
             </p>
             <p
