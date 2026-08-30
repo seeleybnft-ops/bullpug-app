@@ -12,8 +12,10 @@
  * Tier tint follows the same palette as RankBadge:
  *   Tier 1 → cyan   Tier 2 → violet   Tier 3 → gold
  */
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Lock, Sparkles } from "lucide-react";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const TIER = {
   1: { color: "#00FFA3", label: "TIER I", dots: 1 },
@@ -55,6 +57,29 @@ function formatDate(iso) {
 export default function LoreCard({ entry, onClick }) {
   const tierMeta = TIER[entry.tier] || TIER[1];
   const unlocked = !!entry.unlocked;
+
+  // Lazily fetch the Visual Canon thumbnail on mount when the entry is
+  // unlocked and the entries endpoint says an image exists. Failures
+  // are silent — the card just renders without a thumb and the next
+  // ledger refresh (or a page reload) retries. Never re-fetches once
+  // we have a URL.
+  const [thumb, setThumb] = useState(null);
+  useEffect(() => {
+    if (!unlocked || !entry.has_image || thumb) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/archive/entry-image/${encodeURIComponent(entry.slug)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data.image_base64) return;
+        setThumb(`data:${data.image_mime || "image/png"};base64,${data.image_base64}`);
+      } catch {
+        /* silent retry-on-remount */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [unlocked, entry.has_image, entry.slug, thumb]);
 
   const baseClasses =
     "relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 group cursor-default";
@@ -143,6 +168,32 @@ export default function LoreCard({ entry, onClick }) {
         {/* Body — locked description OR unlocked excerpt */}
         {unlocked ? (
           <>
+            {thumb && (
+              <div
+                className="relative w-full rounded-lg overflow-hidden mt-0.5"
+                style={{
+                  height: 96,
+                  border: `1px solid ${tierMeta.color}33`,
+                  boxShadow: `0 0 12px ${tierMeta.color}22`,
+                }}
+              >
+                <img
+                  src={thumb}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                  draggable={false}
+                />
+                <div
+                  aria-hidden
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(5,7,18,0) 40%, rgba(5,7,18,0.6) 100%)",
+                  }}
+                />
+              </div>
+            )}
             <p className="text-[11px] leading-relaxed text-slate-400 line-clamp-3">
               {(entry.tinkerpug_excerpt || entry.locked_desc || "").replace(/^["“]|["”]$/g, "")}
             </p>

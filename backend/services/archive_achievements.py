@@ -29,6 +29,7 @@ Two MongoDB collections back this system:
 Indexes are declared in `server.py`'s startup hook.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -258,9 +259,11 @@ async def get_rank_snapshot(wallet_address: str) -> Dict:
 async def get_master_entries_for_wallet(wallet_address: Optional[str]) -> List[Dict]:
     """Return the full master list annotated with per-wallet unlock state.
 
-    Every entry gets `{unlocked: bool, unlocked_at, tinkerpug_excerpt}` merged
-    in when this wallet has unlocked it. Order matches MASTER_ENTRIES (tier
-    ascending, then original insertion order within a tier).
+    Every entry gets `{unlocked: bool, unlocked_at, tinkerpug_excerpt, has_image}`
+    merged in when this wallet has unlocked it. `has_image` is true when the
+    Visual Canon Ledger has ANY document for the entry's slug (pending, canon,
+    or admin_override) — the lore card will fetch it lazily via
+    `/api/archive/entry-image/{slug}`. Order matches MASTER_ENTRIES.
     """
     w = _norm_wallet(wallet_address)
     unlocks_by_slug: Dict[str, Dict] = {}
@@ -275,6 +278,22 @@ async def get_master_entries_for_wallet(wallet_address: Optional[str]) -> List[D
         except Exception as e:
             logger.warning("get_master_entries_for_wallet failed for %s: %s", w, e)
 
+    # Query visual_canon once for every slug that has any stored image —
+    # a single roundtrip beats one lookup per card. Never treat this as
+    # required; if the collection query fails we just render without
+    # thumbnails.
+    image_slugs: set = set()
+    try:
+        canon_cursor = db["visual_canon"].find(
+            {"subject_tag": {"$in": [e["slug"] for e in MASTER_ENTRIES]},
+             "image_base64": {"$exists": True, "$ne": None}},
+            {"subject_tag": 1, "_id": 0},
+        )
+        for doc in await canon_cursor.to_list(length=TOTAL_ENTRIES + 10):
+            image_slugs.add(doc.get("subject_tag"))
+    except Exception as e:
+        logger.warning("has_image lookup failed: %s", e)
+
     annotated: List[Dict] = []
     for entry in MASTER_ENTRIES:
         u = unlocks_by_slug.get(entry["slug"])
@@ -287,6 +306,7 @@ async def get_master_entries_for_wallet(wallet_address: Optional[str]) -> List[D
             "unlocked_at": u.get("unlocked_at") if u else None,
             "tinkerpug_excerpt": u.get("tinkerpug_excerpt") if u else None,
             "unlock_prompt": u.get("unlock_prompt") if u else None,
+            "has_image": entry["slug"] in image_slugs,
         })
     return annotated
 
@@ -459,6 +479,18 @@ async def record_unlock(
         w[:12] + "…", entry_id, entry["tier"], new_rank, is_rank_up,
     )
 
+    # Fire-and-forget: ensure the Visual Canon Ledger has an image for
+    # this entry. If canon already exists (chat has generated it before)
+    # this is a cheap DB read + return. Otherwise the background task
+    # generates a fresh image and stores it as pending. The unlock
+    # celebration never blocks on this — the lore card fetches the
+    # thumbnail lazily on next render.
+    import asyncio as _asyncio
+    try:
+        _asyncio.create_task(ensure_entry_image(entry_id))
+    except Exception as _e:
+        logger.warning("failed to schedule ensure_entry_image for %s: %s", entry_id, _e)
+
     return {
         "entry_id": entry_id,
         "entry_name": entry["name"],
@@ -569,3 +601,184 @@ async def admin_stats() -> Dict:
             "entries": [],
             "rank_distribution": {},
         }
+
+
+# ── Visual Canon integration (Phase E) ─────────────────────────────────
+# On unlock we ensure the Visual Canon Ledger holds an image for the
+# subject the entry describes. The canon collection is the SINGLE source
+# of truth for entry thumbnails — we never store a second copy on the
+# archive_unlocks doc. LoreCards fetch the image lazily by slug via
+# `GET /api/archive/entry-image/{slug}` when they render in unlocked
+# state.
+#
+# The entry-slug IS the canon subject_tag. If canon already exists
+# (chat has generated this subject before), we return immediately. If
+# not, we fire a Gemini generation with a prompt derived from the entry's
+# name + locked description, storing the result as `status: pending`
+# using visual_canon.record_generation — which means the next community
+# member to ask about the same subject in chat gets our generation as
+# their reference too. Both systems benefit.
+
+# One-shot lock per slug so parallel unlocks of the same entry (unlikely
+# but possible if two wallets classify it simultaneously) don't race on
+# the same Gemini call.
+_ENTRY_IMAGE_LOCKS: Dict[str, "asyncio.Lock"] = {}
+
+
+async def get_entry_image(slug: str) -> Optional[Dict]:
+    """Return `{image_base64, image_mime, status}` from the canon collection
+    for this entry slug, or None if nothing is stored yet. Any status is
+    acceptable — we render pending generations as thumbnails so users see
+    art appear as soon as it's generated, not only after promotion."""
+    if not slug or slug not in _BY_SLUG:
+        return None
+    try:
+        doc = await db["visual_canon"].find_one(
+            {"subject_tag": slug, "image_base64": {"$exists": True, "$ne": None}},
+            {"image_base64": 1, "image_mime": 1, "status": 1, "_id": 0},
+        )
+        return doc or None
+    except Exception as e:
+        logger.warning("get_entry_image failed for %s: %s", slug, e)
+        return None
+
+
+def _build_entry_prompt(entry: Dict) -> str:
+    """Compose the Gemini prompt for a lore-entry image.
+
+    Uses the entry name + locked description so the generated image
+    frames the subject the same way visitors are teased about it. The
+    Bullpughan universe style guardrails come from the LLM system
+    message; here we just describe the SUBJECT.
+    """
+    name = entry.get("name") or entry.get("slug")
+    tease = entry.get("locked_desc") or ""
+    return (
+        f"Archive entry: {name}. {tease} "
+        "Cinematic hyperdetailed digital art, single cohesive scene, "
+        "the Bullpug universe aesthetic. Do NOT include any text, "
+        "letters, words, captions, or typography anywhere in the image."
+    ).strip()
+
+
+async def _generate_entry_image(entry: Dict) -> Optional[Dict]:
+    """Generate + cache the visual_canon image for an entry.
+
+    Returns `{image_base64, image_mime}` on success, None on any failure
+    (network hiccup, model refusal, missing key, …). Failures are
+    swallowed — the LoreCard just renders without a thumbnail and the
+    next unlock or admin action can retry. Never raises.
+    """
+    # Imports kept local to avoid pulling the Gemini SDK into cold
+    # startup paths (subject-only chat text responses shouldn't need it).
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
+        from services.image_references import (
+            BULLPUG_REFERENCE_URL,
+            TINKERPUG_REFERENCE_URL,
+            REFERENCE_MIME,
+            load_reference_b64,
+        )
+    except Exception as e:
+        logger.warning("Entry image gen: SDK import failed: %s", e)
+        return None
+
+    api_key = _os_env("EMERGENT_LLM_KEY")
+    if not api_key:
+        logger.info("Entry image gen: EMERGENT_LLM_KEY missing — skipping")
+        return None
+
+    prompt = _build_entry_prompt(entry)
+    # Attach the character reference for the two entries that ARE named
+    # characters at Tier 2 (`ruffus-deep`, `tinkerpug-patches`) — using
+    # the same character canon the chat pipeline uses so the record
+    # stays visually consistent.
+    ref_url = None
+    if entry["slug"] == "tinkerpug-patches":
+        ref_url = TINKERPUG_REFERENCE_URL
+    # (Bullpug isn't a subject_tag in MASTER_ENTRIES — character-named
+    # subjects are excluded from the canon ledger by spec.)
+    file_contents = None
+    if ref_url:
+        b64 = await load_reference_b64(ref_url)
+        if b64:
+            file_contents = [FileContent(content_type=REFERENCE_MIME,
+                                         file_content_base64=b64)]
+
+    try:
+        chat = (
+            LlmChat(
+                api_key=api_key,
+                session_id=f"archive-entry-{entry['slug']}",
+                system_message=(
+                    "You are Tinkerpug, Keeper of the Archive. Retrieve "
+                    "ONE cinematic image matching the described Archive "
+                    "record in the Bullpug universe style. Never include "
+                    "gold coins, currency symbols, price imagery, or any "
+                    "financial iconography — the Bullpug universe is a "
+                    "story world, imagery is narrative not financial."
+                ),
+            )
+            .with_model("gemini", "gemini-3.1-flash-image-preview")
+            .with_params(modalities=["image", "text"])
+        )
+        msg = UserMessage(text=prompt, file_contents=file_contents)
+        _, images = await chat.send_message_multimodal_response(msg)
+        if not images:
+            return None
+        img = images[0]
+        b64 = img.get("data") or ""
+        mime = img.get("mime_type") or "image/png"
+        if not b64:
+            return None
+        # Store in visual_canon so subsequent lookups (from both the
+        # Archive and the chat pipeline) get the same reference.
+        from services import visual_canon
+        await visual_canon.record_generation(
+            subject_tag=entry["slug"],
+            subject_display=entry.get("name") or entry["slug"],
+            first_prompt=prompt,
+            image_base64=b64,
+            image_mime=mime,
+        )
+        return {"image_base64": b64, "image_mime": mime}
+    except Exception as e:
+        logger.warning("Entry image gen failed for %s: %s", entry["slug"], e)
+        return None
+
+
+def _os_env(k: str) -> Optional[str]:
+    import os
+    return os.environ.get(k)
+
+
+async def ensure_entry_image(slug: str) -> Optional[Dict]:
+    """Idempotent: guarantee visual_canon holds an image for this entry.
+
+    Return shape (or None): `{image_base64, image_mime, status}`.
+    Uses a per-slug asyncio.Lock so concurrent unlocks of the same
+    entry only trigger one generation call.
+    """
+    if not slug or slug not in _BY_SLUG:
+        return None
+
+    # Fast path — already have one
+    existing = await get_entry_image(slug)
+    if existing:
+        return existing
+
+    # Slow path — acquire per-slug lock and generate
+    import asyncio as _asyncio
+    lock = _ENTRY_IMAGE_LOCKS.get(slug)
+    if lock is None:
+        lock = _asyncio.Lock()
+        _ENTRY_IMAGE_LOCKS[slug] = lock
+    async with lock:
+        # Re-check inside the lock in case another task filled it
+        existing = await get_entry_image(slug)
+        if existing:
+            return existing
+        result = await _generate_entry_image(_BY_SLUG[slug])
+        if result:
+            return {**result, "status": "pending"}
+        return None

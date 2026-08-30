@@ -167,6 +167,42 @@ async def admin_archive_stats():
     return await archive.admin_stats()
 
 
+@router.get("/entry-image/{slug}")
+async def get_entry_image(slug: str):
+    """Return the Visual-Canon-stored image for a single lore entry.
+
+    Any status (pending, canon, admin_override) counts — visitors see
+    the art as soon as it's been generated, not only after promotion.
+    Missing image → 404 so the LoreCard can quietly render without a
+    thumbnail and retry on next load.
+    """
+    if not slug:
+        raise HTTPException(status_code=404, detail="not found")
+    doc = await archive.get_entry_image(slug)
+    if not doc:
+        raise HTTPException(status_code=404, detail="not found")
+    return {
+        "slug": slug,
+        "image_base64": doc.get("image_base64"),
+        "image_mime": doc.get("image_mime") or "image/png",
+        "status": doc.get("status"),
+    }
+
+
+@router.post("/entry-image/{slug}/generate")
+async def regen_entry_image(slug: str):
+    """Force (re-)generation of an entry's image. Useful when a first
+    generation was rejected or the visitor wants a re-roll before it's
+    promoted. Blocks until the generation finishes — kept behind an
+    explicit user click, not a passive load."""
+    if not slug:
+        raise HTTPException(status_code=404, detail="not found")
+    doc = await archive.ensure_entry_image(slug)
+    if not doc:
+        raise HTTPException(status_code=502, detail="generation failed")
+    return {"slug": slug, "status": doc.get("status", "pending")}
+
+
 @router.post("/share")
 async def generate_share(payload: ShareRequest):
     """Generate the 1200×630 shareable Archive card PNG.
