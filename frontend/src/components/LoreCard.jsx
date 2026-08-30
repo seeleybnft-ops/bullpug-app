@@ -104,17 +104,41 @@ export default function LoreCard({ entry, onClick }) {
           )}
         </div>
 
-        {/* Name — always visible */}
-        <h4
-          className="text-sm font-bold leading-tight"
-          style={{
-            color: unlocked ? "#fff" : "rgba(255,255,255,0.5)",
-            fontFamily: "Orbitron, sans-serif",
-            letterSpacing: "0.02em",
-          }}
-        >
-          {entry.name}
-        </h4>
+        {/* Name — visible when unlocked, redacted with a heavy blur when
+            locked. We still render the real string so the DOM node is
+            the same shape (layout stays identical between states), but
+            we apply `filter: blur(6px)`, dim the colour heavily, and
+            block selection/aria-hide it so it cannot be copy-pasted or
+            read by assistive tech. The shape of a title is implied;
+            the words are not. */}
+        {unlocked ? (
+          <h4
+            className="text-sm font-bold leading-tight"
+            style={{
+              color: "#fff",
+              fontFamily: "Orbitron, sans-serif",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {entry.name}
+          </h4>
+        ) : (
+          <h4
+            aria-hidden="true"
+            className="text-sm font-bold leading-tight select-none"
+            style={{
+              color: "rgba(255,255,255,0.35)",
+              fontFamily: "Orbitron, sans-serif",
+              letterSpacing: "0.02em",
+              filter: "blur(6px)",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              pointerEvents: "none",
+            }}
+          >
+            {entry.name}
+          </h4>
+        )}
 
         {/* Body — locked description OR unlocked excerpt */}
         {unlocked ? (

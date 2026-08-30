@@ -16,6 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Send, Loader2, Radio, MessageCircle, BookOpen } from "lucide-react";
 import ArchiveLedger from "@/components/ArchiveLedger";
+import UnlockCelebration from "@/components/UnlockCelebration";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TINKERPUG_AVATAR = "/tinkerpug-canon.jpg";
@@ -390,17 +391,142 @@ export default function Archive() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [mobileTab, setMobileTab] = useState("keeper"); // keeper | ledger
 
-  // Poll for new unlocks briefly after each assistant reply — the
-  // classifier runs async on the backend so the unlock lands 3–8s later.
+  // Celebration queue — new unlocks detected by diffing the /unlocks
+  // poll against a set of slugs we've already celebrated (or seen on
+  // load). One celebration plays at a time; the queue drains in the
+  // order the classifier recorded them.
+  const [queue, setQueue] = useState([]);
+  const [active, setActive] = useState(null);
+  const seenSlugsRef = useRef(new Set());
+  const seenRankRef = useRef(null); // last-observed rank; drives rank-up flag
+  const initialisedRef = useRef(false);
+
+  // Poll for new unlocks after each assistant reply. Runs immediately
+  // (in case the classifier finished fast), then again at 4s and 9s to
+  // catch typical latencies. Also runs once on mount to seed the
+  // "already seen" baseline so an existing user doesn't get carpet-
+  // celebrated on page load.
+  const pollUnlocks = useCallback(async () => {
+    if (!wallet) return;
+    try {
+      const [uRes, rRes] = await Promise.all([
+        fetch(`${API}/archive/unlocks?wallet=${encodeURIComponent(wallet)}`),
+        fetch(`${API}/archive/rank?wallet=${encodeURIComponent(wallet)}`),
+      ]);
+      if (!uRes.ok) return;
+      const uData = await uRes.json();
+      const rData = rRes.ok ? await rRes.json() : { rank: null };
+      const currentRank = rData?.rank ?? null;
+      const unlocks = uData.unlocks || [];
+
+      // First run — seed baseline, don't celebrate anything historical.
+      if (!initialisedRef.current) {
+        initialisedRef.current = true;
+        seenSlugsRef.current = new Set(unlocks.map((u) => u.entry_id));
+        seenRankRef.current = currentRank;
+        return;
+      }
+
+      // Anything new? Server returns newest-first — walk oldest-to-newest
+      // when queueing so the celebrations play in chronological order.
+      const fresh = unlocks
+        .filter((u) => !seenSlugsRef.current.has(u.entry_id))
+        .reverse();
+      if (fresh.length === 0) return;
+      const previousRank = seenRankRef.current;
+      const finalIndex = fresh.length - 1;
+      const enriched = fresh.map((u, i) => {
+        const isRankUp = i === finalIndex && currentRank && currentRank !== previousRank;
+        return {
+          entry_id: u.entry_id,
+          entry_name: u.entry_id, // fallback — real name filled from entries below
+          entry_tier: u.entry_tier,
+          tinkerpug_excerpt: u.tinkerpug_excerpt,
+          unlocked_at: u.unlocked_at,
+          is_rank_up: !!isRankUp,
+          new_rank: isRankUp ? currentRank : null,
+          new_rank_title: isRankUp ? rData?.rank_title : null,
+        };
+      });
+      // Enrich with real display names from /entries so the celebration
+      // card shows "Ruffus and the Runes", not the slug.
+      try {
+        const eRes = await fetch(
+          `${API}/archive/entries?wallet=${encodeURIComponent(wallet)}`
+        );
+        if (eRes.ok) {
+          const eData = await eRes.json();
+          const byId = Object.fromEntries((eData.entries || []).map((e) => [e.slug, e]));
+          enriched.forEach((u) => {
+            const meta = byId[u.entry_id];
+            if (meta) u.entry_name = meta.name;
+          });
+        }
+      } catch {
+        /* fall back to slug */
+      }
+      fresh.forEach((u) => seenSlugsRef.current.add(u.entry_id));
+      seenRankRef.current = currentRank;
+      setQueue((prev) => [...prev, ...enriched]);
+    } catch {
+      /* silent — celebrations are optional */
+    }
+  }, [wallet]);
+
+  // Poll trio after an assistant reply
   const bumpRefresh = useCallback(() => {
-    // First bump immediately (in case the classifier finished fast),
-    // then again at 4s and 9s to catch typical latencies.
     setRefreshTick((n) => n + 1);
-    const t1 = setTimeout(() => setRefreshTick((n) => n + 1), 4000);
-    const t2 = setTimeout(() => setRefreshTick((n) => n + 1), 9000);
+    pollUnlocks();
+    const t1 = setTimeout(() => {
+      setRefreshTick((n) => n + 1);
+      pollUnlocks();
+    }, 4000);
+    const t2 = setTimeout(() => {
+      setRefreshTick((n) => n + 1);
+      pollUnlocks();
+    }, 9000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+    };
+  }, [pollUnlocks]);
+
+  // Baseline poll on mount / wallet change
+  useEffect(() => {
+    initialisedRef.current = false;
+    seenSlugsRef.current = new Set();
+    seenRankRef.current = null;
+    setQueue([]);
+    setActive(null);
+    if (wallet) pollUnlocks();
+  }, [wallet, pollUnlocks]);
+
+  // Drain the queue one at a time
+  useEffect(() => {
+    if (active || queue.length === 0) return;
+    const [next, ...rest] = queue;
+    setActive(next);
+    setQueue(rest);
+  }, [active, queue]);
+
+  // Dev-only test hook — expose a queue-push function on window when
+  // the URL carries `?archive-test=1` so QA can validate the three
+  // tier celebrations and rank-up overlay without driving a real
+  // wallet + classifier cycle. Zero cost in normal usage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const enabled =
+      window.location.search.indexOf("archive-test=1") !== -1;
+    if (!enabled) return;
+    window.__archivePushUnlock = (u) => {
+      setQueue((prev) => [...prev, u]);
+    };
+    return () => {
+      try {
+        delete window.__archivePushUnlock;
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
@@ -443,6 +569,17 @@ export default function Archive() {
           <ArchiveLedger wallet={wallet} refreshKey={refreshTick} />
         </div>
       </div>
+
+      {/* Unlock celebration overlay — plays one entry from the queue at
+          a time. Fires the tier-appropriate FX + rank-up card, then
+          drops the entry so the next one in the queue can play. */}
+      {active && (
+        <UnlockCelebration
+          key={active.entry_id + "-" + (active.unlocked_at || "")}
+          unlock={active}
+          onDone={() => setActive(null)}
+        />
+      )}
     </div>
   );
 }
