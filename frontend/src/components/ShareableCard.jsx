@@ -79,6 +79,8 @@ export default function ShareableCard({ wallet, onClose }) {
     return () => document.removeEventListener("keydown", onEsc);
   }, [onClose]);
 
+  const [shareStatus, setShareStatus] = useState(null); // null | "copied" | "shared" | "error"
+
   const download = () => {
     if (!state.image) return;
     const a = document.createElement("a");
@@ -89,10 +91,62 @@ export default function ShareableCard({ wallet, onClose }) {
     a.remove();
   };
 
+  // Mobile UA sniff — same conservative check used elsewhere. Desktop
+  // gets an image-clipboard copy; mobile keeps the Web Share sheet
+  // which is fine there (native image previews render correctly).
+  const isMobile = () => {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod|IEMobile|BlackBerry|Opera Mini/i.test(
+      navigator.userAgent || ""
+    );
+  };
+
+  // Copy the rendered PNG to the OS clipboard as a real image blob so
+  // pasting into X / Discord / Slack lands the card, not a URL.
+  const copyImageToClipboard = async () => {
+    if (!state.image) return false;
+    if (!navigator?.clipboard?.write || typeof ClipboardItem === "undefined") {
+      return false;
+    }
+    try {
+      const res = await fetch(state.image);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type || "image/png"]: blob }),
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const share = async () => {
     const url = window.location.origin + "/archive";
-    // Try Web Share with the actual file if the platform supports it —
-    // that gives a real image on X mobile without needing us to host it.
+    setShareStatus(null);
+
+    // ── Desktop path: copy the image to the clipboard, no OS dialog ──
+    if (!isMobile()) {
+      const ok = await copyImageToClipboard();
+      if (ok) {
+        setShareStatus("copied");
+        // Also copy the share text so a follow-up paste in the caption
+        // box lands the text half.
+        try { await navigator.clipboard.writeText(text); } catch { /* silent */ }
+        setTimeout(() => setShareStatus(null), 5000);
+        return;
+      }
+      // Fallback if clipboard API unavailable: just copy the text.
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setShareStatus("copied");
+        setTimeout(() => setShareStatus(null), 5000);
+      } catch {
+        setShareStatus("error");
+      }
+      return;
+    }
+
+    // ── Mobile path: keep the Web Share sheet w/ file attachment ────
     try {
       if (state.image && navigator.canShare) {
         const res = await fetch(state.image);
@@ -100,18 +154,22 @@ export default function ShareableCard({ wallet, onClose }) {
         const file = new File([blob], "bullpug-archive.png", { type: "image/png" });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ title: "Bullpug Archive", text, url, files: [file] });
+          setShareStatus("shared");
           return;
         }
       }
       if (navigator.share) {
         await navigator.share({ title: "Bullpug Archive", text, url });
+        setShareStatus("shared");
         return;
       }
-    } catch { /* fall through */ }
+    } catch { /* user dismissed sheet — silent */ }
     try {
       await navigator.clipboard.writeText(`${text}\n${url}`);
-      alert("Share text copied to clipboard.");
-    } catch { /* silent */ }
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("error");
+    }
   };
 
   return (
@@ -228,6 +286,33 @@ export default function ShareableCard({ wallet, onClose }) {
               <Share2 size={13} /> Share
             </button>
           </div>
+          {shareStatus === "copied" && (
+            <p
+              className="text-[11px] text-center pt-2"
+              style={{ fontFamily: "monospace", color: "#00FFA3" }}
+              data-testid="share-card-copied-message"
+            >
+              keeper's note: image copied to clipboard. paste it anywhere.
+            </p>
+          )}
+          {shareStatus === "shared" && (
+            <p
+              className="text-[11px] text-center pt-2"
+              style={{ fontFamily: "monospace", color: "#00FFA3" }}
+              data-testid="share-card-shared-message"
+            >
+              keeper's note: signal on its way.
+            </p>
+          )}
+          {shareStatus === "error" && (
+            <p
+              className="text-[11px] text-center pt-2 text-red-300/90"
+              style={{ fontFamily: "monospace" }}
+              data-testid="share-card-share-error"
+            >
+              keeper's note: clipboard blocked — use Save PNG instead.
+            </p>
+          )}
         </div>
       </div>
     </div>

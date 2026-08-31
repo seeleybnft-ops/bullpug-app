@@ -22,8 +22,9 @@
  * the celebration lets the lore lands first, per spec §2.4.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { X, Share2, Sparkles } from "lucide-react";
+import { X, Share2, Sparkles, Award } from "lucide-react";
 import RankBadge from "./RankBadge";
+import generateKeepersCertificate from "@/utils/keepersCertificate";
 
 const TIER_COLOR = { 1: "#00FFA3", 2: "#B47CFF", 3: "#F5D300" };
 const RANK_POSTSCRIPT = {
@@ -209,7 +210,7 @@ function UnlockCard({ unlock, onDismiss }) {
 }
 
 // ── Rank-up overlay ──────────────────────────────────────────────────
-function RankUpOverlay({ rank, onDismiss }) {
+function RankUpOverlay({ rank, onDismiss, wallet }) {
   const color = TIER_COLOR[rank === "seeker" ? 1 : rank === "archivist" ? 2 : 3];
   const title = RANK_TITLES[rank] || "Rank";
   const postscript = RANK_POSTSCRIPT[rank] || "";
@@ -286,6 +287,26 @@ function RankUpOverlay({ rank, onDismiss }) {
         >
           <Share2 size={13} /> Share
         </button>
+        {rank === "keepers_circle" && (
+          <button
+            type="button"
+            onClick={() =>
+              generateKeepersCertificate({
+                wallet: wallet || "",
+                rankReachedAt: new Date().toISOString(),
+              })
+            }
+            data-testid="rank-up-certificate"
+            className="mt-3 ml-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-black transition-transform hover:scale-[1.03]"
+            style={{
+              background: "#F5D300",
+              fontFamily: "Orbitron, sans-serif",
+              boxShadow: "0 0 16px rgba(245,211,0,0.4)",
+            }}
+          >
+            <Award size={13} /> Download Certificate
+          </button>
+        )}
       </div>
       <style>{`
         @keyframes archive-rankup-in {
@@ -334,7 +355,7 @@ function GlyphPulse({ color, pulses = 3 }) {
  * `unlock` shape: { entry_id, entry_name, entry_tier, tinkerpug_excerpt,
  *                   is_rank_up, new_rank, new_rank_title }
  */
-export default function UnlockCelebration({ unlock, onDone }) {
+export default function UnlockCelebration({ unlock, onDone, wallet }) {
   const [stage, setStage] = useState("waiting");
   // waiting → celebrating → rankup (if rank_up) → done
 
@@ -390,7 +411,7 @@ export default function UnlockCelebration({ unlock, onDone }) {
         <UnlockCard unlock={unlock} onDismiss={() => setStage(unlock.is_rank_up ? "rankup" : "done")} />
       )}
       {stage === "rankup" && (
-        <RankUpOverlay rank={unlock.new_rank} onDismiss={() => setStage("done")} />
+        <RankUpOverlay rank={unlock.new_rank} wallet={wallet} onDismiss={() => setStage("done")} />
       )}
     </>
   );

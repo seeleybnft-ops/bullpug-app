@@ -16,7 +16,8 @@ import RankBadge from "./RankBadge";
 import DailyDropVault from "./DailyDropVault";
 import ShareableCard from "./ShareableCard";
 import TheRecord from "./TheRecord";
-import { Share2, BookOpen, Sparkles, Trophy } from "lucide-react";
+import { Share2, BookOpen, Sparkles, Trophy, Award } from "lucide-react";
+import generateKeepersCertificate from "@/utils/keepersCertificate";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -187,6 +188,28 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
             <Share2 size={11} />
             <span className="hidden lg:inline">Share</span>
           </button>
+          {isKeeper && (
+            <button
+              type="button"
+              onClick={() =>
+                generateKeepersCertificate({
+                  wallet,
+                  rankReachedAt: rankData?.rank_reached_at || rankData?.updated_at,
+                })
+              }
+              data-testid="ledger-certificate-btn"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-black transition-transform hover:scale-[1.03]"
+              style={{
+                background: "#F5D300",
+                fontFamily: "Orbitron, sans-serif",
+                boxShadow: "0 0 12px rgba(245,211,0,0.35)",
+              }}
+              title="Download your Keeper's Circle certificate"
+            >
+              <Award size={11} />
+              <span className="hidden lg:inline">Certificate</span>
+            </button>
+          )}
         </div>
         <div className="mt-4">
           <ProgressBar percent={progressPct} color={rankColor} />

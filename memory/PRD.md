@@ -1,5 +1,28 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — Notify + Chime + Certificate + Desktop Share Fix
+
+Testing agent iteration_117: 100% backend (5/5) + 100% frontend (code + live). Applied one minor UX refinement afterwards (Act I input `type="text"` + `inputMode="email"` so branded invalid message is reachable).
+
+**1. Episode Notify**: `ActIPlaceholder` in `Lore.js` now has email capture (form → POST `/api/newsletter/subscribe` w/ `source="act1-placeholder"`). Success replaces form with monospace Tinkerpug success. Backend `newsletter.py` accepts optional `source` field, preserves first-touch source on repeat signups.
+
+**2. Announcement Chime**: `TheRecord.jsx` — two-note Web Audio "chain-bark" (sine + triangle oscillator with envelope). Chimes once per new KC announcement per session via `sessionStorage[keeper_announcement_last_seen]` cursor. Queues before user gesture; window-level `pointerdown`/`keydown` listener flushes deferred chimes with `AudioContext.resume()`.
+
+**3. Rank Certificate PDF**: New `utils/keepersCertificate.js` renders portrait A4 dark+gold cert via jsPDF (already installed). "Certificate" button (data-testid=`ledger-certificate-btn`) in ArchiveLedger header when `isKeeper`; "Download Certificate" button (data-testid=`rank-up-certificate`) on `RankUpOverlay` when rank=keepers_circle. Wallet threaded through `UnlockCelebration` → `RankUpOverlay`.
+
+**4. [BUG FIX] Desktop Share Flow**: `ShareableCard.jsx` now UA-sniffs mobile. On desktop, share bypasses `navigator.share` entirely and copies the PNG blob to the OS clipboard via `ClipboardItem`, then also copies the caption text. Success message: "keeper's note: image copied to clipboard. paste it anywhere." (data-testid=`share-card-copied-message`). Mobile keeps the existing Web Share API flow with file attachment. Save PNG button preserved as fallback on both.
+
+Files touched (9, no others):
+- MODIFIED: `backend/routers/newsletter.py`
+- MODIFIED: `frontend/src/pages/Lore.js`
+- MODIFIED: `frontend/src/components/TheRecord.jsx`
+- CREATED: `frontend/src/utils/keepersCertificate.js`
+- MODIFIED: `frontend/src/components/ArchiveLedger.jsx`
+- MODIFIED: `frontend/src/components/UnlockCelebration.jsx`
+- MODIFIED: `frontend/src/pages/Archive.jsx` (passes wallet to UnlockCelebration)
+- MODIFIED: `frontend/src/components/ShareableCard.jsx`
+
+
 ## Feb 2026 — Keeper's Circle Live Announcement Feed
 
 Testing agent iteration_115: 100% backend (10/10) + 100% frontend.

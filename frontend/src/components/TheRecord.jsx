@@ -10,11 +10,82 @@
  * these signals have gone the deepest.") so the leaderboard reads as a
  * ledger, not a scoreboard.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, PawPrint } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PAGE_SIZE = 10;
+// sessionStorage key stores the created_at ISO of the newest
+// announcement each visitor has already been chimed for, so we only
+// ring on genuinely-new signals per session.
+const ANNOUNCEMENT_SEEN_KEY = "keeper_announcement_last_seen";
+
+// Soft "chain-bark" chime — two-note Web Audio blip. No files, no
+// libraries. Fires once per new announcement per session. Respects
+// browser autoplay policy: if AudioContext is still suspended (no user
+// gesture yet) we defer and retry on the next visible interaction.
+let _pendingChimes = 0;
+let _ctx = null;
+function ensureAudioContext() {
+  if (!_ctx) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) _ctx = new AC();
+    } catch { /* silent */ }
+  }
+  return _ctx;
+}
+function playChainBark(ctx) {
+  const now = ctx.currentTime;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.001;
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.exponentialRampToValueAtTime(0.14, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+  // Note 1 — low warm tone
+  const o1 = ctx.createOscillator();
+  o1.type = "sine";
+  o1.frequency.setValueAtTime(340, now);
+  o1.frequency.exponentialRampToValueAtTime(220, now + 0.35);
+  o1.connect(gain);
+  o1.start(now);
+  o1.stop(now + 0.55);
+  // Note 2 — bright pip that lands a beat later
+  const o2 = ctx.createOscillator();
+  const g2 = ctx.createGain();
+  g2.gain.value = 0.0001;
+  g2.gain.setValueAtTime(0.0001, now + 0.14);
+  g2.gain.exponentialRampToValueAtTime(0.09, now + 0.18);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+  o2.type = "triangle";
+  o2.frequency.setValueAtTime(920, now + 0.14);
+  o2.connect(g2);
+  g2.connect(ctx.destination);
+  o2.start(now + 0.14);
+  o2.stop(now + 0.5);
+}
+function chime() {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    _pendingChimes += 1;
+    return;
+  }
+  playChainBark(ctx);
+}
+function flushPending() {
+  if (!_pendingChimes || !_ctx) return;
+  if (_ctx.state === "suspended") return;
+  const count = _pendingChimes;
+  _pendingChimes = 0;
+  // Fire the queued chimes back-to-back with a small offset so a
+  // burst of missed announcements sounds like one distinct signal
+  // arriving, not a chord.
+  for (let i = 0; i < Math.min(3, count); i += 1) {
+    setTimeout(() => playChainBark(_ctx), i * 220);
+  }
+}
 
 const RANK_COLOR = {
   Seeker: "#00FFA3",
@@ -113,10 +184,48 @@ export default function TheRecord({ wallet }) {
       const res = await fetch(`${API}/archive/announcements?limit=10`);
       if (!res.ok) return;
       const data = await res.json();
-      setAnnouncements(data.items || []);
+      const items = data.items || [];
+      // Chime on genuinely-new signals only. Compare each item's
+      // created_at against the last-seen cursor in sessionStorage.
+      try {
+        const lastSeen = sessionStorage.getItem(ANNOUNCEMENT_SEEN_KEY) || "";
+        const fresh = items.filter((a) => (a.created_at || "") > lastSeen);
+        if (fresh.length && lastSeen) {
+          // Only chime once per poll batch, even if multiple are new —
+          // no drum rolls, just a single quiet bark.
+          chime();
+        }
+        if (items.length) {
+          sessionStorage.setItem(
+            ANNOUNCEMENT_SEEN_KEY,
+            items[0].created_at || new Date().toISOString(),
+          );
+        }
+      } catch { /* sessionStorage may be blocked */ }
+      setAnnouncements(items);
     } catch {
       /* silent — feed is optional atmosphere */
     }
+  }, []);
+
+  // Flush any queued chimes the next time the user interacts. Browsers
+  // won't play audio before a gesture, so an announcement that arrived
+  // pre-interaction gets deferred and rings on the first click/tap.
+  useEffect(() => {
+    const onGesture = () => {
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().then(flushPending).catch(() => {});
+      } else {
+        flushPending();
+      }
+    };
+    window.addEventListener("pointerdown", onGesture, { once: false });
+    window.addEventListener("keydown", onGesture, { once: false });
+    return () => {
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("keydown", onGesture);
+    };
   }, []);
 
   useEffect(() => {

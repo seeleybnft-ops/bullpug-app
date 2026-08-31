@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 117 review: verified (1) newsletter subscribe with source='act1-placeholder' persists correctly, first-touch source is preserved on repeat signups, and omitted-source path stays backward-compatible; (2) Act I placeholder email capture on /lore renders the input + submit ('notify me when the signal arrives') and shows the Tinkerpug success state exactly as spec ('keeper's note: signal logged. you'll know when it arrives.'); (3) code review of TheRecord chime path (Web Audio two-note chain-bark, sessionStorage cursor, gesture-flush effect) — implementation matches spec; (4) keepersCertificate.js renders portrait A4 with GOLD/DEEP palette, THE KEEPER'S CIRCLE title, SignalGlyph geometry (outer + inner ring, 4 compass pips, ember), shortened wallet, achievement date, Tinkerpug signoff, TINKERPUG signature line, bullpug.com/archive footer, using jsPDF; (5) ArchiveLedger renders Certificate button (data-testid=ledger-certificate-btn) guarded by isKeeper — Share button data-testid=ledger-share-btn confirmed; (6) RankUpOverlay renders data-testid=rank-up-certificate only when rank=keepers_circle (Seeker/Archivist show only rank-up-share); (7) ShareableCard Share bug fix: isMobile() UA-sniff returns false for desktop Chrome and true for iPhone/Android UA strings; desktop share() bypasses navigator.share and calls copyImageToClipboard() via ClipboardItem; success renders data-testid=share-card-copied-message with the exact spec copy. ClipboardItem + navigator.clipboard.write confirmed available on the desktop viewport. 5/5 backend tests pass, /archive and /lore load with zero JS errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/lore Act I placeholder", "issues": ["Because the <input type='email' required>, native HTML5 validation intercepts 'not-an-email' before React can call setStatus('invalid'). The custom 'keeper's note: that address isn't a valid signal.' message only surfaces for strings that pass native validation but fail the stricter EMAIL_RE (e.g. 'foo@bar'). Not a functional bug — success path and API call both work — but the Tinkerpug-voiced invalid state is effectively unreachable for the most common typo (missing @). Consider dropping `type='email'` (keep type='text') so the custom regex + branded copy always drive the invalid UX."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration117_newsletter.py",
+    "/app/test_reports/pytest/iter117_newsletter.xml"
+  ],
+  "action_items": [
+    "(Optional/minor) In Lore.js ActIPlaceholder, switch the input to type='text' (drop `required`) so the branded 'that address isn't a valid signal.' Tinkerpug message is what users actually see for common bad emails; the EMAIL_RE regex still guards submission.",
+    "Live desktop clipboard verification requires a connected Web3 wallet (share modal needs `wallet` prop to render the image). Code-level verification confirms the branch and copy are correct — main agent can self-test with a real wallet if further live confirmation is needed."
+  ],
+  "critical_code_review_comments": [
+    "ShareableCard: isMobile() UA-sniff + copyImageToClipboard() + shareStatus='copied' path is correctly gated so desktop never invokes navigator.share (which was the reported bug). Fallback to text-only clipboard is present. Good.",
+    "TheRecord: sessionStorage cursor + `if (fresh.length && lastSeen)` correctly suppresses chime on the first visit and only rings on genuinely-new signals. Gesture-listener effect handles Chrome autoplay policy cleanly.",
+    "keepersCertificate.js: portrait A4, correct palette, jsPDF usage clean, filename sanitized via wallet slice.",
+    "UnlockCelebration: `wallet` prop is threaded through and Award/Certificate button only renders for rank=keepers_circle. Good."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration117_newsletter.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% code-verified; live-UI verified for /lore email capture success + Archive load + isMobile/UA + ClipboardItem availability"},
+  "seed_data_creation": "Newsletter test emails prefixed with 'testact1_', 'testnosrc_', 'testpersist_', 'testnullsrc_', 'testuiact1_'. Safe to leave — schema only stores {email, subscribed_at, active, source}.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Newsletter regression suite at /app/backend/tests/test_iteration117_newsletter.py covers source first-touch + backward-compat. To live-test the desktop share clipboard path end-to-end you need a wallet with archive unlocks so `/api/archive/share` returns an image; without one the ShareableCard shows 'connect a wallet first'. Code path is verified.",
+  "rca of the issue": "N/A — no regressions. Only a minor UX quibble on Act I invalid-email path (native HTML5 validation shadows branded error)."
+}

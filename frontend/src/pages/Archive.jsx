@@ -865,6 +865,7 @@ export default function Archive() {
         <UnlockCelebration
           key={active.entry_id + "-" + (active.unlocked_at || "")}
           unlock={active}
+          wallet={wallet}
           onDone={() => setActive(null)}
         />
       )}

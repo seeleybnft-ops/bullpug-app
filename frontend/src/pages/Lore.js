@@ -19,8 +19,8 @@ const LOGO =
 
 // ── Act I placeholder ──────────────────────────────────────────────────
 // Sits where the "Watch trailer" button used to. Renders a slowly
-// pulsing gold SignalGlyph + a keeper's-log message. Read-only — no
-// interaction, no external link.
+// pulsing gold SignalGlyph + a keeper's-log message + an email capture
+// so we can tell subscribers when Act I drops. Read-only otherwise.
 //
 // When Act I episodes are ready, this component is what gets swapped:
 //   • Simplest path: replace <ActIPlaceholder /> with a
@@ -28,7 +28,38 @@ const LOGO =
 //   • Or add a `video` prop here: `<ActIPlaceholder video={…} />`. When
 //     `video` is truthy, render the player instead of the placeholder
 //     body. Layout wrapper stays identical either way.
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function ActIPlaceholder() {
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState(null); // null | "success" | "invalid" | "error"
+
+  const onSubmit = async (e) => {
+    e?.preventDefault?.();
+    const trimmed = email.trim();
+    if (!EMAIL_RE.test(trimmed)) {
+      setStatus("invalid");
+      return;
+    }
+    setSubmitting(true);
+    setStatus(null);
+    try {
+      const res = await fetch(`${API}/newsletter/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Bullpug-CSRF": "1" },
+        body: JSON.stringify({ email: trimmed, source: "act1-placeholder" }),
+      });
+      if (!res.ok) throw new Error("subscribe failed");
+      setStatus("success");
+    } catch {
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div
       className="flex flex-col items-center gap-3 max-w-xs"
@@ -51,6 +82,73 @@ function ActIPlaceholder() {
 the record will be updated.
 watch this space.`}
       </p>
+
+      {status === "success" ? (
+        <p
+          className="text-[11px] leading-relaxed text-center whitespace-pre-line px-2 py-2 rounded-lg"
+          style={{
+            fontFamily: "monospace",
+            color: "#F5D300",
+            background: "rgba(245,211,0,0.06)",
+            border: "1px solid rgba(245,211,0,0.28)",
+          }}
+          data-testid="act-i-notify-success"
+        >
+          keeper's note: signal logged.{"\n"}you'll know when it arrives.
+        </p>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          className="w-full flex flex-col gap-2 mt-1"
+          data-testid="act-i-notify-form"
+        >
+          <input
+            type="text"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); if (status === "invalid") setStatus(null); }}
+            placeholder="your@email"
+            data-testid="act-i-notify-input"
+            className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/15 focus:border-[#F5D300]/60 focus:outline-none text-xs text-white placeholder:text-slate-600"
+            style={{ fontFamily: "monospace" }}
+            disabled={submitting}
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            data-testid="act-i-notify-submit"
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: "#F5D300",
+              color: "#0a0a12",
+              fontFamily: "Orbitron, sans-serif",
+              boxShadow: "0 0 14px rgba(245,211,0,0.25)",
+            }}
+          >
+            {submitting ? "sending…" : "notify me when the signal arrives"}
+          </button>
+          {status === "invalid" && (
+            <p
+              className="text-[10px] text-red-300/90 text-center"
+              style={{ fontFamily: "monospace" }}
+              data-testid="act-i-notify-invalid"
+            >
+              keeper's note: that address isn't a valid signal.
+            </p>
+          )}
+          {status === "error" && (
+            <p
+              className="text-[10px] text-red-300/90 text-center"
+              style={{ fontFamily: "monospace" }}
+              data-testid="act-i-notify-error"
+            >
+              keeper's note: the channel dropped. try again.
+            </p>
+          )}
+        </form>
+      )}
+
       <style>{`
         @keyframes act-i-glyph-pulse {
           0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 8px rgba(245,211,0,0.35)); }
