@@ -85,6 +85,7 @@ export default function TheRecord({ wallet }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [initialised, setInitialised] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
 
   const load = useCallback(
     async (nextPage, replace = false) => {
@@ -107,11 +108,27 @@ export default function TheRecord({ wallet }) {
     []
   );
 
+  const loadAnnouncements = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/archive/announcements?limit=10`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAnnouncements(data.items || []);
+    } catch {
+      /* silent — feed is optional atmosphere */
+    }
+  }, []);
+
   useEffect(() => {
     setRows([]);
     setPage(1);
     load(1, true);
-  }, [load]);
+    loadAnnouncements();
+    // Poll announcements every 90s so a new Keeper's Circle entry
+    // appears without needing a full leaderboard re-fetch.
+    const id = setInterval(loadAnnouncements, 90_000);
+    return () => clearInterval(id);
+  }, [load, loadAnnouncements]);
 
   return (
     <div data-testid="the-record" className="space-y-4">
@@ -133,6 +150,41 @@ export default function TheRecord({ wallet }) {
           keeper's log — these signals have gone the deepest.
         </p>
       </div>
+
+      {/* Keeper's Circle announcement feed — read-only, monospace */}
+      {announcements.length > 0 && (
+        <div
+          className="rounded-xl p-3"
+          style={{
+            background: "rgba(5,7,18,0.55)",
+            border: "1px solid rgba(245,211,0,0.22)",
+          }}
+          data-testid="keeper-announcements-feed"
+        >
+          <p
+            className="text-[9px] uppercase tracking-[0.32em] text-yellow-300/80 mb-2 px-1"
+            style={{ fontFamily: "Orbitron, sans-serif" }}
+          >
+            Live · Keeper's Circle Signals
+          </p>
+          <ul className="space-y-1" data-testid="keeper-announcements-list">
+            {announcements.map((a) => (
+              <li
+                key={`${a.wallet_address}-${a.created_at}`}
+                className="px-2 py-1 text-[11px] leading-relaxed text-slate-300"
+                style={{ fontFamily: "monospace" }}
+                data-testid={`keeper-announcement-${a.wallet_address}`}
+              >
+                keeper's log — a new signal has gone the deepest.{" "}
+                <span style={{ color: "#F5D300" }}>
+                  {shortenWallet(a.wallet_address)}
+                </span>{" "}
+                has joined the Keeper's Circle.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {error && (
         <div

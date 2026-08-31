@@ -1,5 +1,20 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — Keeper's Circle Live Announcement Feed
+
+Testing agent iteration_115: 100% backend (10/10) + 100% frontend.
+
+- **Backend**: New `keeper_announcements` MongoDB collection with `[(created_at, -1)]` index (registered in `server.py`). `archive_achievements.record_unlock` fires an insert when the rank transitions to `keepers_circle` (only that rank — Seeker/Archivist do not announce). New `get_keeper_announcements(limit)` service function filters test wallets via `TEST_WALLET_REGEX`. New `GET /api/archive/announcements?limit=` endpoint (default 10, capped at 25). `archive_test_cleanup._TARGETS` now includes `keeper_announcements` so the daily cron sweeps test rows.
+- **Frontend**: `TheRecord.jsx` fetches announcements on mount + polls every 90s. Renders a `data-testid="keeper-announcements-feed"` block above the leaderboard, only when non-empty, with header "LIVE · KEEPER'S CIRCLE SIGNALS". Each item is a monospace `<li>` in Tinkerpug's voice: `keeper's log — a new signal has gone the deepest. [shortened wallet in gold #F5D300] has joined the Keeper's Circle.` Read-only, no interaction handlers.
+
+Files touched (5, no others):
+- MODIFIED: `backend/services/archive_achievements.py` (ANNOUNCEMENTS_COLLECTION, insert hook in record_unlock, get_keeper_announcements)
+- MODIFIED: `backend/routers/archive.py` (GET /announcements)
+- MODIFIED: `backend/server.py` (index)
+- MODIFIED: `backend/services/archive_test_cleanup.py` (target list)
+- MODIFIED: `frontend/src/components/TheRecord.jsx` (feed state, poll, render block)
+
+
 ## Feb 2026 — 4 Enhancements (Auto-Cleanup, Archive Stats, Visual Canon Admin, Share Preview+Regenerate)
 
 Testing agent iteration_114 = 100% backend (9/9) + 100% frontend (file inspection + gate render).

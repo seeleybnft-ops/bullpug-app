@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 115 — Keeper's Circle live announcement feed. Backend: 10/10 pytest passing covering (a) GET /api/archive/announcements empty shape, (b) limit clamp (le=25 validation returns 422 for limit=99, 200 for 25), (c) newest-first ordering, (d) real-wallet visible / test-wallet filtered, (e) MongoDB [(created_at,-1)] index exists, (f) record_unlock hook inserts row when rank transitions to keepers_circle, (g) no announcement inserted for Seeker rank-up, (h) archive_test_cleanup._TARGETS contains ('keeper_announcements','wallet_address') and purge removes the row. Frontend: seeded a real-wallet KC announcement, loaded /archive → clicked The Record tab → keeper-announcements-feed rendered between header block and column headers (DOM order verified). Item testid `keeper-announcement-<wallet>` present, monospace font confirmed, wallet shortened as 'we2w…huoT' in yellow rgb(245,211,0)=#F5D300, full text matches spec: \"keeper's log — a new signal has gone the deepest. we2w…huoT has joined the Keeper's Circle.\" 90-second setInterval poll verified via source inspection (line 129 of TheRecord.jsx: setInterval(loadAnnouncements, 90_000)).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_keeper_announcements.py",
+    "/app/test_reports/pytest/iteration_115.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Endpoint validation: /api/archive/announcements uses Query(le=25), so limit=99 returns HTTP 422 rather than being silently clamped. The service-layer function get_keeper_announcements() DOES clamp internally (min(25, limit)) — behaviours are compatible but the two limits should be kept in sync if the API cap is ever raised.",
+    "TheRecord.jsx polls announcements every 90s but never re-polls the leaderboard rows — acceptable for the current spec, but a new KC entry may appear in the feed without a matching leaderboard bump until the user reloads. Consider re-loading page 1 of rows when a new announcement arrives.",
+    "The announcement is inserted inside record_unlock() but NOT inside a MongoDB transaction with the archive_ranks upsert — if the process dies between the rank upsert and the announcement insert, the wallet reaches KC without a feed entry. Very low probability; only worth fixing if the feed becomes revenue-critical.",
+    "keeper_announcements documents currently store the full wallet_address. Frontend shortens on render, but the raw address is visible in the API response and DevTools; this is acceptable (wallet is public on-chain) and matches the existing /api/archive/record contract.",
+    "data-testid `keeper-announcement-{wallet_address}` uses the FULL wallet address, not the shortened one. The spec in the review request says 'keeper-announcement-{wallet}' — treating full-wallet as the intended, higher-uniqueness identifier. Docs may want to clarify."
+  ],
+  "updated_files": ["/app/backend/tests/test_keeper_announcements.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (feed renders, ordering + styling verified)"},
+  "test_credentials": "Access code bullpug2026 (not required in this session — /archive loaded directly without gate).",
+  "seed_data_creation": "Real wallet 'we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT' inserted into keeper_announcements for frontend verification, cleaned up after. Test wallets TESTWALLET_KC_ANNOUNCE_1, TESTWALLET_KC_HOOK_1, TESTWALLET_KC_HOOK_SEEKER created + purged inside each pytest test (fixtures + finally blocks).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "For tests that call record_unlock() across multiple test cases: motor caches the AsyncIOMotorClient in utils.database.db and archive_achievements binds it via `from utils.database import db` at import time. Across asyncio.run() calls the loop closes, so subsequent tests need to (1) create a fresh AsyncIOMotorClient, (2) patch utils.database.db, AND (3) rebind `db` on every already-imported services.* module (via loop over sys.modules). See test_record_unlock_no_announcement_for_seeker_or_archivist for the working pattern.",
+  "rca of the issue": "N/A — no bugs found. Feature works end-to-end."
+}

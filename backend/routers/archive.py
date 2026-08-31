@@ -311,6 +311,17 @@ async def get_record(
     return await archive.get_record_leaderboard(page=page, limit=limit)
 
 
+@router.get("/announcements")
+async def get_announcements(limit: int = Query(10, ge=1, le=25)):
+    """Public feed — last N Keeper's Circle rank-up announcements.
+
+    Newest first. Test wallets are filtered server-side so QA rank-ups
+    never surface in the live UI.
+    """
+    items = await archive.get_keeper_announcements(limit=limit)
+    return {"items": items, "count": len(items)}
+
+
 @router.post("/share")
 async def generate_share(payload: ShareRequest):
     """Generate the 1200×630 shareable Archive card PNG.

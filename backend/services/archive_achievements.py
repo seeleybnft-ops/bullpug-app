@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 # ── Collections ─────────────────────────────────────────────────────────
 UNLOCKS_COLLECTION = "archive_unlocks"
 RANKS_COLLECTION = "archive_ranks"
+ANNOUNCEMENTS_COLLECTION = "keeper_announcements"  # public feed for Keeper's Circle rank-ups
 
 
 # ── Master entry list ───────────────────────────────────────────────────
@@ -661,6 +662,20 @@ async def record_unlock(
     except Exception as e:
         logger.warning("record_unlock rank upsert failed for %s: %s", w, e)
 
+    # Public announcement feed — fire only for Keeper's Circle rank-ups.
+    # The feed is read-only in the UI and privacy-safe (frontend shortens
+    # the wallet). Test wallets are filtered when the endpoint reads back.
+    if is_rank_up and new_rank == RANK_KEEPERS_CIRCLE:
+        try:
+            await db[ANNOUNCEMENTS_COLLECTION].insert_one({
+                "wallet_address": w,
+                "rank": new_rank,
+                "rank_title": RANK_TITLES.get(new_rank),
+                "created_at": now,
+            })
+        except Exception as e:
+            logger.warning("keeper announcement insert failed for %s: %s", w, e)
+
     logger.info(
         "Archive unlock: wallet=%s entry=%s tier=%s rank=%s rank_up=%s",
         w[:12] + "…", entry_id, entry["tier"], new_rank, is_rank_up,
@@ -817,6 +832,30 @@ async def admin_stats() -> Dict:
 
 
 # ── The Record (public leaderboard) ────────────────────────────────────
+async def get_keeper_announcements(limit: int = 10) -> List[Dict]:
+    """Public feed — the last N Keeper's Circle rank-ups.
+
+    Filters out any test-wallet rows so QA runs never appear in the
+    public UI. Newest first. `limit` is capped at 25 defensively.
+    """
+    limit = max(1, min(25, int(limit or 10)))
+    try:
+        from utils.test_wallet_filter import TEST_WALLET_REGEX
+        cursor = (
+            db[ANNOUNCEMENTS_COLLECTION]
+            .find(
+                {"wallet_address": {"$not": {"$regex": TEST_WALLET_REGEX}}},
+                {"_id": 0, "wallet_address": 1, "rank_title": 1, "created_at": 1},
+            )
+            .sort("created_at", -1)
+            .limit(limit)
+        )
+        return await cursor.to_list(length=limit)
+    except Exception as e:
+        logger.warning("get_keeper_announcements failed: %s", e)
+        return []
+
+
 async def get_record_leaderboard(page: int = 1, limit: int = 10) -> Dict:
     """Paginated public leaderboard of wallets by unlock count.
 

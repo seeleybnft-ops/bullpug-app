@@ -18,12 +18,13 @@ logger = logging.getLogger(__name__)
 # (collection, field-that-holds-the-wallet). Every collection listed
 # stores exactly one wallet-like identifier per row; the field varies.
 _TARGETS = (
-    ("archive_ranks",   "wallet_address"),
-    ("archive_unlocks", "wallet_address"),
-    ("chat_history",    "wallet_address"),
-    ("daily_drops",     "user_key"),
-    ("share_card_art",  "wallet"),
-    ("tinkerpug_turns", "wallet_address"),
+    ("archive_ranks",         "wallet_address"),
+    ("archive_unlocks",       "wallet_address"),
+    ("chat_history",          "wallet_address"),
+    ("daily_drops",           "user_key"),
+    ("share_card_art",        "wallet"),
+    ("tinkerpug_turns",       "wallet_address"),
+    ("keeper_announcements",  "wallet_address"),
 )
 
 
