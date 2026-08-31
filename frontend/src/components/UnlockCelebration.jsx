@@ -172,7 +172,7 @@ function UnlockCard({ unlock, onDismiss }) {
               className="text-[9px] font-bold uppercase tracking-[0.3em]"
               style={{ color, fontFamily: "Orbitron, sans-serif" }}
             >
-              {tierIsThree ? "Keeper's Circle · filed" : tierIsTwo ? "Archivist · filed" : "Seeker · filed"}
+              {tierIsThree ? "Tier III · filed" : tierIsTwo ? "Tier II · filed" : "Tier I · filed"}
             </p>
           </div>
           <h4

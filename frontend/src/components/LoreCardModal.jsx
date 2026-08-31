@@ -139,7 +139,7 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
                 className="text-[10px] font-bold uppercase tracking-[0.32em] ml-1"
                 style={{ color: tierMeta.color, fontFamily: "Orbitron, sans-serif" }}
               >
-                {tierMeta.label} · {tierMeta.rank}
+                {entry.tier === "special" ? `${tierMeta.label} · ${tierMeta.rank}` : tierMeta.label}
               </span>
               <Sparkles size={13} style={{ color: tierMeta.color, marginLeft: "auto" }} />
             </div>

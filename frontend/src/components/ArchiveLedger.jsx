@@ -228,9 +228,9 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
                 </p>
               </div>
             )}
-            <TierGroup title="Tier I · Seeker" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} />
-            <TierGroup title="Tier II · Archivist" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} />
-            <TierGroup title="Tier III · Keeper's Circle" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier I" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier II" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier III" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
             {(grouped.special || []).length > 0 && (
               <TierGroup
                 title="Special · Companion's Secret"
