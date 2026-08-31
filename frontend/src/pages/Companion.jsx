@@ -217,26 +217,45 @@ export default function Companion() {
         {/* ── Invalid token ── */}
         {state === "invalid" && (
           <div className="text-center" data-testid="companion-invalid">
-            <AlertCircle className="mx-auto mb-3 text-slate-400" size={32} />
-            <h1
-              className="text-xl font-bold mb-2"
-              style={{ fontFamily: "Orbitron, sans-serif", color: "#fff" }}
+            <div
+              className="mx-auto mb-4 flex items-center justify-center rounded-full"
+              style={{
+                width: 60,
+                height: 60,
+                background:
+                  "radial-gradient(circle at 35% 30%, rgba(245,211,0,0.45) 0%, rgba(115,92,0,0.5) 60%, rgba(15,15,25,0.9) 100%)",
+                border: "1px solid rgba(245,211,0,0.35)",
+              }}
             >
-              This isn't a valid signal
-            </h1>
-            <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-              {reason === "no_key"
-                ? "No token in the link. Check the tag that shipped with your companion."
-                : "The Archive doesn't recognise this token. If you know it should work, contact us."}
+              <PawPrint size={26} style={{ color: "rgba(245,211,0,0.85)" }} strokeWidth={2.2} />
+            </div>
+            <p
+              className="text-[10px] uppercase tracking-[0.32em] text-yellow-300/70 mb-3"
+              style={{ fontFamily: "Orbitron, sans-serif" }}
+            >
+              keeper's station
+            </p>
+            <p
+              className="text-sm text-slate-200 leading-relaxed mb-5 whitespace-pre-wrap text-left px-2"
+              data-testid="companion-invalid-message"
+            >
+              keeper's log — this key hasn't been activated yet, or it's already been
+              claimed. if you're waiting on a companion, it's on its way. the Archive
+              will be here when it arrives.
             </p>
             <button
               type="button"
               onClick={() => navigate("/archive")}
               data-testid="companion-invalid-archive-btn"
-              className="text-xs uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
-              style={{ fontFamily: "Orbitron, sans-serif" }}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest"
+              style={{
+                background: "#F5D300",
+                color: "#0a0a12",
+                fontFamily: "Orbitron, sans-serif",
+                boxShadow: "0 0 20px rgba(245,211,0,0.35)",
+              }}
             >
-              Enter the Archive anyway →
+              Enter the Archive <ArrowRight size={13} />
             </button>
           </div>
         )}

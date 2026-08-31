@@ -239,6 +239,24 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
                 onCardClick={setModalEntry}
               />
             )}
+            {wallet && (
+              <div
+                className="rounded-lg px-4 py-3 text-center opacity-70 hover:opacity-90 transition-opacity"
+                style={{
+                  background: "rgba(10,15,30,0.35)",
+                  border: "1px dashed rgba(245,211,0,0.18)",
+                }}
+                data-testid="physical-companion-hint"
+                aria-label="Physical companion hint"
+              >
+                <p
+                  className="text-[10.5px] italic text-slate-500 leading-relaxed"
+                  style={{ fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: "0.02em" }}
+                >
+                  Some records can only be found in the physical world.
+                </p>
+              </div>
+            )}
             {loading && entries.length === 0 && (
               <p className="text-center text-[11px] tracking-widest text-slate-600">loading the ledger…</p>
             )}
