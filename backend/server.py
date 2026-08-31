@@ -253,6 +253,8 @@ async def startup_event():
         await db.archive_unlocks.create_index("entry_id")
         # Denormalised current-rank snapshot per wallet.
         await db.archive_ranks.create_index("wallet_address", unique=True)
+        # Leaderboard: unlocked_count DESC as primary sort.
+        await db.archive_ranks.create_index([("unlocked_count", -1), ("rank_reached_at", 1)])
         # Companion tokens — unique on token, fast lookup by claiming wallet
         await db.companion_tokens.create_index("token", unique=True)
         await db.companion_tokens.create_index("wallet_claimed")

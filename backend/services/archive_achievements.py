@@ -637,15 +637,20 @@ async def record_unlock(
     is_rank_up = (prev_rank != new_rank) and new_rank is not None
 
     try:
+        # Only bump `rank_reached_at` when the rank actually changes so
+        # the leaderboard can show "date they reached their current rank".
+        set_fields = {
+            "wallet_address": w,
+            "rank": new_rank,
+            "rank_title": RANK_TITLES.get(new_rank) if new_rank else None,
+            "unlocked_count": len(unlocked_slugs),
+            "updated_at": now,
+        }
+        if is_rank_up:
+            set_fields["rank_reached_at"] = now
         await db[RANKS_COLLECTION].update_one(
             {"wallet_address": w},
-            {"$set": {
-                "wallet_address": w,
-                "rank": new_rank,
-                "rank_title": RANK_TITLES.get(new_rank) if new_rank else None,
-                "unlocked_count": len(unlocked_slugs),
-                "updated_at": now,
-            }},
+            {"$set": set_fields},
             upsert=True,
         )
     except Exception as e:
@@ -778,6 +783,72 @@ async def admin_stats() -> Dict:
             "entries": [],
             "rank_distribution": {},
         }
+
+
+# ── The Record (public leaderboard) ────────────────────────────────────
+async def get_record_leaderboard(page: int = 1, limit: int = 10) -> Dict:
+    """Paginated public leaderboard of wallets by unlock count.
+
+    Privacy: wallets are NOT filtered/shortened here — that's the
+    frontend's job (a wallet's address is public on-chain anyway, but
+    the UI truncates to `abcd…wxyz` so the leaderboard never
+    inadvertently emphasises a full address).
+
+    Sort order (per spec):
+      1. unlocked_count DESC — how deep they've gone
+      2. rank_reached_at ASC — earlier rank-ups break ties
+
+    Rank-less wallets (never earned Seeker) are included at the bottom
+    so someone with 15 unlocks still appears — the leaderboard is about
+    the deepest signals, not just the ranked ones.
+    """
+    page = max(1, int(page or 1))
+    limit = max(1, min(50, int(limit or 10)))
+    skip = (page - 1) * limit
+
+    projection = {
+        "_id": 0,
+        "wallet_address": 1,
+        "rank": 1,
+        "rank_title": 1,
+        "unlocked_count": 1,
+        "rank_reached_at": 1,
+        "updated_at": 1,
+    }
+    try:
+        total = await db[RANKS_COLLECTION].count_documents({"unlocked_count": {"$gt": 0}})
+        cursor = (
+            db[RANKS_COLLECTION]
+            .find({"unlocked_count": {"$gt": 0}}, projection)
+            .sort([("unlocked_count", -1), ("rank_reached_at", 1), ("updated_at", 1)])
+            .skip(skip)
+            .limit(limit)
+        )
+        rows = await cursor.to_list(length=limit)
+    except Exception as e:
+        logger.warning("get_record_leaderboard failed: %s", e)
+        return {"total": 0, "page": page, "limit": limit, "entries": []}
+
+    entries = []
+    for i, r in enumerate(rows):
+        entries.append({
+            "position": skip + i + 1,
+            "wallet": r.get("wallet_address"),
+            "rank": r.get("rank"),
+            "rank_title": r.get("rank_title"),
+            "unlocked_count": r.get("unlocked_count", 0),
+            # `rank_reached_at` may be missing on rows created before we
+            # started tracking it — fall back to `updated_at` so the UI
+            # always has something to render.
+            "rank_reached_at": r.get("rank_reached_at") or r.get("updated_at"),
+        })
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "has_more": (skip + len(entries)) < total,
+        "entries": entries,
+    }
 
 
 # ── Visual Canon integration (Phase E) ─────────────────────────────────

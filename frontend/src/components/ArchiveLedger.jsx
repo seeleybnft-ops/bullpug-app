@@ -15,7 +15,8 @@ import LoreCardModal from "./LoreCardModal";
 import RankBadge from "./RankBadge";
 import DailyDropVault from "./DailyDropVault";
 import ShareableCard from "./ShareableCard";
-import { Share2, BookOpen, Sparkles } from "lucide-react";
+import TheRecord from "./TheRecord";
+import { Share2, BookOpen, Sparkles, Trophy } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -74,7 +75,7 @@ const RANK_COLOR = {
 export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive }) {
   const [entries, setEntries] = useState([]);
   const [rankData, setRankData] = useState(null);
-  const [section, setSection] = useState("ledger"); // "ledger" | "drops"
+  const [section, setSection] = useState("ledger"); // "ledger" | "drops" | "record"
   const [loading, setLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);
@@ -190,6 +191,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
           {[
             { id: "ledger", label: "Ledger", icon: BookOpen },
             { id: "drops", label: "Daily Drops", icon: Sparkles },
+            { id: "record", label: "The Record", icon: Trophy },
           ].map(({ id, label, icon: Icon }) => {
             const active = section === id;
             return (
@@ -261,8 +263,10 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
               <p className="text-center text-[11px] tracking-widest text-slate-600">loading the ledger…</p>
             )}
           </div>
-        ) : (
+        ) : section === "drops" ? (
           <DailyDropVault wallet={wallet} />
+        ) : (
+          <TheRecord wallet={wallet} />
         )}
       </div>
 

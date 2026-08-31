@@ -203,6 +203,20 @@ async def regen_entry_image(slug: str):
     return {"slug": slug, "status": doc.get("status", "pending")}
 
 
+@router.get("/record")
+async def get_record(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Public leaderboard — 'The Record'.
+
+    Wallets ranked by unlock count (desc). Privacy-safe: the raw wallet
+    address is returned so the frontend can shorten it, and no other
+    identifying info is exposed. See `archive.get_record_leaderboard`.
+    """
+    return await archive.get_record_leaderboard(page=page, limit=limit)
+
+
 @router.post("/share")
 async def generate_share(payload: ShareRequest):
     """Generate the 1200×630 shareable Archive card PNG.
