@@ -237,4 +237,9 @@ async def generate_share(payload: ShareRequest):
         "rank_title": snap.get("rank_title"),
         "unlocked_count": snap.get("unlocked_count"),
         "total": snap.get("total"),
+        # Grand total including the Special companion entry — the
+        # share text and card should reflect the full Archive surface
+        # so returning users understand the record is bigger than the
+        # rank-gated tiers alone.
+        "grand_total": archive.GRAND_TOTAL_ENTRIES,
     }

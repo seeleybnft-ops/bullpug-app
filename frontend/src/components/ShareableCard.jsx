@@ -16,16 +16,18 @@ const RANK_TEXT = {
   seeker:
     "Just reached Seeker rank in the Bullpug Archive. The chain runs deeper than I thought. Ask Tinkerpug: bullpug.com/archive 🐾",
   archivist:
-    "Archivist rank — {count} of 27 lore entries found. There's a full universe in here. bullpug.com/archive 🐾",
+    "Archivist rank — {count} of {total} lore entries found. There's a full universe in here. bullpug.com/archive 🐾",
   keepers_circle:
     "Keeper's Circle. The full record. Tinkerpug filed my signal in The Ledger. bullpug.com/archive 🐾⚡",
 };
 const DEFAULT_TEXT =
-  "{count} of 27 Archive entries discovered — building the record. bullpug.com/archive 🐾";
+  "{count} of {total} Archive entries discovered — building the record. bullpug.com/archive 🐾";
 
-function suggestedShareText(rank, count) {
+function suggestedShareText(rank, count, total) {
   const template = RANK_TEXT[rank] || DEFAULT_TEXT;
-  return template.replace("{count}", String(count ?? 0));
+  return template
+    .replace("{count}", String(count ?? 0))
+    .replace("{total}", String(total ?? 0));
 }
 
 export default function ShareableCard({ wallet, onClose }) {
@@ -50,7 +52,7 @@ export default function ShareableCard({ wallet, onClose }) {
         if (cancelled) return;
         const image = `data:${data.mime || "image/png"};base64,${data.image_base64}`;
         setState({ loading: false, image, rank: data.rank, count: data.unlocked_count || 0, error: null });
-        setText(suggestedShareText(data.rank, data.unlocked_count));
+        setText(suggestedShareText(data.rank, data.unlocked_count, data.grand_total || data.total));
       } catch (e) {
         if (!cancelled) {
           setState({ loading: false, image: null, rank: null, count: 0, error: "couldn't render your card — try again in a moment" });

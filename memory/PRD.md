@@ -1,5 +1,52 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — 4 Fixes (post-Doc 2 hardening + admin cleanup)
+
+Testing agent iteration_113 verified all four fixes.
+
+**Fix 1 — Hardcoded 27 removed.** `GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES) = 62` in `archive_achievements.py`. `/api/archive/share` response includes `grand_total: 62`. `ShareableCard.jsx` templates use `{count} of {total}` (interpolated at render, no more `of 27`). Share PNG uses `archive_achievements.GRAND_TOTAL_ENTRIES`.
+
+**Fix 2 — Share art cache removed.** `_load_cached_share_art` / `_persist_share_art` / `_share_art_prompt` deleted from `archive_share_card.py`. `_generate_share_art` now picks a random scene from `daily_drop.THEMED_DROPS`, applies the same `_BULLPUG_STYLE_SUFFIX`, and attaches the same Bullpug/Tinkerpug character reference (`_pick_reference_for_scene`) — every share render is a fresh Bullpug-universe image.
+
+**Fix 3 — Test data cleaned (104 wallets).** New `utils/test_wallet_filter.py` centralises the TEST_WALLET_REGEX pattern. Cleaned:
+- archive_ranks: 12 wallets
+- archive_unlocks: 11 wallets (5 unique)
+- chat_history: 4 wallets (0x-prefixed EVM + TEST_wallet_ + 2 TEST_CHAT_ hyphenated)
+- daily_drops: 95 wallets (mostly `anon-*` session drops from smoke tests)
+- share_card_art: 3 wallets
+- tinkerpug_turns: 0 (collection empty)
+
+Real wallets kept: `qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs`, `we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT`, `reftest-a04ddd00ccd1`, `ShareTest_ebd3abb0b538` (last two are actually test but were kept out of caution during pre-cleanup dry-run — now covered by widened regex).
+
+`get_record_leaderboard` filters via `{"wallet_address": {"$not": {"$regex": TEST_WALLET_REGEX}}}` so future test runs never pollute the public leaderboard.
+
+**Fix 4 — Admin panel cleanup.** `AdminPanel.js` shrunk from 414 → 164 lines. Removed:
+- "Manage P2P betting and platform" subtitle
+- 6 stat cards (Total Bets, Challenges, Open, Completed, Rake SOL, Est. Users)
+- Current Pot section with Draw Winner button
+- `EscrowHealthCard`, `RakeJackpotCard`
+- Tabs block (Challenges / Bet History / Escrow / Rake & Jackpot)
+- `fetchDashboard`, `cancelChallenge`, `drawPot` handlers, unused imports (Button, Badge, Tabs family, toast, DollarSign, BarChart3, Trophy, Clock, Play, Ban, etc.)
+
+Kept intact:
+- SIWS `AdminAuthGate` wrapper (untouched)
+- Drop Vault link tile (`data-testid="admin-vault-link"`)
+- Companion Tokens link tile (`data-testid="admin-companions-link"`)
+- `ClientErrorsCard` (website health)
+- `TrafficCard` (traffic analytics)
+- `TinkerpugChatsCard` (chat sessions)
+
+Files touched:
+- CREATED: `backend/utils/test_wallet_filter.py`
+- MODIFIED: `backend/services/archive_share_card.py`
+- MODIFIED: `backend/services/archive_achievements.py`
+- MODIFIED: `backend/routers/archive.py`
+- MODIFIED: `frontend/src/components/ShareableCard.jsx`
+- MODIFIED: `frontend/src/components/ArchiveLedger.jsx`
+- MODIFIED: `frontend/src/pages/AdminPanel.js`
+- DATA-ONLY (no schema change): purged 104 test wallets across 5 collections
+
+
 ## Latest Changelog Entry (Feb 2026 — Document 2 Plushie Backend Infrastructure, awaiting deploy)
 
 Built Document 2 exactly to spec — plushie backend infrastructure only (NO store, NO payments, NO order emails, NO dropship — gated on manufacturer confirmation). Testing agent (iteration_111) reports **100% pass on both backend (11/11) and frontend (5/5 states)**.

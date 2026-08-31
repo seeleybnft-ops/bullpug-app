@@ -336,6 +336,11 @@ TOTAL_TIER1 = len(_TIER1_SLUGS)      # 16 (incl. first-drop)
 TOTAL_TIER2 = len(_TIER2_SLUGS)      # 25
 TOTAL_TIER3 = len(_TIER3_SLUGS)      # 20
 TOTAL_SPECIAL = len(_SPECIAL_SLUGS)  # 1 (companions-secret)
+# The grand total exposed on user-facing share surfaces — includes the
+# special companion entry so returning users see "X of 62" once the
+# companion path exists in the Ledger. Never hardcode this number
+# anywhere — always read from MASTER_ENTRIES via this constant.
+GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 62 (regular + special)
 
 
 def compute_rank(unlocked_slugs: set) -> Optional[str]:
@@ -816,10 +821,19 @@ async def get_record_leaderboard(page: int = 1, limit: int = 10) -> Dict:
         "updated_at": 1,
     }
     try:
-        total = await db[RANKS_COLLECTION].count_documents({"unlocked_count": {"$gt": 0}})
+        # Filter out any wallet address matching a known testing-agent
+        # naming pattern so QA runs never pollute the public
+        # leaderboard. `TEST_WALLET_REGEX` is the single source of
+        # truth for what counts as test data.
+        from utils.test_wallet_filter import TEST_WALLET_REGEX
+        base_filter = {
+            "unlocked_count": {"$gt": 0},
+            "wallet_address": {"$not": {"$regex": TEST_WALLET_REGEX}},
+        }
+        total = await db[RANKS_COLLECTION].count_documents(base_filter)
         cursor = (
             db[RANKS_COLLECTION]
-            .find({"unlocked_count": {"$gt": 0}}, projection)
+            .find(base_filter, projection)
             .sort([("unlocked_count", -1), ("rank_reached_at", 1), ("updated_at", 1)])
             .skip(skip)
             .limit(limit)

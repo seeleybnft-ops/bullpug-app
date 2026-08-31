@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 113 — verified 4 fixes on backend + frontend. Backend 7/7 pytest passed (share totals, CSRF, fresh generation no-cache, no lore text in PNG, entries totals 61/62, rank special progress, TEST_WALLET_REGEX leaderboard filtering). Frontend AdminPanel and ShareableCard file inspection passed. One frontend bug found on /archive: guest (no wallet) sees '0 of 62 discovered' instead of '0 of 61' due to fallback logic in ArchiveLedger.jsx line 134.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ArchiveLedger.jsx",
+        "issue": "Guest (wallet not connected) sees 'X of 62 discovered' in the Ledger header instead of 'X of 61'. rankData is null when no wallet connected, so the fallback `entries.length` = 62 kicks in. Only affects the unconnected state; a connected wallet uses rankData.total = 61 correctly.",
+        "selector": "ArchiveLedger.jsx L134 `const total = rankData?.total ?? entries.length ?? 61;`",
+        "priority": "MEDIUM",
+        "fix_suggestion": "Change to `const total = rankData?.total ?? entries.filter(e => e.tier !== 'special').length ?? 61;` or hard-fallback to 61."
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration113_share_admin.py",
+    "/app/test_reports/pytest/iter113.xml"
+  ],
+  "action_items": [
+    "Fix ArchiveLedger.jsx L134 fallback so guest state shows '0 of 61 discovered' (not 62)."
+  ],
+  "critical_code_review_comments": [
+    "backend/routers/archive.py /share correctly returns total=61 and grand_total=62 (from archive.GRAND_TOTAL_ENTRIES).",
+    "backend/services/archive_share_card.py: cache removed — repeat calls with same wallet produce different image_base64 (verified byte-inequality). Uses THEMED_DROPS + _BULLPUG_STYLE_SUFFIX + character reference.",
+    "Share PNG magic bytes verified (\\x89PNG...) and contain no lore substrings ('The Ledger', 'Grizzlor', 'Bullpug's origin', 'origin', 'Ledger').",
+    "GET /api/archive/entries returns total=61 with 62 items including special slug 'companions-secret'.",
+    "GET /api/archive/rank returns tier_progress.special={unlocked:0,total:1} for a fresh wallet.",
+    "GET /api/archive/record: inserted a TESTWALLET_LEADERBOARD_* row with unlocked_count=99 into archive_ranks and confirmed it does NOT appear in the paginated leaderboard response. TEST_WALLET_REGEX filter works.",
+    "CSRF middleware enforces X-Bullpug-CSRF header on POST /api/archive/share (403 without).",
+    "AdminPanel.js inspection: imports only ClientErrorsCard, TrafficCard, TinkerpugChatsCard (plus lucide icons + wallet-adapter + axios + Link). No EscrowHealthCard, RakeJackpotCard, Tabs, TabsContent/List/Trigger, Button, Badge imports. Renders admin-vault-link and admin-companions-link tiles + 3 platform ops cards in a plain vertical stack. Pug Pit / P2P content fully removed.",
+    "ShareableCard.jsx L24 template uses '{count} of {total}' and suggestedShareText is called with `data.grand_total || data.total` so tweet reads 'X of 62'.",
+    "utils/test_wallet_filter.py regex correctly matches TESTWALLET_*, ARCH_FRESH_*, DropTest*, LoreTest_*, RecordTest*, ShareTest*, CompanionTest*, siwsprobe*, reftest-*, anon-*, 0x{40-hex}. is_test_wallet('RegressionShare_...') = False, confirmed by leaderboard passing regression wallets through untouched."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration113_share_admin.py"],
+  "success_rate": {"backend": "100%", "frontend": "90%"},
+  "test_credentials": "N/A — endpoints accept any wallet. Used RegressionShare_<ts>_<uuid6> for functional tests and TESTWALLET_LEADERBOARD_* for the filter-blocking test (auto-cleaned in fixture).",
+  "seed_data_creation": "Inserted one TESTWALLET_LEADERBOARD_<uuid> row into archive_ranks (unlocked_count=99, rank=keepers_circle) and deleted it after assertion. RegressionShare_* rows may remain in archive_ranks / share_card_art — recommended to clean up post-testing since they do NOT match TEST_WALLET_REGEX.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 backend fixes green. Only remaining issue: ArchiveLedger.jsx L134 guest fallback shows 62 instead of 61. Once main agent patches the fallback, retest /archive without wallet — should read '0 of 61 discovered'. /admin is SIWS-gated so future testers should rely on file inspection unless a signed admin session is provisioned.",
+  "rca of the issue": "ArchiveLedger.jsx line 134: `const total = rankData?.total ?? entries.length ?? 61;`. When wallet is disconnected, rankData is null; the entries API returns all 62 items (61 regular + 1 special), so `entries.length` resolves to 62. The header contract is regular-tier progress only. Fix: `const total = rankData?.total ?? entries.filter(e => e.tier !== 'special').length ?? 61;`."
+}

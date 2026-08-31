@@ -9,10 +9,11 @@ about the wallet's own progress, never about specific lore entries:
   • rank badge (SignalGlyph in the wallet's rank colour)
   • rank title (only when earned; otherwise "Unranked")
   • progress count ("X of N discovered")
-  • AI-generated abstract cosmic art unique to this wallet
-The AI art is cached per (wallet, rank, unlocked_count) so re-shares at
-the same progress point don't hit the LLM, but any change to rank or
-count regenerates.
+  • AI-generated Bullpug-universe art — a fresh image every time.
+     Uses the SAME prompt pool, style suffix, character reference, and
+     Gemini pipeline as the Daily Drop system so shared cards feel
+     visually consistent with the rest of the universe. No caching —
+     each share generates a unique image.
 
 Called from `routers/archive.py`'s POST /share endpoint.
 """
@@ -23,13 +24,24 @@ import base64
 import io
 import logging
 import os
-from datetime import datetime, timezone
+import random
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from services import archive_achievements
-from utils.database import db
+from services.daily_drop import (
+    THEMED_DROPS,
+    _BULLPUG_STYLE_SUFFIX,
+    _pick_reference_for_scene,
+)
+from services.image_references import (
+    BULLPUG_CHARACTER_DESCRIPTION,
+    TINKERPUG_CHARACTER_DESCRIPTION,
+    REFERENCE_MIME,
+    TINKERPUG_REFERENCE_URL,
+    load_reference_b64,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +72,7 @@ _LIB_SANS_REG = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
 _LIB_SANS_ITALIC = "/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf"
 _LIB_MONO = "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf"
 
-_SHARE_ART_COLLECTION = "share_card_art"
+_SHARE_ART_COLLECTION = "share_card_art"  # legacy — no longer written to; retained for cleanup task
 
 
 def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
@@ -104,98 +116,33 @@ def _draw_grid(base: Image.Image, color=(0, 255, 163, 18), step=48):
     base.alpha_composite(grid)
 
 
-# ── AI art generation + cache ──────────────────────────────────────────
-def _share_art_prompt(rank: Optional[str], unlocked_count: int, total: int) -> str:
-    """Compose an abstract cosmic prompt from rank + progress.
+# ── AI art generation (no cache — every share is a fresh image) ───────
+def _select_share_scene(rank: Optional[str]) -> tuple[str, str]:
+    """Pick a themed scene from the daily-drop pool.
 
-    Deliberately spoiler-free — no character names, no lore entries, no
-    scene subjects. Just an abstract cosmic mood that visualises how
-    far the wallet has come.
+    Random per call so every share render is a different image. The
+    daily-drop THEMED_DROPS list is the single source of visual truth
+    for the Bullpug universe — reusing it here means shared cards feel
+    like Ledger entries, not brand assets. Rank is accepted for future
+    tier-weighting but currently doesn't gate the pool — every rank
+    can surface any scene.
     """
-    percent = int(round((unlocked_count / max(1, total)) * 100))
-    if rank == archive_achievements.RANK_KEEPERS_CIRCLE:
-        mood = (
-            "a golden constellation forming an intricate chain-link mandala, "
-            "warm amber and gold light bleeding across a deep indigo starfield, "
-            "sense of completion and quiet mastery, sacred geometry"
-        )
-    elif rank == archive_achievements.RANK_ARCHIVIST:
-        mood = (
-            "violet nebulae weaving through a dense star field, luminous purple "
-            "and magenta ribbons braiding across cosmic dust, sense of depth "
-            "and hidden knowledge, layered translucent forms"
-        )
-    elif rank == archive_achievements.RANK_SEEKER:
-        mood = (
-            "an aurora of cyan and teal light rippling across a dark cosmic "
-            "horizon, first threshold crossed, sense of arrival and wonder, "
-            "clean atmospheric glow"
-        )
-    else:
-        mood = (
-            "faint cosmic dust drifting in a deep indigo void, a single distant "
-            "signal pulsing softly, sense of anticipation and quiet beginning, "
-            "sparse and atmospheric"
-        )
-    variation = (
-        f"Composition seeded by progress level {percent}% — vary particle "
-        "density and light intensity accordingly."
-    )
-    return (
-        f"{mood}. {variation} Abstract cosmic art, cinematic hyperdetailed "
-        "digital painting, single cohesive scene, no characters, no "
-        "creatures, no figures, no buildings, no logos, no text or "
-        "typography of any kind. Wide 1.9:1 aspect. Deep space palette "
-        "with atmospheric depth."
-    )
+    _ = rank  # reserved for future weighting
+    theme, scene = random.choice(THEMED_DROPS)
+    return theme, scene
 
 
-async def _load_cached_share_art(
-    wallet: str, rank: Optional[str], unlocked_count: int
-) -> Optional[bytes]:
-    """Return cached PNG bytes for this exact (wallet, rank, count) or None."""
-    try:
-        doc = await db[_SHARE_ART_COLLECTION].find_one(
-            {"wallet": wallet, "rank": rank, "unlocked_count": unlocked_count}
-        )
-        if not doc or not doc.get("image_base64"):
-            return None
-        return base64.b64decode(doc["image_base64"])
-    except Exception as e:
-        logger.debug("share art cache lookup failed: %s", e)
-        return None
+async def _generate_share_art(rank: Optional[str]) -> Optional[bytes]:
+    """Generate a fresh Bullpug-universe image via Gemini nano banana.
 
-
-async def _persist_share_art(
-    wallet: str, rank: Optional[str], unlocked_count: int, image_b64: str
-):
-    try:
-        await db[_SHARE_ART_COLLECTION].update_one(
-            {"wallet": wallet, "rank": rank, "unlocked_count": unlocked_count},
-            {"$set": {
-                "wallet": wallet,
-                "rank": rank,
-                "unlocked_count": unlocked_count,
-                "image_base64": image_b64,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }},
-            upsert=True,
-        )
-    except Exception as e:
-        logger.warning("share art cache write failed: %s", e)
-
-
-async def _generate_share_art(
-    wallet: str, rank: Optional[str], unlocked_count: int, total: int
-) -> Optional[bytes]:
-    """Generate a unique cosmic image via Gemini nano banana.
-
-    Returns raw PNG bytes on success, None on any failure (network,
-    model refusal, missing key). The card renderer falls back to a
-    procedural gradient panel in that case — never blocks the share.
+    Uses the SAME prompt pool, style suffix, and character reference
+    as the Daily Drop pipeline so a shared card is visually
+    indistinguishable from a Daily Drop scene. Never cached — each
+    call regenerates. Returns raw PNG bytes or None on failure; the
+    caller falls back to a procedural panel.
     """
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
     except Exception as e:
         logger.warning("share art: SDK import failed: %s", e)
         return None
@@ -205,31 +152,71 @@ async def _generate_share_art(
         logger.info("share art: EMERGENT_LLM_KEY missing — falling back to procedural panel")
         return None
 
-    prompt = _share_art_prompt(rank, unlocked_count, total)
+    theme, scene = _select_share_scene(rank)
+    prompt = f"{scene}. {_BULLPUG_STYLE_SUFFIX}"
+
+    # Attach the same character reference the Daily Drop pipeline uses
+    # for this scene so Bullpug/Tinkerpug stay visually anchored.
+    ref_url = _pick_reference_for_scene(theme, scene)
+    file_contents = None
+    is_tinkerpug = ref_url == TINKERPUG_REFERENCE_URL
+    if ref_url:
+        try:
+            ref_b64 = await load_reference_b64(ref_url)
+            if ref_b64:
+                file_contents = [FileContent(
+                    content_type=REFERENCE_MIME,
+                    file_content_base64=ref_b64,
+                )]
+        except Exception as e:
+            logger.debug("share art: reference load failed (%s); text-only prompt", e)
+
+    if is_tinkerpug:
+        character_line = (
+            "The attached reference image is Tinkerpug. "
+            + TINKERPUG_CHARACTER_DESCRIPTION
+            + " Preserve these identifying features exactly; vary pose, "
+            "framing, expression, and setting per the prompt."
+        )
+    else:
+        character_line = (
+            "The attached reference image is Bullpug. "
+            + BULLPUG_CHARACTER_DESCRIPTION
+            + " Preserve Bullpug's identifying features exactly — "
+            "especially the WARM FAWN fur colour, the deep purple-blue "
+            "galaxy cape, and the swirling blue cosmic medallion; vary "
+            "pose, framing, expression, and setting per the prompt."
+        )
+
     try:
+        # Seed the session id with random so nano-banana session state
+        # never collides between share calls — each is a fresh convo.
         chat = (
             LlmChat(
                 api_key=api_key,
-                session_id=f"share-art-{wallet}-{unlocked_count}",
+                session_id=f"share-art-{random.randint(0, 2**31)}",
                 system_message=(
-                    "You produce abstract cosmic art for the Bullpug Archive "
-                    "share-card slot. NEVER include text, letters, words, "
-                    "captions, typography, characters, creatures, figures, "
-                    "buildings, or logos of any kind. Only abstract cosmic "
-                    "atmosphere — nebulae, starfields, aurora, particles."
+                    "You are Bullpug, the cosmic guardian. Generate ONE cinematic image "
+                    "matching the user's scene description in the Bullpug universe aesthetic — "
+                    "neon-lit, cyberpunk, warm gold against deep indigo, rich fur and machine texture. "
+                    + character_line +
+                    " Never include gold coins, currency symbols, price imagery, Ethereum logos, "
+                    "Bitcoin symbols, or any financial market iconography in the generated images. "
+                    "The Bullpug universe is a story world — scenes should depict characters, "
+                    "locations, lore events, and the Between. Keep imagery narrative, not financial."
                 ),
             )
             .with_model("gemini", "gemini-3.1-flash-image-preview")
             .with_params(modalities=["image", "text"])
         )
-        _, images = await chat.send_message_multimodal_response(UserMessage(text=prompt))
+        _, images = await chat.send_message_multimodal_response(
+            UserMessage(text=prompt, file_contents=file_contents)
+        )
         if not images:
             return None
         b64 = images[0].get("data") or ""
         if not b64:
             return None
-        # Persist and return bytes
-        await _persist_share_art(wallet, rank, unlocked_count, b64)
         return base64.b64decode(b64)
     except Exception as e:
         logger.warning("share art generation failed: %s", e)
@@ -243,7 +230,6 @@ def _procedural_art_fallback(color: tuple[int, int, int], w: int, h: int) -> Ima
     scatter of star-like dots. Never blocks a share.
     """
     panel = Image.new("RGBA", (w, h), (5, 7, 18, 255))
-    # Radial glow
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     cx, cy = int(w * 0.55), int(h * 0.45)
@@ -254,8 +240,6 @@ def _procedural_art_fallback(color: tuple[int, int, int], w: int, h: int) -> Ima
                    fill=color + (alpha,))
     glow = glow.filter(ImageFilter.GaussianBlur(30))
     panel.alpha_composite(glow)
-    # Star scatter
-    import random
     rng = random.Random(sum(color))
     sd = ImageDraw.Draw(panel)
     for _ in range(120):
@@ -268,17 +252,16 @@ def _procedural_art_fallback(color: tuple[int, int, int], w: int, h: int) -> Ima
 
 
 async def _resolve_share_art(
-    wallet: str, rank: Optional[str], unlocked_count: int, total: int,
+    rank: Optional[str],
     color: tuple[int, int, int], panel_size: tuple[int, int]
 ) -> Image.Image:
     """Return a PIL image sized to `panel_size` for the right-hand slot.
 
-    Order of preference: cached AI → freshly generated AI → procedural fallback.
+    Generates a fresh Bullpug-universe scene every call — no cache.
+    Falls through to a procedural panel only if the LLM is unavailable.
     """
     pw, ph = panel_size
-    raw = await _load_cached_share_art(wallet, rank, unlocked_count)
-    if not raw:
-        raw = await _generate_share_art(wallet, rank, unlocked_count, total)
+    raw = await _generate_share_art(rank)
     if raw:
         try:
             img = Image.open(io.BytesIO(raw)).convert("RGBA")
@@ -319,7 +302,9 @@ async def generate_share_card(wallet_address: str) -> Optional[str]:
     rank = rank_snap.get("rank")
     rank_title = rank_snap.get("rank_title") or "Unranked"
     unlocked_count = rank_snap.get("unlocked_count", 0)
-    total = rank_snap.get("total", archive_achievements.TOTAL_ENTRIES)
+    # Grand total (regular + special) is the source of truth for the
+    # share PNG so future entry additions update automatically.
+    total = archive_achievements.GRAND_TOTAL_ENTRIES
     color = RANK_COLORS.get(rank, RANK_COLORS[None])
     headline = RANK_HEADLINE.get(rank, RANK_HEADLINE[None])
 
@@ -366,11 +351,9 @@ async def generate_share_card(wallet_address: str) -> Optional[str]:
     _wrap_and_draw(draw, headline, 330, 372, 340, line_font,
                    (170, 180, 210, 255), line_h=24, max_lines=3)
 
-    # ── AI-generated art panel (bottom-right) ────────────────────────
+    # ── AI-generated art panel (bottom-right) — fresh every call ─────
     px, py, pw, ph = 700, 200, 440, 300
-    art = await _resolve_share_art(
-        wallet_address, rank, unlocked_count, total, color, (pw, ph)
-    )
+    art = await _resolve_share_art(rank, color, (pw, ph))
     # Rounded-corner mask so the panel matches the previous card's
     # visual weight (14px radius rounded rectangle).
     mask = Image.new("L", (pw, ph), 0)

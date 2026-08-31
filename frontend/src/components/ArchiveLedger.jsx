@@ -131,7 +131,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
   // separate rail with its own display treatment, so it never bumps
   // the "n of 61" figure.
   const unlockedCount = rankData?.unlocked_count ?? entries.filter((e) => e.unlocked && e.tier !== "special").length;
-  const total = rankData?.total ?? entries.length ?? 61;
+  const total = rankData?.total ?? entries.filter((e) => e.tier !== "special").length ?? 61;
   const rank = rankData?.rank ?? null;
   const rankTitle = rankData?.rank_title ?? null;
   const rankColor = RANK_COLOR[rank || "none"];
