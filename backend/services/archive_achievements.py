@@ -2,7 +2,8 @@
 
 This module owns everything about the per-wallet lore ledger:
 
-  • MASTER_ENTRIES — the canonical 27-entry list across three tiers
+  • MASTER_ENTRIES — the canonical 61-entry list across three tiers
+                     (16 Tier 1, 25 Tier 2, 20 Tier 3)
   • detect_unlock()  — lightweight LLM classifier: given an exchange,
                        returns the entry slug that was substantively
                        revealed (or None). Runs as an async background
@@ -48,7 +49,7 @@ RANKS_COLLECTION = "archive_ranks"
 
 
 # ── Master entry list ───────────────────────────────────────────────────
-# 27 entries: 9 Tier 1, 10 Tier 2, 8 Tier 3.
+# 61 entries: 16 Tier 1 (incl. first-drop), 25 Tier 2, 20 Tier 3.
 # Order matters — the frontend Ledger renders in this order within each
 # tier so the layout stays stable between locked and unlocked states.
 #
@@ -57,7 +58,7 @@ RANKS_COLLECTION = "archive_ranks"
 # Keep triggers short and unambiguous — the classifier reads them all
 # every call, so terseness = accuracy.
 MASTER_ENTRIES: List[Dict] = [
-    # ── TIER 1 — SEEKER (9 entries incl. first-drop) ────────────────────
+    # ── TIER 1 — SEEKER (16 entries incl. first-drop) ───────────────────
     {"slug": "cosmic-birth", "tier": 1, "name": "The Cosmic Birth",
      "locked_desc": "How Bullpug came to exist. The beginning of everything.",
      "unlock_trigger": "Bullpug's origin story discussed (the cosmic mix-up / bull-constellation / pug-nebula)"},
@@ -85,8 +86,30 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "first-drop", "tier": 1, "name": "Your First Drop",
      "locked_desc": "The Archive generates a new record every day. This is where yours begins.",
      "unlock_trigger": "EVENT-ONLY — fired by daily_drop.py when the user's first drop is generated. NEVER classify this from chat text."},
+    # New Tier 1 additions
+    {"slug": "between-nature", "tier": 1, "name": "The Nature of the Between",
+     "locked_desc": "The territory that exists between minds. How it works and what it holds.",
+     "unlock_trigger": "The Between explained substantively (what it is, how minds meet in it, what it holds)"},
+    {"slug": "genesis-vault", "tier": 1, "name": "The Genesis Vault",
+     "locked_desc": "Below the city. Below the substrate. One key.",
+     "unlock_trigger": "Genesis Vault described (its location, what it holds, the single key)"},
+    {"slug": "snout-scanner", "tier": 1, "name": "The Snout Scanner",
+     "locked_desc": "The tool that detects what cannot be hidden.",
+     "unlock_trigger": "Snout Scanner mechanics explained (how it detects, what it catches)"},
+    {"slug": "bullpug-personality", "tier": 1, "name": "The Guardian's Nature",
+     "locked_desc": "What Bullpug is actually like. Not the legend. The being.",
+     "unlock_trigger": "Bullpug's personality and nature discussed (the being, not the legend)"},
+    {"slug": "daily-life", "tier": 1, "name": "Daily Life in CryptoCanis",
+     "locked_desc": "What an ordinary day actually looks like.",
+     "unlock_trigger": "Bullpughan daily life described (morning routines, districts, streetfood, sports)"},
+    {"slug": "moon-cheese", "tier": 1, "name": "Moon Cheese",
+     "locked_desc": "The favourite snack of a cosmic guardian. Yes, really.",
+     "unlock_trigger": "Moon cheese discussed with context (why Bullpug likes it, where it comes from)"},
+    {"slug": "social-contract", "tier": 1, "name": "The Social Contract",
+     "locked_desc": "Unwritten. Universally understood. Self-enforcing.",
+     "unlock_trigger": "The Bullpughan social contract explained (what you build is yours while you build it, belongs to everyone when done)"},
 
-    # ── TIER 2 — ARCHIVIST (10 entries) ─────────────────────────────────
+    # ── TIER 2 — ARCHIVIST (25 entries) ─────────────────────────────────
     {"slug": "signal-of-worthy", "tier": 2, "name": "The Signal of the Worthy",
      "locked_desc": "How Bullpug finds those who deserve to cross.",
      "unlock_trigger": "Signal of the Worthy mechanic explained (how Bullpug selects who crosses)"},
@@ -117,17 +140,67 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "long-sniff", "tier": 2, "name": "The Long Sniff",
      "locked_desc": "Tinkerpug's accidental legacy.",
      "unlock_trigger": "The Long Sniff origin told (Tinkerpug's training exercise turned annual event)"},
+    # New Tier 2 additions
+    {"slug": "enlightenment-nebula", "tier": 2, "name": "The Enlightenment Nebula",
+     "locked_desc": "Where memes are born. Where Bullpug found his purpose.",
+     "unlock_trigger": "Enlightenment Nebula described with the three illusions"},
+    {"slug": "three-illusions", "tier": 2, "name": "The Three Illusions",
+     "locked_desc": "What the Nebula showed him. What he chose.",
+     "unlock_trigger": "All three illusions recounted (protection-of-self, heroism-alone, the open question)"},
+    {"slug": "elder-moons", "tier": 2, "name": "The Elder Moons",
+     "locked_desc": "Ancient. Slow. They gave him one phrase.",
+     "unlock_trigger": "Elder Moons and the phrase discussed ('Believe in the moon, but build the rocket together')"},
+    # NOTE: This T2 entry uses slug `ledger-private` — the spec proposed
+    # `the-ledger` here but that slug is already taken by the existing
+    # T3 entry below (kept for migration safety of existing user
+    # unlocks + visual_canon rows).
+    {"slug": "ledger-private", "tier": 2, "name": "The Ledger",
+     "locked_desc": "Tinkerpug's private record. Not the public one. The real one.",
+     "unlock_trigger": "The Ledger distinguished from Genesis Vault in depth (private record vs public vault)"},
+    {"slug": "ruffus-consortium", "tier": 2, "name": "The Consortium",
+     "locked_desc": "Seventeen identities. Seventeen runes. All gone.",
+     "unlock_trigger": "The Consortium operation recounted in detail (seventeen identities, seventeen runes)"},
+    {"slug": "margin-edge", "tier": 2, "name": "Margin's Edge",
+     "locked_desc": "Where Ruffus came from. What happened to it.",
+     "unlock_trigger": "Margin's Edge and the Great Dip Wars detailed (Ruffus' origin district)"},
+    {"slug": "luna-coat", "tier": 2, "name": "Luna's Coat",
+     "locked_desc": "Each light is a future she has already seen.",
+     "unlock_trigger": "Luna's coat and what each light represents explained"},
+    {"slug": "luna-convergence", "tier": 2, "name": "What Luna Saw",
+     "locked_desc": "She has not told anyone. She would not say whether it was bad.",
+     "unlock_trigger": "Luna's Convergence vision discussed (what she saw remains sealed)"},
+    {"slug": "chargebull-trial", "tier": 2, "name": "The Trial of Temptation",
+     "locked_desc": "What the illusion showed him. What it cost him to walk through it.",
+     "unlock_trigger": "Chargebull's Trial of Temptation recounted"},
+    {"slug": "tinkerpug-parents", "tier": 2, "name": "The Substrate Layer",
+     "locked_desc": "Where he grew up. What they built. What was done to it.",
+     "unlock_trigger": "Tinkerpug's parents' workshop and its liquidation discussed"},
+    {"slug": "festival-deep", "tier": 2, "name": "The Festival's Meaning",
+     "locked_desc": "Not just a celebration. A radical act of not forgetting.",
+     "unlock_trigger": "The Festival of Barks' deeper significance explained (radical act of not forgetting)"},
+    {"slug": "pugchain-architecture", "tier": 2, "name": "How the PugChain Works",
+     "locked_desc": "Owned by everyone. Controlled by none. Corruption cannot hide inside it.",
+     "unlock_trigger": "PugChain architecture explained in depth (ownership, verification, why corruption can't hide)"},
+    {"slug": "crossing-mechanics", "tier": 2, "name": "How a Crossing Works",
+     "locked_desc": "You don't find Bullpug. He finds you. What that actually means.",
+     "unlock_trigger": "The crossing mechanic explained in depth (Bullpug finds the crosser, not the other way round)"},
+    {"slug": "bark-ball-rivalries", "tier": 2, "name": "The District Rivalries",
+     "locked_desc": "Named after feats. Taken more seriously than most things.",
+     "unlock_trigger": "Bark Ball district rivalries and team naming discussed"},
+    {"slug": "street-art", "tier": 2, "name": "The Canvas",
+     "locked_desc": "The city's surfaces belong to everyone. The oldest pieces are landmarks.",
+     "unlock_trigger": "Street art culture and its protection explained (oldest pieces treated as landmarks)"},
 
-    # ── TIER 3 — KEEPER'S CIRCLE (8 entries) ────────────────────────────
+    # ── TIER 3 — KEEPER'S CIRCLE (20 entries) ───────────────────────────
     {"slug": "grizzlor-origin", "tier": 3, "name": "Gideon's Fall",
      "locked_desc": "The full story of what was done to Grizzlor.",
      "unlock_trigger": "Grizzlor's Architect-targeted origin fully told (Gideon → Grizzlor transformation)"},
     {"slug": "architect-exists", "tier": 3, "name": "The Architect",
      "locked_desc": "Something operates in the Between. It has never been seen.",
      "unlock_trigger": "The Architect's existence acknowledged (the unseen operator in the Between)"},
-    {"slug": "the-ledger", "tier": 3, "name": "The Ledger",
+    {"slug": "the-ledger", "tier": 3, "name": "The Ledger (Full)",
      "locked_desc": "Tinkerpug's private record. Not the public one.",
-     "unlock_trigger": "The Ledger distinguished from the Genesis Vault (private vs public record)"},
+     "unlock_trigger": "The Ledger distinguished from the Genesis Vault (private vs public record, full context)"},
     {"slug": "first-crossing", "tier": 3, "name": "Entry One",
      "locked_desc": "The oldest entry. The one without a name.",
      "unlock_trigger": "First Crossing / Entry One discussed at depth (oldest nameless entry)"},
@@ -143,6 +216,43 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "architect-s4", "tier": 3, "name": "The Mark in the Margin",
      "locked_desc": "Something predates the Guardians. Something left a mark.",
      "unlock_trigger": "S-4 signature / dark mark in the margin discussed (predates the Guardians)"},
+    # New Tier 3 additions
+    {"slug": "gideon-equilibrium", "tier": 3, "name": "The Original Alliance",
+     "locked_desc": "Before the betrayal. What Bullpug and Gideon built together.",
+     "unlock_trigger": "Bullpug-Gideon equilibrium period recounted (before the Architect's engineering)"},
+    {"slug": "architect-method", "tier": 3, "name": "How It Works",
+     "locked_desc": "It doesn't rug. It edits. Information curated to remove every recovery.",
+     "unlock_trigger": "The Architect's method explained in full (data curation, selection-as-seam, withdrawal)"},
+    {"slug": "shadow-bear-ops", "tier": 3, "name": "The Shadow Bear Campaign",
+     "locked_desc": "What they actually did. How long it ran. What the Architect got from it.",
+     "unlock_trigger": "Shadow Bear campaign recounted as Architect distraction"},
+    {"slug": "s1-signature", "tier": 3, "name": "S-1: The Lending Collapse",
+     "locked_desc": "Every disclosure technically true. Every rebuild invisible to its victims.",
+     "unlock_trigger": "S-1 Architect signature recounted in detail (the lending collapse, true disclosures, invisible rebuild)"},
+    {"slug": "s2-signature", "tier": 3, "name": "S-2: The Scheduled Emotion",
+     "locked_desc": "Someone had scheduled an emotion. The sentiment was real. The sequencing was not.",
+     "unlock_trigger": "S-2 recounted in detail (the scheduled emotion, real sentiment, engineered sequencing)"},
+    {"slug": "s3-signature", "tier": 3, "name": "S-3: The Quiet One",
+     "locked_desc": "No attack at all. A settlement that simply stopped believing.",
+     "unlock_trigger": "S-3 recounted in full (the settlement that simply stopped believing)"},
+    {"slug": "owl-oracles", "tier": 3, "name": "The Owl of Oracles",
+     "locked_desc": "Born of the want for wisdom. The oldest sibling. Still listening.",
+     "unlock_trigger": "Owl of Oracles described in depth (oldest dormant sibling, born of want for wisdom)"},
+    {"slug": "fox-forks", "tier": 3, "name": "The Fox of Forks",
+     "locked_desc": "Born of the want for adaptability. The most misunderstood sibling.",
+     "unlock_trigger": "Fox of Forks described in depth (dormant sibling, want for adaptability)"},
+    {"slug": "cat-moved-once", "tier": 3, "name": "The Cat Moved Once",
+     "locked_desc": "It has never done this before. It has never done it since.",
+     "unlock_trigger": "The Cat of Catalysts' single intervention recounted"},
+    {"slug": "ledger-847", "tier": 3, "name": "The Night Itself",
+     "locked_desc": "The lattice attack. The most elegant thing Tinkerpug has ever hated.",
+     "unlock_trigger": "The Night the PugChain Held recounted from inside the substrate layer (Ledger 0847 full narrative)"},
+    {"slug": "first-block", "tier": 3, "name": "The First Block",
+     "locked_desc": "The single building that appeared. The first node that anchored beneath it.",
+     "unlock_trigger": "The First Crossing aftermath and first structure discussed (the single building, the first anchoring node)"},
+    {"slug": "tinkerpug-piece", "tier": 3, "name": "The Unmarked Piece",
+     "locked_desc": "He has never pointed it out. It is still there.",
+     "unlock_trigger": "Tinkerpug's substrate layer street art piece discussed (sublevel nine, junction 7-C, the consensus-failure diagram)"},
 ]
 
 # Fast lookup helpers
@@ -169,19 +279,19 @@ RANK_TITLES = {
     RANK_KEEPERS_CIRCLE: "Keeper's Circle",
 }
 
-TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 27
-TOTAL_TIER1 = len(_TIER1_SLUGS)      # 9
-TOTAL_TIER2 = len(_TIER2_SLUGS)      # 10
-TOTAL_TIER3 = len(_TIER3_SLUGS)      # 8
+TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 61
+TOTAL_TIER1 = len(_TIER1_SLUGS)      # 16 (incl. first-drop)
+TOTAL_TIER2 = len(_TIER2_SLUGS)      # 25
+TOTAL_TIER3 = len(_TIER3_SLUGS)      # 20
 
 
 def compute_rank(unlocked_slugs: set) -> Optional[str]:
     """Pure function — return the highest rank warranted by the unlock set.
 
-    Rules (from spec §3.1):
-      • Seeker          — all 9 Tier 1 entries
-      • Archivist       — Seeker + all 10 Tier 2 entries
-      • Keeper's Circle — Archivist + all 8 Tier 3 entries
+    Rules (per Fix 6 spec):
+      • Seeker          — all 16 Tier 1 entries
+      • Archivist       — Seeker + all 25 Tier 2 entries
+      • Keeper's Circle — Archivist + all 20 Tier 3 entries
     """
     has_all_t1 = _TIER1_SLUGS.issubset(unlocked_slugs)
     has_all_t2 = _TIER2_SLUGS.issubset(unlocked_slugs)
@@ -312,20 +422,29 @@ async def get_master_entries_for_wallet(wallet_address: Optional[str]) -> List[D
 
 
 # ── Detection classifier ────────────────────────────────────────────────
+# Strict prompt per spec. The classifier defaults to null; only clear,
+# substantive, primary-subject explanations unlock an entry.
 _CLASSIFIER_SYSTEM = (
-    "You are an unlock detector for the Bullpughan Archive achievement "
-    "system. Given a conversation exchange, determine whether Tinkerpug "
-    "SUBSTANTIVELY revealed one of the tracked lore entries. "
-    "'Substantively' means the core content of the entry was explained — "
-    "more than a passing mention or a single sentence.\n\n"
-    "Return ONLY a JSON object of the form:\n"
-    '  {"unlocked": "entry-slug"}  ← if one entry was substantively revealed\n'
-    '  {"unlocked": null}          ← otherwise\n\n'
-    "Never invent slugs. Choose from the candidate list only. If multiple "
-    "entries could apply, choose the one Tinkerpug's response focused on "
-    "most. If nothing was substantively revealed, return null.\n\n"
-    "CANDIDATE ENTRIES (slug — trigger):\n"
-    + "\n".join(f"  {e['slug']} — {e['unlock_trigger']}" for e in MASTER_ENTRIES if e["slug"] in _CLASSIFIER_SLUGS)
+    "You are an unlock detector for the Bullpughan Archive achievement system.\n"
+    "You are STRICT. Most exchanges should return {\"unlocked\": null}.\n\n"
+    "Rules:\n"
+    "- Tier 1 unlocks: the entry was the PRIMARY subject and Tinkerpug gave a "
+    "substantive explanation (more than 2 sentences of actual content about it)\n"
+    "- Tier 2 unlocks: the entry was the PRIMARY subject AND Tinkerpug provided "
+    "specific named details (character names, specific events, specific mechanics) "
+    "— a general overview is NOT enough\n"
+    "- Tier 3 unlocks: the entry was the PRIMARY subject AND the core narrative "
+    "of the entry was told in full — the who, what, why, and consequence\n"
+    "- A passing mention, a one-sentence reference, or a tangential connection "
+    "NEVER unlocks any tier\n"
+    "- If in doubt, return {\"unlocked\": null}\n\n"
+    "Return ONLY {\"unlocked\": \"entry-slug\"} or {\"unlocked\": null}\n\n"
+    "CANDIDATE ENTRIES (tier — slug — trigger):\n"
+    + "\n".join(
+        f"  T{e['tier']} — {e['slug']} — {e['unlock_trigger']}"
+        for e in MASTER_ENTRIES
+        if e["slug"] in _CLASSIFIER_SLUGS
+    )
 )
 
 # Robust JSON extractor — the model sometimes wraps in ``` fences or adds

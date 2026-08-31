@@ -1,5 +1,36 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Latest Changelog Entry (Feb 2026 — Archive fixes + lore expansion, Document 1 complete)
+
+Executed `EMERGENT-COMPLETE-INSTRUCTION.md` Document 1 (all 7 Archive fixes). Testing agent (iteration_110) reports 100% pass on backend (6/6) and frontend regression.
+
+- **Fix 3 (Classifier tightening)** — `backend/services/archive_achievements.py` `_CLASSIFIER_SYSTEM` replaced with the strict spec prompt: STRICT default → null, tier-specific criteria (T1 = primary subject + substantive 2+ sentences; T2 = specific named details; T3 = full who/what/why/consequence). Offline test harness `backend/tests/test_classifier_strictness.py` — 10/10 pass on the strictness checkpoint before other fixes were applied.
+- **Fix 1 (Daily drop auto-generate on wallet connect)** — Root cause: `DailyDropVault.jsx` only queried the `/archive/drops` cache listing and never called `/ai/daily-drop` (the generation endpoint), so first-time wallet users saw "vault empty" indefinitely unless they sent a chat message. Fix: `DailyDropVault` now eagerly pings `GET /api/ai/daily-drop?wallet_address=…` on wallet connect (idempotent per (wallet, UTC-day)), refetches the vault when it succeeds, and shows a "Preparing your first drop…" transient state (`data-testid='drop-vault-generating'`).
+- **Fix 2 (Clickable Lore tiles)** — NEW `frontend/src/components/LoreCardModal.jsx`. Unlocked cards open a full-view modal (name in tier colour, full-size Visual-Canon image if present, Tinkerpug's full excerpt, tier badge + rank name, filed date). Locked cards open a prompt modal (tier indicator, italic locked description, "Ask the Keeper to unlock this entry", and an "Open the Archive" button that closes the modal, focuses `data-testid='archive-input'`, and prefills a `Tell me about …` prompt derived from the locked description — never the real entry name). `LoreCard.jsx` made keyboard-accessible (`role='button'`, `tabIndex=0`, Enter/Space handler). Esc + X (`data-testid='lore-card-modal-close'`) close. Mobile handoff switches `mobileTab='keeper'` before focusing.
+- **Fix 5 (Chat session persistence per wallet)** — `Archive.jsx` `Workspace` persists messages under `sessionStorage['archive_conversation_' + (wallet || 'guest')]`. Lazy-init on mount + swap on wallet change; restored sessions never re-greet (`isReturnGreetedRef.current` short-circuits). Clears on tab close — appropriate for the Archive workspace.
+- **Fix 6 (Lore expansion 27 → 61 entries)** — `MASTER_ENTRIES` in `backend/services/archive_achievements.py` now holds 16 Tier 1 (incl. first-drop) + 25 Tier 2 + 20 Tier 3 entries. `compute_rank()` unchanged (subset-based) so Seeker = all 16 T1, Archivist = all T2, Keeper's Circle = all T3 — matches spec. Total counts updated in docstring, `/api/archive/rank` payload docstring, and `ArchiveLedger.jsx` fallback (61). NOTE: the spec's new T2 slug `the-ledger` conflicts with the existing T3 slug — the new T2 entry was renamed to `ledger-private` to preserve visual_canon / user-unlock migration safety.
+- **Fix 7 (Chatbot canon expansion)** — `backend/routers/ai_chat.py`:
+  - Added `## Expanded Ledger Narratives (Tier 3 depth)` section with LEDGER 1103 (Grizzlor Assessment), 1847 (Long Sniff origin), 2001 (Unmarked Piece) full narratives.
+  - Added canonical descriptions for The Enlightenment Nebula (three illusions) and The Elder Moons ("Believe in the moon, but build the rocket together") at Tier 2 depth.
+  - Extended banned-openers list to include `"Ah,"` and `"Ah, a request"` alongside the pre-existing bans.
+- **Fix 4 (Animated PugChain data-flow chat background)** — New `DataFlowLayer` component inside `Archive.jsx`. Six vertical monospace columns of pseudo-random hashes / block numbers / tx snippets scrolling at 42-70s each at ~9% opacity in cyan/teal; two horizontal data-pulse lines (17s + 23s durations, negative delay so they never re-align); three offset node pulses (cyan/blue/violet) cycling at 34s each with staggered start times so a soft circular pulse fires every ~10-12s from a random anchor. CSS-only, keyframes scoped to the component. Round window + skyline + instrument readouts preserved unchanged.
+
+### Files touched in this batch
+- CREATED: `frontend/src/components/LoreCardModal.jsx`
+- CREATED: `backend/tests/test_classifier_strictness.py`
+- MODIFIED: `backend/services/archive_achievements.py` (MASTER_ENTRIES, _CLASSIFIER_SYSTEM, counts)
+- MODIFIED: `backend/routers/archive.py` (docstring totals)
+- MODIFIED: `backend/routers/ai_chat.py` (Ledger narratives, banned openers, canon topics)
+- MODIFIED: `frontend/src/components/LoreCard.jsx` (keyboard-accessible click target)
+- MODIFIED: `frontend/src/components/ArchiveLedger.jsx` (modal wiring, onOpenArchive prop, total fallback)
+- MODIFIED: `frontend/src/components/DailyDropVault.jsx` (eager drop generation + preparing state)
+- MODIFIED: `frontend/src/pages/Archive.jsx` (sessionStorage persistence, promptRequest prop, DataFlowLayer)
+- MODIFIED: `frontend/public/sw-push.js` (lint: /* global clients */)
+
+### Pending (blocked on user confirmation before starting)
+- Document 2 — Plushie backend infrastructure ONLY (no store/payments): `companion_tokens` collection + `/companion?key=` route + `companions-secret` special-tier Archive entry (with custom Tinkerpug celebration) + minimal admin token management (view + generate).
+
+
 
 ## Latest Changelog Entry (Feb 2026 — Origins image swap)
 - Replaced `/app/frontend/public/lore/world-he-calls-home.jpg` with the user-supplied artwork (1168×784, 438.7 KB — glowing golden pug-spire citadel).

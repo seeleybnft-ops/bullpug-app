@@ -7,6 +7,13 @@
  *
  * Empty state (spec §9.3): a single placeholder card.
  * Wallet-less state: a prompt to connect, since the vault is per-wallet.
+ *
+ * Drop generation: on wallet connect this component eagerly pings
+ * `/api/ai/daily-drop?wallet_address=...` which is idempotent per
+ * (wallet, UTC-day) — it returns the cached drop instantly if today's
+ * already exists, otherwise it generates one (5-10s). When the ping
+ * resolves we refetch `/archive/drops` so today's card appears in the
+ * grid without waiting for the user to send a chat message.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import DropCard from "./DropCard";
@@ -22,8 +29,10 @@ export default function DailyDropVault({ wallet }) {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initialised, setInitialised] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [selected, setSelected] = useState(null);
   const sentinelRef = useRef(null);
+  const generateStartedRef = useRef(null);
 
   // Fetch a page. Returns nothing — mutates state.
   const fetchPage = useCallback(
@@ -48,14 +57,52 @@ export default function DailyDropVault({ wallet }) {
     [wallet]
   );
 
-  // Reset on wallet change
+  // Reset on wallet change + trigger today's drop generation
   useEffect(() => {
     setDrops([]);
     setPage(1);
     setTotal(0);
     setHasMore(false);
     setInitialised(false);
-    if (wallet) fetchPage(1, true);
+    setGenerating(false);
+    generateStartedRef.current = null;
+    if (!wallet) return;
+
+    let cancelled = false;
+
+    (async () => {
+      // First, snapshot the current cached vault so returning users see
+      // their existing drops immediately without waiting for the
+      // generate endpoint.
+      await fetchPage(1, true);
+      if (cancelled) return;
+
+      // Then eagerly generate/fetch today's drop. Idempotent per
+      // (wallet, UTC-day) — returns the cache hit instantly for
+      // returning users, ~5-10s for a fresh first-connect. 503 during
+      // generation is fine — we just skip the refetch and let the
+      // caller retry naturally on the next mount.
+      if (generateStartedRef.current === wallet) return;
+      generateStartedRef.current = wallet;
+      setGenerating(true);
+      try {
+        const url = `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(wallet)}`;
+        const res = await fetch(url);
+        if (cancelled) return;
+        if (res.ok) {
+          // Refresh the vault so today's card appears at the top.
+          await fetchPage(1, true);
+        }
+      } catch {
+        /* silent — generation is best-effort, next mount will retry */
+      } finally {
+        if (!cancelled) setGenerating(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [wallet, fetchPage]);
 
   // Infinite-scroll sentinel
@@ -92,6 +139,25 @@ export default function DailyDropVault({ wallet }) {
   }
 
   if (initialised && drops.length === 0) {
+    if (generating) {
+      return (
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{ background: "rgba(10,15,30,0.55)", border: "1px dashed rgba(0,255,163,0.25)" }}
+          data-testid="drop-vault-generating"
+        >
+          <p className="text-sm text-white/80 font-bold mb-1" style={{ fontFamily: "Orbitron, sans-serif" }}>
+            Preparing your first drop…
+          </p>
+          <p className="text-xs text-slate-400 mb-2">
+            The Archive is compiling today's record.
+          </p>
+          <p className="text-[11px] italic text-slate-500">
+            keeper's note: this takes a moment on first connect.
+          </p>
+        </div>
+      );
+    }
     return (
       <div
         className="rounded-xl p-6 text-center"

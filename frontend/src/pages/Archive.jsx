@@ -83,6 +83,189 @@ function renderMarkdown(text) {
 }
 
 // ── Ambient decorative pieces ─────────────────────────────────────────
+// Deterministic pseudo-random hash-like strings for the scrolling data
+// columns. The seed is a per-mount random offset so different tabs
+// don't display identical text, but each column stays the same across
+// re-renders. Kept short so nothing legible ever competes with the
+// chat text — the columns read as texture, not content.
+function makeHashStrip(seed) {
+  const chars = "0123456789abcdef";
+  const lines = [];
+  // 24 lines per strip is more than enough vertical density; the CSS
+  // animation duplicates the strip via a second copy for a seamless
+  // loop, so effective density doubles.
+  for (let i = 0; i < 24; i += 1) {
+    // Vary the shape: some full-hash lines (14 chars), some block-
+    // number lines (7-digit), some transaction snippet lines (label
+    // + short hash) so it doesn't read as one homogeneous grid.
+    const roll = (seed * 9301 + 49297 + i * 233) % 3;
+    if (roll === 0) {
+      let s = "0x";
+      for (let j = 0; j < 12; j += 1) {
+        s += chars[(seed + i * 17 + j * 7) % chars.length];
+      }
+      lines.push(s);
+    } else if (roll === 1) {
+      const num = ((seed + i * 419) * 7919) % 9_999_999;
+      lines.push(`blk ${String(num).padStart(7, "0")}`);
+    } else {
+      let s = "tx·";
+      for (let j = 0; j < 6; j += 1) {
+        s += chars[(seed + i * 29 + j * 11) % chars.length];
+      }
+      lines.push(s);
+    }
+  }
+  return lines;
+}
+
+function DataFlowLayer() {
+  // Six evenly-spaced columns spanning the panel width. Duration and
+  // vertical offset differ per column so the flow never looks like a
+  // single sheet. Opacity is intentionally 8-10% (CSS variable) so
+  // the layer stays sub-perceptual against the text foreground.
+  const columns = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, i) => ({
+        seed: 991 + i * 197,
+        left: `${8 + i * 15}%`,
+        duration: 42 + (i % 3) * 14, // 42s / 56s / 70s — long, ambient
+        delay: -(i * 7), // stagger so pulses don't align
+      })),
+    []
+  );
+
+  // Two horizontal data pulses cross the panel. Long durations + a
+  // negative delay on the second line so they fire at different
+  // moments — the spec wants "irregular intervals", not a metronome.
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+      {/* Column flow */}
+      {columns.map((c, idx) => {
+        const strip = makeHashStrip(c.seed);
+        return (
+          <div
+            key={idx}
+            className="absolute top-0 flex flex-col"
+            style={{
+              left: c.left,
+              transform: "translateX(-50%)",
+              width: 92,
+              color: "rgba(0,255,200,0.55)",
+              opacity: 0.09,
+              fontFamily: "monospace",
+              fontSize: 10,
+              lineHeight: "16px",
+              letterSpacing: "0.06em",
+              animation: `archive-flow ${c.duration}s linear ${c.delay}s infinite`,
+              willChange: "transform",
+            }}
+          >
+            {/* Duplicate the strip once so the loop wraps seamlessly */}
+            {[...strip, ...strip].map((line, li) => (
+              <span key={li} className="truncate">
+                {line}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+
+      {/* Horizontal data pulses — two independent lines with prime-ish
+          durations so they never re-align. */}
+      <div
+        className="absolute left-0 right-0"
+        style={{
+          top: "38%",
+          height: 1,
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(0,255,200,0.6) 50%, transparent 100%)",
+          opacity: 0.35,
+          animation: "archive-pulse-h 17s ease-in-out infinite",
+          willChange: "transform, opacity",
+        }}
+      />
+      <div
+        className="absolute left-0 right-0"
+        style={{
+          top: "72%",
+          height: 1,
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(0,194,255,0.55) 50%, transparent 100%)",
+          opacity: 0.3,
+          animation: "archive-pulse-h 23s ease-in-out -9s infinite",
+          willChange: "transform, opacity",
+        }}
+      />
+
+      {/* Node pulses — three positions cycled every ~30s so a soft
+          circular ripple always looks like it fired from somewhere
+          new. */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          top: "22%",
+          left: "70%",
+          width: 220,
+          height: 220,
+          transform: "translate(-50%,-50%)",
+          border: "1px solid rgba(0,255,200,0.35)",
+          opacity: 0,
+          animation: "archive-node-pulse 34s ease-out 0s infinite",
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          top: "80%",
+          left: "40%",
+          width: 220,
+          height: 220,
+          transform: "translate(-50%,-50%)",
+          border: "1px solid rgba(0,194,255,0.32)",
+          opacity: 0,
+          animation: "archive-node-pulse 34s ease-out -11s infinite",
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          top: "54%",
+          left: "18%",
+          width: 220,
+          height: 220,
+          transform: "translate(-50%,-50%)",
+          border: "1px solid rgba(180,124,255,0.3)",
+          opacity: 0,
+          animation: "archive-node-pulse 34s ease-out -22s infinite",
+        }}
+      />
+
+      {/* Keyframes — scoped to the component. Duplication is fine;
+          the browser dedupes matching @keyframes. */}
+      <style>{`
+        @keyframes archive-flow {
+          0%   { transform: translate(-50%, -50%); }
+          100% { transform: translate(-50%, 0%); }
+        }
+        @keyframes archive-pulse-h {
+          0%,  100% { opacity: 0; transform: translateX(-40%); }
+          40%       { opacity: 0.45; }
+          50%       { opacity: 0.55; transform: translateX(0); }
+          60%       { opacity: 0.45; }
+          80%       { opacity: 0; transform: translateX(40%); }
+        }
+        @keyframes archive-node-pulse {
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+          6%   { opacity: 0.55; }
+          12%  { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function WorkspaceBackground() {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
@@ -94,6 +277,10 @@ function WorkspaceBackground() {
             "radial-gradient(ellipse at top left, rgba(20,32,64,0.9) 0%, rgba(5,7,18,1) 55%, #05050A 100%)",
         }}
       />
+      {/* PugChain data flow — hashes / block numbers / tx snippets +
+          horizontal pulses + soft node pulses. Sits between the base
+          and the grid so grid + instrument readouts still read clean. */}
+      <DataFlowLayer />
       {/* Cyan grid — faint, generous spacing so it reads as ambient not busy */}
       <div
         className="absolute inset-0 opacity-[0.06]"
@@ -182,21 +369,105 @@ function Avatar({ small = false }) {
 }
 
 // ── The workspace chat panel ──────────────────────────────────────────
-function Workspace({ wallet, onAssistantReply }) {
+// sessionStorage key for the message log — one entry per wallet (or
+// `guest` for pre-connect visitors). sessionStorage means the log
+// clears on tab close, which is what we want: a fresh tab starts fresh,
+// but SPA navigation between /archive and any other page preserves the
+// conversation.
+function conversationStorageKey(wallet) {
+  return `archive_conversation_${wallet || "guest"}`;
+}
+
+function loadPersistedMessages(wallet) {
+  try {
+    const raw = sessionStorage.getItem(conversationStorageKey(wallet));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function Workspace({ wallet, onAssistantReply, promptRequest }) {
   const sessionId = useSessionId();
-  const [messages, setMessages] = useState(() => [
-    { role: "assistant", content: FIRST_VISIT_GREETING, isGreeting: true },
-  ]);
+  // Lazy-init from sessionStorage so we don't flash the greeting on
+  // remount. Falls back to the first-visit greeting if nothing is
+  // stored yet for this wallet.
+  const [messages, setMessages] = useState(() => {
+    const persisted = loadPersistedMessages(wallet);
+    if (persisted) return persisted;
+    return [{ role: "assistant", content: FIRST_VISIT_GREETING, isGreeting: true }];
+  });
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
   const isReturnGreetedRef = useRef(false);
+
+  // When the wallet changes (connect/disconnect after mount), swap in
+  // the persisted log for that identity if one exists — otherwise
+  // leave the current thread in place so the visitor's guest chat
+  // isn't lost on wallet connect. Also skip if the two logs are the
+  // same instance (prevents needless re-render).
+  useEffect(() => {
+    const persisted = loadPersistedMessages(wallet);
+    if (persisted) {
+      setMessages(persisted);
+      // A restored session should NOT re-greet — the "familiar signal"
+      // effect below is short-circuited.
+      isReturnGreetedRef.current = true;
+    }
+    // If no persisted log AND we're switching wallets, leave the
+    // existing messages so a guest that connects mid-conversation
+    // keeps their chat. The subsequent send will persist under the
+    // wallet key.
+  }, [wallet]);
+
+  // Persist on every change. Skip the initial greeting-only state to
+  // keep the storage clean.
+  useEffect(() => {
+    try {
+      if (
+        messages.length === 1 &&
+        messages[0].isGreeting &&
+        messages[0].content === FIRST_VISIT_GREETING
+      ) {
+        return;
+      }
+      sessionStorage.setItem(conversationStorageKey(wallet), JSON.stringify(messages));
+    } catch {
+      /* quota / private mode — silent */
+    }
+  }, [messages, wallet]);
 
   // Auto-scroll on new messages
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  // Any prompt-focus request from a locked-lore modal — set the input
+  // and focus. We watch `.id` so repeat requests for the same prompt
+  // still trigger.
+  useEffect(() => {
+    if (!promptRequest || !promptRequest.text) return;
+    setInput(promptRequest.text);
+    // Wait a tick for the mobile tab to swap in and the textarea to
+    // mount, then focus + move caret to the end.
+    const t = setTimeout(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      try {
+        el.setSelectionRange(promptRequest.text.length, promptRequest.text.length);
+      } catch {
+        /* some browsers reject on unfocused textareas */
+      }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [promptRequest]);
 
   // On wallet-connect after first visit, swap the greeting for the return
   // form once we know the rank. Fire-and-forget — chat continues without.
@@ -355,6 +626,7 @@ function Workspace({ wallet, onAssistantReply }) {
         </p>
         <div className="flex items-end gap-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
@@ -397,9 +669,18 @@ export default function Archive() {
   // order the classifier recorded them.
   const [queue, setQueue] = useState([]);
   const [active, setActive] = useState(null);
+  const [promptRequest, setPromptRequest] = useState(null);
   const seenSlugsRef = useRef(new Set());
   const seenRankRef = useRef(null); // last-observed rank; drives rank-up flag
   const initialisedRef = useRef(false);
+
+  // Locked-card → chat handoff: switch to keeper tab on mobile and
+  // pass the derived prompt down to Workspace with a fresh id so the
+  // effect re-fires even when the same prompt is requested twice.
+  const handleOpenArchive = useCallback((text) => {
+    setMobileTab("keeper");
+    setPromptRequest({ text, id: Date.now() });
+  }, []);
 
   // Poll for new unlocks after each assistant reply. Runs immediately
   // (in case the classifier finished fast), then again at 4s and 9s to
@@ -563,10 +844,10 @@ export default function Archive() {
       {/* Desktop split / mobile single-column */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
         <div className={`${mobileTab === "keeper" ? "block" : "hidden"} lg:block h-full min-h-0`}>
-          <Workspace wallet={wallet} onAssistantReply={bumpRefresh} />
+          <Workspace wallet={wallet} onAssistantReply={bumpRefresh} promptRequest={promptRequest} />
         </div>
         <div className={`${mobileTab === "ledger" ? "block" : "hidden"} lg:block h-full min-h-0`}>
-          <ArchiveLedger wallet={wallet} refreshKey={refreshTick} />
+          <ArchiveLedger wallet={wallet} refreshKey={refreshTick} onOpenArchive={handleOpenArchive} />
         </div>
       </div>
 

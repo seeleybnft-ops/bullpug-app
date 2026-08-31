@@ -80,11 +80,11 @@ async def get_rank(wallet: Optional[str] = Query(None, description="Solana walle
         "rank": "seeker" | "archivist" | "keepers_circle" | null,
         "rank_title": "Seeker" | "Archivist" | "Keeper's Circle" | null,
         "unlocked_count": N,
-        "total": 27,
+        "total": 61,
         "tier_progress": {
-          "tier_1": {"unlocked": X, "total": 9},
-          "tier_2": {"unlocked": X, "total": 10},
-          "tier_3": {"unlocked": X, "total": 8},
+          "tier_1": {"unlocked": X, "total": 16},
+          "tier_2": {"unlocked": X, "total": 25},
+          "tier_3": {"unlocked": X, "total": 20},
         }
       }
     """

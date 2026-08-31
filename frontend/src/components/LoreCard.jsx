@@ -82,14 +82,25 @@ export default function LoreCard({ entry, onClick }) {
   }, [unlocked, entry.has_image, entry.slug, thumb]);
 
   const baseClasses =
-    "relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 group cursor-default";
+    "relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40";
   const stateClasses = unlocked
     ? "bg-[#0a0f1e]/80 border border-white/10 hover:border-white/25 hover:-translate-y-0.5"
     : "bg-[#0a0f1e]/40 border border-white/[0.06] hover:border-white/12";
 
+  const handleKey = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick?.();
+    }
+  };
+
   return (
     <article
       onClick={onClick}
+      onKeyDown={handleKey}
+      role="button"
+      tabIndex={0}
+      aria-label={unlocked ? `Open ${entry.name}` : `Sealed record — ${entry.locked_desc}`}
       data-testid={`lore-card-${entry.slug}`}
       data-unlocked={unlocked ? "1" : "0"}
       className={`${baseClasses} ${stateClasses}`}

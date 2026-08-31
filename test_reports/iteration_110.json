@@ -1,0 +1,19 @@
+{
+  "summary": "Iteration 110 regression testing for the 7 Archive fixes on the preview backend + frontend. Backend: 6/6 pytest cases passed (test_archive_iteration110.py) — GET /api/archive/entries returns exactly 61 entries with tier distribution {1:16, 2:25, 3:20}, all with slug/tier/name/locked_desc, no duplicates. GET /api/archive/rank returns total=61 with correct tier totals. Unknown-wallet entries all locked. Daily-drop endpoint idempotent: identical image_base64 on repeat call within the same UTC day, and /api/archive/drops reflects the newly generated drop. Classifier tightening verified: short tangential 'hi' message produces zero classifier-based unlocks (an event-based 'first-drop' unlock does fire because Fix 1 auto-generates a drop, which is expected). Grizzlor lore query answered in-character with no banned openers and contains lore substance. Frontend /archive: page loads with zero console errors, shows '0 of 61 discovered', TIER I 0/16, TIER II 0/25, TIER III 0/20 (SEEKER/ARCHIVIST/KEEPER labels present), 61 [data-testid^='lore-card-'] cards render. Clicking a locked LoreCard opens data-testid='lore-card-modal' with lore-card-modal-locked variant, italic locked description, 'Ask the Keeper to unlock this entry' text, and lore-card-modal-open-archive button. Esc closes modal, X (lore-card-modal-close) closes modal, and 'Open the Archive' button closes modal, focuses [data-testid='archive-input'], and prefills it with a 'Tell me about ...' prompt derived from the locked description (verified value: 'Tell me about how Bullpug came to exist. The beginning of everything.'). No console errors related to DataFlowLayer / archive-flow keyframes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_archive_iteration110.py",
+    "/app/test_reports/pytest/iteration110.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note (informational, not a bug): a fresh wallet posting ANY /api/ai/chat message triggers Fix 1 daily-drop auto-generation, which in turn creates an event-based 'first-drop' Archive unlock. This is expected per Fix 1 spec but means /api/archive/unlocks is NOT strictly empty after the first chat call for a new wallet — the classifier itself contributes 0 unlocks (which is what Fix 3 requires). Consider clarifying the spec/test contract if 'no unlocks whatsoever' was the intent."
+  ],
+  "updated_files": ["/app/backend/tests/test_archive_iteration110.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all Archive modal + ledger flows verified)"},
+  "seed_data_creation": "Random ephemeral wallets used only as URL params (DropTestWallet_*, ClassifierNegTest_*, LoreTest_*, TestNewWallet123XXX_*). No production data mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use test_archive_iteration110.py as the regression baseline for the 61-entry Archive expansion, daily-drop idempotency, classifier strictness, and banned-opener chatbot canon. Requests to /api/ai/chat must send header 'X-Bullpug-CSRF: 1' or they get 403. Note the event-based 'first-drop' unlock side-effect when using a fresh wallet on chat/daily-drop."
+}

@@ -2,6 +2,7 @@
  * Bullpug Service Worker for Push Notifications
  * Handles incoming push events and notification display
  */
+/* global clients */
 
 // eslint-disable-next-line no-restricted-globals
 self.addEventListener('push', function(event) {
@@ -43,7 +44,7 @@ self.addEventListener('notificationclick', function(event) {
   const url = notificationData.url || '/';
 
   event.waitUntil(
-    // eslint-disable-next-line no-restricted-globals
+    // eslint-disable-next-line no-undef, no-restricted-globals
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function(windowClients) {
         // Check if there's already a window open
@@ -54,9 +55,9 @@ self.addEventListener('notificationclick', function(event) {
           }
         }
         // If not, open a new window
-        // eslint-disable-next-line no-restricted-globals
+        // eslint-disable-next-line no-undef, no-restricted-globals
         if (clients.openWindow) {
-          // eslint-disable-next-line no-restricted-globals
+          // eslint-disable-next-line no-undef, no-restricted-globals
           return clients.openWindow(url);
         }
       })

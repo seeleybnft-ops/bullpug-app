@@ -11,6 +11,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import LoreCard from "./LoreCard";
+import LoreCardModal from "./LoreCardModal";
 import RankBadge from "./RankBadge";
 import DailyDropVault from "./DailyDropVault";
 import ShareableCard from "./ShareableCard";
@@ -36,7 +37,7 @@ function ProgressBar({ percent, color }) {
   );
 }
 
-function TierGroup({ title, entries, color }) {
+function TierGroup({ title, entries, color, onCardClick }) {
   if (!entries.length) return null;
   const unlocked = entries.filter((e) => e.unlocked).length;
   return (
@@ -54,7 +55,7 @@ function TierGroup({ title, entries, color }) {
       </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
         {entries.map((e) => (
-          <LoreCard key={e.slug} entry={e} />
+          <LoreCard key={e.slug} entry={e} onClick={() => onCardClick?.(e)} />
         ))}
       </div>
     </div>
@@ -70,12 +71,13 @@ const RANK_COLOR = {
   none: "#3A4560",
 };
 
-export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
+export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive }) {
   const [entries, setEntries] = useState([]);
   const [rankData, setRankData] = useState(null);
   const [section, setSection] = useState("ledger"); // "ledger" | "drops"
   const [loading, setLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [modalEntry, setModalEntry] = useState(null);
 
   // Fetch entries + rank on mount / wallet change / external refresh
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
   }, [entries]);
 
   const unlockedCount = rankData?.unlocked_count ?? entries.filter((e) => e.unlocked).length;
-  const total = rankData?.total ?? entries.length ?? 27;
+  const total = rankData?.total ?? entries.length ?? 61;
   const rank = rankData?.rank ?? null;
   const rankTitle = rankData?.rank_title ?? null;
   const rankColor = RANK_COLOR[rank || "none"];
@@ -219,9 +221,9 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
                 </p>
               </div>
             )}
-            <TierGroup title="Tier I · Seeker" entries={grouped[1] || []} color={TIER_COLOR[1]} />
-            <TierGroup title="Tier II · Archivist" entries={grouped[2] || []} color={TIER_COLOR[2]} />
-            <TierGroup title="Tier III · Keeper's Circle" entries={grouped[3] || []} color={TIER_COLOR[3]} />
+            <TierGroup title="Tier I · Seeker" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier II · Archivist" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier III · Keeper's Circle" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
             {loading && entries.length === 0 && (
               <p className="text-center text-[11px] tracking-widest text-slate-600">loading the ledger…</p>
             )}
@@ -232,6 +234,16 @@ export default function ArchiveLedger({ wallet, refreshKey = 0 }) {
       </div>
 
       {shareOpen && <ShareableCard wallet={wallet} onClose={() => setShareOpen(false)} />}
+      {modalEntry && (
+        <LoreCardModal
+          entry={modalEntry}
+          onClose={() => setModalEntry(null)}
+          onOpenArchive={(prompt) => {
+            setModalEntry(null);
+            onOpenArchive?.(prompt);
+          }}
+        />
+      )}
     </aside>
   );
 }
