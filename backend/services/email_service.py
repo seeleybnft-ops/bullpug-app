@@ -1,33 +1,49 @@
-"""Email service using SendGrid."""
+"""Email service using Resend (transactional provider).
 
+Historically used SendGrid; swapped to Resend Feb 2026 after the
+SendGrid account hit the credit ceiling. Keeps the same public
+`send_email()` signature so every caller (newsletter, welcome,
+weekly summary) works without changes.
+"""
+
+import asyncio
 import logging
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import resend
 from datetime import datetime, timezone
-from utils.config import SENDGRID_API_KEY, SENDER_EMAIL
+from utils.config import RESEND_API_KEY, SENDER_EMAIL
 
 logger = logging.getLogger(__name__)
 
+# Configure the Resend SDK once at import. `resend.api_key` is a
+# module-level global the SDK reads on every send call.
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
 
 async def send_email(to_email: str, subject: str, html_content: str) -> bool:
-    """Send email via SendGrid."""
-    if not SENDGRID_API_KEY:
-        logger.warning("SendGrid API key not configured - email not sent")
+    """Send an email via Resend. Returns True on success, False otherwise.
+
+    Runs the sync Resend SDK call in a worker thread so the FastAPI
+    event loop stays non-blocking.
+    """
+    if not RESEND_API_KEY:
+        logger.warning("Resend API key not configured - email not sent")
         return False
-    
+
+    params = {
+        "from": SENDER_EMAIL,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_content,
+    }
+
     try:
-        message = Mail(
-            from_email=SENDER_EMAIL,
-            to_emails=to_email,
-            subject=subject,
-            html_content=html_content
-        )
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        logger.info(f"Email sent to {to_email}, status: {response.status_code}")
-        return response.status_code == 202
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        email_id = result.get("id") if isinstance(result, dict) else None
+        logger.info(f"Email sent to {to_email} via Resend, id={email_id}")
+        return bool(email_id)
     except Exception as e:
-        logger.error(f"Failed to send email: {e}")
+        logger.error(f"Failed to send email via Resend: {e}")
         return False
 
 

@@ -10,8 +10,13 @@ load_dotenv(ROOT_DIR / '.env')
 # Stripe
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 
-# SendGrid
+# SendGrid (legacy — kept for any callers that still reference it, but
+# `send_email()` now dispatches via Resend.)
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+
+# Resend (primary transactional email provider)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@bullpug.com')
 
 # P2P Betting

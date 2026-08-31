@@ -1,5 +1,26 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — Act I Confirmation Email + Resend Swap
+
+Follow-up to the Notify feature (§ Feb 2026 — Notify + Chime + Certificate + Desktop Share Fix).
+
+**1. Confirmation dispatch**: `POST /api/newsletter/subscribe` now sends a keeper's-log confirmation email when `source == "act1-placeholder"`. Fire-and-forget via `asyncio.create_task` so a slow/failing provider never stalls the HTTP response. Subject `"the signal is logged."`, body wrapped in `<pre>` so newlines survive Gmail/Apple Mail without an HTML template. Other newsletter sources stay silent (no regression to legacy footer/modal signups). Copy defined as module-level constants in `routers/newsletter.py` (`_ACT1_CONFIRMATION_SUBJECT`, `_ACT1_CONFIRMATION_TEXT`, `_act1_html_body()`).
+
+**2. Provider swap SendGrid → Resend**: The SendGrid account hit its credit ceiling (`Maximum credits exceeded` on the live API). Swapped `services/email_service.py` to dispatch via Resend while keeping the public `send_email(to_email, subject, html_content) -> bool` signature — every caller (newsletter, welcome, weekly summary) works untouched. `resend>=2.0.0` added; `RESEND_API_KEY` added to `.env`; `utils/config.py` exposes both keys (SendGrid kept as legacy reference). Sync SDK call wrapped in `asyncio.to_thread` to keep the FastAPI loop non-blocking. Sender remains `noreply@bullpug.com` (domain verified in Resend).
+
+**Verified live**:
+- `delivered@resend.dev` → Resend email id `31f202b6-3fff-…` ✅
+- `bullpug-real-***@mailinator.com` → Resend email id `904c9f5f-…` ✅
+
+Files touched (4):
+- MODIFIED: `backend/routers/newsletter.py` (dispatch call)
+- MODIFIED: `backend/services/email_service.py` (SendGrid → Resend, same signature)
+- MODIFIED: `backend/utils/config.py` (`RESEND_API_KEY` env exposure)
+- MODIFIED: `backend/.env` (`RESEND_API_KEY=re_***`)
+- MODIFIED: `backend/requirements.txt` (`resend==2.42.0` frozen)
+
+
+
 ## Feb 2026 — Notify + Chime + Certificate + Desktop Share Fix
 
 Testing agent iteration_117: 100% backend (5/5) + 100% frontend (code + live). Applied one minor UX refinement afterwards (Act I input `type="text"` + `inputMode="email"` so branded invalid message is reachable).
