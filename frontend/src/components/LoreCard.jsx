@@ -62,9 +62,13 @@ function formatDate(iso) {
   }
 }
 
-export default function LoreCard({ entry, onClick }) {
+export default function LoreCard({ entry, onClick, isKeeper = false }) {
   const tierMeta = TIER[entry.tier] || TIER[1];
   const unlocked = !!entry.unlocked;
+  // Keeper's Circle milestone marker — only surfaces on the viewer's
+  // OWN unlocked cards once they've hit top rank. Read from prop; the
+  // Ledger owns the rank check so we don't refetch per-card.
+  const showKeeperMarker = isKeeper && unlocked;
 
   // Lazily fetch the Visual Canon thumbnail on mount when the entry is
   // unlocked and the entries endpoint says an image exists. Failures
@@ -92,8 +96,17 @@ export default function LoreCard({ entry, onClick }) {
   const baseClasses =
     "relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40";
   const stateClasses = unlocked
-    ? "bg-[#0a0f1e]/80 border border-white/10 hover:border-white/25 hover:-translate-y-0.5"
+    ? (showKeeperMarker
+        ? "bg-[#0a0f1e]/80 border hover:-translate-y-0.5"
+        : "bg-[#0a0f1e]/80 border border-white/10 hover:border-white/25 hover:-translate-y-0.5")
     : "bg-[#0a0f1e]/40 border border-white/[0.06] hover:border-white/12";
+  const keeperBorderStyle = showKeeperMarker
+    ? {
+        borderColor: "rgba(245,211,0,0.45)",
+        boxShadow:
+          "0 0 12px rgba(245,211,0,0.18), inset 0 0 0 1px rgba(245,211,0,0.15)",
+      }
+    : {};
 
   const handleKey = (e) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -113,11 +126,41 @@ export default function LoreCard({ entry, onClick }) {
       data-unlocked={unlocked ? "1" : "0"}
       className={`${baseClasses} ${stateClasses}`}
       style={{
-        boxShadow: unlocked
-          ? `inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 24px rgba(0,0,0,0.35)`
-          : "inset 0 0 0 1px rgba(255,255,255,0.02)",
+        ...keeperBorderStyle,
+        boxShadow: showKeeperMarker
+          ? `inset 0 0 0 1px rgba(245,211,0,0.22), 0 0 18px rgba(245,211,0,0.15), 0 0 24px rgba(0,0,0,0.35)`
+          : unlocked
+            ? `inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 24px rgba(0,0,0,0.35)`
+            : "inset 0 0 0 1px rgba(255,255,255,0.02)",
       }}
     >
+      {/* Keeper's Circle milestone pip — only for the viewer's own
+          unlocked cards once they've reached the top rank. Gold
+          SignalGlyph mirroring the rank badge. Subtle pulse animation
+          scoped to this card. */}
+      {showKeeperMarker && (
+        <span
+          aria-label="Keeper's Circle marker"
+          data-testid={`lore-card-keeper-pip-${entry.slug}`}
+          className="absolute top-2 right-2 z-[1] flex items-center justify-center rounded-full"
+          style={{
+            width: 14,
+            height: 14,
+            background:
+              "radial-gradient(circle at 35% 30%, #F5D300 0%, #C9A200 65%, rgba(115,92,0,0.8) 100%)",
+            border: "1px solid rgba(245,211,0,0.75)",
+            boxShadow:
+              "0 0 8px rgba(245,211,0,0.55), inset 0 0 0 1px rgba(0,0,0,0.25)",
+            animation: "keeper-pip-pulse 2.8s ease-in-out infinite",
+          }}
+        >
+          <span
+            aria-hidden
+            className="rounded-full"
+            style={{ width: 4, height: 4, background: "#0a0a12" }}
+          />
+        </span>
+      )}
       {/* Tier accent bar — thin left stripe */}
       <span
         aria-hidden
@@ -251,6 +294,14 @@ export default function LoreCard({ entry, onClick }) {
           </>
         )}
       </div>
+      {showKeeperMarker && (
+        <style>{`
+          @keyframes keeper-pip-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(245,211,0,0.55), inset 0 0 0 1px rgba(0,0,0,0.25); }
+            50%      { box-shadow: 0 0 14px rgba(245,211,0,0.85), inset 0 0 0 1px rgba(0,0,0,0.25); }
+          }
+        `}</style>
+      )}
     </article>
   );
 }

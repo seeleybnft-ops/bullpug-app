@@ -38,7 +38,7 @@ function ProgressBar({ percent, color }) {
   );
 }
 
-function TierGroup({ title, entries, color, onCardClick }) {
+function TierGroup({ title, entries, color, onCardClick, isKeeper }) {
   if (!entries.length) return null;
   const unlocked = entries.filter((e) => e.unlocked).length;
   return (
@@ -56,7 +56,7 @@ function TierGroup({ title, entries, color, onCardClick }) {
       </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
         {entries.map((e) => (
-          <LoreCard key={e.slug} entry={e} onClick={() => onCardClick?.(e)} />
+          <LoreCard key={e.slug} entry={e} onClick={() => onCardClick?.(e)} isKeeper={isKeeper} />
         ))}
       </div>
     </div>
@@ -134,6 +134,11 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
   const total = rankData?.total ?? entries.filter((e) => e.tier !== "special").length ?? 61;
   const rank = rankData?.rank ?? null;
   const rankTitle = rankData?.rank_title ?? null;
+  // Keeper's Circle milestone marker: only the wallet holder who has
+  // reached the top rank sees the gold pip on their unlocked cards.
+  // Rank comes from the same rank_snapshot the header consumes, so the
+  // marker appears the instant the promotion lands (no extra fetch).
+  const isKeeper = rank === "keepers_circle";
   const rankColor = RANK_COLOR[rank || "none"];
   const progressPct = total ? (unlockedCount / total) * 100 : 0;
 
@@ -230,15 +235,16 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
                 </p>
               </div>
             )}
-            <TierGroup title="Tier I" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} />
-            <TierGroup title="Tier II" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} />
-            <TierGroup title="Tier III" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
+            <TierGroup title="Tier I" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} isKeeper={isKeeper} />
+            <TierGroup title="Tier II" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} isKeeper={isKeeper} />
+            <TierGroup title="Tier III" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} isKeeper={isKeeper} />
             {(grouped.special || []).length > 0 && (
               <TierGroup
                 title="Special"
                 entries={grouped.special}
                 color={TIER_COLOR[3]}
                 onCardClick={setModalEntry}
+                isKeeper={isKeeper}
               />
             )}
             {wallet && (
