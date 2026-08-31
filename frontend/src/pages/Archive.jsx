@@ -710,8 +710,15 @@ export default function Archive() {
 
       // Anything new? Server returns newest-first — walk oldest-to-newest
       // when queueing so the celebrations play in chronological order.
-      const fresh = unlocks
-        .filter((u) => !seenSlugsRef.current.has(u.entry_id))
+      // Special-tier unlocks (companion-linked) already play their
+      // celebration on the `/companion` page — mark them seen but
+      // never enqueue.
+      const allFresh = unlocks.filter((u) => !seenSlugsRef.current.has(u.entry_id));
+      allFresh
+        .filter((u) => u.entry_tier === "special")
+        .forEach((u) => seenSlugsRef.current.add(u.entry_id));
+      const fresh = allFresh
+        .filter((u) => u.entry_tier !== "special")
         .reverse();
       if (fresh.length === 0) return;
       const previousRank = seenRankRef.current;

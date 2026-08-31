@@ -253,6 +253,10 @@ async def startup_event():
         await db.archive_unlocks.create_index("entry_id")
         # Denormalised current-rank snapshot per wallet.
         await db.archive_ranks.create_index("wallet_address", unique=True)
+        # Companion tokens — unique on token, fast lookup by claiming wallet
+        await db.companion_tokens.create_index("token", unique=True)
+        await db.companion_tokens.create_index("wallet_claimed")
+        await db.companion_tokens.create_index([("created_at", -1)])
         logger.info("MongoDB indexes created for archive collections")
     except Exception as e:
         logger.warning(f"Archive index creation (non-fatal): {e}")

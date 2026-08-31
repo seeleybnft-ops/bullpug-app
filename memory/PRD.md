@@ -1,5 +1,50 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Latest Changelog Entry (Feb 2026 — Document 2 Plushie Backend Infrastructure, awaiting deploy)
+
+Built Document 2 exactly to spec — plushie backend infrastructure only (NO store, NO payments, NO order emails, NO dropship — gated on manufacturer confirmation). Testing agent (iteration_111) reports **100% pass on both backend (11/11) and frontend (5/5 states)**.
+
+### Backend
+- **NEW** `backend/routers/companion.py`:
+  - `GET  /api/companion/validate?key=<token>` — {valid, claimed, reason}
+  - `POST /api/companion/claim`               — {token, wallet_address} → atomic find_one_and_update (`wallet_claimed: null` filter for race safety) → fires `companions-secret` archive unlock → returns `{success, celebration_text, entry_text}`
+  - `GET  /api/admin/companions/tokens`       — admin-gated, filter=claimed|unclaimed|all + pagination
+  - `POST /api/admin/companions/tokens`       — admin-gated, generates a fresh 22-char UUID hex token
+- **MongoDB collection** `companion_tokens`: `{token (unique), order_id, wallet_claimed, claimed_at, created_at, note}`. Indexes at server startup: unique on `token`, non-unique on `wallet_claimed`, `created_at` DESC.
+- **`services/archive_achievements.py`**: added `companions-secret` entry with `tier: "special"`, `COMPANIONS_SECRET_ENTRY_TEXT` (the "physical world" narrative) and `COMPANIONS_SECRET_CELEBRATION_TEXT` (the streamed Tinkerpug message). Special tier is excluded from classifier candidates via `_EVENT_ONLY_SLUGS`, from `TOTAL_ENTRIES` count (still 61), and from `ensure_entry_image` (no generated image — celebration is animated in UI).
+- **`get_rank_snapshot`** now includes a `special` bucket in `tier_progress`; `unlocked_count` covers regular-tier entries only so "n of 61" never inflates when a companion is claimed.
+
+### Frontend
+- **NEW** `pages/Companion.jsx` — `/companion?key=<token>`. States: loading → invalid | claimed | ready | claiming → success | error. Auto-claims once the wallet connects. Success plays a **plushie bounce** (yellow paw-print orb bouncing in from the top) + **bark soundwave** (three staggered concentric-ring pulses) + **streamed Tinkerpug message** (~22ms/char) inside a monospaced-blockquote card. CTA: "Enter the Archive".
+- **NEW** `pages/AdminCompanionTokens.js` — `/admin/companions`. Filter tabs (All / Unclaimed / Claimed), search-by-substring across token/wallet/order_id, "Generate token" button (returns the fresh token + shows a copy-token / copy-redeem-URL banner), paginated list with load-more, live counts.
+- **NEW route + nav card**: `/admin/companions` mounted through `AdminAuthGate`; AdminPanel now has a matching yellow PawPrint tile below the Drop Vault link.
+- **Ledger** shows a fourth section below Tier III titled **"Special · Companion's Secret"** rendering the `companions-secret` LoreCard with a gold paw-print indicator instead of tier dots.
+- **`LoreCard.jsx`** + **`LoreCardModal.jsx`** updated for `tier === "special"` (paw print visual, dedicated ARCHIVE SPECIAL label + "The Companion's Secret" rank name in the modal).
+- **`Archive.jsx`** poll skips enqueuing special-tier unlocks for `UnlockCelebration` (they're already celebrated on `/companion`), but still marks them as seen so subsequent polls don't retry.
+
+### Test evidence
+- Classifier isolation confirmed — a `/api/ai/chat` prompt about "physical companions" does NOT unlock `companions-secret`.
+- Duplicate claim → 409, unknown token → 404, missing CSRF → 403 (middleware default), admin endpoints without bearer → 401.
+- Archive `/entries` returns 62 items but `total: 61` (special is a separate rail).
+- `tier_progress.special = {unlocked: 0, total: 1}` on a fresh wallet.
+
+### Files touched
+- CREATED: `backend/routers/companion.py`
+- CREATED: `frontend/src/pages/Companion.jsx`
+- CREATED: `frontend/src/pages/AdminCompanionTokens.js`
+- MODIFIED: `backend/routers/__init__.py` (register both routers)
+- MODIFIED: `backend/server.py` (MongoDB indexes for `companion_tokens`)
+- MODIFIED: `backend/services/archive_achievements.py` (special-tier entry + constants + tier-progress bucket + ensure_entry_image guard)
+- MODIFIED: `frontend/src/App.js` (routes)
+- MODIFIED: `frontend/src/pages/AdminPanel.js` (link tile)
+- MODIFIED: `frontend/src/components/{LoreCard,LoreCardModal,ArchiveLedger}.jsx` (special-tier rendering)
+- MODIFIED: `frontend/src/pages/Archive.jsx` (special-tier poll gate)
+
+### Deploy status
+- **Document 1**: awaiting user Deploy click (agent can't deploy from preview).
+- **Document 2**: verified in preview; awaiting user Deploy click after they review this changelog.
+
+
 ## Latest Changelog Entry (Feb 2026 — Archive fixes + lore expansion, Document 1 complete)
 
 Executed `EMERGENT-COMPLETE-INSTRUCTION.md` Document 1 (all 7 Archive fixes). Testing agent (iteration_110) reports 100% pass on backend (6/6) and frontend regression.

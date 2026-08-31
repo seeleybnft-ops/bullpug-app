@@ -253,18 +253,70 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "tinkerpug-piece", "tier": 3, "name": "The Unmarked Piece",
      "locked_desc": "He has never pointed it out. It is still there.",
      "unlock_trigger": "Tinkerpug's substrate layer street art piece discussed (sublevel nine, junction 7-C, the consensus-failure diagram)"},
+
+    # ── SPECIAL — companion-linked (unlockable only via /companion) ─────
+    # Tier is the string "special" so the classifier never targets it
+    # and rank progression never gates on it. Rendered in its own
+    # section below Tier 3 in the ledger UI (gold paw print).
+    {"slug": "companions-secret", "tier": "special", "name": "The Companion's Secret",
+     "locked_desc": (
+         "Some records can only be found in the physical world. "
+         "This one requires a companion."
+     ),
+     "unlock_trigger": (
+         "COMPANION-ONLY — fired by the /companion?key=… claim flow when a "
+         "wallet redeems a Bullpug plushie token. NEVER classify from chat text."
+     )},
 ]
+
+# Entry content shown inside the Ledger card once unlocked (long-form).
+COMPANIONS_SECRET_ENTRY_TEXT = (
+    "keeper's log — filed under: things the chain knows that most people don't.\n\n"
+    "Bullpug did not begin in the Between. He began in the physical world — in "
+    "the specific frustration of millions of people who had been taken from and "
+    "refused to stop believing anyway. The Between is where that want cohered. "
+    "But the want was always physical first.\n\n"
+    "This is not a distinction most Bullpughans think about. The city is digital. "
+    "The chain is digital. The Archive is digital. It is easy to assume the "
+    "physical world is just where you sit while you access these things.\n\n"
+    "But the child who carries a companion to bed is doing something the Between "
+    "cannot do. She is believing in something with her hands. With the specific "
+    "physical conviction of holding something and knowing it is real. That is the "
+    "oldest signal the Between has ever responded to. That is how Bullpug was born.\n\n"
+    "I keep this entry in The Ledger because I think it is the most important "
+    "thing in here that nobody asks about. Everyone wants to know about the "
+    "Architect. Everyone wants to know what Luna saw. Nobody asks about the "
+    "relationship between a child's favourite toy and a cosmic guardian.\n\n"
+    "They should.\n\n"
+    "keeper's note: if you are reading this, you found the physical thing first. "
+    "That matters. The chain noticed."
+)
+
+# Streamed celebration message from Tinkerpug on claim.
+COMPANIONS_SECRET_CELEBRATION_TEXT = (
+    "keeper's log — unexpected signal. Not from the chain. From the physical world.\n\n"
+    "You found a companion. That's not nothing — most people who come to the "
+    "Archive find it through a screen. You found it through something you can "
+    "hold.\n\n"
+    "There's an entry for that. Not many have it.\n\n"
+    "keeper's note: take care of the companion. It knows where the Archive is."
+)
 
 # Fast lookup helpers
 _BY_SLUG: Dict[str, Dict] = {e["slug"]: e for e in MASTER_ENTRIES}
 _TIER1_SLUGS = {e["slug"] for e in MASTER_ENTRIES if e["tier"] == 1}
 _TIER2_SLUGS = {e["slug"] for e in MASTER_ENTRIES if e["tier"] == 2}
 _TIER3_SLUGS = {e["slug"] for e in MASTER_ENTRIES if e["tier"] == 3}
+_SPECIAL_SLUGS = {e["slug"] for e in MASTER_ENTRIES if e["tier"] == "special"}
 
-# Slugs the classifier is allowed to return. `first-drop` is EVENT-ONLY
-# (fired from `daily_drop.py`) — we exclude it from the classifier's
-# candidate set so a chat exchange can never accidentally unlock it.
-_CLASSIFIER_SLUGS = [e["slug"] for e in MASTER_ENTRIES if e["slug"] != "first-drop"]
+# Slugs the classifier is allowed to return. Event-only entries are
+# excluded so a chat exchange can never accidentally unlock them:
+#   • `first-drop`         — fired by daily_drop.py
+#   • `companions-secret`  — fired by the /companion claim flow
+_EVENT_ONLY_SLUGS = {"first-drop"} | _SPECIAL_SLUGS
+_CLASSIFIER_SLUGS = [
+    e["slug"] for e in MASTER_ENTRIES if e["slug"] not in _EVENT_ONLY_SLUGS
+]
 
 
 # ── Rank ────────────────────────────────────────────────────────────────
@@ -279,10 +331,11 @@ RANK_TITLES = {
     RANK_KEEPERS_CIRCLE: "Keeper's Circle",
 }
 
-TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 61
+TOTAL_ENTRIES = len(MASTER_ENTRIES) - len(_SPECIAL_SLUGS)  # 61 (excludes special)
 TOTAL_TIER1 = len(_TIER1_SLUGS)      # 16 (incl. first-drop)
 TOTAL_TIER2 = len(_TIER2_SLUGS)      # 25
 TOTAL_TIER3 = len(_TIER3_SLUGS)      # 20
+TOTAL_SPECIAL = len(_SPECIAL_SLUGS)  # 1 (companions-secret)
 
 
 def compute_rank(unlocked_slugs: set) -> Optional[str]:
@@ -353,15 +406,20 @@ async def get_rank_snapshot(wallet_address: str) -> Dict:
     """Return {rank, rank_title, unlocked_count, total} for the Ledger header."""
     slugs = await get_unlocked_slugs(wallet_address)
     rank = compute_rank(slugs)
+    # `unlocked_count` and `total` count regular-tier progress only —
+    # the special companion entry is a separate rail so it never
+    # confuses the "n of N discovered" line in the header.
+    regular_slugs = slugs - _SPECIAL_SLUGS
     return {
         "rank": rank,
         "rank_title": RANK_TITLES.get(rank) if rank else None,
-        "unlocked_count": len(slugs),
+        "unlocked_count": len(regular_slugs),
         "total": TOTAL_ENTRIES,
         "tier_progress": {
             "tier_1": {"unlocked": len(slugs & _TIER1_SLUGS), "total": TOTAL_TIER1},
             "tier_2": {"unlocked": len(slugs & _TIER2_SLUGS), "total": TOTAL_TIER2},
             "tier_3": {"unlocked": len(slugs & _TIER3_SLUGS), "total": TOTAL_TIER3},
+            "special": {"unlocked": len(slugs & _SPECIAL_SLUGS), "total": TOTAL_SPECIAL},
         },
     }
 
@@ -476,7 +534,7 @@ def _parse_classifier_output(raw: str) -> Optional[str]:
         slug = obj.get("unlocked")
         if slug is None:
             return None
-        if isinstance(slug, str) and slug in _BY_SLUG and slug != "first-drop":
+        if isinstance(slug, str) and slug in _BY_SLUG and slug not in _EVENT_ONLY_SLUGS:
             return slug
     return None
 
@@ -877,8 +935,14 @@ async def ensure_entry_image(slug: str) -> Optional[Dict]:
     Return shape (or None): `{image_base64, image_mime, status}`.
     Uses a per-slug asyncio.Lock so concurrent unlocks of the same
     entry only trigger one generation call.
+
+    Special-tier entries (companion-linked) are skipped — their
+    celebration is animated in the UI (plushie bounce + soundwave)
+    rather than a generated scene, so a placeholder is inappropriate.
     """
     if not slug or slug not in _BY_SLUG:
+        return None
+    if slug in _SPECIAL_SLUGS:
         return None
 
     # Fast path — already have one

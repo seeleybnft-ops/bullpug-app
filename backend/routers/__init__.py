@@ -59,6 +59,7 @@ from routers.arena_chat import router as arena_chat_router
 from routers.client_errors import router as client_errors_router
 from routers.analytics import router as analytics_router
 from routers.archive import router as archive_router
+from routers.companion import router as companion_router, admin_router as companion_admin_router
 from utils.admin_auth import router as admin_auth_router
 
 # Orphan routers — imported above for code preservation, intentionally NOT
@@ -80,5 +81,7 @@ ALL_ROUTERS = [
     client_errors_router,
     analytics_router,
     archive_router,
+    companion_router,
+    companion_admin_router,
     admin_auth_router,
 ]

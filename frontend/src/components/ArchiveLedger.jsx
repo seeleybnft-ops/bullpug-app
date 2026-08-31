@@ -114,15 +114,22 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
 
   // Sort within each tier: unlocked first, then locked (spec §2.5)
   const grouped = useMemo(() => {
-    const byTier = { 1: [], 2: [], 3: [] };
-    entries.forEach((e) => (byTier[e.tier] || (byTier[e.tier] = [])).push(e));
+    const byTier = { 1: [], 2: [], 3: [], special: [] };
+    entries.forEach((e) => {
+      const t = e.tier;
+      if (!byTier[t]) byTier[t] = [];
+      byTier[t].push(e);
+    });
     Object.values(byTier).forEach((arr) => {
       arr.sort((a, b) => Number(!!b.unlocked) - Number(!!a.unlocked));
     });
     return byTier;
   }, [entries]);
 
-  const unlockedCount = rankData?.unlocked_count ?? entries.filter((e) => e.unlocked).length;
+  // Regular-tier unlock count for the header — the special entry is a
+  // separate rail with its own display treatment, so it never bumps
+  // the "n of 61" figure.
+  const unlockedCount = rankData?.unlocked_count ?? entries.filter((e) => e.unlocked && e.tier !== "special").length;
   const total = rankData?.total ?? entries.length ?? 61;
   const rank = rankData?.rank ?? null;
   const rankTitle = rankData?.rank_title ?? null;
@@ -224,6 +231,14 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
             <TierGroup title="Tier I · Seeker" entries={grouped[1] || []} color={TIER_COLOR[1]} onCardClick={setModalEntry} />
             <TierGroup title="Tier II · Archivist" entries={grouped[2] || []} color={TIER_COLOR[2]} onCardClick={setModalEntry} />
             <TierGroup title="Tier III · Keeper's Circle" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
+            {(grouped.special || []).length > 0 && (
+              <TierGroup
+                title="Special · Companion's Secret"
+                entries={grouped.special}
+                color={TIER_COLOR[3]}
+                onCardClick={setModalEntry}
+              />
+            )}
             {loading && entries.length === 0 && (
               <p className="text-center text-[11px] tracking-widest text-slate-600">loading the ledger…</p>
             )}

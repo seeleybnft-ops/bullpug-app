@@ -13,7 +13,7 @@
  *   Tier 1 → cyan   Tier 2 → violet   Tier 3 → gold
  */
 import React, { useEffect, useState } from "react";
-import { Lock, Sparkles } from "lucide-react";
+import { Lock, Sparkles, PawPrint } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -21,11 +21,19 @@ const TIER = {
   1: { color: "#00FFA3", label: "TIER I", dots: 1 },
   2: { color: "#B47CFF", label: "TIER II", dots: 2 },
   3: { color: "#F5D300", label: "TIER III", dots: 3 },
+  special: { color: "#F5D300", label: "SPECIAL", dots: 3 },
 };
 
 function TierDots({ tier }) {
   const c = TIER[tier];
   if (!c) return null;
+  if (tier === "special") {
+    return (
+      <span className="inline-flex items-center" aria-label={c.label}>
+        <PawPrint size={11} style={{ color: c.color }} strokeWidth={2.4} />
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1" aria-label={c.label}>
       {[0, 1, 2].map((i) => (

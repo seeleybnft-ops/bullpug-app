@@ -1,0 +1,24 @@
+{
+  "summary": "Document 2 (Companion/plushie backend + frontend) fully verified. 11/11 backend pytest cases passed, all 5 frontend states passed. GET/POST /api/companion/{validate,claim} behave correctly (unknown/empty/valid/claimed states, 200/404/409, CSRF middleware rejects when header missing). Archive integration: entries list returns 62 items with total=61 (regular only), companions-secret entry present with tier='special', tier_progress includes 'special' bucket with total=1. Claim flow creates archive unlock with entry_tier='special' for the wallet. Classifier isolation confirmed — /api/ai/chat with plushie/companion prompt did NOT unlock companions-secret. Admin endpoints return 401 without bearer. Frontend /companion states (invalid, claimed, ready + connect-slot) all render correctly; /archive shows lore-card-companions-secret; /admin gate is SIWS-protected (admin-companions-link exists in AdminPanel.js at line 226 but only rendered post-authentication).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_companion_iter111.py",
+    "/app/test_reports/pytest/iter111_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "companion.py claim flow uses find_one_and_update with wallet_claimed=None filter — race-safe and idempotent. Good.",
+    "COMPANIONS_SECRET celebration + entry text constants correctly returned and asserted matching-substring on both.",
+    "Special tier excluded from _CLASSIFIER_SLUGS via _EVENT_ONLY_SLUGS — verified end-to-end that AI chat cannot leak the unlock.",
+    "TOTAL_ENTRIES=61 keeps ranking math consistent; entries endpoint returns 62 items (61 regular + 1 special) as expected."
+  ],
+  "updated_files": ["/app/backend/tests/test_companion_iter111.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin wallet qdegDgTVUwkoVonWDLjx3XfXJT1SZn6tqmpnJhU7Rjs — requires SIWS signature (cannot be tested headless). Admin 401 paths verified.",
+  "seed_data_creation": "Inserted then cleaned up TEST_ prefixed companion_tokens rows plus TEST_/ClassifierBlockTest_ archive_unlocks. All test data removed at end of run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Document 2 is verified. If admin console flow needs full auth-through-SIWS test, that requires signing capability. All non-auth endpoints and public flows are green.",
+  "rca of the issue": "N/A — no bugs found."
+}

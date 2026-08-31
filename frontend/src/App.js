@@ -24,6 +24,7 @@ import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";
+import AdminCompanionTokens from "@/pages/AdminCompanionTokens";
 import AdminAuthGate from "@/components/AdminAuthGate";
 import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
@@ -35,6 +36,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
 import PugBurn from "@/pages/PugBurn";
 import Archive from "@/pages/Archive";
+import Companion from "@/pages/Companion";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -142,6 +144,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/lore" element={<Lore />} />
                   <Route path="/archive" element={<Archive />} />
+                  <Route path="/companion" element={<Companion />} />
                   <Route path="/game" element={<SpeedRunGame />} />
                   <Route path="/game/3d" element={<Phase1Runner3D />} />
                   <Route path="/pugburn" element={<PugBurn />} />
@@ -152,6 +155,7 @@ function App() {
                   <Route path="/wallet" element={<WalletDashboard />} />
                   <Route path="/admin" element={<AdminAuthGate title="Operator Console"><AdminPanel /></AdminAuthGate>} />
                   <Route path="/admin/drops" element={<AdminAuthGate title="Drop Vault"><AdminDropVault /></AdminAuthGate>} />
+                  <Route path="/admin/companions" element={<AdminAuthGate title="Companion Tokens"><AdminCompanionTokens /></AdminAuthGate>} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />

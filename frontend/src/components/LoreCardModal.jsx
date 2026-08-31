@@ -15,7 +15,7 @@
  * primary action on open.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { X, Lock, Sparkles, MessageCircle } from "lucide-react";
+import { X, Lock, Sparkles, MessageCircle, PawPrint } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -23,6 +23,7 @@ const TIER = {
   1: { color: "#00FFA3", label: "TIER I", rank: "Seeker" },
   2: { color: "#B47CFF", label: "TIER II", rank: "Archivist" },
   3: { color: "#F5D300", label: "TIER III", rank: "Keeper's Circle" },
+  special: { color: "#F5D300", label: "ARCHIVE SPECIAL", rank: "The Companion's Secret" },
 };
 
 function formatDate(iso) {
@@ -123,13 +124,17 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
         {unlocked ? (
           <div className="p-6 sm:p-8" data-testid="lore-card-modal-unlocked">
             <div className="flex items-center gap-2 mb-3">
-              {Array.from({ length: entry.tier }).map((_, i) => (
-                <span
-                  key={i}
-                  className="rounded-full"
-                  style={{ width: 7, height: 7, background: tierMeta.color, boxShadow: `0 0 8px ${tierMeta.color}` }}
-                />
-              ))}
+              {entry.tier === "special" ? (
+                <PawPrint size={14} style={{ color: tierMeta.color }} strokeWidth={2.4} />
+              ) : (
+                Array.from({ length: entry.tier }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full"
+                    style={{ width: 7, height: 7, background: tierMeta.color, boxShadow: `0 0 8px ${tierMeta.color}` }}
+                  />
+                ))
+              )}
               <span
                 className="text-[10px] font-bold uppercase tracking-[0.32em] ml-1"
                 style={{ color: tierMeta.color, fontFamily: "Orbitron, sans-serif" }}
@@ -180,13 +185,17 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
         ) : (
           <div className="p-6 sm:p-8" data-testid="lore-card-modal-locked">
             <div className="flex items-center gap-2 mb-3">
-              {Array.from({ length: entry.tier }).map((_, i) => (
-                <span
-                  key={i}
-                  className="rounded-full"
-                  style={{ width: 7, height: 7, background: "rgba(255,255,255,0.25)" }}
-                />
-              ))}
+              {entry.tier === "special" ? (
+                <PawPrint size={14} className="text-slate-500" strokeWidth={2.4} />
+              ) : (
+                Array.from({ length: entry.tier }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full"
+                    style={{ width: 7, height: 7, background: "rgba(255,255,255,0.25)" }}
+                  />
+                ))
+              )}
               <span
                 className="text-[10px] font-bold uppercase tracking-[0.32em] ml-1 text-slate-400"
                 style={{ fontFamily: "Orbitron, sans-serif" }}
