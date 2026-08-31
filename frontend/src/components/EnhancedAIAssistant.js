@@ -91,8 +91,8 @@ export default function EnhancedAIAssistant({ activeTab = "dashboard" }) {
 
   // Share today's Bullpug Daily Drop — Web Share API → clipboard fallback → X intent
   const shareDailyDrop = async (msg) => {
-    const text = `Today's Bullpug Daily Drop: ${msg.dropTheme}. ${msg.dropScene}. Catch tomorrow's drop on /lore. 🐾✨`;
-    const url = `${window.location.origin}/lore`;
+    const text = `Today's Bullpug Daily Drop: ${msg.dropTheme}. ${msg.dropScene}. Catch tomorrow's drop on /origins. 🐾✨`;
+    const url = `${window.location.origin}/origins`;
     try {
       if (navigator.share && typeof navigator.share === "function") {
         await navigator.share({ title: `Bullpug Daily Drop · ${msg.dropTheme}`, text, url });

@@ -24,7 +24,7 @@ export default function Footer() {
               {/* Cosmic Runner / Skin Store parked during private testing
                   — will return when those features launch. */}
               {[
-                {t:"Origins", p:"/lore"},
+                {t:"Origins", p:"/origins"},
                 {t:"PugBurn", p:"/pugburn"},
                 {t:"Forum", p:"/forum"}
               ].map(l=>(

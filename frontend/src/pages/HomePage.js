@@ -46,7 +46,7 @@ const TOKEN_DIST = [
 // Speed Run Game item parked during private testing period.
 const ROADMAP = [
   { phase: "Phase 1", title: "Launch", date: "Q1 2026", items: ["Community Building", "Website launch", "Initial lore reveal", "Tinkerpug AI assistant"], status: "current" },
-  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["Staking activation", "NFT collection", "Plushie store launch", "Governance implementation", "Strategic partnerships"], status: "upcoming" },
+  { phase: "Phase 2", title: "Ecosystem Build", date: "Q2-Q3 2026", items: ["NFT collection", "Plushie store launch", "Governance implementation", "Strategic partnerships"], status: "upcoming" },
   { phase: "Phase 3", title: "Expansion", date: "Q4 2026", items: ["More to come"], status: "upcoming" },
 ];
 
@@ -319,11 +319,13 @@ export default function HomePage() {
             The <span className="text-[#D946EF]">Legend</span>
           </h2>
           <p className="text-center text-slate-500 mb-16 max-w-xl mx-auto text-sm" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>The origin story of the most powerful guardian in the memecoin universe</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { icon: <Shield className="w-7 h-7 text-[#00FFA3]" />, title: "The Collision", desc: "The mighty Bull constellation collided with a whimsical pug-shaped nebula, infusing raw power with endearing loyalty." },
               { icon: <Moon className="w-7 h-7 text-[#D946EF]" />, title: "The Guardian Rises", desc: "Bullpug patrols the blockchain, shielding holders from bearish threats and guiding them toward bullish horizons." },
-              { icon: <Zap className="w-7 h-7 text-[#F5D300]" />, title: "Become a Guardian (Coming Soon)", desc: "Holders become 'Guardians,' earning rewards through participation. Staking tokens unlocks chapters of evolving lore." },
+              // "Become a Guardian" tile removed Feb 2026 — it was
+              // entirely built around staking / earning rewards
+              // language, which is no longer part of the roadmap.
             ].map((item, i) => (
               <div key={i} className="glass-card rounded-2xl p-8 hover:-translate-y-1 transition-all duration-300">
                 <div className="mb-4">{item.icon}</div>
@@ -343,7 +345,7 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/lore", img: IMAGES.origins, color: "#D946EF" },
+              { icon: <Shield size={18} />, title: "Origins", desc: "The origin story of the most powerful guardian in the memecoin universe", link: "/origins", img: IMAGES.origins, color: "#D946EF" },
               // Cosmic Runner tile parked — Tinkerpug AI takes its slot
               // for the private testing period. Restore the old entry
               // (Gamepad2 icon, `/game` link, IMAGES.game) when the

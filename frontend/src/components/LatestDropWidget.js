@@ -78,7 +78,7 @@ export default function LatestDropWidget() {
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Link to="/lore" data-testid="latest-drop-cta">
+              <Link to="/archive?tab=drops" data-testid="latest-drop-cta">
                 <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#D946EF] hover:bg-[#D946EF]/90 text-black font-bold text-xs uppercase tracking-wider transition-colors shadow-[0_0_24px_rgba(217,70,239,0.30)]">
                   <Bot className="w-4 h-4" />
                   Claim your drop

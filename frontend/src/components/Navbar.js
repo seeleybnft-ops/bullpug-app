@@ -58,7 +58,7 @@ export default function Navbar() {
   // them by restoring these entries when the features launch.
   const NAV_LINKS = [
     { name: t('nav.home'), path: "/", color: "#00FFA3" },
-    { name: t('nav.lore') || "Origins", path: "/lore", color: "#FFFFFF" },
+    { name: t('nav.lore') || "Origins", path: "/origins", color: "#FFFFFF" },
     // The Archive — Tinkerpug's workspace, lore ledger, and daily-drop
     // vault. Replaces the old floating corner widget.
     { name: "The Archive", path: "/archive", icon: <Radio className="w-3 h-3" />, color: "#00C2FF", hasBorder: true },

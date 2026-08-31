@@ -10,6 +10,7 @@
  * tab, so it must stand on its own without the left workspace context.
  */
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import LoreCard from "./LoreCard";
 import LoreCardModal from "./LoreCardModal";
 import RankBadge from "./RankBadge";
@@ -76,7 +77,15 @@ const RANK_COLOR = {
 export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive }) {
   const [entries, setEntries] = useState([]);
   const [rankData, setRankData] = useState(null);
-  const [section, setSection] = useState("ledger"); // "ledger" | "drops" | "record"
+  // Honor `?tab=drops|record|ledger` deep-links (e.g. from the homepage
+  // "Today's Drop — Curator Pick" CTA). Only the initial value is read;
+  // once the user clicks a section switcher the URL is not rewritten.
+  const [searchParams] = useSearchParams();
+  const initialSection = (() => {
+    const t = (searchParams.get("tab") || "").toLowerCase();
+    return t === "drops" || t === "record" || t === "ledger" ? t : "ledger";
+  })();
+  const [section, setSection] = useState(initialSection); // "ledger" | "drops" | "record"
   const [loading, setLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);

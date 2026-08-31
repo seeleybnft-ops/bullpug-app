@@ -6,8 +6,8 @@ const STORAGE_KEY = "bullpug_origins_trailer_seen_v1";
 // Shareable text + URL — defined once so re-runs / re-opens use the same copy.
 const SHARE_TEXT = "The Origins page is live — read the Bullpug canon: pug-faced skyscrapers, Snout Scanners, and a heartbeat in the noise. 🐾⚡";
 function getShareUrl() {
-  if (typeof window === "undefined") return "https://bullpug.io/lore";
-  return `${window.location.origin}/lore`;
+  if (typeof window === "undefined") return "https://bullpug.io/origins";
+  return `${window.location.origin}/origins`;
 }
 
 export default function OriginsTrailer() {

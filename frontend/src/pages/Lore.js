@@ -267,7 +267,7 @@ export default function Lore() {
   const handleShare = async () => {
     const shareText =
       "The Origins page is live — read the Bullpug canon: pug-faced skyscrapers, Snout Scanners, and a heartbeat in the noise. 🐾⚡";
-    const url = `${window.location.origin}/lore`;
+    const url = `${window.location.origin}/origins`;
     try {
       if (navigator.share && typeof navigator.share === "function") {
         await navigator.share({ title: "Bullpug Origins", text: shareText, url });

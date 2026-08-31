@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from "react";
 import "@/App.css";
 import "@/i18n/config"; // Initialize i18n
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
@@ -143,7 +143,11 @@ function App() {
                   <Navbar />
                   <Routes>
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/lore" element={<Lore />} />
+                  <Route path="/origins" element={<Lore />} />
+                  {/* Legacy `/lore` URL — kept as a permanent redirect
+                      so bookmarks, socials, and outbound links from
+                      earlier drops still land on the Origins page. */}
+                  <Route path="/lore" element={<Navigate to="/origins" replace />} />
                   <Route path="/archive" element={<Archive />} />
                   <Route path="/companion" element={<Companion />} />
                   <Route path="/game" element={<SpeedRunGame />} />

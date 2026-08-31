@@ -14,6 +14,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useSearchParams } from "react-router-dom";
 import { Send, Loader2, Radio, MessageCircle, BookOpen } from "lucide-react";
 import ArchiveLedger from "@/components/ArchiveLedger";
 import UnlockCelebration from "@/components/UnlockCelebration";
@@ -661,7 +662,16 @@ export default function Archive() {
   const { publicKey } = useWallet();
   const wallet = useMemo(() => publicKey?.toBase58() || null, [publicKey]);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [mobileTab, setMobileTab] = useState("keeper"); // keeper | ledger
+  // Deep-link `?tab=drops|record|ledger` from other pages (e.g. the
+  // homepage "Today's Drop — Curator Pick" CTA) needs to land on the
+  // ledger side on mobile so the sub-tab is actually visible. On
+  // desktop both panes are always visible, so this is a no-op there.
+  const [initialSearch] = useSearchParams();
+  const initialMobileTab = (() => {
+    const t = (initialSearch.get("tab") || "").toLowerCase();
+    return t === "drops" || t === "record" || t === "ledger" ? "ledger" : "keeper";
+  })();
+  const [mobileTab, setMobileTab] = useState(initialMobileTab); // keeper | ledger
 
   // Celebration queue — new unlocks detected by diffing the /unlocks
   // poll against a set of slugs we've already celebrated (or seen on
@@ -788,6 +798,35 @@ export default function Archive() {
     setActive(null);
     if (wallet) pollUnlocks();
   }, [wallet, pollUnlocks]);
+
+  // Fire today's daily-drop generation as soon as a wallet is connected
+  // on the Archive page — independent of which sub-tab (ledger / drops
+  // / record) the user is currently viewing. Before this, generation
+  // was gated behind mounting `DailyDropVault`, which only happens when
+  // the user manually opens the "Daily Drops" sub-tab, so first-connect
+  // users never triggered the pipeline in production. Idempotent per
+  // (wallet, UTC-day) on the backend — returns the cache hit for
+  // returning users, ~5-10s for fresh first-connects. Fire-and-forget:
+  // errors are silent, `DailyDropVault` will retry naturally when the
+  // user opens the drops tab.
+  useEffect(() => {
+    if (!wallet) return;
+    let cancelled = false;
+    const url = `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(wallet)}`;
+    (async () => {
+      try {
+        const res = await fetch(url);
+        if (!cancelled && res.ok) {
+          // Nudge the ledger's refresh key so the drops tab picks up
+          // the newly-generated card without waiting for its own poll.
+          setRefreshTick((n) => n + 1);
+        }
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [wallet]);
 
   // Drain the queue one at a time
   useEffect(() => {

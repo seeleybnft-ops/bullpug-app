@@ -5,11 +5,12 @@
  *  • Unlocked: name (tier colour), full-size visual-canon image if
  *    available, Tinkerpug's full excerpt (untruncated), tier badge +
  *    rank requirement, filed date, close.
- *  • Locked: tier indicator, italic locked description, prompt to ask
- *    the Keeper, and an "Open the Archive" button that closes the modal
- *    and focuses the chat input with a thematic prompt derived from the
- *    locked description (never the real entry name — that would spoil
- *    the discovery loop).
+ *  • Locked: tier header only, lock glyph, "Ask the Keeper to unlock
+ *    this entry.", and an "Open the Archive" button that closes the
+ *    modal and focuses the chat input WITHOUT a pre-filled prompt.
+ *    Locked cards must never leak the pull-copy description as
+ *    selectable text (that let visitors paste the phrasing back into
+ *    the chat and shortcut the unlock flow).
  *
  * Esc closes. Click-outside-content closes. Focus is trapped to the
  * primary action on open.
@@ -34,19 +35,6 @@ function formatDate(iso) {
   } catch {
     return "";
   }
-}
-
-/**
- * Given a locked description like "What the seer pays for what she sees.",
- * return a chat-input prompt like "Tell me about what the seer pays for what she sees."
- * Never uses the real entry name — the whole point of a locked card is
- * that the visitor has to phrase the request themselves.
- */
-function derivePromptFromLockedDesc(desc) {
-  if (!desc) return "Tell me something the chain doesn't say out loud.";
-  const clean = String(desc).replace(/^["“]|["”]$/g, "").trim().replace(/\.$/, "");
-  const lower = clean.charAt(0).toLowerCase() + clean.slice(1);
-  return `Tell me about ${lower}.`;
 }
 
 export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
@@ -88,9 +76,12 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
   if (!entry) return null;
 
   const handleOpenArchive = () => {
-    const prompt = derivePromptFromLockedDesc(entry.locked_desc);
+    // Do NOT pre-fill the chat with a prompt derived from the locked
+    // description. The whole point of the sealed card is that the
+    // visitor has to phrase the request themselves — piping the
+    // description into the input would shortcut the unlock flow.
     onClose?.();
-    onOpenArchive?.(prompt);
+    onOpenArchive?.("");
   };
 
   return (
@@ -184,7 +175,7 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
           </div>
         ) : (
           <div className="p-6 sm:p-8" data-testid="lore-card-modal-locked">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-6">
               {entry.tier === "special" ? (
                 <PawPrint size={14} className="text-slate-500" strokeWidth={2.4} />
               ) : (
@@ -204,31 +195,48 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
               </span>
               <Lock size={13} className="text-slate-500 ml-auto" />
             </div>
+
+            {/* Large lock glyph — replaces the previously-shown pull-copy
+                description. The description was leaking as selectable
+                text, which let visitors paste it into the chat to shortcut
+                the unlock flow. Locked cards must reveal NOTHING that can
+                be copied out. */}
+            <div className="flex justify-center mb-6" aria-hidden="true">
+              <div
+                className="rounded-full p-6"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <Lock size={40} className="text-slate-500" strokeWidth={1.4} />
+              </div>
+            </div>
+
             <p
-              className="text-base italic leading-relaxed text-slate-300 mb-6"
-              data-testid="lore-card-modal-locked-desc"
+              className="text-sm text-slate-400 mb-6 text-center"
+              data-testid="lore-card-modal-locked-prompt"
             >
-              {entry.locked_desc}
-            </p>
-            <p className="text-sm text-slate-400 mb-6">
               Ask the Keeper to unlock this entry.
             </p>
-            <button
-              ref={primaryBtnRef}
-              type="button"
-              onClick={handleOpenArchive}
-              data-testid="lore-card-modal-open-archive"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold uppercase tracking-widest text-[11px] transition-all"
-              style={{
-                background: tierMeta.color,
-                color: "#000",
-                fontFamily: "Orbitron, sans-serif",
-                boxShadow: `0 0 20px ${tierMeta.color}55`,
-              }}
-            >
-              <MessageCircle size={13} />
-              Open the Archive
-            </button>
+            <div className="flex justify-center">
+              <button
+                ref={primaryBtnRef}
+                type="button"
+                onClick={handleOpenArchive}
+                data-testid="lore-card-modal-open-archive"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold uppercase tracking-widest text-[11px] transition-all"
+                style={{
+                  background: tierMeta.color,
+                  color: "#000",
+                  fontFamily: "Orbitron, sans-serif",
+                  boxShadow: `0 0 20px ${tierMeta.color}55`,
+                }}
+              >
+                <MessageCircle size={13} />
+                Open the Archive
+              </button>
+            </div>
           </div>
         )}
       </div>
