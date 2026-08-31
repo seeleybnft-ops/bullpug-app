@@ -9,14 +9,57 @@ import {
   Rocket,
   ShieldOff,
   Lock,
-  PlayCircle,
   Share2,
   Check,
 } from "lucide-react";
-import OriginsTrailer from "../components/OriginsTrailer";
+import { RankBadge } from "../components/RankBadge";
 
 const LOGO =
   "/bullpug-canon.jpg";
+
+// ── Act I placeholder ──────────────────────────────────────────────────
+// Sits where the "Watch trailer" button used to. Renders a slowly
+// pulsing gold SignalGlyph + a keeper's-log message. Read-only — no
+// interaction, no external link.
+//
+// When Act I episodes are ready, this component is what gets swapped:
+//   • Simplest path: replace <ActIPlaceholder /> with a
+//     <VideoPlayer src={…} poster={…} /> component.
+//   • Or add a `video` prop here: `<ActIPlaceholder video={…} />`. When
+//     `video` is truthy, render the player instead of the placeholder
+//     body. Layout wrapper stays identical either way.
+function ActIPlaceholder() {
+  return (
+    <div
+      className="flex flex-col items-center gap-3 max-w-xs"
+      data-testid="act-i-placeholder"
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className="opacity-90"
+        style={{ animation: "act-i-glyph-pulse 3.4s ease-in-out infinite" }}
+      >
+        <RankBadge rank="keepers_circle" size={68} showTitle={false} />
+      </div>
+      <p
+        className="text-[11px] leading-relaxed text-slate-300 text-center whitespace-pre-line"
+        style={{ fontFamily: "monospace" }}
+        data-testid="act-i-placeholder-message"
+      >
+        {`keeper's log — the signal is coming.
+the record will be updated.
+watch this space.`}
+      </p>
+      <style>{`
+        @keyframes act-i-glyph-pulse {
+          0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 8px rgba(245,211,0,0.35)); }
+          50%      { transform: scale(1.055); filter: drop-shadow(0 0 18px rgba(245,211,0,0.6)); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 // Reusable chapter card — keeps visual rhythm consistent
 function Chapter({ icon: Icon, title, accent, gradient, image, imageAlt, children, testid }) {
@@ -123,10 +166,6 @@ export default function Lore() {
   // Share / replay handlers used by the bottom CTA block
   const [shared, setShared] = useState(false);
 
-  const openTrailer = () => {
-    window.dispatchEvent(new CustomEvent("bullpug:open-trailer"));
-  };
-
   const handleShare = async () => {
     const shareText =
       "The Origins page is live — read the Bullpug canon: pug-faced skyscrapers, Snout Scanners, and a heartbeat in the noise. 🐾⚡";
@@ -153,7 +192,6 @@ export default function Lore() {
 
   return (
     <div className="min-h-screen pt-20 pb-16 relative" data-testid="lore-page">
-      <OriginsTrailer />
       <canvas
         ref={starsRef}
         className="fixed inset-0 pointer-events-none opacity-60"
@@ -583,7 +621,10 @@ export default function Lore() {
             </div>
           </section>
 
-          {/* TRAILER REPLAY + SHARE CTA — between epilogue and canon anchor */}
+          {/* ACT I PLACEHOLDER + SHARE CTA — between epilogue and canon anchor.
+              When Act I episodes are ready, swap `<ActIPlaceholder />` for the
+              video player component (single-component swap or add a `<VideoPlayer src={…} />`
+              alongside — layout wraps both). No redesign needed. */}
           <section
             className="rounded-2xl border border-[#00FFA3]/20 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] p-6 md:p-8"
             data-testid="lore-actions-block"
@@ -603,21 +644,16 @@ export default function Lore() {
                   Spread the signal across the Between.
                 </h3>
                 <p className="text-sm text-slate-400 mt-2 max-w-lg leading-relaxed">
-                  Re-watch the Origins trailer or share it with someone who's
-                  tired of being rugged. The Archive rewards persistence.
+                  Share the Origins page with someone who's tired of being rugged.
+                  The Archive rewards persistence.
                 </p>
               </div>
 
               <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                <button
-                  type="button"
-                  onClick={openTrailer}
-                  data-testid="lore-replay-trailer-btn"
-                  className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#00FFA3] text-black font-bold text-xs uppercase tracking-wider hover:scale-[1.03] transition-transform shadow-[0_0_24px_rgba(0,255,163,0.30)]"
-                >
-                  <PlayCircle size={16} />
-                  Watch trailer
-                </button>
+                {/* Placeholder for the Act I video slot — sits where the
+                    "Watch trailer" button used to. Structured so a
+                    <VideoPlayer /> can drop in with no layout change. */}
+                <ActIPlaceholder />
                 <button
                   type="button"
                   onClick={handleShare}
