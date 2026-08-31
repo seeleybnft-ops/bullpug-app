@@ -233,7 +233,7 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
             <TierGroup title="Tier III" entries={grouped[3] || []} color={TIER_COLOR[3]} onCardClick={setModalEntry} />
             {(grouped.special || []).length > 0 && (
               <TierGroup
-                title="Special · Companion's Secret"
+                title="Special"
                 entries={grouped.special}
                 color={TIER_COLOR[3]}
                 onCardClick={setModalEntry}
