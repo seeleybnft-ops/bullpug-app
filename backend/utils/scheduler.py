@@ -245,14 +245,40 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1
     )
-    
+
+    # Archive test-wallet cleanup — runs once a day at 03:15 UTC (off-peak,
+    # after the daily-digest window). Removes any rows matching the
+    # TEST_WALLET_REGEX so QA smoke-testing never accumulates in prod.
+    async def _run_archive_test_cleanup():
+        try:
+            from services.archive_test_cleanup import purge_test_wallet_data
+            result = await purge_test_wallet_data()
+            total = sum(result.values())
+            if total > 0:
+                logger.info(
+                    "Archive test-wallet cleanup: purged %s rows — %s",
+                    total, result,
+                )
+            else:
+                logger.debug("Archive test-wallet cleanup: 0 rows to purge")
+        except Exception:
+            logger.exception("Archive test-wallet cleanup crashed")
+
+    scheduler.add_job(
+        _run_archive_test_cleanup,
+        trigger=CronTrigger(hour=3, minute=15, timezone="UTC"),
+        id="archive_test_cleanup",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     scheduler.start()
     logger.info(
         "Background scheduler started - prize pool (5 min), "
         "journal auto-complete (1 hour), runner alerts (5 min), "
         "PRICE COLLECTOR (1 min), SMART MONEY v2 (10 min), "
         "DAILY DIGEST (20:00 UTC), POT AUTO-DRAW (5 sec), "
-        "ESCROW ALERT (10 min)."
+        "ESCROW ALERT (10 min), ARCHIVE TEST CLEANUP (03:15 UTC daily)."
     )
 
 

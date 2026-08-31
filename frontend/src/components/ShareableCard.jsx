@@ -7,10 +7,11 @@
  * Locally offers Save-to-device and Web-Share fallback, and lets the
  * user edit the pre-populated share text before posting.
  */
-import React, { useEffect, useState } from "react";
-import { X, Download, Share2, Loader2 } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { X, Download, Share2, Loader2, RefreshCw } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const MAX_REGENERATIONS = 3; // caps LLM cost per share session
 
 const RANK_TEXT = {
   seeker:
@@ -33,34 +34,44 @@ function suggestedShareText(rank, count, total) {
 export default function ShareableCard({ wallet, onClose }) {
   const [state, setState] = useState({ loading: true, image: null, rank: null, count: 0, error: null });
   const [text, setText] = useState("");
+  // Session-local counter — resets when the modal is dismounted so
+  // reopening the modal grants a fresh budget. Prevents runaway LLM
+  // spend from an accidental hold-down-refresh.
+  const [regensUsed, setRegensUsed] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchCard = useCallback(async () => {
     if (!wallet) {
       setState({ loading: false, image: null, rank: null, count: 0, error: "connect a wallet first" });
       return;
     }
-    (async () => {
-      try {
-        const res = await fetch(`${API}/archive/share`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Bullpug-CSRF": "1" },
-          body: JSON.stringify({ wallet }),
-        });
-        if (!res.ok) throw new Error(`share ${res.status}`);
-        const data = await res.json();
-        if (cancelled) return;
-        const image = `data:${data.mime || "image/png"};base64,${data.image_base64}`;
-        setState({ loading: false, image, rank: data.rank, count: data.unlocked_count || 0, error: null });
-        setText(suggestedShareText(data.rank, data.unlocked_count, data.grand_total || data.total));
-      } catch (e) {
-        if (!cancelled) {
-          setState({ loading: false, image: null, rank: null, count: 0, error: "couldn't render your card — try again in a moment" });
-        }
-      }
-    })();
-    return () => { cancelled = true; };
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await fetch(`${API}/archive/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Bullpug-CSRF": "1" },
+        body: JSON.stringify({ wallet }),
+      });
+      if (!res.ok) throw new Error(`share ${res.status}`);
+      const data = await res.json();
+      const image = `data:${data.mime || "image/png"};base64,${data.image_base64}`;
+      setState({ loading: false, image, rank: data.rank, count: data.unlocked_count || 0, error: null });
+      setText((t) => t || suggestedShareText(data.rank, data.unlocked_count, data.grand_total || data.total));
+    } catch (e) {
+      setState({ loading: false, image: null, rank: null, count: 0, error: "couldn't render your card — try again in a moment" });
+    }
   }, [wallet]);
+
+  // Initial load
+  useEffect(() => {
+    fetchCard();
+  }, [fetchCard]);
+
+  const canRegen = !state.loading && regensUsed < MAX_REGENERATIONS && !!wallet;
+  const regenerate = async () => {
+    if (!canRegen) return;
+    setRegensUsed((n) => n + 1);
+    await fetchCard();
+  };
 
   useEffect(() => {
     const onEsc = (e) => e.key === "Escape" && onClose?.();
@@ -168,7 +179,34 @@ export default function ShareableCard({ wallet, onClose }) {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={regenerate}
+              disabled={!canRegen}
+              data-testid="share-card-regenerate"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed text-white border border-white/15"
+              style={{ fontFamily: "Orbitron, sans-serif" }}
+              title={
+                regensUsed >= MAX_REGENERATIONS
+                  ? "Regeneration limit reached for this session"
+                  : "Generate a fresh Bullpug-universe scene"
+              }
+            >
+              {state.loading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              Regenerate
+              <span
+                className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}
+                data-testid="share-card-regen-counter"
+              >
+                {MAX_REGENERATIONS - regensUsed} left
+              </span>
+            </button>
             <button
               type="button"
               onClick={download}
@@ -184,7 +222,7 @@ export default function ShareableCard({ wallet, onClose }) {
               onClick={share}
               disabled={!state.image}
               data-testid="share-card-share"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-black disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-black disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
               style={{ background: "#00FFA3", fontFamily: "Orbitron, sans-serif" }}
             >
               <Share2 size={13} /> Share

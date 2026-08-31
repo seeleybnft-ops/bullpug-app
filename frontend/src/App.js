@@ -25,6 +25,7 @@ import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";
 import AdminCompanionTokens from "@/pages/AdminCompanionTokens";
+import AdminVisualCanon from "@/pages/AdminVisualCanon";
 import AdminAuthGate from "@/components/AdminAuthGate";
 import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
@@ -156,6 +157,7 @@ function App() {
                   <Route path="/admin" element={<AdminAuthGate title="Operator Console"><AdminPanel /></AdminAuthGate>} />
                   <Route path="/admin/drops" element={<AdminAuthGate title="Drop Vault"><AdminDropVault /></AdminAuthGate>} />
                   <Route path="/admin/companions" element={<AdminAuthGate title="Companion Tokens"><AdminCompanionTokens /></AdminAuthGate>} />
+                  <Route path="/admin/canon" element={<AdminAuthGate title="Visual Canon"><AdminVisualCanon /></AdminAuthGate>} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/showcase" element={<Showcase />} />
                   <Route path="/showcase/:walletAddress" element={<Showcase />} />

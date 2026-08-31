@@ -167,6 +167,100 @@ async def admin_archive_stats():
     return await archive.admin_stats()
 
 
+# ── Visual Canon admin endpoints ─────────────────────────────────────
+@router.get("/admin/canon", dependencies=[Depends(require_admin_jwt)])
+async def admin_list_canon(
+    status: Optional[str] = Query(None, description="'canon' | 'pending' | 'retired' | None (all)"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Admin — paginated Visual Canon list with status filter.
+
+    Delegates to `visual_canon.get_all_canon` / `get_pending` for the
+    two most common cases and falls back to a direct query for the
+    'retired' + 'all' cases.
+    """
+    from services import visual_canon
+    from utils.database import db as _db
+
+    if status == "pending":
+        items = await visual_canon.get_pending(skip=skip, limit=limit)
+    elif status == "canon":
+        items = await visual_canon.get_all_canon(skip=skip, limit=limit)
+    else:
+        # Retired or "all" — hand-rolled query
+        q: dict = {}
+        if status == "retired":
+            q["status"] = "retired"
+        # ordering: canon+admin_override newest first, then pending by
+        # request_count, retired last. Simplest impl: sort by
+        # promoted_at DESC nulls last, break by created_at.
+        cursor = _db[visual_canon.CANON_COLLECTION].find(
+            q, visual_canon._LIST_PROJECTION
+        ).sort([("promoted_at", -1), ("created_at", -1)]).skip(skip).limit(limit)
+        items = await cursor.to_list(length=limit)
+
+    total = await _db[visual_canon.CANON_COLLECTION].count_documents(
+        {"status": status} if status else {}
+    )
+    # Defensive: projection already excludes _id, but strip anyway so
+    # the response is provably free of ObjectIds.
+    safe_items = [{k: v for k, v in it.items() if k != "_id"} for it in items]
+    return {"total": total, "skip": skip, "limit": limit, "items": safe_items}
+
+
+class CanonPromoteRequest(BaseModel):
+    subject_tag: str
+    image_base64: Optional[str] = None
+    image_mime: Optional[str] = None
+
+
+@router.post("/admin/canon/promote", dependencies=[Depends(require_admin_jwt)])
+async def admin_canon_promote(payload: CanonPromoteRequest):
+    """Promote pending → canon, or replace the image via admin_override."""
+    from services import visual_canon
+    doc = await visual_canon.admin_override(
+        subject_tag=payload.subject_tag,
+        image_base64=payload.image_base64,
+        image_mime=payload.image_mime,
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="subject_tag not found or image too large")
+    return doc
+
+
+class CanonRetireRequest(BaseModel):
+    subject_tag: str
+
+
+@router.post("/admin/canon/retire", dependencies=[Depends(require_admin_jwt)])
+async def admin_canon_retire(payload: CanonRetireRequest):
+    """Retire a canon entry (status → retired, kept in DB)."""
+    from services import visual_canon
+    doc = await visual_canon.retire(payload.subject_tag)
+    if not doc:
+        raise HTTPException(status_code=404, detail="subject_tag not found")
+    return doc
+
+
+@router.get("/admin/canon/image/{subject_tag}", dependencies=[Depends(require_admin_jwt)])
+async def admin_canon_image(subject_tag: str):
+    """Return the full-resolution image bytes for one canon entry."""
+    from services import visual_canon
+    from utils.database import db as _db
+    doc = await _db[visual_canon.CANON_COLLECTION].find_one(
+        {"subject_tag": subject_tag},
+        {"_id": 0, "image_base64": 1, "image_mime": 1},
+    )
+    if not doc or not doc.get("image_base64"):
+        raise HTTPException(status_code=404, detail="not found")
+    return {
+        "subject_tag": subject_tag,
+        "image_base64": doc["image_base64"],
+        "image_mime": doc.get("image_mime", "image/png"),
+    }
+
+
 @router.get("/entry-image/{slug}")
 async def get_entry_image(slug: str):
     """Return the Visual-Canon-stored image for a single lore entry.

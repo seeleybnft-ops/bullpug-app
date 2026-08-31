@@ -1,0 +1,22 @@
+{
+  "summary": "Iteration 114 — validated 4 enhancements: (1) archive_test_cleanup cron registered + purge_test_wallet_data works, (2) admin/stats returns full shape incl. daily_active_wallets and filters TESTWALLET_ rows, (3) 5 new Visual Canon admin endpoints properly 401-gated, (4) frontend files (AdminPanel imports ArchiveStatsCard + admin-canon-link tile; App.js registers /admin/canon under AdminAuthGate; AdminVisualCanon.js exists; ShareableCard has MAX_REGENERATIONS=3, regensUsed state, share-card-regenerate + share-card-regen-counter testids). Backend: 9/9 pytest passing. Frontend: /admin/canon SIWS gate renders with 'Visual Canon' title; /archive renders with Share button. Share endpoint returns grand_total=62 and fresh image_base64 on each call.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_archive_admin_cron.py",
+    "/app/test_reports/pytest/iteration_114.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "utils/scheduler.py is large (>280 lines) — could split archive cleanup + escrow alert into utils/scheduler_jobs/ modules if it grows further; not blocking.",
+    "archive_test_cleanup._TARGETS lists 'daily_drops' with field 'user_key'. Confirm elsewhere that user_key is always the wallet address (never a userid) — if it's ever userid, regex-based purge would false-negative silently. Not a blocker for this iteration."
+  ],
+  "updated_files": ["/app/backend/tests/test_archive_admin_cron.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% (file inspection + gate render)"},
+  "test_credentials": "Access code bullpug2026 (verified). Admin SIWS gate blocks /admin/canon as expected; no admin JWT available to test authorized flow — verified 401 gating on all 5 new endpoints instead, per playbook.",
+  "seed_data_creation": "test wallet 'TESTWALLET_STATS_CRON_1' inserted into archive_ranks + archive_unlocks then purged by purge_test_wallet_data (verified 0 remaining). test wallet 'TESTWALLET_STATS_2' inserted then removed in finally block. 'TESTWALLET_SHARE_1' cleaned up after share test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests use fresh AsyncIOMotorClient inside each asyncio.run() to avoid 'event loop closed' issues from motor's cached executor. Reuse this pattern for other async DB tests. All 9 tests take ~19s total.",
+  "rca of the issue": "N/A — no bugs found this iteration."
+}

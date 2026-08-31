@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import axios from "axios";
 import {
-  Shield, AlertTriangle, Wallet, Sparkles, ExternalLink, PawPrint
+  Shield, AlertTriangle, Wallet, Sparkles, ExternalLink, PawPrint, Images
 } from "lucide-react";
 import ClientErrorsCard from "@/components/ClientErrorsCard";
 import TrafficCard from "@/components/TrafficCard";
 import TinkerpugChatsCard from "@/components/TinkerpugChatsCard";
+import ArchiveStatsCard from "@/components/admin/ArchiveStatsCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -152,8 +153,42 @@ export default function AdminPanel() {
           </div>
         </Link>
 
-        {/* Platform ops cards — website health, chat sessions, traffic */}
+        {/* Quick-link: Visual Canon Ledger */}
+        <Link
+          to="/admin/canon"
+          data-testid="admin-canon-link"
+          className="block mb-6 group"
+        >
+          <div className="rounded-2xl border border-[#00FFA3]/30 bg-gradient-to-br from-[#0F1018] to-[#0a0a12] p-5 hover:border-[#00FFA3]/60 hover:shadow-[0_0_30px_rgba(0,255,163,0.15)] transition-all">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30 flex items-center justify-center shrink-0">
+                  <Images className="w-5 h-5 text-[#00FFA3]" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-[#00FFA3] font-bold mb-0.5">
+                    Universe Visuals
+                  </p>
+                  <h3
+                    className="text-base md:text-lg font-bold text-white tracking-tight"
+                    style={{ fontFamily: "Orbitron, sans-serif" }}
+                  >
+                    Visual Canon Ledger →
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Every image the community has generated for a subject. Promote pending
+                    entries to canon, retire stale ones, or replace an image with a curated version.
+                  </p>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-[#00FFA3] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </div>
+          </div>
+        </Link>
+
+        {/* Platform ops cards — website health, chat sessions, traffic, archive stats */}
         <div className="space-y-6">
+          <ArchiveStatsCard />
           <ClientErrorsCard />
           <TrafficCard />
           <TinkerpugChatsCard />

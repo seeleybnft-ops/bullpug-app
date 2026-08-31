@@ -746,14 +746,20 @@ async def detect_and_record_unlock(
 
 # ── Admin queries ───────────────────────────────────────────────────────
 async def admin_stats() -> Dict:
-    """Aggregate stats for the admin panel — unlock counts per entry and
-    the overall rank distribution."""
+    """Aggregate stats for the admin panel — unlock counts per entry,
+    rank distribution, and last-24h active wallets. Test-wallet rows
+    are filtered so the admin sees a real-user view of engagement.
+    """
     try:
-        # Per-entry counts
+        from utils.test_wallet_filter import TEST_WALLET_REGEX
+        _not_test = {"$not": {"$regex": TEST_WALLET_REGEX}}
+
+        # Per-entry unlock counts (test wallets filtered)
         pipeline = [
+            {"$match": {"wallet_address": _not_test}},
             {"$group": {"_id": "$entry_id", "count": {"$sum": 1}}},
         ]
-        per_entry_docs = await db[UNLOCKS_COLLECTION].aggregate(pipeline).to_list(length=100)
+        per_entry_docs = await db[UNLOCKS_COLLECTION].aggregate(pipeline).to_list(length=200)
         per_entry = {d["_id"]: d["count"] for d in per_entry_docs if d.get("_id") in _BY_SLUG}
         entries_out = []
         for e in MASTER_ENTRIES:
@@ -764,9 +770,10 @@ async def admin_stats() -> Dict:
                 "unlock_count": per_entry.get(e["slug"], 0),
             })
 
-        # Rank distribution — count wallets at each rank tier
+        # Rank distribution (test wallets filtered)
         rank_docs = await db[RANKS_COLLECTION].find(
-            {}, {"rank": 1, "_id": 0}
+            {"wallet_address": _not_test},
+            {"rank": 1, "_id": 0},
         ).to_list(length=10000)
         rank_dist: Dict[str, int] = {"none": 0, RANK_SEEKER: 0,
                                      RANK_ARCHIVIST: 0, RANK_KEEPERS_CIRCLE: 0}
@@ -774,19 +781,38 @@ async def admin_stats() -> Dict:
             key = r.get("rank") or "none"
             rank_dist[key] = rank_dist.get(key, 0) + 1
 
+        # Daily-active wallets — distinct wallets with a chat turn in the
+        # last 24 hours. `chat_history` schema stores per-turn rows so a
+        # `distinct` on wallet_address with a timestamp cutoff is enough.
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        daily_active = 0
+        try:
+            active_wallets = await db.chat_history.distinct(
+                "wallet_address",
+                {"wallet_address": _not_test, "timestamp": {"$gte": cutoff}},
+            )
+            daily_active = len(active_wallets)
+        except Exception as e:
+            logger.debug("daily_active_wallets probe failed: %s", e)
+
         return {
             "total_entries": TOTAL_ENTRIES,
+            "grand_total_entries": GRAND_TOTAL_ENTRIES,
             "total_wallets": len(rank_docs),
             "entries": entries_out,
             "rank_distribution": rank_dist,
+            "daily_active_wallets": daily_active,
         }
     except Exception as e:
         logger.warning("admin_stats failed: %s", e)
         return {
             "total_entries": TOTAL_ENTRIES,
+            "grand_total_entries": GRAND_TOTAL_ENTRIES,
             "total_wallets": 0,
             "entries": [],
             "rank_distribution": {},
+            "daily_active_wallets": 0,
         }
 
 

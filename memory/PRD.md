@@ -1,5 +1,34 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — 4 Enhancements (Auto-Cleanup, Archive Stats, Visual Canon Admin, Share Preview+Regenerate)
+
+Testing agent iteration_114 = 100% backend (9/9) + 100% frontend (file inspection + gate render).
+
+**1. Auto-Cleanup Cron** — `backend/utils/scheduler.py` registers a daily `CronTrigger(hour=3, minute=15, timezone="UTC")` job that calls new `services/archive_test_cleanup.py::purge_test_wallet_data()`. That function iterates six collections (archive_ranks, archive_unlocks, chat_history, daily_drops, share_card_art, tinkerpug_turns) with `{"$regex": TEST_WALLET_REGEX}` — real user rows never match. Logs per-collection deletion counts to the standard logger; only logs a summary line when at least one row was purged.
+
+**2. Archive Stats Panel** — `archive_achievements.admin_stats()` enhanced with `daily_active_wallets` (distinct wallets in chat_history with timestamp ≥ now-24h) and test-wallet filter on all counts (unlocks, ranks, active). New `frontend/src/components/admin/ArchiveStatsCard.jsx` fetches `/api/archive/admin/stats`, auto-refreshes every 60s, and renders three metric cells (total wallets / active 24h / entries), a stacked rank-distribution bar with legend, and a top/bottom-10 entry list with per-entry unlock counts + tier colour. Wired into AdminPanel as the first ops card.
+
+**3. Visual Canon Admin** — Five new admin-gated endpoints in `routers/archive.py`:
+- `GET  /api/archive/admin/canon?status=…&skip=&limit=` — paginated with filters (all/canon/pending/retired)
+- `POST /api/archive/admin/canon/promote` — {subject_tag, image_base64?, image_mime?} — promotes pending or overrides image
+- `POST /api/archive/admin/canon/retire` — {subject_tag} — retires (kept in DB with status=retired)
+- `GET  /api/archive/admin/canon/image/{subject_tag}` — full-res image bytes
+All delegate to existing `services/visual_canon.py` mutations. New page `frontend/src/pages/AdminVisualCanon.js` renders a responsive grid of canon cards with status pills, request-count, promoted-date, and inline Promote / Retire / Replace-image (file upload) actions. Click a card → lightbox with subject_tag, first_prompt, and full image. Route registered at `/admin/canon` under `AdminAuthGate`. Link tile added to AdminPanel with the green Universe Visuals styling.
+
+**4. Share Preview with Regenerate** — `frontend/src/components/ShareableCard.jsx` refactored to expose the fetch as a callable `fetchCard()` + added `Regenerate` button (`data-testid="share-card-regenerate"`) with a `MAX_REGENERATIONS = 3` cap and session-local counter (`data-testid="share-card-regen-counter"` reading "N left"). Each regen re-hits `/api/archive/share` which already generates fresh AI art on every call (no cache). Button disables at 3 regens with a tooltip. The suggested share text only initialises on the first fetch — the user's edits are preserved across regens.
+
+**Files touched (7 new/modified, no others):**
+- CREATED: `backend/services/archive_test_cleanup.py`
+- CREATED: `frontend/src/components/admin/ArchiveStatsCard.jsx`
+- CREATED: `frontend/src/pages/AdminVisualCanon.js`
+- MODIFIED: `backend/utils/scheduler.py` (daily cron job)
+- MODIFIED: `backend/services/archive_achievements.py` (daily_active_wallets, test-wallet filter, grand_total_entries in admin_stats)
+- MODIFIED: `backend/routers/archive.py` (5 new admin canon endpoints)
+- MODIFIED: `frontend/src/App.js` (admin/canon route)
+- MODIFIED: `frontend/src/pages/AdminPanel.js` (ArchiveStatsCard, admin-canon-link tile, Images import)
+- MODIFIED: `frontend/src/components/ShareableCard.jsx` (Regenerate button + counter + fetchCard refactor)
+
+
 ## Feb 2026 — 4 Fixes (post-Doc 2 hardening + admin cleanup)
 
 Testing agent iteration_113 verified all four fixes.
