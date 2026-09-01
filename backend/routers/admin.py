@@ -782,3 +782,51 @@ async def clear_forum_testers(wallet: str = Depends(require_admin_jwt)):
         "removed_posts": tester_posts,
         "_authenticated_as": wallet,
     }
+
+
+# ─── Phase A migration trigger ───────────────────────────────────────
+# Runs `scripts/migrate_wallet_to_user_id.py` INSIDE the deployed
+# backend so it hits whichever Mongo the container is wired to (i.e.
+# production, when triggered from the production admin panel). The
+# script itself is idempotent; `apply` also requires an explicit
+# `confirm=YES` param so a stray click never mutates data.
+
+from fastapi import Query
+
+
+@router.post("/run-migration")
+async def run_wallet_to_user_id_migration(
+    mode: str = Query(..., pattern="^(dry_run|apply|verify)$"),
+    confirm: Optional[str] = Query(None, description="Must be 'YES' when mode=apply"),
+    wallet: str = Depends(require_admin_jwt),
+):
+    """Invoke the wallet→user_id hybrid backfill.
+
+    Modes:
+      • ``dry_run`` — count what would change, write nothing
+      • ``apply``   — actually backfill (requires `confirm=YES`)
+      • ``verify``  — read-only audit of current state
+
+    Response is the same JSON shape for all three modes so the admin
+    UI can render one component.
+    """
+    if mode == "apply" and confirm != "YES":
+        raise HTTPException(
+            status_code=400,
+            detail="mode=apply requires ?confirm=YES to prevent accidental runs.",
+        )
+
+    # Import lazily so a broken migration module can never take down
+    # the whole admin router at import time.
+    from scripts.migrate_wallet_to_user_id import run_migration
+
+    logger.info("admin migration triggered: mode=%s by wallet=%s", mode, wallet)
+    try:
+        report = await run_migration(db, mode)
+    except Exception as e:
+        logger.exception("migration crashed")
+        raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
+
+    report["_authenticated_as"] = wallet
+    return report
+

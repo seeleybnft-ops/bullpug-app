@@ -217,6 +217,94 @@ async def _verify(db) -> Dict[str, dict]:
     return report
 
 
+async def run_migration(db, mode: str) -> dict:
+    """Programmatic entry point — used by the admin endpoint.
+
+    `mode` must be one of: ``dry_run`` | ``apply`` | ``verify``. Returns
+    a JSON-serialisable dict (no `_id` fields, no ObjectIds) so the
+    caller can hand it straight to a FastAPI response.
+    """
+    if mode not in ("dry_run", "apply", "verify"):
+        raise ValueError(f"invalid mode: {mode!r}")
+    dry_run = mode == "dry_run"
+    verify_only = mode == "verify"
+
+    per_collection: list = []
+    totals = {"matched": 0, "wallets_new": 0, "docs_written": 0}
+    reconciled = 0
+
+    if not verify_only:
+        await db.users.create_index("user_id", unique=True)
+        await db.users.create_index(
+            "email",
+            unique=True,
+            partialFilterExpression={"email": {"$type": "string"}},
+        )
+        await db.users.create_index(
+            "wallet_address",
+            unique=True,
+            partialFilterExpression={"wallet_address": {"$type": "string"}},
+        )
+
+        for name, field in COLLECTIONS:
+            stats = await _backfill_collection(db, name, field, dry_run)
+            per_collection.append({"collection": name, **stats})
+            for k, v in stats.items():
+                if isinstance(v, int):
+                    totals[k] = totals.get(k, 0) + v
+
+        legacy = await _backfill_user_key_rows(db, dry_run)
+        per_collection.append({"collection": "(legacy user_key rows)", **legacy})
+        for k, v in legacy.items():
+            if isinstance(v, int):
+                totals[k] = totals.get(k, 0) + v
+
+        # Reconciliation pass (same as CLI): user_id on docs w/o users row.
+        seen_from_docs: set = set()
+        for name, _field in COLLECTIONS:
+            async for d in db[name].find(
+                {"user_id": {"$regex": "^wallet_"}},
+                {"_id": 0, "user_id": 1},
+            ):
+                seen_from_docs.add(d["user_id"])
+        for user_id in seen_from_docs:
+            exists = await db.users.find_one({"user_id": user_id}, {"_id": 0, "user_id": 1})
+            if exists:
+                continue
+            wallet = user_id[len("wallet_"):]
+            if await _upsert_users_row(db, wallet, dry_run):
+                reconciled += 1
+        totals["wallets_new"] = totals.get("wallets_new", 0) + reconciled
+
+    # Audit report — always run so /verify mode has something to return.
+    audit = await _verify(db)
+    audit_rows = []
+    for name, r in audit.items():
+        if name == "_summary":
+            continue
+        audit_rows.append({
+            "collection": name,
+            "total_with_wallet": r["total_with_wallet"],
+            "still_missing_user_id": r["still_missing_user_id"],
+            "sample": r["sample"],
+        })
+    holes = sum(r["still_missing_user_id"] for k, r in audit.items() if k != "_summary")
+
+    return {
+        "mode": mode,
+        "per_collection": per_collection,
+        "totals": totals,
+        "reconciled_orphan_users": reconciled,
+        "audit": {
+            "rows": audit_rows,
+            "distinct_wallets": audit["_summary"]["distinct_wallets_across_all_collections"],
+            "users_rows_with_wallet": audit["_summary"]["users_rows_with_wallet"],
+            "still_missing_user_id_total": holes,
+        },
+        "clean": holes == 0,
+    }
+
+
 async def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run", action="store_true", help="Print planned writes without touching Mongo.")
