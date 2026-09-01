@@ -240,7 +240,7 @@ export default function UnifiedWalletButton() {
       {showModal && (
         <div 
           ref={modalRef}
-          className="absolute right-0 mt-2 w-80 bg-[#0a0a12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+          className="absolute right-0 mt-2 w-80 bg-[#0a0a12] border border-white/10 rounded-2xl shadow-2xl z-50 flex flex-col max-h-[85vh] overflow-hidden"
         >
           {/* Header */}
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
@@ -263,7 +263,7 @@ export default function UnifiedWalletButton() {
             </div>
           )}
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Email Section (Phase B — email first per UX spec) */}
             <div className="space-y-2" data-testid="unified-auth-email-section">
               <div className="flex items-center gap-2 text-xs text-slate-400 uppercase font-bold">
@@ -350,7 +350,7 @@ export default function UnifiedWalletButton() {
                   <p className="text-[10px] text-slate-400 mb-2">
                     6-digit code sent to <span className="text-slate-200 font-mono">{emailInput.trim().toLowerCase()}</span>
                   </p>
-                  <div className="flex gap-1 mb-2" onPaste={onOtpPaste}>
+                  <div className="flex gap-1.5 mb-2 justify-between" onPaste={onOtpPaste}>
                     {otpDigits.map((d, i) => (
                       <input
                         key={i}
@@ -363,7 +363,7 @@ export default function UnifiedWalletButton() {
                         onKeyDown={(e) => onOtpKeyDown(e, i)}
                         disabled={otpSubmitting}
                         data-testid={`unified-auth-otp-digit-${i}`}
-                        className="flex-1 h-10 text-center text-base font-bold rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#B47CFF] disabled:opacity-50"
+                        className="w-10 h-11 text-center text-base font-bold rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#B47CFF] disabled:opacity-50"
                         style={{
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.08)',
@@ -396,15 +396,21 @@ export default function UnifiedWalletButton() {
               )}
             </div>
 
-            {/* Divider between email and wallet options — visual break
-                that reinforces "these are two equal paths to the Archive". */}
-            <div className="flex items-center gap-2 pt-1" aria-hidden="true">
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="text-[9px] uppercase tracking-widest text-slate-600">or connect a wallet</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
+            {/* Divider + wallet sections are hidden while the user is
+                mid-OTP entry — keeps the modal focused on the code
+                they're trying to type and prevents the Verify button
+                from being pushed below the viewport. */}
+            {emailStage !== 'otp' && (
+              <>
+                {/* Divider between email and wallet options — visual break
+                    that reinforces "these are two equal paths to the Archive". */}
+                <div className="flex items-center gap-2 pt-1" aria-hidden="true">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-[9px] uppercase tracking-widest text-slate-600">or connect a wallet</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
 
-            {/* Solana Section */}
+                {/* Solana Section */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-slate-400 uppercase font-bold">
                 <span className="text-[#9945FF]">◎</span> Solana
@@ -544,6 +550,8 @@ export default function UnifiedWalletButton() {
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
 
           {/* Footer */}
