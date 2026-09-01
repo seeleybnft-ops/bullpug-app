@@ -16,6 +16,7 @@ checkout) remains mounted but dormant (no scheduler, no UI surface).
 """
 from routers.betting import router as betting_router
 from routers.auth import router as auth_router
+from routers.email_auth import router as email_auth_router
 from routers.email import router as email_router
 from routers.leaderboard import router as leaderboard_router
 from routers.skins import router as skins_router
@@ -84,4 +85,5 @@ ALL_ROUTERS = [
     companion_router,
     companion_admin_router,
     admin_auth_router,
+    email_auth_router,
 ]

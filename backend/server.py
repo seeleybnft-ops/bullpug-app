@@ -261,6 +261,38 @@ async def startup_event():
         await db.companion_tokens.create_index("token", unique=True)
         await db.companion_tokens.create_index("wallet_claimed")
         await db.companion_tokens.create_index([("created_at", -1)])
+        # ── Email auth (Phase A) ──────────────────────────────────
+        # Unified user identity across wallet + email + linked. `user_id`
+        # is required and globally unique. `email` and `wallet_address`
+        # are both nullable — we use PARTIAL indexes (not sparse) so
+        # multiple rows with a null value don't conflict. Unique is
+        # only enforced when the field is a non-empty string.
+        await db.users.create_index("user_id", unique=True)
+        await db.users.create_index(
+            "email",
+            unique=True,
+            partialFilterExpression={"email": {"$type": "string"}},
+        )
+        await db.users.create_index(
+            "wallet_address",
+            unique=True,
+            partialFilterExpression={"wallet_address": {"$type": "string"}},
+        )
+        # OTP rows — email-scoped lookups + a TTL so used/expired rows
+        # self-purge (30-day retention buys us an audit trail without
+        # letting the collection grow forever).
+        await db.auth_otps.create_index("email")
+        await db.auth_otps.create_index([("email", 1), ("created_at", -1)])
+        await db.auth_otps.create_index(
+            "created_at_dt",
+            expireAfterSeconds=30 * 24 * 3600,
+        )
+        # Backfill user_id on identity-bearing docs so existing wallet
+        # rows are addressable by user_id too. Backfills a handful of
+        # missing user_ids per boot — non-fatal on any error. The
+        # `scripts/migrate_wallet_to_user_id.py` script does the heavy
+        # lifting; this is a safety net for rows written before the
+        # migration completes.
         logger.info("MongoDB indexes created for archive collections")
     except Exception as e:
         logger.warning(f"Archive index creation (non-fatal): {e}")
