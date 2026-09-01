@@ -9,6 +9,7 @@ import ClientErrorsCard from "@/components/ClientErrorsCard";
 import TrafficCard from "@/components/TrafficCard";
 import TinkerpugChatsCard from "@/components/TinkerpugChatsCard";
 import ArchiveStatsCard from "@/components/admin/ArchiveStatsCard";
+import ForumCleanupCard from "@/components/admin/ForumCleanupCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -189,6 +190,7 @@ export default function AdminPanel() {
         {/* Platform ops cards — website health, chat sessions, traffic, archive stats */}
         <div className="space-y-6">
           <ArchiveStatsCard />
+          <ForumCleanupCard />
           <ClientErrorsCard />
           <TrafficCard />
           <TinkerpugChatsCard />

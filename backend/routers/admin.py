@@ -680,3 +680,105 @@ async def rake_summary(wallet: str = Depends(require_admin_jwt)):
         "_authenticated_as": wallet,
     }
 
+
+
+# ─── Forum tester cleanup ────────────────────────────────────────────
+#
+# Automated tests (see `backend/tests/test_p2p_betting_forum.py` and
+# related modular-route suites) seed forum posts titled `TEST_...`. On a
+# fresh test run those rows persist and end up looking like real user
+# content in the /forum feed. This endpoint gives admins a one-click
+# repeatable cleanup instead of needing raw DB access. Idempotent:
+# running it again with no matches is a no-op.
+
+_TESTER_TITLE_REGEX = "^TEST_"
+
+
+@router.get("/forum/tester-preview")
+async def preview_forum_testers(wallet: str = Depends(require_admin_jwt)):
+    """Preview how many forum rows the tester cleanup would delete.
+
+    Match rule: any `forum_posts` document whose `title` starts with
+    `TEST_` (case-sensitive, matches the test-suite seed prefix). Also
+    counts the replies + likes that would cascade with those posts.
+    """
+    posts_cursor = db.forum_posts.find(
+        {"title": {"$regex": _TESTER_TITLE_REGEX}},
+        {"_id": 0, "id": 1, "title": 1, "wallet_address": 1, "created_at": 1, "category": 1},
+    ).sort("created_at", -1)
+    posts = await posts_cursor.to_list(500)
+    post_ids = [p["id"] for p in posts]
+
+    replies_count = 0
+    likes_count = 0
+    if post_ids:
+        replies_count = await db.forum_replies.count_documents({"post_id": {"$in": post_ids}})
+        # forum_likes covers both post-likes and reply-likes; only count
+        # the ones pointed at the tester posts so we don't over-report.
+        likes_count = await db.forum_likes.count_documents({
+            "item_id": {"$in": post_ids},
+        })
+
+    return {
+        "posts": posts,
+        "post_count": len(posts),
+        "reply_count": replies_count,
+        "like_count": likes_count,
+        "_authenticated_as": wallet,
+    }
+
+
+@router.post("/forum/clear-testers")
+async def clear_forum_testers(wallet: str = Depends(require_admin_jwt)):
+    """Delete every `TEST_`-prefixed forum post and its cascade.
+
+    Cascade rules:
+      • forum_replies whose `post_id` is in the tester post set
+      • forum_likes whose `item_id` is in the tester post OR the
+        tester reply set (i.e. reply-likes on cascaded replies)
+
+    Returns the deletion counts + a copy of what was removed so the
+    admin has an audit trail in the response body.
+    """
+    # Snapshot the tester posts FIRST — after the delete_many() runs we
+    # can't reconstruct what was removed, and we want to hand the caller
+    # a receipt for their audit log.
+    tester_posts = await db.forum_posts.find(
+        {"title": {"$regex": _TESTER_TITLE_REGEX}},
+        {"_id": 0, "id": 1, "title": 1, "wallet_address": 1, "created_at": 1, "category": 1},
+    ).to_list(500)
+    post_ids = [p["id"] for p in tester_posts]
+
+    if not post_ids:
+        return {
+            "deleted_posts": 0,
+            "deleted_replies": 0,
+            "deleted_likes": 0,
+            "removed_posts": [],
+            "_authenticated_as": wallet,
+        }
+
+    # Collect reply ids up-front so we can wipe the likes tied to them.
+    reply_ids = [
+        r["id"] for r in
+        await db.forum_replies.find({"post_id": {"$in": post_ids}}, {"_id": 0, "id": 1}).to_list(2000)
+    ]
+
+    likes_res = await db.forum_likes.delete_many({
+        "item_id": {"$in": post_ids + reply_ids}
+    })
+    replies_res = await db.forum_replies.delete_many({"post_id": {"$in": post_ids}})
+    posts_res = await db.forum_posts.delete_many({"id": {"$in": post_ids}})
+
+    logger.info(
+        "admin_forum_cleanup: wallet=%s posts=%d replies=%d likes=%d",
+        wallet, posts_res.deleted_count, replies_res.deleted_count, likes_res.deleted_count,
+    )
+
+    return {
+        "deleted_posts": posts_res.deleted_count,
+        "deleted_replies": replies_res.deleted_count,
+        "deleted_likes": likes_res.deleted_count,
+        "removed_posts": tester_posts,
+        "_authenticated_as": wallet,
+    }
