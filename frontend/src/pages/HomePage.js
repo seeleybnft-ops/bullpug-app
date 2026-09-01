@@ -259,34 +259,12 @@ export default function HomePage() {
       </section>
       )}
 
-      {/* MARKET DASHBOARD */}
+      {/* MARKET DASHBOARD — the "Real-Time Market Intelligence" copy
+          card that used to sit alongside was removed Feb 2026. Market
+          Pulse now stands on its own. */}
       <section className="py-12 md:py-16" data-testid="market-dashboard-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card rounded-2xl p-6 flex flex-col justify-center order-first">
-              <h3 className="text-2xl md:text-3xl font-bold mb-4" style={{ fontFamily: 'Orbitron' }}>
-                <span className="text-[#00FFA3]">Real-Time</span> Market Intelligence
-              </h3>
-              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                Tinkerpug monitors the crypto markets 24/7, tracking Fear & Greed sentiment,
-                top movers on Solana, and global market conditions.
-                Stay informed with real-time cosmic intelligence.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => window.dispatchEvent(new CustomEvent("tinkerpug:open"))}
-                  data-testid="ask-tinkerpug-btn"
-                  className="bg-gradient-to-r from-[#D946EF] to-[#00C2FF] text-white font-bold rounded-xl px-6 py-4 text-sm uppercase hover:scale-[1.02] transition-transform"
-                >
-                  <Bot className="w-4 h-4 mr-2" />
-                  Ask Tinkerpug
-                </Button>
-              </div>
-            </div>
-            <div className="lg:col-span-1">
-              <MarketDashboard />
-            </div>
-          </div>
+          <MarketDashboard />
         </div>
       </section>
 
