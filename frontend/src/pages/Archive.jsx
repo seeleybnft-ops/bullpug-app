@@ -18,7 +18,6 @@ import { useSearchParams } from "react-router-dom";
 import { Send, Loader2, Radio, MessageCircle, BookOpen, LogOut } from "lucide-react";
 import ArchiveLedger from "@/components/ArchiveLedger";
 import UnlockCelebration from "@/components/UnlockCelebration";
-import ArchiveSignIn from "@/components/auth/ArchiveSignIn";
 import { useAuth } from "@/contexts/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -906,10 +905,25 @@ export default function Archive() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] pt-16" data-testid="archive-page">
-      {/* Sign-in overlay — presented when neither a wallet is connected
-          nor an email JWT session is active. AuthContext exposes
-          `sessionType === "guest"` for exactly this case. */}
-      {sessionType === "guest" && !hydrating && <ArchiveSignIn />}
+      {/* Sign-in is presented via the global <UnifiedWalletButton /> in
+          the Navbar — a single dropdown that offers both email and
+          wallet paths, always discoverable regardless of connection
+          state. Archive shows a small guest-state prompt inline
+          below so a first-time visitor knows to open the sign-in
+          menu (rather than hitting a blank ledger). */}
+      {sessionType === "guest" && !hydrating && (
+        <div
+          className="sticky top-16 z-30 border-b border-white/[0.06] bg-[#05050A]/90 backdrop-blur px-4 py-2 text-center"
+          data-testid="archive-guest-hint"
+        >
+          <p
+            className="text-[10px] uppercase tracking-widest text-slate-400"
+            style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+          >
+            keeper's log — sign in from the top-right to save your progress. the ledger stays open regardless.
+          </p>
+        </div>
+      )}
 
       {/* Active-session strip — shown at the top when signed in.
           Displays either the wallet shorthand or the email shorthand
