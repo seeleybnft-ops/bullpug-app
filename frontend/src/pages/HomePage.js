@@ -29,14 +29,7 @@ const IMAGES = {
   arena: "/pugburn-canon.jpg",
 };
 
-const GALLERY = [
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/hx8owqo5__0b33bdf6-ff6f-4e81-b054-8864266da936.jfif",
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/dlqanw32__6edaf5e6-8d3a-4e67-ae26-f940b4cae7df.jfif",
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/8722rrxo__19eae00a-c32d-4598-8368-2b9a2cea09f5.jfif",
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/ehdeto17__22f76edb-e23d-4bcb-8f0d-2dcbf2d49f75.jfif",
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/jx1varuz__330ee0eb-9f7e-4e7c-8eb6-4e3508d2dca4.jfif",
-  "https://customer-assets.emergentagent.com/job_5d6a5e00-50cf-4b65-9a94-df993e3bd9bc/artifacts/lbpfaqyq__767efd96-bade-40da-a2e8-e10982c35987.jfif",
-];
+const GALLERY_EMPTY_STATE = "keeper's log — the visual record is being compiled. check back soon.";
 
 const TOKEN_DIST = [
   { name: "Liquidity Pool", value: 100, color: "#00FFA3" },
@@ -86,8 +79,10 @@ export default function HomePage() {
 
   // Bullpug Gallery — live-fetch daily drops + user-generated images, then
   // cycle a rolling 8-tile window every ~6 seconds so the grid feels alive
-  // as new drops land. Falls back to the static GALLERY placeholders when
-  // the API returns nothing yet (fresh deploy) or the request fails.
+  // as new drops land. When the pipeline has produced nothing yet (fresh
+  // deploy / new session), the section renders a keeper's-log empty state
+  // instead of any placeholder art — old static placeholders were retired
+  // because they leaked as "the real gallery" on first paint.
   const [galleryFeed, setGalleryFeed] = useState([]);
   const [galleryOffset, setGalleryOffset] = useState(0);
   useEffect(() => {
@@ -100,7 +95,7 @@ export default function HomePage() {
           .filter((it) => typeof it.image_base64 === "string" && it.image_base64.length > 32);
         setGalleryFeed(items);
       })
-      .catch(() => { /* fall through to static placeholders */ });
+      .catch(() => { /* silent — the empty state handles this */ });
     return () => { cancelled = true; };
   }, []);
   useEffect(() => {
@@ -111,18 +106,12 @@ export default function HomePage() {
     return () => clearInterval(t);
   }, [galleryFeed.length]);
 
-  // Compose the 8 tiles rendered on the page — either a rolling slice of the
-  // live feed or the static GALLERY fallback so the section never looks empty.
+  // Compose the 8 tiles rendered on the page from the live feed. Returns
+  // an empty array when the feed hasn't produced anything yet — the
+  // section itself renders a keeper's-log message in that case.
   const galleryTiles = (() => {
     const TILES = 8;
-    if (galleryFeed.length === 0) {
-      return GALLERY.slice(0, TILES).map((src, i) => ({
-        key: `static-${i}`,
-        src,
-        alt: `Bullpug #${i + 1}`,
-        source: "static",
-      }));
-    }
+    if (galleryFeed.length === 0) return [];
     const out = [];
     for (let i = 0; i < TILES; i++) {
       const item = galleryFeed[(galleryOffset + i) % galleryFeed.length];
@@ -466,9 +455,10 @@ export default function HomePage() {
       {false && <RecentWinners />}
 
       {/* GALLERY — cycles through most-recent daily drops + user-generated
-          Tinkerpug `/image` outputs. Auto-rotates every ~6s and falls back
-          to the static GALLERY placeholders if the API is empty (e.g. very
-          first deploy before any images exist). */}
+          Tinkerpug `/image` outputs. Auto-rotates every ~6s. When the
+          pipeline has produced nothing yet (fresh session / cold cache)
+          the section renders a keeper's-log empty state — never any
+          placeholder art. */}
       <section className="py-24 md:py-32" data-testid="gallery-section">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
@@ -477,29 +467,43 @@ export default function HomePage() {
           <p className="text-slate-500 text-sm text-center mb-16" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Fresh Bullpughan visions — daily drops and community-generated art.
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="gallery-grid">
-            {galleryTiles.map((img, i) => (
-              <div key={img.key} className="rounded-xl overflow-hidden border border-white/5 hover:border-[#D946EF]/40 transition-all duration-300 group relative">
-                <img
-                  src={img.src}
-                  alt={img.alt}
-                  className="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500"
-                  loading="lazy"
-                  data-testid={`gallery-tile-${i}`}
-                />
-                {img.source === "user" && (
-                  <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#D946EF]/40 text-[#D946EF] backdrop-blur-sm">
-                    Community
-                  </span>
-                )}
-                {img.source === "daily_drop" && (
-                  <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#00FFA3]/40 text-[#00FFA3] backdrop-blur-sm">
-                    Daily Drop
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+          {galleryTiles.length === 0 ? (
+            <div
+              className="flex items-center justify-center py-16"
+              data-testid="gallery-empty-state"
+            >
+              <p
+                className="text-xs md:text-sm text-slate-500 tracking-[0.08em] text-center max-w-lg"
+                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+              >
+                {GALLERY_EMPTY_STATE}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="gallery-grid">
+              {galleryTiles.map((img, i) => (
+                <div key={img.key} className="rounded-xl overflow-hidden border border-white/5 hover:border-[#D946EF]/40 transition-all duration-300 group relative">
+                  <img
+                    src={img.src}
+                    alt={img.alt}
+                    className="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
+                    data-testid={`gallery-tile-${i}`}
+                  />
+                  {img.source === "user" && (
+                    <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#D946EF]/40 text-[#D946EF] backdrop-blur-sm">
+                      Community
+                    </span>
+                  )}
+                  {img.source === "daily_drop" && (
+                    <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/60 border border-[#00FFA3]/40 text-[#00FFA3] backdrop-blur-sm">
+                      Daily Drop
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
