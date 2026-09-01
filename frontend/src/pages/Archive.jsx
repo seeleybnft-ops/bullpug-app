@@ -15,9 +15,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useSearchParams } from "react-router-dom";
-import { Send, Loader2, Radio, MessageCircle, BookOpen } from "lucide-react";
+import { Send, Loader2, Radio, MessageCircle, BookOpen, LogOut } from "lucide-react";
 import ArchiveLedger from "@/components/ArchiveLedger";
 import UnlockCelebration from "@/components/UnlockCelebration";
+import ArchiveSignIn from "@/components/auth/ArchiveSignIn";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TINKERPUG_AVATAR = "/tinkerpug-canon.jpg";
@@ -50,6 +52,19 @@ function shortWallet(w) {
   const s = String(w);
   if (s.length <= 10) return s;
   return `${s.slice(0, 4)}…${s.slice(-4)}`;
+}
+
+// Privacy shortener for email — never render a full address in the UI
+// (spec Compliance Note: "Email addresses are not included in The
+// Record leaderboard display; use shortened format ben@..."). Mirrors
+// the wallet shorthand in size + shape so the header layout is
+// symmetric regardless of auth type.
+function shortenEmail(email) {
+  if (!email) return "keeper";
+  const [local, domain] = String(email).split("@");
+  if (!domain) return email;
+  const head = local.length <= 4 ? local : `${local.slice(0, 3)}…`;
+  return `${head}@${domain.replace(/^([^.]+).*/, "$1")}…`;
 }
 
 // The ambient "keeper's log — new presence detected" first-visit greeting.
@@ -392,6 +407,11 @@ function loadPersistedMessages(wallet) {
 }
 
 function Workspace({ wallet, onAssistantReply, promptRequest }) {
+  const { walletAddress: realWallet, authHeaders } = useAuth();
+  // `?wallet=<addr>` is only appended when there's a REAL Solana wallet —
+  // never for email users (their user_id UUID would leak in URLs).
+  const walletUrlParam = realWallet ? `?wallet=${encodeURIComponent(realWallet)}` : "";
+  const fetchOpts = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
   const sessionId = useSessionId();
   // Lazy-init from sessionStorage so we don't flash the greeting on
   // remount. Falls back to the first-visit greeting if nothing is
@@ -475,7 +495,7 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
   useEffect(() => {
     if (!wallet || isReturnGreetedRef.current) return;
     isReturnGreetedRef.current = true;
-    fetch(`${API}/archive/rank?wallet=${encodeURIComponent(wallet)}`)
+    fetch(`${API}/archive/rank${walletUrlParam}`, fetchOpts)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data || data.unlocked_count === 0) return;
@@ -513,10 +533,15 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
         headers: {
           "Content-Type": "application/json",
           "X-Bullpug-CSRF": "1",
+          ...authHeaders,
         },
         body: JSON.stringify({
           session_id: sessionId,
-          wallet_address: wallet || null,
+          // For email users we send the JWT via Authorization header and
+          // leave `wallet_address` null — the backend's chat pipeline
+          // reads the header (via the same identity resolver) and pins
+          // the session to the user_id.
+          wallet_address: realWallet || null,
           message: text,
           chat_history: chatHistory,
         }),
@@ -660,7 +685,24 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
 // ── Page shell ────────────────────────────────────────────────────────
 export default function Archive() {
   const { publicKey } = useWallet();
-  const wallet = useMemo(() => publicKey?.toBase58() || null, [publicKey]);
+  const walletFromAdapter = useMemo(() => publicKey?.toBase58() || null, [publicKey]);
+  const { sessionType, identity, email, authHeaders, hydrating, signOut } = useAuth();
+  // Downstream code keeps using `wallet` as its opaque identity string
+  // (real wallet for wallet users, user_id UUID for email users).
+  const wallet = identity;
+
+  // URL param builder — ONLY real Solana wallet addresses go into URLs.
+  // Never put an email user's user_id in the query string (it'd leak
+  // into browser history, referer headers, share links). Email users
+  // authenticate via the Bearer JWT header instead.
+  const walletUrlParam = walletFromAdapter
+    ? `?wallet=${encodeURIComponent(walletFromAdapter)}`
+    : "";
+  const walletAmpParam = walletFromAdapter
+    ? `&wallet=${encodeURIComponent(walletFromAdapter)}`
+    : "";
+  const fetchOpts = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
+
   const [refreshTick, setRefreshTick] = useState(0);
   // Deep-link `?tab=drops|record|ledger` from other pages (e.g. the
   // homepage "Today's Drop — Curator Pick" CTA) needs to land on the
@@ -701,8 +743,8 @@ export default function Archive() {
     if (!wallet) return;
     try {
       const [uRes, rRes] = await Promise.all([
-        fetch(`${API}/archive/unlocks?wallet=${encodeURIComponent(wallet)}`),
-        fetch(`${API}/archive/rank?wallet=${encodeURIComponent(wallet)}`),
+        fetch(`${API}/archive/unlocks${walletUrlParam}`, fetchOpts),
+        fetch(`${API}/archive/rank${walletUrlParam}`, fetchOpts),
       ]);
       if (!uRes.ok) return;
       const uData = await uRes.json();
@@ -750,7 +792,8 @@ export default function Archive() {
       // card shows "Ruffus and the Runes", not the slug.
       try {
         const eRes = await fetch(
-          `${API}/archive/entries?wallet=${encodeURIComponent(wallet)}`
+          `${API}/archive/entries${walletUrlParam}`,
+          fetchOpts,
         );
         if (eRes.ok) {
           const eData = await eRes.json();
@@ -769,7 +812,7 @@ export default function Archive() {
     } catch {
       /* silent — celebrations are optional */
     }
-  }, [wallet]);
+  }, [wallet, walletUrlParam, fetchOpts]);
 
   // Poll trio after an assistant reply
   const bumpRefresh = useCallback(() => {
@@ -812,10 +855,14 @@ export default function Archive() {
   useEffect(() => {
     if (!wallet) return;
     let cancelled = false;
-    const url = `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(wallet)}`;
+    // Real wallet → `?wallet_address=<addr>`. Email user → no query
+    // param + Authorization header (backend resolver reads the JWT).
+    const url = walletFromAdapter
+      ? `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(walletFromAdapter)}`
+      : `${API}/ai/daily-drop`;
     (async () => {
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, fetchOpts);
         if (!cancelled && res.ok) {
           // Nudge the ledger's refresh key so the drops tab picks up
           // the newly-generated card without waiting for its own poll.
@@ -826,7 +873,7 @@ export default function Archive() {
       }
     })();
     return () => { cancelled = true; };
-  }, [wallet]);
+  }, [wallet, walletFromAdapter, fetchOpts]);
 
   // Drain the queue one at a time
   useEffect(() => {
@@ -859,6 +906,41 @@ export default function Archive() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] pt-16" data-testid="archive-page">
+      {/* Sign-in overlay — presented when neither a wallet is connected
+          nor an email JWT session is active. AuthContext exposes
+          `sessionType === "guest"` for exactly this case. */}
+      {sessionType === "guest" && !hydrating && <ArchiveSignIn />}
+
+      {/* Active-session strip — shown at the top when signed in.
+          Displays either the wallet shorthand or the email shorthand
+          and provides a sign-out affordance. Wallet sign-out is
+          handled by the wallet adapter's own disconnect button, so
+          this button only surfaces for email sessions. */}
+      {sessionType === "email" && (
+        <div
+          className="sticky top-16 z-30 flex items-center justify-end gap-3 border-b border-white/[0.06] bg-[#05050A]/90 backdrop-blur px-4 py-1.5"
+          data-testid="archive-email-session-strip"
+        >
+          <span
+            className="text-[10px] uppercase tracking-widest text-slate-500"
+            style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+          >
+            signed in as{" "}
+            <span className="text-slate-200" data-testid="archive-email-shorthand">
+              {shortenEmail(email)}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={signOut}
+            data-testid="archive-sign-out"
+            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-400 hover:text-white"
+          >
+            <LogOut size={11} /> sign out
+          </button>
+        </div>
+      )}
+
       {/* Mobile tab switcher */}
       <div className="lg:hidden sticky top-16 z-30 border-b border-white/[0.06] bg-[#05050A]/90 backdrop-blur px-4 py-2 flex gap-2">
         {[

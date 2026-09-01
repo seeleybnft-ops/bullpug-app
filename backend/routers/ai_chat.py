@@ -1,6 +1,7 @@
 """AI Chat Router - Enhanced conversational AI with session memory and real-time data."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import logging
@@ -13,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from services.daily_drop import get_drop_for_user, get_todays_drop, _today_utc
+from utils.identity_resolver import _try_decode_user_jwt
 from services.image_references import (
     BULLPUG_REFERENCE_URL as _BULLPUG_REFERENCE_URL,
     TINKERPUG_REFERENCE_URL as _TINKERPUG_REFERENCE_URL,
@@ -23,7 +25,27 @@ from services import visual_canon
 from services import archive_achievements
 from utils.database import db
 from utils.admin_auth import require_admin_jwt
-from fastapi import Depends
+
+
+_daily_drop_bearer = HTTPBearer(auto_error=False)
+
+
+async def _resolve_daily_drop_identity(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_daily_drop_bearer),
+) -> Optional[str]:
+    """Optional user-JWT resolver for `/ai/daily-drop`.
+
+    Can't reuse the shared `resolve_identity` here because that dep
+    reads `?wallet=` while this route uses `wallet_address` (both
+    already bound as params on the route signature). This local
+    variant returns just the JWT-derived user_id, or None.
+    """
+    if not credentials or credentials.scheme.lower() != "bearer":
+        return None
+    payload = _try_decode_user_jwt(credentials.credentials)
+    return payload.get("sub") if payload else None
+
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 logger = logging.getLogger(__name__)
@@ -2139,17 +2161,23 @@ async def get_latest_daily_drop():
 
 
 @router.get("/daily-drop")
-async def get_daily_drop(wallet_address: Optional[str] = None, session_id: Optional[str] = None):
+async def get_daily_drop(
+    wallet_address: Optional[str] = None,
+    session_id: Optional[str] = None,
+    identity: Optional[str] = Depends(_resolve_daily_drop_identity),
+):
     """Return today's Bullpug Daily Drop for a specific user.
 
-    Pass `wallet_address` (preferred) or `session_id` to identify the user.
-    First call of the day triggers generation (~5-10s) for that user; all
-    subsequent calls for the same user that UTC day hit the MongoDB cache.
+    Auth: either `wallet_address` (wallet users), an `Authorization:
+    Bearer <user JWT>` header (email users), or `session_id` (anon
+    visitors). First call of the day triggers generation (~5-10s);
+    subsequent calls that UTC day hit the cache.
     """
     from fastapi import HTTPException
-    if not wallet_address and not session_id:
-        raise HTTPException(status_code=400, detail="wallet_address or session_id is required")
-    user_key = (wallet_address or "").strip() or f"anon-{session_id}"
+    key = identity or (wallet_address.strip() if wallet_address else None)
+    if not key and not session_id:
+        raise HTTPException(status_code=400, detail="wallet_address, session_id, or user JWT is required")
+    user_key = (key or "").strip() or f"anon-{session_id}"
     drop = await get_drop_for_user(user_key)
     if not drop:
         raise HTTPException(status_code=503, detail="Daily drop is being prepared. Please try again shortly.")

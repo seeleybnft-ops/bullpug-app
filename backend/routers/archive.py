@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from services import archive_achievements as archive
 from services import archive_share_card
 from utils.admin_auth import require_admin_jwt
+from utils.identity_resolver import resolve_identity
 
 router = APIRouter(prefix="/archive", tags=["archive"])
 
@@ -47,21 +48,20 @@ def _clean_wallet(w: Optional[str]) -> str:
 
 
 @router.get("/unlocks")
-async def list_unlocks(wallet: Optional[str] = Query(None, description="Solana wallet address")):
-    """Return every unlock this wallet has earned, newest first.
+async def list_unlocks(
+    wallet: Optional[str] = Query(None, description="Solana wallet address"),
+    identity: Optional[str] = Depends(resolve_identity),
+):
+    """Return every unlock this identity has earned, newest first.
 
-    Response shape:
-      {
-        "wallet": "...",
-        "unlocks": [
-          { "entry_id": "...", "entry_tier": 1, "unlocked_at": "...",
-            "tinkerpug_excerpt": "...", "unlock_prompt": "..." },
-          ...
-        ],
-        "count": N
-      }
+    Accepts either `?wallet=<addr>` (wallet-auth callers) OR an
+    `Authorization: Bearer <user JWT>` header (email-auth callers).
+    The resolver converts either into an opaque identity string that
+    the service layer stores/queries by the `wallet_address` field.
     """
-    w = _clean_wallet(wallet)
+    # `identity` covers both paths — fall through to _clean_wallet only
+    # if the resolver came back empty (i.e. neither JWT nor param).
+    w = _clean_wallet(identity or wallet)
     unlocks = await archive.get_unlocks(w)
     return {
         "wallet": w,
@@ -71,42 +71,38 @@ async def list_unlocks(wallet: Optional[str] = Query(None, description="Solana w
 
 
 @router.get("/rank")
-async def get_rank(wallet: Optional[str] = Query(None, description="Solana wallet address")):
-    """Return the current rank snapshot for this wallet.
+async def get_rank(
+    wallet: Optional[str] = Query(None, description="Solana wallet address"),
+    identity: Optional[str] = Depends(resolve_identity),
+):
+    """Return the current rank snapshot for this identity.
 
-    Response shape:
-      {
-        "wallet": "...",
-        "rank": "seeker" | "archivist" | "keepers_circle" | null,
-        "rank_title": "Seeker" | "Archivist" | "Keeper's Circle" | null,
-        "unlocked_count": N,
-        "total": 61,
-        "tier_progress": {
-          "tier_1": {"unlocked": X, "total": 16},
-          "tier_2": {"unlocked": X, "total": 25},
-          "tier_3": {"unlocked": X, "total": 20},
-        }
-      }
+    Same dual-auth model as /unlocks — either `?wallet=<addr>` OR a
+    user JWT. See docstring on that endpoint.
     """
-    w = _clean_wallet(wallet)
+    w = _clean_wallet(identity or wallet)
     snapshot = await archive.get_rank_snapshot(w)
     return {"wallet": w, **snapshot}
 
 
 @router.get("/entries")
-async def list_entries(wallet: Optional[str] = Query(None, description="Solana wallet address (optional)")):
+async def list_entries(
+    wallet: Optional[str] = Query(None, description="Solana wallet address (optional)"),
+    identity: Optional[str] = Depends(resolve_identity),
+):
     """Return the full master entry list, annotated with unlock state for
-    this wallet.
+    this identity.
 
-    If `wallet` is omitted the response still contains every entry in the
-    correct display order — every entry marked `unlocked: false`. Useful
-    for showing the Ledger before wallet-connect.
+    If neither a `wallet` param nor an email JWT is present, every entry
+    is returned marked `unlocked: false` — the pre-sign-in ledger view.
+    Otherwise the identity's unlocks are merged in the response.
     """
-    if wallet is not None:
-        wallet = wallet.strip() or None
-    entries = await archive.get_master_entries_for_wallet(wallet)
+    # `identity` covers both paths; only fall back to the raw wallet
+    # param when the resolver came back empty.
+    effective = identity or (wallet.strip() if wallet else None) or None
+    entries = await archive.get_master_entries_for_wallet(effective)
     return {
-        "wallet": wallet,
+        "wallet": effective,
         "entries": entries,
         "total": archive.TOTAL_ENTRIES,
     }

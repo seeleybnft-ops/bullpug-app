@@ -9,6 +9,7 @@ import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { clusterApiUrl } from "@solana/web3.js";
 import { Toaster } from "@/components/ui/sonner";
 import { EVMWalletProvider } from "@/providers/EVMWalletProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
@@ -132,6 +133,7 @@ function App() {
       <WalletProvider wallets={wallets} onError={onError} autoConnect={shouldAutoConnect}>
         <WalletModalProvider>
           <EVMWalletProvider>
+            <AuthProvider>
             <BrowserRouter>
               <RouteAnalytics />
               {/* PrivateAccessGate lifted — site is now fully public.
@@ -179,6 +181,7 @@ function App() {
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>
+            </AuthProvider>
           </EVMWalletProvider>
         </WalletModalProvider>
       </WalletProvider>
