@@ -23,6 +23,7 @@ from services.image_references import (
 )
 from services import visual_canon
 from services import archive_achievements
+from services import visual_intent
 from utils.database import db
 from utils.admin_auth import require_admin_jwt
 
@@ -2111,11 +2112,31 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
         )
         _fire_unlock_detection(chat.message, response)
 
-        return await _maybe_attach_daily_drop({
-            "response": response, 
+        # ── Supplemental visual attachment (Feb 2026) ─────────────────
+        # If the user asked what something LOOKS LIKE (a location /
+        # object / scene — never a character), attach a canonical
+        # image from the visual canon pipeline alongside the text
+        # response. Cache-hit path is near-instant; cold gen adds ~10s
+        # only for messages that pass the visual-intent pre-filter.
+        supplemental = None
+        try:
+            supplemental = await visual_intent.maybe_attach_supplemental_image(
+                user_message=chat.message,
+                api_key=EMERGENT_LLM_KEY,
+                session_id=chat.session_id,
+            )
+        except Exception as _e:
+            logger.warning("supplemental image attachment failed: %s", _e)
+
+        result = {
+            "response": response,
             "session_id": chat.session_id,
-            "has_live_data": bool(real_time_data or specific_prices)
-        }, chat.daily_drop_last_seen, user_key)
+            "has_live_data": bool(real_time_data or specific_prices),
+        }
+        if supplemental:
+            result["supplemental_image"] = supplemental
+
+        return await _maybe_attach_daily_drop(result, chat.daily_drop_last_seen, user_key)
         
     except Exception as e:
         logger.error(f"Enhanced chat error: {e}")

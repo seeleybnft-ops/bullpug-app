@@ -554,6 +554,10 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
         content: assistantText,
         image: data.image_base64 || null,
         kind: data.kind || "text",
+        // Supplemental image — attached when the user asked what
+        // something looks like. Renders BELOW the text bubble, never
+        // replaces it. See services/visual_intent.py on the backend.
+        supplemental_image: data.supplemental_image || null,
       };
       setMessages((prev) => [...prev, nextMessage]);
       // Signal upstream so the Ledger panel can re-poll for unlocks
@@ -624,6 +628,32 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
                     alt="Archive record"
                     className="mt-3 rounded-xl border border-cyan-300/25 max-w-md"
                   />
+                )}
+                {/* Supplemental image — inline card BELOW the text
+                    response when Tinkerpug pulled a matching visual
+                    from the Archive. Always additive, never a
+                    replacement. */}
+                {m.supplemental_image && m.supplemental_image.image_base64 && (
+                  <div
+                    className="mt-3 rounded-xl border overflow-hidden max-w-md"
+                    style={{ borderColor: "rgba(180,124,255,0.35)", background: "rgba(180,124,255,0.05)" }}
+                    data-testid="msg-supplemental-image"
+                  >
+                    <img
+                      src={m.supplemental_image.image_base64}
+                      alt={`Archive visual — ${m.supplemental_image.subject}`}
+                      className="w-full"
+                    />
+                    <div
+                      className="px-3 py-2 text-[10px] uppercase tracking-widest flex items-center gap-2"
+                      style={{ color: "#B47CFF", fontFamily: "Orbitron, sans-serif", background: "rgba(0,0,0,0.35)" }}
+                    >
+                      <span>{m.supplemental_image.caption || "Direct from the Archive."}</span>
+                      <span className="ml-auto opacity-60 normal-case tracking-normal text-slate-400">
+                        {m.supplemental_image.subject}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
