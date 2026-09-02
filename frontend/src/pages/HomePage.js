@@ -147,14 +147,14 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 animate-slide-up">
             <Badge className="bg-[#00FFA3]/10 text-[#00FFA3] border border-[#00FFA3]/30 uppercase tracking-widest text-xs px-4 py-1.5 rounded-full">
-              Loyal Guardian of the Memecoin Universe
+              Born of Collective Want
             </Badge>
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-black tracking-tighter uppercase leading-none" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               <span className="text-white">BULL</span>
               <span className="text-[#00FFA3] neon-text">PUG</span>
             </h1>
             <p className="text-base md:text-lg text-slate-300 max-w-lg leading-relaxed" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Meet Bullpug, the fearless and loyal guardian of the Memecoin Universe. Born from a cosmic mix-up when the stars of the Bull constellation collided with the energy of a pug-shaped nebula.
+              Meet Bullpug — not designed, not issued, not minted by any hand. Born from the want of millions who refused to be taken from again. Strong as a bull, loyal as a dog, stubborn enough to hold through any storm.
             </p>
             <div className="flex flex-wrap gap-3">
               {/* Cosmic Runner CTA parked during private testing — will
