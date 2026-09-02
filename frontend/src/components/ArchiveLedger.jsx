@@ -139,9 +139,9 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
 
   // Regular-tier unlock count for the header — the special entry is a
   // separate rail with its own display treatment, so it never bumps
-  // the "n of 61" figure.
+  // the "n of 72" figure.
   const unlockedCount = rankData?.unlocked_count ?? entries.filter((e) => e.unlocked && e.tier !== "special").length;
-  const total = rankData?.total ?? entries.filter((e) => e.tier !== "special").length ?? 61;
+  const total = rankData?.total ?? entries.filter((e) => e.tier !== "special").length ?? 72;
   const rank = rankData?.rank ?? null;
   const rankTitle = rankData?.rank_title ?? null;
   // Keeper's Circle milestone marker: only the wallet holder who has

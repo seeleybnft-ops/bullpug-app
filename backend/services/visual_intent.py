@@ -147,8 +147,99 @@ async def classify_visual_subject(
     return tag
 
 
+# ── Character routing (Feb 2026 — Character Expansion v1.0) ─────────
+# Named characters have dedicated reference images that must be attached
+# directly rather than going through the visual canon pipeline. Import
+# lazily so we don't tie module load to reference registration.
+from services import image_references as _ir
+
+_CHARACTER_APPEARANCE_MAP: Dict[str, str] = {
+    "bullpug":         _ir.BULLPUG_REFERENCE_URL,
+    "tinkerpug":       _ir.TINKERPUG_REFERENCE_URL,
+    "ruffus":          _ir.RUFFUS_REFERENCE_URL,
+    "luna":            _ir.LUNA_REFERENCE_URL,
+    "chargebull":      _ir.CHARGEBULL_REFERENCE_URL,
+    "grizzlor":        _ir.GRIZZLOR_REFERENCE_URL,
+    "gideon":          _ir.GRIZZLOR_REFERENCE_URL,  # pre-restoration name
+    "guardian rind":   _ir.GUARDIAN_RIND_REFERENCE_URL,
+    "rind":            _ir.GUARDIAN_RIND_REFERENCE_URL,
+    "elder hearth":    _ir.ELDER_HEARTH_REFERENCE_URL,
+    "hearth":          _ir.ELDER_HEARTH_REFERENCE_URL,
+    "drift":           _ir.DRIFT_REFERENCE_URL,
+    "keyholder mora":  _ir.KEYHOLDER_MORA_REFERENCE_URL,
+    "mora":            _ir.KEYHOLDER_MORA_REFERENCE_URL,
+}
+
+# Dormant Siblings + Spirit of the Stars — only reveal a supplemental
+# image if the requesting wallet has unlocked their specific Archive
+# entry AND we have a reference image. Currently no reference exists
+# for any of them (per spec — text-only until arcs activate), so this
+# map is here for the routing decision only; it always ends with None.
+_RESTRICTED_CHARACTER_ENTRIES: Dict[str, Optional[str]] = {
+    "owl of oracles":        "owl-oracles",
+    "owl":                   "owl-oracles",
+    "fox of forks":          "fox-forks",
+    "fox":                   "fox-forks",
+    "cat of catalysts":      "cat-moved-once",
+    "cat":                   "cat-moved-once",
+    "spirit of the stars":   None,  # no entry — always text only
+}
+
+# Citizen queries — never attach a supplemental image (spec §2C
+# demands maximum diversity, no anchor).
+_CITIZEN_TRIGGERS = {
+    "bullpughan", "bullpughans", "citizen", "citizens",
+    "people of newpug city", "people in newpug city",
+}
+
+
+def _detect_named_character(user_message: str) -> Optional[str]:
+    """Longest-match search for a named character in the message.
+
+    Returns the canonical lookup key (e.g. `"guardian rind"`) or None.
+    Case-insensitive, whole-word aware. Longer keys are checked before
+    shorter ones so `"guardian rind"` wins over the bare `"rind"`.
+    """
+    if not user_message:
+        return None
+    text = f" {user_message.lower()} "
+    # Sort keys by length desc — multi-word aliases take precedence.
+    all_keys = list(_CHARACTER_APPEARANCE_MAP.keys()) + list(_RESTRICTED_CHARACTER_ENTRIES.keys())
+    for key in sorted(all_keys, key=len, reverse=True):
+        needle = f" {key} "
+        if needle in text:
+            return key
+    # Citizen detection is separate — those are class terms, not names.
+    for cz in _CITIZEN_TRIGGERS:
+        if f" {cz} " in text or text.startswith(f" {cz}") or text.endswith(f"{cz} "):
+            return "__citizen__"
+    return None
+
+
+def _is_character_intent(user_message: str) -> bool:
+    """True when the phrasing looks like an appearance question at all —
+    same pre-filter as the location intent but keyed off characters
+    like "describe X" or "what does X look like"."""
+    if not user_message:
+        return False
+    lower = user_message.lower()
+    return (
+        "look like" in lower
+        or "show me" in lower
+        or "describe" in lower
+        or "picture of" in lower
+        or "image of" in lower
+        or "appear" in lower
+    )
+
+
 # ── Image assembly ──────────────────────────────────────────────────
 _SUPPLEMENTAL_CAPTION = "Direct from the Archive. \U0001F43E"
+
+
+def _character_caption(character_name: str) -> str:
+    display = " ".join(w.capitalize() for w in character_name.split(" "))
+    return f"Direct from the Archive — {display}. The record holds. \U0001F43E"
 
 
 def _readable_from_tag(tag: str) -> str:
@@ -216,18 +307,91 @@ async def build_supplemental_image(
     }
 
 
+async def _build_named_character_supplemental(
+    character_key: str,
+    user_id_for_gating: Optional[str] = None,
+) -> Optional[Dict]:
+    """Build a supplemental_image payload for a named character.
+
+    • Regular characters (Guardian Corps + Extended) → direct reference URL
+    • Restricted characters (Dormant Siblings + Spirit of the Stars) →
+      gated on the requesting `user_id` having unlocked the linked
+      Archive entry. Currently no reference image exists for any
+      restricted character, so this always returns None until arcs
+      activate (per spec § 2B).
+    • Citizen — always None (spec § 2C — max diversity, no anchor)
+    """
+    if character_key == "__citizen__":
+        return None
+
+    if character_key in _RESTRICTED_CHARACTER_ENTRIES:
+        entry_slug = _RESTRICTED_CHARACTER_ENTRIES[character_key]
+        if not entry_slug or not user_id_for_gating:
+            return None
+        # Check unlock — if not unlocked, silently return None (spec:
+        # "no image, no hint that an image exists").
+        from utils.database import db  # lazy import — matches other lazy helpers
+        unlocked = await db.archive_unlocks.find_one({
+            "$or": [
+                {"user_id": user_id_for_gating, "entry_id": entry_slug},
+                {"wallet_address": user_id_for_gating, "entry_id": entry_slug},
+            ]
+        })
+        if not unlocked:
+            return None
+        # Reference image exists yet? — no, per spec. Return None.
+        return None
+
+    ref_url = _CHARACTER_APPEARANCE_MAP.get(character_key)
+    if not ref_url:
+        return None
+    # The frontend can render the Imgur URL directly — no need to
+    # pass it through the Nano Banana pipeline. The chat response
+    # includes the reference URL verbatim; the client fetches it.
+    return {
+        "subject": character_key.replace(" ", "-"),
+        "image_base64": ref_url,
+        "caption": _character_caption(character_key),
+        "source": "character-reference",
+    }
+
+
 async def maybe_attach_supplemental_image(
     user_message: str,
     api_key: str,
     session_id: str,
+    user_id: Optional[str] = None,
 ) -> Optional[Dict]:
-    """End-to-end: run the pre-filter, classifier, and image assembly.
+    """End-to-end: character routing → location pipeline → None.
 
-    Returns the `supplemental_image` payload to attach to the chat
-    response, or None if any step decides the message isn't visual.
+    Priority order (spec §2A):
+      1. Named character detected + appearance intent → reference URL
+         (or None if restricted-and-not-unlocked)
+      2. Location / object / scene → visual canon pipeline (existing)
+      3. Otherwise → None
+
     Never raises — all failure modes fall back to None so a
     supplemental-image outage never breaks the chat response.
     """
+    if not user_message:
+        return None
+
+    # 1. Character path — check FIRST so a "what does Tinkerpug look
+    # like" question routes to the canonical Tinkerpug reference
+    # rather than accidentally getting classified as a location.
+    if _is_character_intent(user_message):
+        char_key = _detect_named_character(user_message)
+        if char_key:
+            char_payload = await _build_named_character_supplemental(char_key, user_id)
+            if char_payload:
+                return char_payload
+            # If character was named but blocked (restricted-and-locked,
+            # or citizen), do NOT fall through to the location pipeline —
+            # the user asked about a person, not a place.
+            if char_key in _RESTRICTED_CHARACTER_ENTRIES or char_key == "__citizen__":
+                return None
+
+    # 2. Location / object / scene path (existing).
     if not message_has_visual_intent(user_message):
         return None
     subject = await classify_visual_subject(user_message, api_key, session_id)

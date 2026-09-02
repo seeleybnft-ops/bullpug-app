@@ -2118,12 +2118,14 @@ NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or
         # image from the visual canon pipeline alongside the text
         # response. Cache-hit path is near-instant; cold gen adds ~10s
         # only for messages that pass the visual-intent pre-filter.
+        # `user_key` gates restricted-character reveals per spec §2B.
         supplemental = None
         try:
             supplemental = await visual_intent.maybe_attach_supplemental_image(
                 user_message=chat.message,
                 api_key=EMERGENT_LLM_KEY,
                 session_id=chat.session_id,
+                user_id=user_key,
             )
         except Exception as _e:
             logger.warning("supplemental image attachment failed: %s", _e)

@@ -2,7 +2,7 @@
 
 This module owns everything about the per-wallet lore ledger:
 
-  • MASTER_ENTRIES — the canonical 61-entry list across three tiers
+  • MASTER_ENTRIES — the canonical 72-entry list across three tiers
                      (16 Tier 1, 25 Tier 2, 20 Tier 3)
   • detect_unlock()  — lightweight LLM classifier: given an exchange,
                        returns the entry slug that was substantively
@@ -109,8 +109,21 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "social-contract", "tier": 1, "name": "The Social Contract",
      "locked_desc": "Unwritten. Universally understood. Self-enforcing.",
      "unlock_trigger": "The Bullpughan social contract explained (what you build is yours while you build it, belongs to everyone when done)"},
+    # Character Expansion v1.0 — 4 new Tier 1 entries (extended characters)
+    {"slug": "guardian-rind", "tier": 1, "name": "The Chainwarden",
+     "locked_desc": "Quiet. Exact. The Scanner flags what others miss.",
+     "unlock_trigger": "Guardian Rind described substantively (role as Chainwarden, method with the Scanner, character of quiet exactness)"},
+    {"slug": "elder-hearth", "tier": 1, "name": "Elder Hearth",
+     "locked_desc": "The city's memory. Not a monarch — a reminder.",
+     "unlock_trigger": "Elder Hearth described (civic role in Newpug City, Festival of Barks organiser, iron memory)"},
+    {"slug": "drift", "tier": 1, "name": "Drift",
+     "locked_desc": "A seeker of the Between. Not holy. Just stubborn.",
+     "unlock_trigger": "Drift described substantively (nature as seeker, role in the Between, Signal connection at surface level)"},
+    {"slug": "keyholder-mora", "tier": 1, "name": "Keyholder Mora",
+     "locked_desc": "She keeps what lies under the city. Some memories are too sharp to flatten.",
+     "unlock_trigger": "Keyholder Mora described (role as keeper of the Ancient Cold Records, key pendant, tunnels beneath Newpug City)"},
 
-    # ── TIER 2 — ARCHIVIST (25 entries) ─────────────────────────────────
+    # ── TIER 2 — ARCHIVIST (29 entries) ─────────────────────────────────
     {"slug": "signal-of-worthy", "tier": 2, "name": "The Signal of the Worthy",
      "locked_desc": "How Bullpug finds those who deserve to cross.",
      "unlock_trigger": "Signal of the Worthy mechanic explained (how Bullpug selects who crosses)"},
@@ -191,8 +204,21 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "street-art", "tier": 2, "name": "The Canvas",
      "locked_desc": "The city's surfaces belong to everyone. The oldest pieces are landmarks.",
      "unlock_trigger": "Street art culture and its protection explained (oldest pieces treated as landmarks)"},
+    # Character Expansion v1.0 — 4 new Tier 2 entries
+    {"slug": "rind-method", "tier": 2, "name": "How the Scanner Works",
+     "locked_desc": "Not a weapon. A duty. The difference matters enormously.",
+     "unlock_trigger": "Rind's specific method discussed in depth (how the Snout Scanner is used, what Rind does with findings, why it is a duty and not a weapon)"},
+    {"slug": "hearth-festival", "tier": 2, "name": "The Festival Keeper",
+     "locked_desc": "Every chant. Every float. Every year. She knows why they matter.",
+     "unlock_trigger": "Elder Hearth's role in the Festival of Barks discussed with named specifics (chants, floats, why each matters)"},
+    {"slug": "drift-signal", "tier": 2, "name": "The Frequency",
+     "locked_desc": "Survived the loss. Kept the belief. That's the whole of it.",
+     "unlock_trigger": "Drift's connection to the Signal of the Worthy discussed (the frequency, the loss, the belief, the heartbeat medallion)"},
+    {"slug": "mora-tinkerpug", "tier": 2, "name": "The Patcher and the Keeper",
+     "locked_desc": "Two archivists. Same tunnels. Different things worth preserving.",
+     "unlock_trigger": "The Mora/Tinkerpug relationship discussed in depth (childhood in the substrate layer, separate domains, collective good, 'the patcher' nickname)"},
 
-    # ── TIER 3 — KEEPER'S CIRCLE (20 entries) ───────────────────────────
+    # ── TIER 3 — KEEPER'S CIRCLE (23 entries) ───────────────────────────
     {"slug": "grizzlor-origin", "tier": 3, "name": "Gideon's Fall",
      "locked_desc": "The full story of what was done to Grizzlor.",
      "unlock_trigger": "Grizzlor's Architect-targeted origin fully told (Gideon → Grizzlor transformation)"},
@@ -254,6 +280,16 @@ MASTER_ENTRIES: List[Dict] = [
     {"slug": "tinkerpug-piece", "tier": 3, "name": "The Unmarked Piece",
      "locked_desc": "He has never pointed it out. It is still there.",
      "unlock_trigger": "Tinkerpug's substrate layer street art piece discussed (sublevel nine, junction 7-C, the consensus-failure diagram)"},
+    # Character Expansion v1.0 — 3 new Tier 3 entries
+    {"slug": "drift-entry-one", "tier": 3, "name": "Entry One",
+     "locked_desc": "The oldest record. The one without a name. Ask the Keeper carefully.",
+     "unlock_trigger": "The full Drift/Entry One connection discussed (the First Crossing, the exchange 'I didn't quit / I know, that's why I'm here', what it means that Drift was first). Tinkerpug goes briefly, uncharacteristically quiet before answering."},
+    {"slug": "mora-ancient-records", "tier": 3, "name": "The Ancient Cold Records",
+     "locked_desc": "Some memories predate the naming of the city itself.",
+     "unlock_trigger": "The full nature of the Ancient Cold Records discussed (what they contain, why they are sealed, Mora's real function as keeper of a wound kept clean)"},
+    {"slug": "hearth-first-bark", "tier": 3, "name": "The First Bark",
+     "locked_desc": "If someone tries to flatten the city, she is the first thing they hear.",
+     "unlock_trigger": "Elder Hearth's civic resistance function discussed in full (what she does when the city is threatened, the Festival as a radical act of refusal to flatten)"},
 
     # ── SPECIAL — companion-linked (unlockable only via /companion) ─────
     # Tier is the string "special" so the classifier never targets it
@@ -332,16 +368,16 @@ RANK_TITLES = {
     RANK_KEEPERS_CIRCLE: "Keeper's Circle",
 }
 
-TOTAL_ENTRIES = len(MASTER_ENTRIES) - len(_SPECIAL_SLUGS)  # 61 (excludes special)
-TOTAL_TIER1 = len(_TIER1_SLUGS)      # 16 (incl. first-drop)
-TOTAL_TIER2 = len(_TIER2_SLUGS)      # 25
-TOTAL_TIER3 = len(_TIER3_SLUGS)      # 20
+TOTAL_ENTRIES = len(MASTER_ENTRIES) - len(_SPECIAL_SLUGS)  # 72 (excludes special)
+TOTAL_TIER1 = len(_TIER1_SLUGS)      # 20 (incl. first-drop)
+TOTAL_TIER2 = len(_TIER2_SLUGS)      # 29
+TOTAL_TIER3 = len(_TIER3_SLUGS)      # 23
 TOTAL_SPECIAL = len(_SPECIAL_SLUGS)  # 1 (companions-secret)
 # The grand total exposed on user-facing share surfaces — includes the
 # special companion entry so returning users see "X of 62" once the
 # companion path exists in the Ledger. Never hardcode this number
 # anywhere — always read from MASTER_ENTRIES via this constant.
-GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 62 (regular + special)
+GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 73 (regular + special)
 
 
 def compute_rank(unlocked_slugs: set) -> Optional[str]:

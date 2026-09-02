@@ -21,7 +21,12 @@ import UnlockCelebration from "@/components/UnlockCelebration";
 import { useAuth } from "@/contexts/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const TINKERPUG_AVATAR = "/tinkerpug-canon.jpg";
+// Small circular avatar next to Tinkerpug's responses in the Archive
+// workspace. Points at the canonical Imgur-hosted reference so the
+// avatar tracks the same source of truth used by the daily drop and
+// image-gen pipelines (see backend/services/image_references.py).
+// Feb 2026 Character Expansion v1.0 — swapped to IVCxhIp reference.
+const TINKERPUG_AVATAR = "https://i.imgur.com/IVCxhIp.jpeg";
 
 // Deterministic session id per browser tab so `chat_history` on the
 // backend stays coherent across the visit but never leaks between tabs.

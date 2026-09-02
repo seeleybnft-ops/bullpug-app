@@ -53,8 +53,27 @@ BULLPUG_REFERENCE_FILENAME = "bullpug-reference.jpg"
 TINKERPUG_REFERENCE_FILENAME = "tinkerpug-reference.jpg"
 
 # ── Public constants (imported by daily_drop.py and ai_chat.py) ──────────
+# GUARDIAN CORPS
 BULLPUG_REFERENCE_URL = "https://i.imgur.com/JxxdOKG.jpeg"
-TINKERPUG_REFERENCE_URL = "https://customer-assets-agu9un31.emergentagent.net/job_6ea6c375-5ce0-4139-ba76-31b1e3c73fa6/artifacts/u7tbnnep_tinkerpug-reference.jpg.jpg"
+TINKERPUG_REFERENCE_URL = "https://i.imgur.com/IVCxhIp.jpeg"
+
+# Extended Guardian Corps (Feb 2026 — Character Expansion v1.0)
+RUFFUS_REFERENCE_URL = "https://i.imgur.com/nURkkCs.jpeg"
+LUNA_REFERENCE_URL = "https://i.imgur.com/Xhhg7js.jpeg"
+CHARGEBULL_REFERENCE_URL = "https://i.imgur.com/cwiPl7e.jpeg"
+GRIZZLOR_REFERENCE_URL = "https://i.imgur.com/QvBC7PK.jpeg"
+
+# Extended Characters
+GUARDIAN_RIND_REFERENCE_URL = "https://i.imgur.com/5gHonvR.jpeg"
+ELDER_HEARTH_REFERENCE_URL = "https://i.imgur.com/77iOV8g.jpeg"
+DRIFT_REFERENCE_URL = "https://i.imgur.com/gbQ7ade.jpeg"
+KEYHOLDER_MORA_REFERENCE_URL = "https://i.imgur.com/UsJMFL0.jpeg"
+
+# NO REFERENCE — text description only (generate freely, max diversity)
+#   BULLPUGHAN_CITIZEN → see CITIZEN_CHARACTER_DESCRIPTION below
+# NO REFERENCE — text only, gated on Archive unlock (see visual_intent.py)
+#   SPIRIT_OF_THE_STARS, OWL_OF_ORACLES, FOX_OF_FORKS, CAT_OF_CATALYSTS
+
 REFERENCE_MIME = "image/jpeg"
 
 # ── Canonical character descriptions ─────────────────────────────────────
@@ -77,6 +96,118 @@ TINKERPUG_CHARACTER_DESCRIPTION = (
     "and Newpug City alleys — workbenches, tools, glowing PugChain "
     "hardware. He has NO galaxy cape, NO cosmic medallion, NO "
     "deep-space background — those belong to Bullpug."
+)
+
+# Extended Guardian Corps descriptions
+RUFFUS_CHARACTER_DESCRIPTION = (
+    "Ruffus is the elder Guardian. Dark-furred, weathered, "
+    "battle-hardened. Seventeen runes carved into his dark ridged "
+    "bull horns — one per confirmed Consortium identity, all gone. "
+    "Heavy-set, solid, aged Guardian corps armour worn at the edges. "
+    "Expression: measured, certain, calm of someone who has seen the "
+    "worst. Background: ruins of Margin's Edge or the Grand Bark "
+    "Hall. Vary pose and framing; preserve the runes on the horns "
+    "and the weathered armour."
+)
+
+LUNA_CHARACTER_DESCRIPTION = (
+    "Luna is the seer Guardian. Slender female pug, still and "
+    "precise. Her coat carries points of bioluminescent light — each "
+    "one a future she has already seen, some bright, some faded. "
+    "Large calm eyes looking slightly past the viewer. Expression: "
+    "serene, watchful, carrying something private. Background: the "
+    "Grand Bark Hall interior, a single cone of light from above, or "
+    "deep starfield. The points of light on her coat are the warmest "
+    "elements in frame."
+)
+
+CHARGEBULL_CHARACTER_DESCRIPTION = (
+    "Chargebull is the charge Guardian. Large, powerfully built male "
+    "pug — significantly bigger than standard Bullpughans. Dark "
+    "ridged bull horns, broader than most. Heavy Guardian corps "
+    "armour, worn from twelve years of first response. Expression: "
+    "direct, warm underneath the weight of experience. Background: "
+    "Genesis Vault approach, cold cyan lighting, or mid-charge "
+    "through a compromised market space. Built like forward momentum."
+)
+
+GRIZZLOR_CHARACTER_DESCRIPTION = (
+    "Grizzlor is the restored advisor, formerly Gideon. Lean, "
+    "precise male pug with the specific stillness of someone who "
+    "looks very carefully before speaking. Dark ridged bull horns, "
+    "slightly asymmetric. Sharp analytical eyes carrying the weight "
+    "of two identities. Expression: quiet assessment, wariness built "
+    "from experience of deception. Background: dim archive space, "
+    "Ledger open on a desk, Architect signature diagrams faintly "
+    "visible. The weight of both identities is visible in the face."
+)
+
+# Extended Characters descriptions
+GUARDIAN_RIND_CHARACTER_DESCRIPTION = (
+    "Guardian Rind is a Chainwarden. Dark-furred male pug "
+    "(Chainwardens come in any gender). Guardian corps armour, worn "
+    "with ease. Carries a Snout Scanner — held like a duty, not a "
+    "weapon. Expression: quiet, exact, almost unnervingly calm. "
+    "Background: neon Newpug City market space, transaction data "
+    "visible on holo-screens behind. The kind of stillness that "
+    "comes from never needing to announce findings dramatically."
+)
+
+ELDER_HEARTH_CHARACTER_DESCRIPTION = (
+    "Elder Hearth is the civic memory of Newpug City. Elder female "
+    "pug, soft presence, iron memory. Purple ceremonial robes with "
+    "gold trim. A medallion worn long enough to have its own "
+    "history. Warm eyes, soft voice. Expression: the authority of "
+    "someone who has never needed to raise their voice to be heard. "
+    "Background: Festival of Barks preparations, lantern-lit civic "
+    "spaces, or the Grand Bark Hall. She organises the Festival "
+    "every year and knows every chant that started as a joke and "
+    "became scripture."
+)
+
+DRIFT_CHARACTER_DESCRIPTION = (
+    "Drift is a seeker of the Between. Gender deliberately ambiguous "
+    "— Drift represents anyone who survived loss with belief intact. "
+    "Hooded, dark-cloaked, between registers — not quite city, not "
+    "quite Between. A heartbeat medallion at the chest that pulses "
+    "faintly gold in the same rhythm as the Signal. Expression: the "
+    "eyes have seen the loss and are still moving. Background: the "
+    "unmapped edges of the Between, cosmic spires, deep purple "
+    "night. Not holy. Just stubborn. The only fixed things: the "
+    "eyes, and the heartbeat that has not stopped."
+)
+
+KEYHOLDER_MORA_CHARACTER_DESCRIPTION = (
+    "Keyholder Mora keeps the Ancient Cold Records beneath Newpug "
+    "City. Dark-furred female pug, gothic archive robes — elegant "
+    "rather than austere. An ornate key pendant at her chest, older "
+    "than any lock currently in use. Expression: does not gossip, "
+    "does not flatten, does not perform. Eyes of someone who has "
+    "read things that changed their understanding of the present "
+    "and chose to keep reading anyway. Background: the Ancient Cold "
+    "Records archive — frost on stone, rune archways, the sealed "
+    "dark beneath the substrate layer."
+)
+
+# Citizen (no reference image — max diversity per spec §2C)
+CITIZEN_CHARACTER_DESCRIPTION = (
+    "A Bullpughan citizen of Newpug City. Pug base with small dark "
+    "ridged bull horns — the only universal trait. Fur colour varies "
+    "widely: fawn, tan, dark brown, black, grey, or mixed. No "
+    "cybernetic parts (those belong to Tinkerpug exclusively). "
+    "Clothing reflects district and profession: Substrate Layer "
+    "workers wear maintenance gear, hard hats, tool belts, orange "
+    "high-vis; Canal District residents wear layered streetwear, "
+    "warm tones; Upper Spires citizens wear formal civic attire "
+    "with gold trim; Guardian corps adjacent wear tactical gear "
+    "with chain insignia; Archive workers wear lab coats and data "
+    "glasses; Artists wear paint-stained clothing with brushes; "
+    "Chain Surfers wear sleek athletic gear; Outer Colony settlers "
+    "wear rugged practical clothing against starfield backgrounds. "
+    "Every citizen is distinct — vary fur colour, clothing, "
+    "profession, background, and expression freely. Cyberpunk neon "
+    "aesthetic throughout. The only constants: pug face, bull "
+    "horns, no cybernetics."
 )
 
 # Legacy aliases — historically these were underscore-prefixed inside
