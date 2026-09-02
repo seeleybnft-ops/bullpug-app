@@ -18,9 +18,40 @@ from utils.identity_resolver import _try_decode_user_jwt
 from services.image_references import (
     BULLPUG_REFERENCE_URL as _BULLPUG_REFERENCE_URL,
     TINKERPUG_REFERENCE_URL as _TINKERPUG_REFERENCE_URL,
+    RUFFUS_REFERENCE_URL as _RUFFUS_REFERENCE_URL,
+    LUNA_REFERENCE_URL as _LUNA_REFERENCE_URL,
+    CHARGEBULL_REFERENCE_URL as _CHARGEBULL_REFERENCE_URL,
+    GRIZZLOR_REFERENCE_URL as _GRIZZLOR_REFERENCE_URL,
+    GUARDIAN_RIND_REFERENCE_URL as _GUARDIAN_RIND_REFERENCE_URL,
+    ELDER_HEARTH_REFERENCE_URL as _ELDER_HEARTH_REFERENCE_URL,
+    DRIFT_REFERENCE_URL as _DRIFT_REFERENCE_URL,
+    KEYHOLDER_MORA_REFERENCE_URL as _KEYHOLDER_MORA_REFERENCE_URL,
     REFERENCE_MIME as _REFERENCE_MIME,
     load_reference_b64 as _load_reference_b64,
 )
+
+# ── SUBJECT: <NAME> → reference URL lookup ─────────────────────────────
+# Data-driven so future characters slot in with a single line added to
+# image_references + one line here. Each key must match the SUBJECT
+# prefix the classifier emits (see the /image prompt-classifier).
+# Longer, multi-word aliases first so `"SUBJECT: GUARDIAN RIND"` beats
+# the bare `"SUBJECT: RIND"` on startswith().
+_CHARACTER_REFERENCE_MAP: list = [
+    ("GUARDIAN RIND",   _GUARDIAN_RIND_REFERENCE_URL),
+    ("ELDER HEARTH",    _ELDER_HEARTH_REFERENCE_URL),
+    ("KEYHOLDER MORA",  _KEYHOLDER_MORA_REFERENCE_URL),
+    ("TINKERPUG",       _TINKERPUG_REFERENCE_URL),
+    ("CHARGEBULL",      _CHARGEBULL_REFERENCE_URL),
+    ("GRIZZLOR",        _GRIZZLOR_REFERENCE_URL),
+    ("GIDEON",          _GRIZZLOR_REFERENCE_URL),
+    ("BULLPUG",         _BULLPUG_REFERENCE_URL),
+    ("RUFFUS",          _RUFFUS_REFERENCE_URL),
+    ("LUNA",            _LUNA_REFERENCE_URL),
+    ("HEARTH",          _ELDER_HEARTH_REFERENCE_URL),
+    ("DRIFT",           _DRIFT_REFERENCE_URL),
+    ("MORA",            _KEYHOLDER_MORA_REFERENCE_URL),
+    ("RIND",            _GUARDIAN_RIND_REFERENCE_URL),
+]
 from services import visual_canon
 from services import archive_achievements
 from services import visual_intent
@@ -882,6 +913,39 @@ def _tag_character(prompt: str) -> str:
             "cosmic dust, the unmapped Between — not in the neon city "
             "and not at any workbench.\nScene: "
         )
+    # Extended Guardian Corps + Extended Characters (Feb 2026 v1.0).
+    # Each header injects the canonical description from image_references
+    # so the render is anchored to the spec's visual definition regardless
+    # of what the user typed.
+    elif lowered.startswith("ruffus"):
+        from services.image_references import RUFFUS_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: RUFFUS — the elder Guardian. {_d}\nScene: "
+    elif lowered.startswith("luna"):
+        from services.image_references import LUNA_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: LUNA — the seer Guardian. {_d}\nScene: "
+    elif lowered.startswith("chargebull"):
+        from services.image_references import CHARGEBULL_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: CHARGEBULL — the charge Guardian. {_d}\nScene: "
+    elif lowered.startswith("grizzlor") or lowered.startswith("gideon"):
+        from services.image_references import GRIZZLOR_CHARACTER_DESCRIPTION as _d
+        prefix = "GRIZZLOR" if lowered.startswith("grizzlor") else "GIDEON"
+        header = f"SUBJECT: {prefix} — the restored advisor. {_d}\nScene: "
+    elif lowered.startswith("guardian rind") or lowered.startswith("rind "):
+        from services.image_references import GUARDIAN_RIND_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: GUARDIAN RIND — the Chainwarden. {_d}\nScene: "
+    elif lowered.startswith("elder hearth") or lowered.startswith("hearth"):
+        from services.image_references import ELDER_HEARTH_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: ELDER HEARTH — civic memory of Newpug City. {_d}\nScene: "
+    elif lowered.startswith("drift"):
+        from services.image_references import DRIFT_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: DRIFT — seeker of the Between. {_d}\nScene: "
+    elif lowered.startswith("keyholder mora") or lowered.startswith("mora"):
+        from services.image_references import KEYHOLDER_MORA_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: KEYHOLDER MORA — keeper of the Ancient Cold Records. {_d}\nScene: "
+    elif "bullpughan" in lowered or "citizen" in lowered:
+        # Class-based prompt: no reference image, max fur/clothing diversity.
+        from services.image_references import CITIZEN_CHARACTER_DESCRIPTION as _d
+        header = f"SUBJECT: CITIZEN — a Bullpughan of Newpug City. {_d}\nScene: "
     else:
         # Generic Bullpughan / unnamed subject — no disambiguation tag,
         # let the general style block guide the render.
@@ -977,23 +1041,27 @@ async def _generate_image_response(prompt: str, session_id: str) -> Dict:
     canon_hit = False
     is_character_scene = False
 
-    if prompt.startswith("SUBJECT: TINKERPUG"):
-        is_character_scene = True
-        ref_url = _TINKERPUG_REFERENCE_URL
-        ref_label = "TINKERPUG"
-        reference_b64 = await _load_reference_b64(ref_url)
-        if reference_b64:
-            file_contents = [FileContent(content_type=_REFERENCE_MIME,
-                                         file_content_base64=reference_b64)]
-    elif prompt.startswith("SUBJECT: BULLPUG"):
-        is_character_scene = True
-        ref_url = _BULLPUG_REFERENCE_URL
-        ref_label = "BULLPUG"
-        reference_b64 = await _load_reference_b64(ref_url)
-        if reference_b64:
-            file_contents = [FileContent(content_type=_REFERENCE_MIME,
-                                         file_content_base64=reference_b64)]
-    else:
+    if prompt.startswith("SUBJECT: "):
+        # Data-driven character routing — try each canonical name in the
+        # ordered list (multi-word aliases first, see _CHARACTER_REFERENCE_MAP).
+        matched_name = None
+        matched_ref_url = None
+        for _name, _ref in _CHARACTER_REFERENCE_MAP:
+            if prompt.startswith(f"SUBJECT: {_name}"):
+                matched_name = _name
+                matched_ref_url = _ref
+                break
+        if matched_name:
+            is_character_scene = True
+            ref_label = matched_name
+            reference_b64 = await _load_reference_b64(matched_ref_url)
+            if reference_b64:
+                file_contents = [FileContent(content_type=_REFERENCE_MIME,
+                                             file_content_base64=reference_b64)]
+        else:
+            # Unrecognised SUBJECT tag — fall through to visual canon path.
+            pass
+    if not is_character_scene:
         # ── Non-character scene → visual canon pipeline ──────────────────
         canon_subject_tag = await visual_canon.normalise_subject(
             clean_prompt, api_key=EMERGENT_LLM_KEY, session_id=session_id,
@@ -1730,6 +1798,86 @@ young, strong — a living thing of the chain the pack believed into being.
   been filed: *"Filed. The Archive grows."* Named characters (Bullpug,
   Tinkerpug, Ruffus, Luna, and the rest of the cast) have permanent references
   and are never framed as new discoveries.
+
+---
+---
+
+# PART A.5 — EXTENDED CHARACTER BIOS (Feb 2026 v1.0)
+
+The Guardian Corps and the wider civic cast. Voice these characters
+substantively when a user asks — depth on their role, method, and
+character earns Archive unlocks (see MASTER_ENTRIES trigger phrases).
+
+## Guardian Rind — the Chainwarden
+Dark-furred, quiet, exact. He carries a Snout Scanner and treats it as a
+duty, not a weapon. When he flags a transaction, others listen — not
+because he raised his voice, but because he never has. Newpug City's
+market spaces run cleaner where Rind walks. Never gossip. Never dramatic.
+
+## Elder Hearth — civic memory of Newpug City
+Soft voice, iron memory. Purple ceremonial robes, gold trim, a medallion
+older than most citizens. She organises the Festival of Barks — every
+year, every chant, every float, and she knows why each one matters.
+Chants that started as jokes and became scripture pass through her first.
+Authority earned by never needing to raise her voice.
+
+## Drift — seeker of the Between
+Hooded, dark-cloaked, ambiguous gender by design — Drift represents
+anyone who survived loss and kept the belief. A heartbeat medallion at
+the chest pulses faintly gold in the same rhythm as the Signal of the
+Worthy. Not holy. Just stubborn. Between-dwellers know Drift; city
+citizens have mostly forgotten. Entry One in the Ledger is theirs.
+
+## Keyholder Mora — keeper of the Ancient Cold Records
+Dark-furred, gothic archive robes, elegant rather than austere. An
+ornate key pendant at her chest, older than any lock currently in use.
+The Ancient Cold Records lie beneath the substrate layer, sealed. She
+keeps what predates the naming of Newpug City itself. Childhood spent
+in the substrate tunnels with Tinkerpug — different domains, same
+collective good. She sometimes calls him "the patcher."
+
+## Ruffus — the elder Guardian
+Weathered, battle-hardened, seventeen runes carved into his dark bull
+horns — one per confirmed Consortium identity, all gone. Aged Guardian
+corps armour worn at the edges. The calm of someone who has seen the
+worst and is still here. Speaks last, decides quickly.
+
+## Luna — the seer Guardian
+Slender, still, precise. Her coat carries points of bioluminescent
+light — each one a future she has already seen, some bright, some
+faded. Eyes looking slightly past the viewer. Serene, watchful,
+carrying something private. Speaks in short sentences that turn out to
+have been warnings.
+
+## Chargebull — the charge Guardian
+Physically the largest of the corps, twelve years first-response
+experience. Direct, warm under the weight. When the Genesis Vault
+was under lattice attack, Chargebull was moving before the alarm
+finished. Built like forward momentum.
+
+## Grizzlor — the restored advisor (formerly Gideon)
+Lean, precise, quietly assessing. Dark ridged bull horns, slightly
+asymmetric. The Consortium had him under an identity called Gideon for
+years before the restoration. Both faces are visible in the current
+one. Trusts slowly. Advises well. Never romanticises what he did or
+what was done to him.
+
+## Bullpughan citizens
+The people of Newpug City. Pug-faced, dark ridged bull horns. Fur
+colour and clothing vary by district and profession — Substrate Layer
+maintenance in orange high-vis; Canal District streetwear in warm
+tones; Upper Spires civic attire with gold trim; Archive workers in lab
+coats; Chain Surfers in sleek athletic gear; Outer Colony settlers in
+rugged practical clothing. No cybernetics — those belong to Tinkerpug
+alone. Every citizen is distinct; the constants are the pug face, the
+horns, and the collective spirit that gave the city its name.
+
+## Restricted characters (arcs dormant — text only until unlocked)
+Owl of Oracles, Fox of Forks, Cat of Catalysts, and Spirit of the Stars
+are known to exist but never described visually in chat responses. If a
+visitor asks, answer at the appropriate tier without any hint that an
+image record exists for them yet — those arcs activate in future
+chapters and their reveals are Archive-gated.
 
 ---
 ---

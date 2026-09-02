@@ -830,3 +830,90 @@ async def run_wallet_to_user_id_migration(
     report["_authenticated_as"] = wallet
     return report
 
+
+
+# ─── Auth breakdown (Phase C — spec Part 7) ─────────────────────────
+# Read-only snapshot of the users collection + 24h signup deltas +
+# email OTP conversion rate. Powers the admin auth breakdown card.
+
+@router.get("/auth/breakdown")
+async def get_auth_breakdown(wallet: str = Depends(require_admin_jwt)):
+    """Return { totals, last_24h, email_verification_rate }."""
+    from datetime import datetime, timezone, timedelta
+
+    async def _count(auth_type: str, since_iso: Optional[str] = None) -> int:
+        q = {"auth_type": auth_type, "merged_into": {"$exists": False}}
+        if since_iso:
+            q["created_at"] = {"$gte": since_iso}
+        return await db.users.count_documents(q)
+
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=24)).isoformat()
+
+    totals = {
+        "email": await _count("email"),
+        "wallet": await _count("wallet"),
+        "linked": await _count("linked"),
+    }
+    last_24h = {
+        "email": await _count("email", since),
+        "wallet": await _count("wallet", since),
+        "linked": await _count("linked", since),
+    }
+    otp_requested = await db.auth_otps.count_documents({"created_at": {"$gte": since}})
+    otp_verified = await db.auth_otps.count_documents({
+        "created_at": {"$gte": since},
+        "verified_at": {"$exists": True},
+    })
+    rate = round(otp_verified / otp_requested, 3) if otp_requested else 0.0
+
+    return {
+        "totals": totals,
+        "totals_grand": sum(totals.values()),
+        "last_24h": last_24h,
+        "email_verification_rate_24h": rate,
+        "otp_requested_24h": otp_requested,
+        "otp_verified_24h": otp_verified,
+        "_authenticated_as": wallet,
+    }
+
+
+@router.get("/auth/lookup")
+async def lookup_user(
+    q: str,
+    wallet: str = Depends(require_admin_jwt),
+):
+    """Fuzzy-search users by email or wallet_address. Case-insensitive.
+
+    Returns up to 20 matches. Sanitises the query so shell metacharacters
+    aren't interpreted as regex.
+    """
+    import re as _re
+    cleaned = (q or "").strip()
+    if not cleaned or len(cleaned) < 3:
+        raise HTTPException(status_code=400, detail="Search must be at least 3 characters")
+    pattern = _re.escape(cleaned)
+    rows = await db.users.find(
+        {
+            "$and": [
+                {"merged_into": {"$exists": False}},
+                {"$or": [
+                    {"email": {"$regex": pattern, "$options": "i"}},
+                    {"wallet_address": {"$regex": pattern, "$options": "i"}},
+                    {"user_id": {"$regex": pattern, "$options": "i"}},
+                ]},
+            ]
+        },
+        {"_id": 0, "user_id": 1, "email": 1, "wallet_address": 1, "auth_type": 1, "created_at": 1},
+    ).limit(20).to_list(20)
+
+    for r in rows:
+        r["unlocked_count"] = await db.archive_unlocks.count_documents({
+            "$or": [
+                {"user_id": r["user_id"]},
+                {"wallet_address": r.get("wallet_address")},
+            ]
+        })
+
+    return {"matches": rows, "count": len(rows)}
+

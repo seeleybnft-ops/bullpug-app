@@ -35,7 +35,8 @@ from utils.email_auth_config import (
     USER_JWT_EXPIRATION_DAYS,
 )
 from utils.email_auth_deps import get_current_user
-from utils.user_identity import create_email_user, resolve_email_user, touch_user
+from utils.admin_auth import _verify_ed25519, _admin_wallets  # noqa: F401 — reused for wallet-link
+from utils.user_identity import create_email_user, resolve_email_user, touch_user, derive_user_id_from_wallet
 
 logger = logging.getLogger(__name__)
 
@@ -310,3 +311,138 @@ async def delete_account(user: dict = Depends(get_current_user)):
 
     logger.info("account_delete: user_id=%s totals=%s", user_id, deleted)
     return {"success": True, "deleted": deleted}
+
+
+# ─── Wallet linking (Phase C — spec Part 3) ─────────────────────────
+# An email-signed user connects a Solana wallet and links it to their
+# existing user_id. Follows the same SIWS ed25519 flow the admin auth
+# router uses so we don't invent a new signature scheme.
+
+class WalletLinkRequest(BaseModel):
+    wallet: str
+    message: str
+    signature: str  # base58-encoded ed25519 signature
+
+
+@router.post("/wallet/link")
+async def link_wallet(
+    body: WalletLinkRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Link a Solana wallet to the currently signed-in email user.
+
+    On merge conflict (the wallet already has its own users row) we
+    return `merge_required=true` with both candidate user_ids so the
+    frontend can prompt the user to choose which record to keep.
+    Merge execution is handled by POST /auth/merge below.
+    """
+    nonce_doc = await db.admin_auth_nonces.find_one(
+        {
+            "wallet": body.wallet,
+            "message": body.message,
+            "used": False,
+            "expires_at": {"$gt": datetime.now(timezone.utc)},
+        },
+        {"_id": 1},
+    )
+    if not nonce_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired nonce")
+    if not _verify_ed25519(body.wallet, body.signature, body.message):
+        raise HTTPException(status_code=401, detail="Signature verification failed")
+    await db.admin_auth_nonces.update_one(
+        {"_id": nonce_doc["_id"]},
+        {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}},
+    )
+
+    wallet_user_id = derive_user_id_from_wallet(body.wallet)
+    existing_wallet_user = await db.users.find_one({"user_id": wallet_user_id}, {"_id": 0})
+    if existing_wallet_user and existing_wallet_user["user_id"] != user["user_id"]:
+        return {
+            "success": False,
+            "merge_required": True,
+            "email_user_id": user["user_id"],
+            "wallet_user_id": wallet_user_id,
+            "email": user.get("email"),
+            "wallet": body.wallet,
+        }
+
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {
+            "wallet_address": body.wallet,
+            "auth_type": "linked",
+            "linked_at": _now().isoformat(),
+        }},
+    )
+    logger.info("wallet_linked: user_id=%s wallet=%s", user["user_id"], body.wallet)
+    return {
+        "success": True,
+        "merge_required": False,
+        "user_id": user["user_id"],
+        "wallet": body.wallet,
+        "auth_type": "linked",
+    }
+
+
+class MergeRequest(BaseModel):
+    keep: str  # "email" | "wallet"
+    wallet_user_id: str
+
+
+@router.post("/merge")
+async def merge_accounts(
+    body: MergeRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Consolidate two user records under a single primary user_id."""
+    if body.keep not in ("email", "wallet"):
+        raise HTTPException(status_code=400, detail="`keep` must be 'email' or 'wallet'")
+
+    primary_uid = user["user_id"] if body.keep == "email" else body.wallet_user_id
+    discard_uid = body.wallet_user_id if body.keep == "email" else user["user_id"]
+
+    discard_row = await db.users.find_one({"user_id": discard_uid}, {"_id": 0})
+    if not discard_row:
+        raise HTTPException(status_code=404, detail="Discarded user not found")
+
+    identity_collections = [
+        "archive_unlocks", "archive_ranks", "archive_announcements",
+        "daily_drops", "chat_history", "tinkerpug_turns",
+        "companion_tokens", "share_card_art", "keeper_announcements",
+    ]
+    moved = {}
+    for coll in identity_collections:
+        r = await db[coll].update_many(
+            {"user_id": discard_uid},
+            {"$set": {"user_id": primary_uid}},
+        )
+        moved[coll] = r.modified_count
+
+    if body.keep == "email":
+        await db.users.update_one(
+            {"user_id": primary_uid},
+            {"$set": {
+                "wallet_address": discard_row.get("wallet_address"),
+                "auth_type": "linked",
+                "linked_at": _now().isoformat(),
+            }},
+        )
+    else:
+        await db.users.update_one(
+            {"user_id": primary_uid},
+            {"$set": {
+                "email": user.get("email"),
+                "email_verified": True,
+                "auth_type": "linked",
+                "linked_at": _now().isoformat(),
+            }},
+        )
+
+    await db.users.update_one(
+        {"user_id": discard_uid},
+        {"$set": {"merged_into": primary_uid, "merged_at": _now().isoformat()}},
+    )
+
+    logger.info("accounts_merged: primary=%s discard=%s moved=%s", primary_uid, discard_uid, moved)
+    return {"success": True, "primary_user_id": primary_uid, "moved": moved}
+

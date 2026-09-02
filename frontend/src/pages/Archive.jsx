@@ -967,7 +967,7 @@ export default function Archive() {
           this button only surfaces for email sessions. */}
       {sessionType === "email" && (
         <div
-          className="sticky top-16 z-30 flex items-center justify-end gap-3 border-b border-white/[0.06] bg-[#05050A]/90 backdrop-blur px-4 py-1.5"
+          className="sticky top-16 z-30 flex items-center justify-between gap-3 border-b border-white/[0.06] bg-[#05050A]/90 backdrop-blur px-4 py-1.5"
           data-testid="archive-email-session-strip"
         >
           <span
@@ -979,14 +979,28 @@ export default function Archive() {
               {shortenEmail(email)}
             </span>
           </span>
-          <button
-            type="button"
-            onClick={signOut}
-            data-testid="archive-sign-out"
-            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-400 hover:text-white"
-          >
-            <LogOut size={11} /> sign out
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Non-blocking hint: token-side features live on-chain.
+                Opens the Navbar auth dropdown so the user can pick a
+                wallet without leaving the Archive. */}
+            <button
+              type="button"
+              onClick={() => document.querySelector('[data-testid="unified-wallet-btn"]')?.click()}
+              data-testid="archive-link-wallet-hint"
+              className="text-[10px] uppercase tracking-widest text-[#B47CFF] hover:text-white transition-colors"
+              title="Link a wallet to unlock token features. Your Archive progress stays exactly where it is."
+            >
+              link wallet
+            </button>
+            <button
+              type="button"
+              onClick={signOut}
+              data-testid="archive-sign-out"
+              className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-400 hover:text-white"
+            >
+              <LogOut size={11} /> sign out
+            </button>
+          </div>
         </div>
       )}
 

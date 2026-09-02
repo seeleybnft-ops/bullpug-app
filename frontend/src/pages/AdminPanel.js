@@ -11,6 +11,7 @@ import TinkerpugChatsCard from "@/components/TinkerpugChatsCard";
 import ArchiveStatsCard from "@/components/admin/ArchiveStatsCard";
 import ForumCleanupCard from "@/components/admin/ForumCleanupCard";
 import MigrationRunnerCard from "@/components/admin/MigrationRunnerCard";
+import AuthBreakdownCard from "@/components/admin/AuthBreakdownCard";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
@@ -191,6 +192,7 @@ export default function AdminPanel() {
         {/* Platform ops cards — website health, chat sessions, traffic, archive stats */}
         <div className="space-y-6">
           <MigrationRunnerCard />
+          <AuthBreakdownCard />
           <ArchiveStatsCard />
           <ForumCleanupCard />
           <ClientErrorsCard />
