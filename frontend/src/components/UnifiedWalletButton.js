@@ -154,10 +154,10 @@ export default function UnifiedWalletButton() {
       }
 
       setLinkStage('success');
-      toast.success('wallet linked to your Archive.');
       refreshEmailUser();
-      // Reset after a beat so the badge doesn't linger.
-      setTimeout(() => setLinkStage('idle'), 2500);
+      // Keep the success banner visible for 4s — long enough for the
+      // keeper's-log line to register, short enough it doesn't linger.
+      setTimeout(() => setLinkStage('idle'), 4000);
     } catch (e) {
       // If the user rejected the signature we shouldn't treat it as a
       // hard failure — keep the wallet connected, just clear the ref
@@ -713,6 +713,38 @@ export default function UnifiedWalletButton() {
           when the wallet-link flow discovers two candidate records. */}
       {mergeInfo && (
         <AccountMergeModal mergeInfo={mergeInfo} onDismiss={dismissMerge} />
+      )}
+
+      {/* Keeper's-log confirmation strip — brief, monospace, fades in
+          then out over 4s. Matches the ambient signal style used at
+          the top of /archive. No modal, no interruption. */}
+      {linkStage === 'success' && (
+        <>
+          <style>{`
+            @keyframes keeperLogFade {
+              0%   { opacity: 0; transform: translateY(-4px); }
+              10%  { opacity: 1; transform: translateY(0); }
+              90%  { opacity: 1; transform: translateY(0); }
+              100% { opacity: 0; transform: translateY(-4px); }
+            }
+          `}</style>
+          <div
+            className="fixed left-0 right-0 top-16 z-[80] flex justify-center pointer-events-none px-4"
+            data-testid="wallet-link-keeper-log"
+            style={{ animation: 'keeperLogFade 4s ease-in-out forwards' }}
+          >
+            <div
+              className="rounded-md border border-white/[0.08] bg-[#05050A]/95 backdrop-blur px-4 py-1.5 shadow-lg"
+            >
+              <p
+                className="text-[10px] uppercase tracking-widest text-slate-300"
+                style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+              >
+                keeper's log — wallet linked. the chain knows you now. your Archive progress is intact.
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
