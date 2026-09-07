@@ -590,13 +590,16 @@ _CLASSIFIER_SYSTEM = (
     "— a general overview is NOT enough\n"
     "- Tier 3 unlocks: the entry was the PRIMARY subject AND the core narrative "
     "of the entry was told in full — the who, what, why, and consequence\n"
+    "- Special-tier unlocks: treat identically to Tier 1 — the entry was the "
+    "PRIMARY subject and Tinkerpug gave a substantive explanation (more than 2 "
+    "sentences of actual content about it). Follow the trigger prose exactly.\n"
     "- A passing mention, a one-sentence reference, or a tangential connection "
     "NEVER unlocks any tier\n"
     "- If in doubt, return {\"unlocked\": null}\n\n"
     "Return ONLY {\"unlocked\": \"entry-slug\"} or {\"unlocked\": null}\n\n"
     "CANDIDATE ENTRIES (tier — slug — trigger):\n"
     + "\n".join(
-        f"  T{e['tier']} — {e['slug']} — {e['unlock_trigger']}"
+        f"  {'T' + str(e['tier']) if isinstance(e['tier'], int) else 'T-Special'} — {e['slug']} — {e['unlock_trigger']}"
         for e in MASTER_ENTRIES
         if e["slug"] in _CLASSIFIER_SLUGS
     )
