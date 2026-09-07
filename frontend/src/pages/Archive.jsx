@@ -410,7 +410,7 @@ function loadPersistedMessages(wallet) {
   }
 }
 
-function Workspace({ wallet, onAssistantReply, promptRequest }) {
+function Workspace({ wallet, onAssistantReply, promptRequest, hasFreshDrop }) {
   const { walletAddress: realWallet, authHeaders } = useAuth();
   // `?wallet=<addr>` is only appended when there's a REAL Solana wallet —
   // never for email users (their user_id UUID would leak in URLs).
@@ -496,27 +496,35 @@ function Workspace({ wallet, onAssistantReply, promptRequest }) {
 
   // On wallet-connect after first visit, swap the greeting for the return
   // form once we know the rank. Fire-and-forget — chat continues without.
+  // We re-run when `hasFreshDrop` becomes true so the returning greeting
+  // can append the daily-drop hint the moment today's drop resolves.
   useEffect(() => {
-    if (!wallet || isReturnGreetedRef.current) return;
+    if (!wallet) return;
+    // Guard against re-greeting inside the same identity, BUT still
+    // allow the message to upgrade when hasFreshDrop flips true after
+    // the initial greeting was rendered.
+    const alreadyGreeted = isReturnGreetedRef.current;
     isReturnGreetedRef.current = true;
     fetch(`${API}/archive/rank${walletUrlParam}`, fetchOpts)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data || data.unlocked_count === 0) return;
         const title = data.rank_title || "Signal";
+        const base = `keeper's log — familiar signal on the channel. ${title} back again.`;
+        const withDropHint = hasFreshDrop
+          ? `${base} the visual record has updated. check the Daily Drops tab.`
+          : base;
         setMessages((prev) => {
+          // Only rewrite when the current thread is still just the
+          // greeting slot — never overwrite a real conversation.
           if (prev.length !== 1 || !prev[0].isGreeting) return prev;
-          return [
-            {
-              role: "assistant",
-              content: `keeper's log — familiar signal on the channel. ${title} back again.`,
-              isGreeting: true,
-            },
-          ];
+          // If we already greeted with the same content, don't churn.
+          if (alreadyGreeted && prev[0].content === withDropHint) return prev;
+          return [{ role: "assistant", content: withDropHint, isGreeting: true }];
         });
       })
       .catch(() => {});
-  }, [wallet]);
+  }, [wallet, hasFreshDrop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -763,6 +771,23 @@ export default function Archive() {
   // session. Prevents redundant fetches on tab switches / refresh ticks
   // while still letting sign-out → sign-in fire fresh.
   const dropFiredForIdentityRef = useRef(null);
+  // Discoverability: a "fresh, unseen" flag flipped on when today's
+  // drop successfully resolves AND the user hasn't yet opened the
+  // Daily Drops tab for today's UTC date. localStorage-backed so the
+  // signal survives reloads until they actually view the drop.
+  const [hasFreshDrop, setHasFreshDrop] = useState(false);
+
+  // Clear the fresh-drop signal after the user actually opens the
+  // Daily Drops tab (persisted for today's UTC date so a reload
+  // doesn't re-flag it).
+  const markDropsSeen = useCallback(() => {
+    setHasFreshDrop(false);
+    try {
+      if (!wallet) return;
+      const todayUTC = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(`bullpug_drops_seen_${wallet}_${todayUTC}`, "1");
+    } catch { /* ignore */ }
+  }, [wallet]);
 
   // Locked-card → chat handoff: switch to keeper tab on mobile and
   // pass the derived prompt down to Workspace with a fresh id so the
@@ -922,6 +947,17 @@ export default function Archive() {
         .then((res) => {
           if (res.ok) {
             setRefreshTick((n) => n + 1);
+            // Discoverability signal: if we haven't marked today's
+            // drop as "seen" for this identity, flag it fresh so the
+            // Daily Drops tab shows an indicator + so the greeting
+            // can hint at it.
+            try {
+              const todayUTC = new Date().toISOString().slice(0, 10);
+              const seenKey = `bullpug_drops_seen_${userKey}_${todayUTC}`;
+              if (localStorage.getItem(seenKey) !== "1") {
+                setHasFreshDrop(true);
+              }
+            } catch { /* localStorage blocked — silently no-op */ }
           } else {
             // Transient failure — clear the ref so the next dep change
             // gets a fresh attempt.
@@ -1062,10 +1098,21 @@ export default function Archive() {
       {/* Desktop split / mobile single-column */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
         <div className={`${mobileTab === "keeper" ? "block" : "hidden"} lg:block h-full min-h-0`}>
-          <Workspace wallet={wallet} onAssistantReply={bumpRefresh} promptRequest={promptRequest} />
+          <Workspace
+            wallet={wallet}
+            onAssistantReply={bumpRefresh}
+            promptRequest={promptRequest}
+            hasFreshDrop={hasFreshDrop}
+          />
         </div>
         <div className={`${mobileTab === "ledger" ? "block" : "hidden"} lg:block h-full min-h-0`}>
-          <ArchiveLedger wallet={wallet} refreshKey={refreshTick} onOpenArchive={handleOpenArchive} />
+          <ArchiveLedger
+            wallet={wallet}
+            refreshKey={refreshTick}
+            onOpenArchive={handleOpenArchive}
+            hasFreshDrop={hasFreshDrop}
+            onDropsSeen={markDropsSeen}
+          />
         </div>
       </div>
 

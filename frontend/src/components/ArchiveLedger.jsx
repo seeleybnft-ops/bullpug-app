@@ -74,7 +74,13 @@ const RANK_COLOR = {
   none: "#3A4560",
 };
 
-export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive }) {
+export default function ArchiveLedger({
+  wallet,
+  refreshKey = 0,
+  onOpenArchive,
+  hasFreshDrop = false,
+  onDropsSeen,
+}) {
   const [entries, setEntries] = useState([]);
   const [rankData, setRankData] = useState(null);
   // Honor `?tab=drops|record|ledger` deep-links (e.g. from the homepage
@@ -89,6 +95,15 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
   const [loading, setLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);
+
+  // Any time the user opens the Daily Drops tab — via deep-link, this
+  // component, or the mobile switcher — mark today's drop as seen so
+  // the tab badge clears.
+  useEffect(() => {
+    if (section === "drops" && hasFreshDrop) {
+      onDropsSeen?.();
+    }
+  }, [section, hasFreshDrop, onDropsSeen]);
 
   // Fetch entries + rank on mount / wallet change / external refresh
   useEffect(() => {
@@ -231,13 +246,16 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
             { id: "record", label: "The Record", icon: Trophy },
           ].map(({ id, label, icon: Icon }) => {
             const active = section === id;
+            // Only the Daily Drops tab surfaces a "fresh" badge, and
+            // only while it isn't the currently-active section.
+            const showFreshBadge = id === "drops" && hasFreshDrop && !active;
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => setSection(id)}
                 data-testid={`ledger-section-${id}`}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
                   active ? "text-black" : "text-slate-400 hover:text-white"
                 }`}
                 style={{
@@ -246,10 +264,30 @@ export default function ArchiveLedger({ wallet, refreshKey = 0, onOpenArchive })
                 }}
               >
                 <Icon size={11} /> {label}
+                {showFreshBadge && (
+                  <span
+                    data-testid="daily-drops-fresh-badge"
+                    aria-label="a fresh drop is waiting"
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                    style={{
+                      background: "#F5D300",
+                      boxShadow: "0 0 8px rgba(245,211,0,0.75)",
+                      animation: "dropPulse 1.8s ease-in-out infinite",
+                    }}
+                  />
+                )}
               </button>
             );
           })}
         </nav>
+        {/* Gentle pulse keyframes for the daily-drop badge dot. Scoped
+            inline so we don't have to touch the global tailwind config. */}
+        <style>{`
+          @keyframes dropPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.25); opacity: 0.7; }
+          }
+        `}</style>
       </header>
 
       {/* Section body — scrolls independently */}
