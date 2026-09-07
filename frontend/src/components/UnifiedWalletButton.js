@@ -80,6 +80,24 @@ export default function UnifiedWalletButton() {
   const [mergeInfo, setMergeInfo] = useState(null);
   const linkAttemptedRef = useRef(null); // wallet-address we last tried, to avoid loops
 
+  // Keeper's-log banner — a single fixed-position strip below the navbar
+  // that surfaces brief confirmations. Wallet-link success and merge
+  // success both use it (with distinct copy). Auto-fades after 4s.
+  //   { message, showActIChip }
+  const [keeperLog, setKeeperLog] = useState(null);
+  const keeperLogTimerRef = useRef(null);
+  const showKeeperLog = useCallback((message, opts = {}) => {
+    if (keeperLogTimerRef.current) clearTimeout(keeperLogTimerRef.current);
+    setKeeperLog({ message, showActIChip: !!opts.showActIChip });
+    keeperLogTimerRef.current = setTimeout(() => setKeeperLog(null), 4000);
+  }, []);
+
+  // Act I newsletter chip state — nested inside the wallet-link banner.
+  //   idle | asking-email | submitting | done | error
+  const [actIStage, setActIStage] = useState('idle');
+  const [actIEmailInput, setActIEmailInput] = useState('');
+  const [actIError, setActIError] = useState(null);
+
   // Solana wallet
   const { 
     publicKey: solanaPublicKey, 
@@ -155,8 +173,12 @@ export default function UnifiedWalletButton() {
 
       setLinkStage('success');
       refreshEmailUser();
-      // Keep the success banner visible for 4s — long enough for the
-      // keeper's-log line to register, short enough it doesn't linger.
+      // Surface the keeper's-log confirmation with the Act I opt-in
+      // chip (the moment of linking is a good time to invite them).
+      showKeeperLog(
+        "keeper's log — wallet linked. the chain knows you now. your Archive progress is intact.",
+        { showActIChip: true },
+      );
       setTimeout(() => setLinkStage('idle'), 4000);
     } catch (e) {
       // If the user rejected the signature we shouldn't treat it as a
@@ -168,7 +190,7 @@ export default function UnifiedWalletButton() {
       setLinkError(rejected ? null : detail);
       linkAttemptedRef.current = null;
     }
-  }, [solanaSignMessage, authHeaders, refreshEmailUser]);
+  }, [solanaSignMessage, authHeaders, refreshEmailUser, showKeeperLog]);
 
   useEffect(() => {
     // Preconditions: email session + a freshly connected Solana wallet
@@ -187,9 +209,16 @@ export default function UnifiedWalletButton() {
   const dismissMerge = () => {
     setMergeInfo(null);
     setLinkStage('idle');
-    // Clear the attempt ref so the user could retry linking later if
-    // they cancel out of the merge modal.
     linkAttemptedRef.current = null;
+  };
+
+  const handleMergeSuccess = () => {
+    setMergeInfo(null);
+    setLinkStage('idle');
+    linkAttemptedRef.current = null;
+    showKeeperLog(
+      "keeper's log — records consolidated. the chain holds one signal now.",
+    );
   };
 
   const formatAddress = (addr, length = 4) => {
@@ -712,13 +741,17 @@ export default function UnifiedWalletButton() {
       {/* Account-merge modal — global (renders on top of everything)
           when the wallet-link flow discovers two candidate records. */}
       {mergeInfo && (
-        <AccountMergeModal mergeInfo={mergeInfo} onDismiss={dismissMerge} />
+        <AccountMergeModal
+          mergeInfo={mergeInfo}
+          onDismiss={dismissMerge}
+          onSuccess={handleMergeSuccess}
+        />
       )}
 
       {/* Keeper's-log confirmation strip — brief, monospace, fades in
-          then out over 4s. Matches the ambient signal style used at
-          the top of /archive. No modal, no interruption. */}
-      {linkStage === 'success' && (
+          then out over 4s. Used for wallet-link success + merge
+          success. No modal, no interruption. */}
+      {keeperLog && (
         <>
           <style>{`
             @keyframes keeperLogFade {
@@ -733,15 +766,33 @@ export default function UnifiedWalletButton() {
             data-testid="wallet-link-keeper-log"
             style={{ animation: 'keeperLogFade 4s ease-in-out forwards' }}
           >
-            <div
-              className="rounded-md border border-white/[0.08] bg-[#05050A]/95 backdrop-blur px-4 py-1.5 shadow-lg"
-            >
+            <div className="rounded-md border border-white/[0.08] bg-[#05050A]/95 backdrop-blur px-4 py-1.5 shadow-lg pointer-events-auto flex items-center gap-3 flex-wrap justify-center">
               <p
-                className="text-[10px] uppercase tracking-widest text-slate-300"
+                className="text-[10px] uppercase tracking-widest text-slate-300 m-0"
                 style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
               >
-                keeper's log — wallet linked. the chain knows you now. your Archive progress is intact.
+                {keeperLog.message}
               </p>
+
+              {keeperLog.showActIChip && (
+                <ActINotifyChip
+                  api={API}
+                  signedInEmail={signedInEmail}
+                  stage={actIStage}
+                  setStage={setActIStage}
+                  emailInput={actIEmailInput}
+                  setEmailInput={setActIEmailInput}
+                  error={actIError}
+                  setError={setActIError}
+                  onKeepAlive={() => {
+                    // Extend the banner lifetime while the user is
+                    // mid-interaction with the chip so it doesn't fade
+                    // out from under them.
+                    if (keeperLogTimerRef.current) clearTimeout(keeperLogTimerRef.current);
+                    keeperLogTimerRef.current = setTimeout(() => setKeeperLog(null), 8000);
+                  }}
+                />
+              )}
             </div>
           </div>
         </>
@@ -749,3 +800,121 @@ export default function UnifiedWalletButton() {
     </div>
   );
 }
+
+// ── Act I newsletter chip ─────────────────────────────────────────
+// Rendered inline inside the wallet-link keeper's-log banner. If the
+// user is already email-signed we POST directly; otherwise we expand
+// a tiny inline email input. Non-blocking — the banner fades whether
+// the user engages or not (parent extends the lifetime while the
+// user is mid-interaction).
+function ActINotifyChip({
+  api,
+  signedInEmail,
+  stage,
+  setStage,
+  emailInput,
+  setEmailInput,
+  error,
+  setError,
+  onKeepAlive,
+}) {
+  const submit = async (emailToSend) => {
+    setStage('submitting');
+    setError(null);
+    onKeepAlive?.();
+    try {
+      await axios.post(
+        `${api}/newsletter/subscribe`,
+        { email: emailToSend, source: 'wallet-link-banner' },
+        { headers: { 'X-Bullpug-CSRF': '1' } },
+      );
+      setStage('done');
+    } catch (e) {
+      const detail = e?.response?.data?.detail || 'try again shortly.';
+      setError(detail);
+      setStage('error');
+    }
+  };
+
+  const onChipClick = () => {
+    onKeepAlive?.();
+    if (signedInEmail) {
+      submit(signedInEmail);
+    } else {
+      setStage('asking-email');
+    }
+  };
+
+  const onInputSubmit = (e) => {
+    e?.preventDefault?.();
+    const cleaned = emailInput.trim().toLowerCase();
+    if (!cleaned || !cleaned.includes('@')) {
+      setError("that doesn't look like an email.");
+      return;
+    }
+    submit(cleaned);
+  };
+
+  if (stage === 'done') {
+    return (
+      <span
+        className="text-[10px] uppercase tracking-widest text-[#00FFA3]"
+        style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+        data-testid="act1-notify-done"
+      >
+        signal logged. 🐾
+      </span>
+    );
+  }
+
+  if (stage === 'asking-email' || (stage === 'error' && !signedInEmail)) {
+    return (
+      <form
+        onSubmit={onInputSubmit}
+        className="flex items-center gap-1"
+        data-testid="act1-notify-form"
+      >
+        <input
+          type="email"
+          value={emailInput}
+          onChange={(e) => { setEmailInput(e.target.value); setError(null); }}
+          placeholder="you@somewhere"
+          autoFocus
+          className="rounded px-2 py-1 text-[10px] text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-[#B47CFF] w-40"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          }}
+          data-testid="act1-notify-email-input"
+        />
+        <button
+          type="submit"
+          className="text-[10px] uppercase tracking-widest text-[#B47CFF] hover:text-white px-1"
+          data-testid="act1-notify-email-submit"
+        >
+          send →
+        </button>
+        {error && (
+          <span className="text-[10px] text-[#FF6B6B]" data-testid="act1-notify-error">
+            {error}
+          </span>
+        )}
+      </form>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onChipClick}
+      disabled={stage === 'submitting'}
+      data-testid="act1-notify-chip"
+      className="text-[10px] uppercase tracking-widest text-[#B47CFF] hover:text-white transition-colors disabled:opacity-50 whitespace-nowrap"
+      style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+    >
+      {stage === 'submitting' ? 'logging…' : 'notify me when Act I arrives →'}
+    </button>
+  );
+}
+

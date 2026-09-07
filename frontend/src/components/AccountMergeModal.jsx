@@ -15,7 +15,6 @@
  */
 import React, { useState } from "react";
 import axios from "axios";
-import { toast } from "sonner";
 import { AlertTriangle, Loader2, Mail, Wallet, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -26,7 +25,7 @@ function shortenWallet(w) {
   return `${w.slice(0, 4)}...${w.slice(-4)}`;
 }
 
-export default function AccountMergeModal({ mergeInfo, onDismiss }) {
+export default function AccountMergeModal({ mergeInfo, onDismiss, onSuccess }) {
   const { authHeaders, refreshEmailUser } = useAuth();
   const [choice, setChoice] = useState("email"); // "email" | "wallet"
   const [submitting, setSubmitting] = useState(false);
@@ -45,13 +44,12 @@ export default function AccountMergeModal({ mergeInfo, onDismiss }) {
         { keep: choice, wallet_user_id },
         { headers: authHeaders },
       );
-      toast.success(
-        choice === "email"
-          ? "accounts merged. your archive is unified under your email."
-          : "accounts merged. your archive is now anchored to your wallet.",
-      );
       refreshEmailUser();
-      onDismiss?.();
+      // Prefer the parent's success handler (which surfaces the
+      // keeper's-log strip). Fall back to onDismiss if no onSuccess
+      // was provided.
+      if (onSuccess) onSuccess();
+      else onDismiss?.();
     } catch (e) {
       const detail = e?.response?.data?.detail || "could not merge accounts. try again shortly.";
       setError(detail);
