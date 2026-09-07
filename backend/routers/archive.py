@@ -5,6 +5,7 @@ Endpoints exposed under `/api/archive`:
     GET  /api/archive/unlocks?wallet=...    — full unlock list (newest first)
     GET  /api/archive/rank?wallet=...       — current rank snapshot
     GET  /api/archive/entries?wallet=...    — master list annotated per-wallet
+    GET  /api/archive/first-pack/status     — First Pack whitelist status
     GET  /api/archive/admin/stats           — admin-only aggregate stats
 
 Auth model (Phase A): a wallet address is passed as a query param. The
@@ -83,6 +84,34 @@ async def get_rank(
     w = _clean_wallet(identity or wallet)
     snapshot = await archive.get_rank_snapshot(w)
     return {"wallet": w, **snapshot}
+
+
+@router.get("/first-pack/status")
+async def first_pack_status(
+    wallet: Optional[str] = Query(None, description="Solana wallet address"),
+    identity: Optional[str] = Depends(resolve_identity),
+):
+    """Return whether this identity is in the First Pack whitelist.
+
+    Response: `{ is_first_pack: bool, run: str | null, claimed_at: str | null }`
+    Populated at /api/companion/claim time. Used by the Archive Ledger to
+    display the small "First Pack" gold badge alongside the rank.
+    """
+    from utils.database import db  # local import — avoid load-order cycle
+    w = _clean_wallet(identity or wallet)
+    if not w:
+        return {"is_first_pack": False, "run": None, "claimed_at": None}
+    row = await db["first_pack_wallets"].find_one(
+        {"wallet": w},
+        {"_id": 0, "order_run": 1, "claimed_at": 1},
+    )
+    if not row:
+        return {"is_first_pack": False, "run": None, "claimed_at": None}
+    return {
+        "is_first_pack": True,
+        "run": row.get("order_run"),
+        "claimed_at": row.get("claimed_at"),
+    }
 
 
 @router.get("/entries")

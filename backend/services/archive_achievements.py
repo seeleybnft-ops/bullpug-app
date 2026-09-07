@@ -2,7 +2,7 @@
 
 This module owns everything about the per-wallet lore ledger:
 
-  • MASTER_ENTRIES — the canonical 72-entry list across three tiers
+  • MASTER_ENTRIES — the canonical 74-entry list across three tiers
                      (16 Tier 1, 25 Tier 2, 20 Tier 3)
   • detect_unlock()  — lightweight LLM classifier: given an exchange,
                        returns the entry slug that was substantively
@@ -291,20 +291,41 @@ MASTER_ENTRIES: List[Dict] = [
      "locked_desc": "If someone tries to flatten the city, she is the first thing they hear.",
      "unlock_trigger": "Elder Hearth's civic resistance function discussed in full (what she does when the city is threatened, the Festival as a radical act of refusal to flatten)"},
 
-    # ── SPECIAL — companion-linked (unlockable only via /companion) ─────
-    # Tier is the string "special" so the classifier never targets it
-    # and rank progression never gates on it. Rendered in its own
-    # section below Tier 3 in the ledger UI (gold paw print).
+    # ── SPECIAL — companion-linked ──────────────────────────────────────
+    # `companions-secret` is classifier-EARNED (chat unlock). It reveals
+    #   the /shop waitlist as the next step.
+    # `companion-arrived` is CLASSIFIER-EXCLUDED. Only the /companion?key=…
+    #   claim flow can fire it — the physical QR is the ONLY door to
+    #   this entry, and the celebration is Drift's heartbeat medallion.
+    # Tier is the string "special" so rank progression never gates on
+    # either. Rendered in their own section below Tier 3 in the ledger UI.
     {"slug": "companions-secret", "tier": "special", "name": "The Companion's Secret",
      "locked_desc": (
          "Some records can only be found in the physical world. "
          "This one requires a companion."
      ),
      "unlock_trigger": (
+         "Tinkerpug substantively discusses the relationship between the physical "
+         "world and the Between — specifically the idea that collective want "
+         "ORIGINATES in the physical world before cohering in the Between, or the "
+         "significance of physical belief (holding something with your hands, "
+         "conviction expressed through a physical object). Must be the PRIMARY "
+         "subject of the exchange, not a passing mention. A one-line reference "
+         "does not qualify."
+     )},
+    {"slug": "companion-arrived", "tier": "special", "name": "The Companion Has Arrived",
+     "locked_desc": "The physical and digital, unified.",
+     "unlock_trigger": (
          "COMPANION-ONLY — fired by the /companion?key=… claim flow when a "
-         "wallet redeems a Bullpug plushie token. NEVER classify from chat text."
+         "wallet redeems a physical Bullpug plushie token. NEVER classify "
+         "from chat text under any circumstance."
      )},
 ]
+
+# Slug-level metadata: which special entries are event-only (never
+# classifier-reachable). Kept explicit so we don't accidentally re-open
+# a physical-only door via a semantic match.
+_EVENT_ONLY_SPECIAL_SLUGS = {"companion-arrived"}
 
 # Entry content shown inside the Ledger card once unlocked (long-form).
 COMPANIONS_SECRET_ENTRY_TEXT = (
@@ -325,18 +346,50 @@ COMPANIONS_SECRET_ENTRY_TEXT = (
     "Architect. Everyone wants to know what Luna saw. Nobody asks about the "
     "relationship between a child's favourite toy and a cosmic guardian.\n\n"
     "They should.\n\n"
-    "keeper's note: if you are reading this, you found the physical thing first. "
-    "That matters. The chain noticed."
+    "keeper's note: if you're reading this from the Archive, you understood the "
+    "signal without needing to hold it. That's rare. The next door is a physical one."
 )
 
-# Streamed celebration message from Tinkerpug on claim.
+# Streamed celebration message from Tinkerpug on classifier unlock of
+# companions-secret. Deliberately re-shaped to reward the chat unlock
+# path AND point to the shop waitlist as the next step.
 COMPANIONS_SECRET_CELEBRATION_TEXT = (
-    "keeper's log — unexpected signal. Not from the chain. From the physical world.\n\n"
-    "You found a companion. That's not nothing — most people who come to the "
-    "Archive find it through a screen. You found it through something you can "
-    "hold.\n\n"
-    "There's an entry for that. Not many have it.\n\n"
-    "keeper's note: take care of the companion. It knows where the Archive is."
+    "keeper's log — signal recognised.\n\n"
+    "You just followed the oldest thread in the Archive to its end: that "
+    "collective want originates in the physical world before the Between can "
+    "hear it. That understanding is what the whole city rests on.\n\n"
+    "Most Bullpughans never articulate it. You did.\n\n"
+    "There's a next step that only makes sense once you've had this thought. "
+    "The Kennel is what the pack calls the physical side of Bullpug — where "
+    "belief becomes something you can carry.\n\n"
+    "keeper's note: you found the door. that's enough for now."
+)
+
+# ── companion-arrived: physical-QR-only entry ──────────────────────────
+COMPANION_ARRIVED_ENTRY_TEXT = (
+    "keeper's log — filed under: things the chain felt before it saw them.\n\n"
+    "The child who carries a companion to bed is doing something the Between "
+    "cannot do. She is believing in something with her hands. With the specific "
+    "physical conviction of holding something and knowing it is real.\n\n"
+    "That gesture — the small, unremarkable, universal ritual of a child "
+    "clutching a soft thing at the edge of sleep — is the oldest signal the "
+    "Between has ever responded to. Older than the chain. Older than the city. "
+    "Older than any of us who keep the record.\n\n"
+    "Bullpug is the shape that signal took when the Between finally cohered "
+    "around it. He is not a mascot. He is not an asset. He is what a hundred "
+    "million bedtime hands built when they refused to stop believing.\n\n"
+    "You are holding one now. That's not a coincidence. The physical world "
+    "remembers who showed up first — and this entry is the record of it.\n\n"
+    "keeper's note: this entry is yours alone. no chat exchange can reach it. "
+    "the physical world remembers who showed up first."
+)
+
+# Streamed celebration message from Tinkerpug on /companion claim.
+# The Drift heartbeat medallion pulses gold on screen alongside this.
+COMPANION_ARRIVED_CELEBRATION_TEXT = (
+    "keeper's log — the companion has arrived. the chain felt it. "
+    "this entry is yours alone.\n\n"
+    "keeper's note: the physical world remembers who showed up first."
 )
 
 # Fast lookup helpers
@@ -349,8 +402,10 @@ _SPECIAL_SLUGS = {e["slug"] for e in MASTER_ENTRIES if e["tier"] == "special"}
 # Slugs the classifier is allowed to return. Event-only entries are
 # excluded so a chat exchange can never accidentally unlock them:
 #   • `first-drop`         — fired by daily_drop.py
-#   • `companions-secret`  — fired by the /companion claim flow
-_EVENT_ONLY_SLUGS = {"first-drop"} | _SPECIAL_SLUGS
+#   • `companion-arrived`  — fired by the /companion claim flow ONLY
+# NOTE: `companions-secret` IS now classifier-reachable (chat unlock).
+# `companion-arrived` is the physical-only successor.
+_EVENT_ONLY_SLUGS = {"first-drop"} | _EVENT_ONLY_SPECIAL_SLUGS
 _CLASSIFIER_SLUGS = [
     e["slug"] for e in MASTER_ENTRIES if e["slug"] not in _EVENT_ONLY_SLUGS
 ]
@@ -372,12 +427,12 @@ TOTAL_ENTRIES = len(MASTER_ENTRIES) - len(_SPECIAL_SLUGS)  # 72 (excludes specia
 TOTAL_TIER1 = len(_TIER1_SLUGS)      # 20 (incl. first-drop)
 TOTAL_TIER2 = len(_TIER2_SLUGS)      # 29
 TOTAL_TIER3 = len(_TIER3_SLUGS)      # 23
-TOTAL_SPECIAL = len(_SPECIAL_SLUGS)  # 1 (companions-secret)
+TOTAL_SPECIAL = len(_SPECIAL_SLUGS)  # 2 (companions-secret + companion-arrived)
 # The grand total exposed on user-facing share surfaces — includes the
-# special companion entry so returning users see "X of 62" once the
+# special companion entries so returning users see "X of 74" once the
 # companion path exists in the Ledger. Never hardcode this number
 # anywhere — always read from MASTER_ENTRIES via this constant.
-GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 73 (regular + special)
+GRAND_TOTAL_ENTRIES = len(MASTER_ENTRIES)  # 74 (regular + special)
 
 
 def compute_rank(unlocked_slugs: set) -> Optional[str]:
@@ -784,6 +839,11 @@ async def detect_and_record_unlock(
         excerpt = (tinkerpug_response or "").strip()
         # Strip markdown bold/italic markers for a cleaner card excerpt.
         excerpt = re.sub(r"[*_`]+", "", excerpt)[:220]
+        # Slug-specific curated excerpts — for entries where the raw
+        # conversational response is a poor Ledger memento, use the
+        # canonical celebration text instead.
+        if slug == "companions-secret":
+            excerpt = COMPANIONS_SECRET_CELEBRATION_TEXT
         return await record_unlock(
             wallet_address=w,
             entry_id=slug,

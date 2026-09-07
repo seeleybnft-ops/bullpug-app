@@ -17,7 +17,7 @@ import RankBadge from "./RankBadge";
 import DailyDropVault from "./DailyDropVault";
 import ShareableCard from "./ShareableCard";
 import TheRecord from "./TheRecord";
-import { Share2, BookOpen, Sparkles, Trophy, Award } from "lucide-react";
+import { Share2, BookOpen, Sparkles, Trophy, Award, PawPrint } from "lucide-react";
 import generateKeepersCertificate from "@/utils/keepersCertificate";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -83,6 +83,7 @@ export default function ArchiveLedger({
 }) {
   const [entries, setEntries] = useState([]);
   const [rankData, setRankData] = useState(null);
+  const [firstPack, setFirstPack] = useState(null); // {is_first_pack, run, claimed_at}
   // Honor `?tab=drops|record|ledger` deep-links (e.g. from the homepage
   // "Today's Drop — Curator Pick" CTA). Only the initial value is read;
   // once the user clicks a section switcher the URL is not rewritten.
@@ -112,9 +113,10 @@ export default function ArchiveLedger({
       setLoading(true);
       try {
         const qs = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
-        const [entriesRes, rankRes] = await Promise.all([
+        const [entriesRes, rankRes, firstPackRes] = await Promise.all([
           fetch(`${API}/archive/entries${qs}`),
           wallet ? fetch(`${API}/archive/rank${qs}`) : Promise.resolve(null),
+          wallet ? fetch(`${API}/archive/first-pack/status${qs}`) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         if (entriesRes.ok) {
@@ -125,6 +127,11 @@ export default function ArchiveLedger({
           setRankData(await rankRes.json());
         } else if (!wallet) {
           setRankData(null);
+        }
+        if (firstPackRes && firstPackRes.ok) {
+          setFirstPack(await firstPackRes.json());
+        } else if (!wallet) {
+          setFirstPack(null);
         }
       } catch {
         /* keep whatever's already in state */
@@ -197,6 +204,23 @@ export default function ArchiveLedger({
             >
               {rankTitle || "Unranked"}
             </p>
+            {firstPack?.is_first_pack && (
+              <span
+                data-testid="ledger-first-pack-badge"
+                title={`First Pack — ${firstPack.run}`}
+                className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.22em]"
+                style={{
+                  background: "rgba(245,211,0,0.12)",
+                  border: "1px solid rgba(245,211,0,0.45)",
+                  color: "#F5D300",
+                  fontFamily: "Orbitron, sans-serif",
+                  boxShadow: "0 0 10px rgba(245,211,0,0.25)",
+                }}
+              >
+                <PawPrint size={9} strokeWidth={2.6} />
+                First Pack
+              </span>
+            )}
             <p className="text-[10px] text-slate-500 mt-1" style={{ fontFamily: "monospace" }}>
               {unlockedCount} of {total} discovered
             </p>

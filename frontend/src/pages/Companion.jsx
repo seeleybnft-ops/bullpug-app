@@ -369,7 +369,7 @@ export default function Companion() {
                 className="text-[10px] uppercase tracking-[0.32em] text-yellow-300/80 mb-2"
                 style={{ fontFamily: "Orbitron, sans-serif" }}
               >
-                Archive Special · The Companion's Secret
+                Archive Special · The Companion Has Arrived
               </p>
               <h2
                 className="text-2xl font-bold mb-1"

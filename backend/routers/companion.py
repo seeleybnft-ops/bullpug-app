@@ -126,25 +126,52 @@ async def claim_token(payload: ClaimRequest):
             raise HTTPException(status_code=404, detail="token not found")
         raise HTTPException(status_code=409, detail="token already claimed")
 
-    # Record the archive unlock. Idempotent: re-claiming the same token
-    # by the same wallet returns None here (duplicate key) and the
-    # response still reports success — the ledger already reflects it.
+    # Record the archive unlock for the physical-only entry. Idempotent:
+    # re-claiming the same token by the same wallet returns None here
+    # (duplicate key) and the response still reports success — the
+    # ledger already reflects it.
     try:
         await archive.record_unlock(
             wallet_address=wallet,
-            entry_id="companions-secret",
+            entry_id="companion-arrived",
             unlock_prompt="COMPANION: physical token redeemed",
-            tinkerpug_excerpt=archive.COMPANIONS_SECRET_CELEBRATION_TEXT,
+            tinkerpug_excerpt=archive.COMPANION_ARRIVED_CELEBRATION_TEXT,
         )
     except Exception as e:
-        logger.warning("companions-secret unlock failed for %s: %s", wallet[:12] + "…", e)
+        logger.warning("companion-arrived unlock failed for %s: %s", wallet[:12] + "…", e)
+
+    # First-Pack whitelist. This is the durable, wallet-level record of
+    # who redeemed a companion in the launch run — used to gate the
+    # future NFT airdrop, the "First Pack" gold badge, and any
+    # holder-only surprises. Upsert is idempotent per wallet.
+    try:
+        await db["first_pack_wallets"].update_one(
+            {"wallet": wallet},
+            {
+                "$setOnInsert": {
+                    "wallet": wallet,
+                    "user_id": wallet,  # wallet == user_id for wallet-auth users
+                    "companion_token": token,
+                    "claimed_at": now,
+                    "order_run": "run-01",
+                    "nft_minted": False,
+                    "nft_token_id": None,
+                }
+            },
+            upsert=True,
+        )
+    except Exception as e:
+        logger.warning("first_pack_wallets upsert failed for %s: %s", wallet[:12] + "…", e)
 
     return {
         "success": True,
         "wallet": wallet,
         "claimed_at": now,
-        "celebration_text": archive.COMPANIONS_SECRET_CELEBRATION_TEXT,
-        "entry_text": archive.COMPANIONS_SECRET_ENTRY_TEXT,
+        "celebration_text": archive.COMPANION_ARRIVED_CELEBRATION_TEXT,
+        "entry_text": archive.COMPANION_ARRIVED_ENTRY_TEXT,
+        "entry_slug": "companion-arrived",
+        "first_pack": True,
+        "order_run": "run-01",
     }
 
 

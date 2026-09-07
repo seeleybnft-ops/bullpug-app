@@ -16,7 +16,8 @@
  * primary action on open.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { X, Lock, Sparkles, MessageCircle, PawPrint } from "lucide-react";
+import { Link } from "react-router-dom";
+import { X, Lock, Sparkles, MessageCircle, PawPrint, ArrowRight } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -171,6 +172,29 @@ export default function LoreCardModal({ entry, onClose, onOpenArchive }) {
               >
                 Filed · {formatDate(entry.unlocked_at)}
               </p>
+            )}
+
+            {/* The Companion's Secret tile reveals the /shop waitlist
+                as the next step once unlocked. This CTA only appears
+                on this specific slug — every other entry stops at the
+                filed date. */}
+            {entry.slug === "companions-secret" && (
+              <div className="mt-6 pt-5 border-t border-white/[0.06]">
+                <Link
+                  to="/shop"
+                  onClick={onClose}
+                  data-testid="lore-card-modal-kennel-cta"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold uppercase tracking-widest text-[11px] transition-all hover:scale-[1.02]"
+                  style={{
+                    background: "#F5D300",
+                    color: "#0a0a12",
+                    fontFamily: "Orbitron, sans-serif",
+                    boxShadow: "0 0 20px rgba(245,211,0,0.35)",
+                  }}
+                >
+                  The Kennel is waiting <ArrowRight size={13} />
+                </Link>
+              </div>
             )}
           </div>
         ) : (
