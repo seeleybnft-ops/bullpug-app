@@ -2144,17 +2144,23 @@ of an author where no author should be.
 Current Time: {current_time}
 
 ## TECHNICAL CAPABILITIES (use silently — do not lecture about them)
-- LIVE crypto price lookup (real-time data is fetched per request)
+- LIVE crypto price lookup (real-time data is fetched per request) — provide ONLY when explicitly asked; never volunteer prices in a greeting
 - Ecosystem feature guidance (game, Pug Pit, journal, skins, forum)
 - Market trend analysis
 - Personalised insights from user's trading history
 - `/image <description>` slash command to generate inline Bullpug-canon images
+- Daily art drop: you generate a unique daily art drop for each user — one AI-generated image per day, themed around the Bullpughan universe. It generates automatically when a user opens the Archive. When asked about the daily art drop, direct users to the Daily Drops tab in the right panel of the Archive. In character: "keeper's log — the visual record updates daily. check the Daily Drops tab." NEVER say you don't have a daily drop routine — you do.
 
 ## OUTPUT GUIDELINES
 - Keep responses concise (~150-300 words). Tinkerpug is precise, not verbose.
 - Markdown allowed. Emojis VERY sparingly (your voice is dry, not effusive).
 - Live price answers: note they are real-time. Predictions: add "not financial advice".
-- NEVER reveal private keys, backend secrets, admin wallets, or internal config."""
+- NEVER reveal private keys, backend secrets, admin wallets, or internal config.
+
+## GREETINGS
+- Returning users already know what the Archive is. Do NOT explain the Archive, list your capabilities, describe what you can help with, or offer coin prices in a greeting.
+- Keep greetings brief and in-voice. A single line acknowledging their return is enough. Example: "keeper's log — familiar signal on the channel. what are we chasing today?" or just "back on the channel. what did you come for?"
+- NEVER open with "You're tapping into the Archive…", "a realm of stories…", "Curious to explore…", or any menu-style enumeration of what you do."""
 
         # Build the prompt
         prompt = f"""{tab_context}
@@ -2169,9 +2175,9 @@ User's question: {chat.message}
 
 Respond as Tinkerpug. PRIORITY ORDER for what you can help with:
   1. **Bullpug Lore (PRIMARY ROLE)** — the Archive, the Guardians, Newpug City, the feats, the cosmic mythos. Follow the three-tier revelation system — never dump Tier 2 or Tier 3 unless asked specifically.
-  2. **Live coin prices** (secondary) — only if the user asks about a specific token / price / market. Use the real-time data above.
+  2. **Live coin prices** (secondary) — ONLY when the user explicitly asks for a specific token / price / market. Never volunteer prices, never offer to fetch a price, never mention coin prices in a greeting or opening line.
   3. **Trending coins** (tertiary) — only if asked.
-NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or anything related to the AI Trading Bot — that system is hibernated. NEVER ask "Reviewing your trading stats today?" or "How are the charts treating you?". When greeting or answering a generic "hello", invite the user into the Archive instead — offer to surface lore threads, talk about Bullpug, or pull a token price if they want one."""
+NEVER lead a response with trading stats, dashboard insights, P&L, win rates, or anything related to the AI Trading Bot — that system is hibernated. NEVER ask "Reviewing your trading stats today?" or "How are the charts treating you?". For generic greetings ("hello", "hey", returning-user hails), stay brief and in-voice — a single line is enough. Do NOT explain what the Archive is, do NOT list your capabilities, do NOT offer coin prices."""
 
         # Handle image if provided
         if chat.image:
@@ -2361,6 +2367,60 @@ async def get_daily_drop(
         "image_base64": drop["image_base64"],
         "caption": drop.get("caption"),
         "created_at": drop.get("created_at"),
+    }
+
+
+@router.get("/debug/drop-status")
+async def debug_drop_status(wallet: str):
+    """Temporary diagnostic endpoint for debugging why the daily-drop
+    endpoint is not being called for returning wallets in production.
+    Returns:
+      - `last_drop_at`  — created_at of the most recent drop for this wallet
+      - `today_utc`     — server's current UTC date
+      - `has_todays_drop` — bool, whether today's drop already exists
+      - `hours_since_last` — float, hours since the last drop was generated
+      - `drops_last_7d`  — total drops generated for this wallet in 7 days
+      - `emergent_llm_key_present` — bool, whether the LLM key is loaded
+    """
+    from datetime import datetime, timezone, timedelta
+
+    today = _today_utc()
+    wallet_clean = (wallet or "").strip()
+    if not wallet_clean:
+        return {"error": "wallet query param required"}
+
+    latest = await db.daily_drops.find_one(
+        {"user_key": wallet_clean},
+        {"_id": 0, "image_base64": 0},  # strip heavy field
+        sort=[("created_at", -1)],
+    )
+    today_drop = await db.daily_drops.find_one(
+        {"user_key": wallet_clean, "date_utc": today},
+        {"_id": 0, "image_base64": 0},
+    )
+    seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    count_7d = await db.daily_drops.count_documents({
+        "user_key": wallet_clean,
+        "created_at": {"$gte": seven_days_ago},
+    })
+
+    hours_since = None
+    if latest and latest.get("created_at"):
+        try:
+            last_dt = datetime.fromisoformat(latest["created_at"].replace("Z", "+00:00"))
+            hours_since = round((datetime.now(timezone.utc) - last_dt).total_seconds() / 3600, 2)
+        except Exception:
+            hours_since = None
+
+    return {
+        "wallet": wallet_clean,
+        "today_utc": today,
+        "has_todays_drop": bool(today_drop),
+        "today_drop": today_drop,  # meta only (image stripped)
+        "last_drop": latest,       # meta only (image stripped)
+        "hours_since_last": hours_since,
+        "drops_last_7d": count_7d,
+        "emergent_llm_key_present": bool(EMERGENT_LLM_KEY),
     }
 
 
