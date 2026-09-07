@@ -759,6 +759,10 @@ export default function Archive() {
   const seenSlugsRef = useRef(new Set());
   const seenRankRef = useRef(null); // last-observed rank; drives rank-up flag
   const initialisedRef = useRef(false);
+  // Which identity we've already served today's drop for in this browser
+  // session. Prevents redundant fetches on tab switches / refresh ticks
+  // while still letting sign-out → sign-in fire fresh.
+  const dropFiredForIdentityRef = useRef(null);
 
   // Locked-card → chat handoff: switch to keeper tab on mobile and
   // pass the derived prompt down to Workspace with a fresh id so the
@@ -876,38 +880,50 @@ export default function Archive() {
     if (wallet) pollUnlocks();
   }, [wallet, pollUnlocks]);
 
-  // Fire today's daily-drop generation as soon as a wallet is connected
-  // on the Archive page — independent of which sub-tab (ledger / drops
-  // / record) the user is currently viewing. Before this, generation
-  // was gated behind mounting `DailyDropVault`, which only happens when
-  // the user manually opens the "Daily Drops" sub-tab, so first-connect
-  // users never triggered the pipeline in production. Idempotent per
-  // (wallet, UTC-day) on the backend — returns the cache hit for
-  // returning users, ~5-10s for fresh first-connects. Fire-and-forget:
-  // errors are silent, `DailyDropVault` will retry naturally when the
-  // user opens the drops tab.
+  // Fire today's daily-drop generation once the session is CONFIRMED —
+  // either a real Solana wallet has resolved via the adapter, or an
+  // email JWT has hydrated to a real user. Waiting on `!hydrating`
+  // prevents the effect from firing during the auth-resolution window
+  // (when `identity` is briefly null even though a session is loading).
+  //
+  // We also track which identity has already been served this session
+  // via `dropFiredForIdentityRef` — subsequent renders on the same
+  // identity (e.g. sub-tab switches, refresh ticks) skip the fetch.
+  // Any identity CHANGE (sign out → sign back in as someone else)
+  // clears the ref so the new session gets its own drop.
   useEffect(() => {
+    if (hydrating) return;
     if (!wallet) return;
+    if (dropFiredForIdentityRef.current === wallet) {
+      // Already fetched for this identity in this browser session —
+      // the backend is idempotent per (identity, UTC-day) anyway, but
+      // this saves the round-trip on tab switches.
+      return;
+    }
+
     let cancelled = false;
     // Real wallet → `?wallet_address=<addr>`. Email user → no query
     // param + Authorization header (backend resolver reads the JWT).
     const url = walletFromAdapter
       ? `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(walletFromAdapter)}`
       : `${API}/ai/daily-drop`;
+    dropFiredForIdentityRef.current = wallet;
     (async () => {
       try {
         const res = await fetch(url, fetchOpts);
         if (!cancelled && res.ok) {
-          // Nudge the ledger's refresh key so the drops tab picks up
-          // the newly-generated card without waiting for its own poll.
           setRefreshTick((n) => n + 1);
+        } else if (!cancelled) {
+          // If the fetch failed for a transient reason, allow retry on
+          // next dep change by clearing the fired ref.
+          dropFiredForIdentityRef.current = null;
         }
-      } catch {
-        /* silent */
+      } catch (e) {
+        if (!cancelled) dropFiredForIdentityRef.current = null;
       }
     })();
     return () => { cancelled = true; };
-  }, [wallet, walletFromAdapter, fetchOpts]);
+  }, [wallet, walletFromAdapter, fetchOpts, hydrating, sessionType]);
 
   // Drain the queue one at a time
   useEffect(() => {

@@ -28,12 +28,14 @@ export function AuthProvider({ children }) {
   const [jwt, setJwt] = useState(() => {
     try { return localStorage.getItem(JWT_KEY); } catch { return null; }
   });
-  const [emailUser, setEmailUser] = useState(null); // {user_id, email, ...}
+  const [emailUser, setEmailUser] = useState(null); // {user_id, email, wallet_address, ...}
   const [hydrating, setHydrating] = useState(!!jwt);
+  // Bump this to force a /me re-fetch (e.g. after wallet linking / merge).
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // Hydrate the email session by hitting /me once at mount and whenever
-  // the JWT changes. A 401 (expired / user deleted) purges the token
-  // silently so the sign-in screen can offer a fresh flow.
+  // the JWT changes (or a refresh is explicitly requested). A 401 wipes
+  // the token silently so a returning visitor doesn't get stuck.
   useEffect(() => {
     if (!jwt) {
       setEmailUser(null);
@@ -52,7 +54,11 @@ export function AuthProvider({ children }) {
       })
       .finally(() => { if (!cancelled) setHydrating(false); });
     return () => { cancelled = true; };
-  }, [jwt]);
+  }, [jwt, refreshTick]);
+
+  const refreshEmailUser = useCallback(() => {
+    setRefreshTick((n) => n + 1);
+  }, []);
 
   const signInWithJwt = useCallback((newJwt) => {
     try { localStorage.setItem(JWT_KEY, newJwt); } catch { /* ignore */ }
@@ -86,12 +92,14 @@ export function AuthProvider({ children }) {
     walletAddress,
     email: emailUser?.email || null,
     userId: emailUser?.user_id || null,
+    linkedWallet: emailUser?.wallet_address || null,
     jwt,
     hydrating,
     authHeaders,
     signInWithJwt,
     signOut,
-  }), [sessionType, identity, walletAddress, emailUser, jwt, hydrating, authHeaders, signInWithJwt, signOut]);
+    refreshEmailUser,
+  }), [sessionType, identity, walletAddress, emailUser, jwt, hydrating, authHeaders, signInWithJwt, signOut, refreshEmailUser]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

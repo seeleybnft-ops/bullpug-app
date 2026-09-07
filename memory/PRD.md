@@ -1,5 +1,35 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — Phase C Close-out + Diagnostic Cleanup
+
+Housekeeping + Phase C dual-auth completion. Verified end-to-end via iteration_119 (backend 7/7 after merge fix, frontend 100%).
+
+**1. Diagnostic log cleanup**: Removed the six `console.log("[daily-drop] ...")` calls in `Archive.jsx` daily-drop effect and the two `logger.info("daily_drop.request/response ...")` lines in `ai_chat.py`. The bug they were tracking (first-visit drop generation) was verified resolved in iteration_118, so the noise is no longer needed. Behaviour identical; just quieter.
+
+**2. Orphaned auth components removed**: Deleted `frontend/src/components/auth/ArchiveSignIn.jsx` and `OTPEntry.jsx` (superseded by the OTP flow inside `UnifiedWalletButton.js`). Removed the now-empty `components/auth/` directory. Zero remaining imports (grep-verified).
+
+**3. Account Merge UI (Phase C)**: Closed out the last deferred Phase C item. When an email-signed user connects a Solana wallet whose derived `user_id` already exists in `users`, POST `/api/auth/wallet/link` returns `merge_required: true` — the new UI now handles this end-to-end:
+- NEW `frontend/src/components/AccountMergeModal.jsx` — full-screen modal, two-choice picker ("Keep email" recommended vs "Keep wallet"), POSTs `/api/auth/merge` with the chosen `keep` value, toasts + refreshes /me on success.
+- `UnifiedWalletButton.js` now runs the SIWS-link flow automatically when an email user connects a Solana wallet. Uses `admin-auth/nonce` for the message → `signMessage` from wallet-adapter → POST `/auth/wallet/link`. Surfaces linking state inline (`waiting for signature…` / `linking to your archive…` / `linked to your email account`). On `merge_required`, opens `AccountMergeModal` globally.
+- `AuthContext.js` now exposes `linkedWallet` (from /me's `wallet_address`) and `refreshEmailUser()` so the button can detect an already-linked wallet and force a /me re-fetch after merge.
+
+**[BUG FIX] Merge endpoint duplicate-key**: `email_auth.py::merge_accounts` was crashing with `DuplicateKeyError E11000` on `users.wallet_address` / `users.email` unique indexes because it wrote the merged field onto the primary row while the discarded row still owned it. Fixed by `$unset`-ing the conflicting field on the discarded row FIRST, then updating the primary. Verified: both `keep='email'` and `keep='wallet'` branches now return 200. (`tests/test_phase_c_merge.py` — 7/7.)
+
+Files touched (7):
+- MODIFIED: `frontend/src/pages/Archive.jsx` (daily-drop useEffect cleaned)
+- MODIFIED: `backend/routers/ai_chat.py` (two diagnostic INFO lines removed)
+- DELETED: `frontend/src/components/auth/ArchiveSignIn.jsx`
+- DELETED: `frontend/src/components/auth/OTPEntry.jsx`
+- MODIFIED: `frontend/src/contexts/AuthContext.js` (+ linkedWallet, refreshEmailUser)
+- MODIFIED: `frontend/src/components/UnifiedWalletButton.js` (SIWS-link flow + merge modal integration)
+- CREATED: `frontend/src/components/AccountMergeModal.jsx`
+- MODIFIED: `backend/routers/email_auth.py` (merge endpoint duplicate-key fix)
+- CREATED: `backend/tests/test_phase_c_merge.py` (via testing agent, 7 tests)
+
+Phase C is now complete: email users can link a wallet, and the merge conflict path is fully covered.
+
+
+
 ## Feb 2026 — Act I Confirmation Email + Resend Swap
 
 Follow-up to the Notify feature (§ Feb 2026 — Notify + Chime + Certificate + Desktop Share Fix).

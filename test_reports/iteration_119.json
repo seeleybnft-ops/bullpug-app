@@ -1,0 +1,47 @@
+{
+  "summary": "Phase C: log cleanup + orphaned auth removal PASS end-to-end. Backend contract tests reveal a critical bug in POST /api/auth/merge — both keep='email' and keep='wallet' branches crash with MongoDB DuplicateKeyError (unique indexes on users.wallet_address and users.email) because the discarded row still holds the fields being copied to the primary. 5/7 backend tests pass. Frontend UnifiedWalletButton + AccountMergeModal load cleanly with zero console errors and email address renders in the dropdown.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/merge (keep='email')",
+        "issue": "Returns 500 Internal Server Error. Traceback: DuplicateKeyError E11000 on test_database.users index wallet_address_1. email_auth.py:422 writes discarded_row.wallet_address onto primary user row, but the discarded (wallet) user row STILL owns that wallet_address under a unique index → duplicate key crash. Rows ARE moved (archive_unlocks update runs first), but the users row update never lands and the response is 500 so the client sees a failure even though partial state was mutated. Fix: unset wallet_address on the discarded row (or the primary email row) BEFORE writing the new value on primary, or use a single atomic swap.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/auth/merge (keep='wallet')",
+        "issue": "Returns 500 Internal Server Error. Traceback: DuplicateKeyError E11000 on test_database.users index email_1. email_auth.py:431 writes email/email_verified onto primary (wallet) row, while the discarded (email) row still holds that email under a unique index. Same class of bug as keep='email' branch. Fix: unset email/email_verified on the discarded row before writing to primary. Same partial-mutation problem as above.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase_c_merge.py",
+    "/app/test_reports/pytest/phase_c_results.xml"
+  ],
+  "action_items": [
+    "Fix /api/auth/merge duplicate-key bug: before setting wallet_address/email on the primary user row, $unset those fields on the discarded row (or reorder writes so the primary swap is atomic). Applies to both keep='email' and keep='wallet' branches (email_auth.py lines 421-439).",
+    "Consider wrapping the merge across identity_collections + users updates in a single transaction so a mid-flight crash doesn't leave archive rows moved but the users row un-linked (currently rows ARE moved before the crashing users.update_one, so a retry after the fix will find the wallet-user row empty of children — this is idempotent-safe but should be documented).",
+    "Merge endpoint has NO idempotency check — a second call with the same keep+wallet_user_id will re-run all writes and may set stale wallet/email fields. Consider short-circuiting if discarded_row.merged_into already exists."
+  ],
+  "critical_code_review_comments": [
+    "email_auth.py: merge_accounts writes users rows without clearing conflicting unique-indexed fields on the discarded row → guaranteed DuplicateKeyError on any DB with the existing indexes. Bug reproduces 100%.",
+    "email_auth.py:339-349: nonce lookup on admin_auth_nonces uses body.message string equality — fine, but relies on exact whitespace. Kept it consistent with admin_auth._build_message so verified working.",
+    "AccountMergeModal.jsx: nice UX (recommends 'keep email'); axios call uses `authHeaders` from AuthContext — verified good. No error surfaced from the 500 today (client currently shows detail 'could not merge accounts. try again shortly.'), so the user gets a generic error instead of the underlying duplicate-key which is fine for prod."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase_c_merge.py (new)"
+  ],
+  "success_rate": {"backend": "71% (5/7 tests pass; 2 fail due to real bug)", "frontend": "100%"},
+  "test_credentials": "Backend test file self-seeds via /app/backend/scripts/_seed_otp.py pattern. UI test used seeded user phasec-ui-test@mailinator.com with JWT injection into localStorage(bullpug_user_jwt). CSRF header X-Bullpug-CSRF: 1 required on all mutating requests.",
+  "seed_data_creation": "test_phase_c_merge.py seeds ephemeral OTPs, wallet-only users, archive_unlocks rows with unique wallet_address+entry_id; cleans up on teardown. UI run created two email users (phaseb-e2e-1788739069 and phasec-ui-test@mailinator.com).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes the merge duplicate-key bug, re-run: pytest /app/backend/tests/test_phase_c_merge.py -v. All 7 tests should pass. Frontend has no known issues — merge modal compiles and renders. Verification of log cleanup: (a) `grep '\\[daily-drop\\]' frontend console` on fresh /archive visit → 0 hits (verified); (b) `grep daily_drop.request /var/log/supervisor/backend.err.log` after triggering a fresh drop → 0 new hits (historical hits from iteration 118 still present in log tail).",
+  "rca of the issue": "POST /api/auth/merge duplicate-key: Mongo users collection has unique indexes on wallet_address and email. When keep='email', endpoint copies wallet_address from discarded (wallet) row → primary (email) row, but never clears it on the discarded row first — Mongo rejects with E11000 on wallet_address_1. Symmetric bug on keep='wallet' with the email_1 index. Repro: seed a wallet-only user (users.wallet_address=W), sign in as email user E, POST /auth/merge {keep:'email', wallet_user_id:'wallet_'+W} → 500. Mitigation: prepend `await db.users.update_one({user_id:discard_uid},{'$unset':{'wallet_address':1}})` before the primary-row wallet_address update (and symmetrically $unset email/email_verified for the keep='wallet' branch)."
+}

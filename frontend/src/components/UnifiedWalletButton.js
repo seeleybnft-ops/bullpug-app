@@ -8,16 +8,18 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import bs58 from 'bs58';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import {
   Wallet, ChevronDown, LogOut, ExternalLink, Check, Loader2,
-  Copy, X, Zap, AlertCircle, Mail, ArrowLeft, ShieldCheck,
+  Copy, X, Zap, AlertCircle, Mail, ArrowLeft, ShieldCheck, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import AccountMergeModal from '@/components/AccountMergeModal';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -53,7 +55,15 @@ export default function UnifiedWalletButton() {
   //   • "idle"   — email input visible
   //   • "otp"    — user has requested a code, show 6-digit input
   //   • "signed" — user is already signed in with email; show shorthand + sign out
-  const { email: signedInEmail, sessionType, signInWithJwt, signOut } = useAuth();
+  const {
+    email: signedInEmail,
+    sessionType,
+    signInWithJwt,
+    signOut,
+    linkedWallet,
+    authHeaders,
+    refreshEmailUser,
+  } = useAuth();
   const [emailInput, setEmailInput] = useState('');
   const [emailStage, setEmailStage] = useState('idle'); // 'idle' | 'otp'
   const [emailSubmitting, setEmailSubmitting] = useState(false);
@@ -61,6 +71,14 @@ export default function UnifiedWalletButton() {
   const [otpDigits, setOtpDigits] = useState(Array(6).fill(''));
   const [otpSubmitting, setOtpSubmitting] = useState(false);
   const otpInputsRef = useRef([]);
+
+  // Wallet-link (Phase C) — auto-triggered when an email-signed user
+  // connects a Solana wallet that isn't already tied to their record.
+  //   idle → signing → linking → (success | error | merge)
+  const [linkStage, setLinkStage] = useState('idle');
+  const [linkError, setLinkError] = useState(null);
+  const [mergeInfo, setMergeInfo] = useState(null);
+  const linkAttemptedRef = useRef(null); // wallet-address we last tried, to avoid loops
 
   // Solana wallet
   const { 
@@ -70,7 +88,8 @@ export default function UnifiedWalletButton() {
     wallet: solanaWallet,
     select: selectWallet,
     wallets,
-    connect: walletConnect
+    connect: walletConnect,
+    signMessage: solanaSignMessage,
   } = useWallet();
   const { setVisible: setSolanaModalVisible } = useWalletModal();
 
@@ -95,6 +114,83 @@ export default function UnifiedWalletButton() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showModal]);
+
+  // ── Wallet linking (Phase C) ──────────────────────────────────────
+  // When an email user connects a Solana wallet that isn't already
+  // linked to their record, run SIWS + POST /auth/wallet/link. On
+  // merge_required we surface <AccountMergeModal /> globally so the
+  // user picks which record survives.
+  const runWalletLink = useCallback(async (walletAddr) => {
+    if (!solanaSignMessage) {
+      setLinkStage('error');
+      setLinkError('this wallet does not support message signing.');
+      return;
+    }
+    setLinkStage('signing');
+    setLinkError(null);
+    try {
+      const nonceRes = await axios.post(`${API}/admin-auth/nonce`, { wallet: walletAddr });
+      const { message } = nonceRes.data;
+      const encoded = new TextEncoder().encode(message);
+      const sigBytes = await solanaSignMessage(encoded);
+      const signature = bs58.encode(sigBytes);
+
+      setLinkStage('linking');
+      const linkRes = await axios.post(
+        `${API}/auth/wallet/link`,
+        { wallet: walletAddr, message, signature },
+        { headers: authHeaders },
+      );
+
+      if (linkRes.data?.merge_required) {
+        setMergeInfo({
+          email_user_id: linkRes.data.email_user_id,
+          wallet_user_id: linkRes.data.wallet_user_id,
+          email: linkRes.data.email,
+          wallet: linkRes.data.wallet,
+        });
+        setLinkStage('merge');
+        return;
+      }
+
+      setLinkStage('success');
+      toast.success('wallet linked to your Archive.');
+      refreshEmailUser();
+      // Reset after a beat so the badge doesn't linger.
+      setTimeout(() => setLinkStage('idle'), 2500);
+    } catch (e) {
+      // If the user rejected the signature we shouldn't treat it as a
+      // hard failure — keep the wallet connected, just clear the ref
+      // so they can retry manually.
+      const rejected = e?.name === 'WalletSignMessageError' || /reject|denied/i.test(e?.message || '');
+      const detail = e?.response?.data?.detail || e?.message || 'could not link wallet.';
+      setLinkStage(rejected ? 'idle' : 'error');
+      setLinkError(rejected ? null : detail);
+      linkAttemptedRef.current = null;
+    }
+  }, [solanaSignMessage, authHeaders, refreshEmailUser]);
+
+  useEffect(() => {
+    // Preconditions: email session + a freshly connected Solana wallet
+    // that isn't already the linked one and hasn't been attempted this
+    // session.
+    if (sessionType !== 'email') return;
+    if (!solanaConnected || !solanaPublicKey) return;
+    const addr = solanaPublicKey.toBase58();
+    if (linkedWallet && linkedWallet === addr) return;
+    if (linkAttemptedRef.current === addr) return;
+    if (linkStage !== 'idle' && linkStage !== 'error') return;
+    linkAttemptedRef.current = addr;
+    runWalletLink(addr);
+  }, [sessionType, solanaConnected, solanaPublicKey, linkedWallet, linkStage, runWalletLink]);
+
+  const dismissMerge = () => {
+    setMergeInfo(null);
+    setLinkStage('idle');
+    // Clear the attempt ref so the user could retry linking later if
+    // they cancel out of the merge modal.
+    linkAttemptedRef.current = null;
+  };
 
   const formatAddress = (addr, length = 4) => {
     if (!addr) return '';
@@ -443,6 +539,56 @@ export default function UnifiedWalletButton() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Wallet-link status (Phase C). Only surfaces for
+                      email-signed users — wallet-only users don't need
+                      a link since their wallet IS the identity. */}
+                  {sessionType === 'email' && (
+                    <div className="mt-2 pt-2 border-t border-white/5" data-testid="wallet-link-status">
+                      {linkStage === 'signing' && (
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin text-[#B47CFF]" />
+                          waiting for signature…
+                        </p>
+                      )}
+                      {linkStage === 'linking' && (
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin text-[#B47CFF]" />
+                          linking to your archive…
+                        </p>
+                      )}
+                      {linkStage === 'success' && (
+                        <p className="text-[10px] text-[#00FFA3] flex items-center gap-1.5">
+                          <Link2 className="w-3 h-3" /> linked to your email account
+                        </p>
+                      )}
+                      {linkStage === 'idle' && linkedWallet === solanaPublicKey.toBase58() && (
+                        <p className="text-[10px] text-[#00FFA3] flex items-center gap-1.5">
+                          <Link2 className="w-3 h-3" /> linked to your email account
+                        </p>
+                      )}
+                      {linkStage === 'error' && linkError && (
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] text-[#FF6B6B] truncate" data-testid="wallet-link-error">
+                            {linkError}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              linkAttemptedRef.current = null;
+                              setLinkStage('idle');
+                              setLinkError(null);
+                              runWalletLink(solanaPublicKey.toBase58());
+                            }}
+                            data-testid="wallet-link-retry"
+                            className="text-[10px] uppercase tracking-widest text-[#B47CFF] hover:text-white"
+                          >
+                            retry
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button
@@ -561,6 +707,12 @@ export default function UnifiedWalletButton() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Account-merge modal — global (renders on top of everything)
+          when the wallet-link flow discovers two candidate records. */}
+      {mergeInfo && (
+        <AccountMergeModal mergeInfo={mergeInfo} onDismiss={dismissMerge} />
       )}
     </div>
   );

@@ -419,6 +419,13 @@ async def merge_accounts(
         moved[coll] = r.modified_count
 
     if body.keep == "email":
+        # Clear the conflicting unique-indexed field on the discarded row
+        # BEFORE writing it onto the primary — Mongo's unique index on
+        # users.wallet_address will otherwise reject the primary update.
+        await db.users.update_one(
+            {"user_id": discard_uid},
+            {"$unset": {"wallet_address": ""}},
+        )
         await db.users.update_one(
             {"user_id": primary_uid},
             {"$set": {
@@ -428,6 +435,12 @@ async def merge_accounts(
             }},
         )
     else:
+        # Symmetric: clear unique-indexed email fields on the discarded
+        # (email) row before promoting them onto the primary (wallet) row.
+        await db.users.update_one(
+            {"user_id": discard_uid},
+            {"$unset": {"email": "", "email_verified": ""}},
+        )
         await db.users.update_one(
             {"user_id": primary_uid},
             {"$set": {
