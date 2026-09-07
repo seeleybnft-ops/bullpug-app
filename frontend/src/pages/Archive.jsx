@@ -891,65 +891,49 @@ export default function Archive() {
   // identity (e.g. sub-tab switches, refresh ticks) skip the fetch.
   // Any identity CHANGE (sign out → sign back in as someone else)
   // clears the ref so the new session gets its own drop.
+  // Fire today's daily-drop generation once the session is CONFIRMED.
+  // `userKey` is the resolved identity — either a Solana wallet address
+  // (wallet users) or an email user_id UUID (email users). We gate the
+  // entire drop request behind `!userKey` at the top of the effect so
+  // nothing fires until the session actually resolves from null to a
+  // real value. A 500ms debounce absorbs the sequence of transient
+  // null → intermediate → final renders that happens while the wallet
+  // adapter reconnects + AuthContext hydrates, so we only send one
+  // request per resolved identity per mount.
   useEffect(() => {
-    // Prod diagnostic — logs every time this effect fires with the
-    // current state. If a returning wallet user visits /archive and
-    // this line never prints, the effect isn't running at all. If it
-    // prints with wallet=null forever, wallet-adapter isn't
-    // reconnecting. If it prints with wallet=<addr> but no fetch
-    // follows, the guards are exiting early. Remove after prod
-    // confirmation. Uses console.error so it survives production
-    // log filters.
-    // eslint-disable-next-line no-console
-    console.error("[drop-diag] effect", {
-      ts: new Date().toISOString(),
-      wallet, walletFromAdapter, hydrating, sessionType,
-      firedRef: dropFiredForIdentityRef.current,
-    });
-    if (hydrating) {
-      // eslint-disable-next-line no-console
-      console.error("[drop-diag] exit: hydrating");
-      return;
-    }
-    if (!wallet) {
-      // eslint-disable-next-line no-console
-      console.error("[drop-diag] exit: no wallet identity yet");
-      return;
-    }
-    if (dropFiredForIdentityRef.current === wallet) {
-      // eslint-disable-next-line no-console
-      console.error("[drop-diag] exit: already fired for", wallet);
-      return;
-    }
+    const userKey = wallet; // resolved identity (wallet addr or email user_id)
+    if (!userKey) return;
+    if (hydrating) return;
+    if (dropFiredForIdentityRef.current === userKey) return;
 
-    let cancelled = false;
-    // Real wallet → `?wallet_address=<addr>`. Email user → no query
-    // param + Authorization header (backend resolver reads the JWT).
-    const url = walletFromAdapter
-      ? `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(walletFromAdapter)}`
-      : `${API}/ai/daily-drop`;
-    // eslint-disable-next-line no-console
-    console.error("[drop-diag] firing fetch", { url, wallet, ts: new Date().toISOString() });
-    dropFiredForIdentityRef.current = wallet;
-    (async () => {
-      try {
-        const res = await fetch(url, fetchOpts);
-        // eslint-disable-next-line no-console
-        console.error("[drop-diag] response", { status: res.status, ok: res.ok, ts: new Date().toISOString() });
-        if (!cancelled && res.ok) {
-          setRefreshTick((n) => n + 1);
-        } else if (!cancelled) {
-          // If the fetch failed for a transient reason, allow retry on
-          // next dep change by clearing the fired ref.
+    const debounce = setTimeout(() => {
+      // Re-check the guards inside the debounce — the identity might
+      // have flipped again before the timer fired.
+      if (!userKey || dropFiredForIdentityRef.current === userKey) return;
+      dropFiredForIdentityRef.current = userKey;
+
+      // Real wallet → `?wallet_address=<addr>`. Email user → no query
+      // param + Authorization header (backend resolver reads the JWT).
+      const url = walletFromAdapter
+        ? `${API}/ai/daily-drop?wallet_address=${encodeURIComponent(walletFromAdapter)}`
+        : `${API}/ai/daily-drop`;
+
+      fetch(url, fetchOpts)
+        .then((res) => {
+          if (res.ok) {
+            setRefreshTick((n) => n + 1);
+          } else {
+            // Transient failure — clear the ref so the next dep change
+            // gets a fresh attempt.
+            dropFiredForIdentityRef.current = null;
+          }
+        })
+        .catch(() => {
           dropFiredForIdentityRef.current = null;
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("[drop-diag] fetch threw", { message: e?.message, name: e?.name });
-        if (!cancelled) dropFiredForIdentityRef.current = null;
-      }
-    })();
-    return () => { cancelled = true; };
+        });
+    }, 500);
+
+    return () => clearTimeout(debounce);
   }, [wallet, walletFromAdapter, fetchOpts, hydrating, sessionType]);
 
   // Drain the queue one at a time
