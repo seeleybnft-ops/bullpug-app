@@ -187,10 +187,10 @@ export default function CommunitySpotlight() {
                     </SpotlightCard>
                     <SpotlightCard icon={<Users className="w-4 h-4" />} accent="#00FFA3" label="Join the Community">
                       <div className="space-y-3 pt-2">
-                        <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-[#00FFA3]/30 transition-colors group" data-testid="spotlight-x-link">
+                        <a href="https://x.com/Bullpugapp" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-[#00FFA3]/30 transition-colors group" data-testid="spotlight-x-link">
                           <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white transition-colors">X</div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-200">@Bullpugcoin</p>
+                            <p className="text-xs font-semibold text-slate-200">@Bullpugapp</p>
                             <p className="text-[10px] text-slate-500">Follow for alpha</p>
                           </div>
                         </a>

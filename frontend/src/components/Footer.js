@@ -36,7 +36,7 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-xs uppercase tracking-widest mb-4 text-[#00FFA3]" style={{ fontFamily: 'Orbitron, sans-serif' }}>Community</h4>
             <div className="flex flex-col gap-2">
-              <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer" data-testid="footer-x-link"
+              <a href="https://x.com/Bullpugapp" target="_blank" rel="noopener noreferrer" data-testid="footer-x-link"
                 className="text-sm text-slate-500 hover:text-white transition-colors flex items-center gap-1">
                 X (Twitter) <ExternalLink size={11} />
               </a>

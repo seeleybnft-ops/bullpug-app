@@ -169,7 +169,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="flex gap-4 pt-2">
-              <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer" data-testid="hero-x-link" className="text-slate-500 hover:text-[#00FFA3] transition-colors text-sm">@bullpugcoin</a>
+              <a href="https://x.com/Bullpugapp" target="_blank" rel="noopener noreferrer" data-testid="hero-x-link" className="text-slate-500 hover:text-[#00FFA3] transition-colors text-sm">@Bullpugapp</a>
               <a href="https://t.me/bullpugcoinchat" target="_blank" rel="noopener noreferrer" data-testid="hero-telegram-link" className="text-slate-500 hover:text-[#00FFA3] transition-colors text-sm">Telegram</a>
             </div>
           </div>

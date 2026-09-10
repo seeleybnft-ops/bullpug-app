@@ -127,7 +127,7 @@ export default function Navbar() {
 
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-2">
-              <a href="https://x.com/Bullpugcoin" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/Bullpugapp" target="_blank" rel="noopener noreferrer"
                 data-testid="nav-x-link"
                 className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-[#00FFA3]/50 transition-all">
                 <FaXTwitter size={14} />
@@ -240,7 +240,7 @@ export default function Navbar() {
               {/* <LanguageSwitcher /> */}
               <NotificationBell />
               <a
-                href="https://x.com/Bullpugcoin"
+                href="https://x.com/Bullpugapp"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
