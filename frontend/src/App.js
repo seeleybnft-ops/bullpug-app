@@ -16,7 +16,6 @@ import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
 import PrivateAccessGate from "@/components/PrivateAccessGate";
 import HomePage from "@/pages/HomePage";
 import WalletDashboard from "@/pages/WalletDashboard";
-import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminDropVault from "@/pages/AdminDropVault";

@@ -1,6 +1,6 @@
 """Routers package — single import point for all API routers.
 
-ARCHIVED ROUTERS (10 Sep 2026):
+ARCHIVED ROUTERS (10 Sep 2026 + 18 Sep 2026):
 The following router modules have been moved to /archived/backend/routers/
 along with their frontend surfaces. They are NOT imported here and their
 endpoints will return 404. Restore the files + re-add the import lines +
@@ -9,6 +9,9 @@ list entries below to re-enable:
   • escrow         — Pug Pit escrow deposits + rake
   • ledger         — Betting ledger + rake ledger
   • showcase       — Skin showcase (parked with skin store)
+  • journal        — Trading Journal (parked)
+  • portfolio      — Portfolio value (parked)
+  • reflections    — Reflections calc (parked)
 
 ORPHAN MODULES — retained in-tree but NOT mounted in ALL_ROUTERS:
 The router files stay because active production code imports specific
@@ -16,9 +19,6 @@ functions from them; only the HTTP endpoints are unreachable:
   • pot            — routes 404; scheduler.py calls draw_pot_winner()
   • prize_pool     — routes 404; skins.py + scheduler.py call add_to_prize_pool / execute_prize_payout / get_or_create_prize_pool
   • big_wins       — routes 404; pot.py calls record_big_win()
-  • journal        — /journal 404 (Trading Journal, parked)
-  • portfolio      — /portfolio 404 (Portfolio value, parked)
-  • reflections    — /reflections 404 (Reflections calc, parked)
   • staking        — /staking + /exit-simulator 404 (parked)
   • trading_competitions — /competitions 404 (parked)
 
@@ -33,9 +33,7 @@ from routers.leaderboard import router as leaderboard_router
 from routers.skins import router as skins_router
 from routers.forum import router as forum_router
 from routers.messages import router as messages_router
-from routers.journal import router as journal_router  # noqa: F401 — orphan, see policy above
 from routers.notifications import router as notifications_router
-from routers.reflections import router as reflections_router  # noqa: F401 — orphan
 from routers.pot import router as pot_router  # noqa: F401 — orphan (functions used by scheduler)
 from routers.big_wins import router as big_wins_router  # noqa: F401 — orphan (functions used by pot.py)
 from routers.admin import router as admin_router
@@ -50,7 +48,6 @@ from routers.profile import router as profile_router
 from routers.ai_suggestions import router as ai_suggestions_router
 from routers.badges import router as badges_router
 from routers.wallet_trades import router as wallet_trades_router
-from routers.portfolio import router as portfolio_router  # noqa: F401 — orphan
 from routers.achievements import router as achievements_router
 from routers.ai_chat import router as ai_chat_router
 from routers.watchlist import router as watchlist_router
