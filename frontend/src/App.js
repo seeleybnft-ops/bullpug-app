@@ -15,12 +15,7 @@ import Footer from "@/components/Footer";
 import EnhancedAIAssistant from "@/components/EnhancedAIAssistant";
 import PrivateAccessGate from "@/components/PrivateAccessGate";
 import HomePage from "@/pages/HomePage";
-import BettingArena from "@/pages/BettingArena";
-import Shop from "@/pages/Shop";
-import NFTGallery from "@/pages/NFTGallery";
 import WalletDashboard from "@/pages/WalletDashboard";
-import SpeedRunGame from "@/pages/SpeedRunGame";
-import Phase1Runner3D from "@/pages/Phase1Runner3D";
 import Portfolio from "@/pages/Portfolio";
 import Forum from "@/pages/Forum";
 import AdminPanel from "@/pages/AdminPanel";
@@ -28,17 +23,16 @@ import AdminDropVault from "@/pages/AdminDropVault";
 import AdminCompanionTokens from "@/pages/AdminCompanionTokens";
 import AdminVisualCanon from "@/pages/AdminVisualCanon";
 import AdminAuthGate from "@/components/AdminAuthGate";
-import BigWinToast from "@/components/BigWinToast";
 import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
 import WhatsNewToast from "@/components/WhatsNewToast";
 import usePageviewTracker from "@/hooks/usePageviewTracker";
 import Messages from "@/pages/Messages";
-import Showcase from "@/pages/Showcase";
 import ProfilePage from "@/pages/ProfilePage";
 import Lore from "@/pages/Lore";
 import PugBurn from "@/pages/PugBurn";
 import Archive from "@/pages/Archive";
 import Companion from "@/pages/Companion";
+import Shop from "@/pages/Shop";
 
 // Detect if running inside Phantom's in-app browser (mobile only)
 const isPhantomBrowser = () => {
@@ -152,21 +146,23 @@ function App() {
                   <Route path="/lore" element={<Navigate to="/origins" replace />} />
                   <Route path="/archive" element={<Archive />} />
                   <Route path="/companion" element={<Companion />} />
-                  <Route path="/game" element={<SpeedRunGame />} />
-                  <Route path="/game/3d" element={<Phase1Runner3D />} />
                   <Route path="/pugburn" element={<PugBurn />} />
-                  <Route path="/betting" element={<BettingArena />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/shop" element={<Shop />} />
-                  <Route path="/nft" element={<NFTGallery />} />
                   <Route path="/wallet" element={<WalletDashboard />} />
+                  {/* Archived routes (moved to /archived/ on 10 Sep 2026):
+                        /betting  → Pug Pit (BettingArena)
+                        /game     → Cosmic Runner (SpeedRunGame)
+                        /game/3d  → Cosmic Runner 3D (Phase1Runner3D)
+                        /nft      → NFTGallery (Q4 2026 preview placeholder)
+                        /showcase → Skin Showcase
+                      To re-enable, restore the files from /archived/ and
+                      re-add the imports + Route entries above. */}
                   <Route path="/admin" element={<AdminAuthGate title="Operator Console"><AdminPanel /></AdminAuthGate>} />
                   <Route path="/admin/drops" element={<AdminAuthGate title="Drop Vault"><AdminDropVault /></AdminAuthGate>} />
                   <Route path="/admin/companions" element={<AdminAuthGate title="Companion Tokens"><AdminCompanionTokens /></AdminAuthGate>} />
                   <Route path="/admin/canon" element={<AdminAuthGate title="Visual Canon"><AdminVisualCanon /></AdminAuthGate>} />
                   <Route path="/messages" element={<Messages />} />
-                  <Route path="/showcase" element={<Showcase />} />
-                  <Route path="/showcase/:walletAddress" element={<Showcase />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
                 <Footer />
@@ -174,10 +170,9 @@ function App() {
                     /archive (Phase B of the Archive feature). Import
                     kept so a re-enable is trivial: render
                     <EnhancedAIAssistant /> here again. */}
-                <BigWinToast />
                 <NotificationPermissionPrompt />
-                {/* WhatsNewToast removed — pop-up parked. Re-enable by
-                    rendering <WhatsNewToast /> here again. */}
+                {/* WhatsNewToast + BigWinToast removed — BigWinToast was
+                    archived with the Pug Pit stack (10 Sep 2026). */}
                 <Toaster theme="dark" />
               </div>
             </BrowserRouter>

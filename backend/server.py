@@ -22,7 +22,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from routers import ALL_ROUTERS
-from routers.pot import get_pot_data
+# `pot` + `big_wins` routers were archived on 10 Sep 2026 alongside the
+# Pug Pit stack. The /ws/pot and /ws/big-wins WebSocket endpoints below
+# are stubs that immediately disconnect — the underlying pot state and
+# big-win pipelines are gone. `pot_ws_manager` + `big_wins_manager` are
+# retained as no-op broadcasters so any lingering client reconnects
+# without erroring. To restore, un-archive routers/pot.py + big_wins.py
+# and re-add the get_pot_data import + queries here.
 from utils.websocket_managers import dm_manager, notification_manager, pot_ws_manager, big_wins_manager
 from utils.database import db
 from utils.scheduler import start_scheduler, stop_scheduler
@@ -308,10 +314,11 @@ async def startup_event():
 # ========== WebSocket Endpoints ==========
 @app.websocket("/ws/pot")
 async def pot_websocket(ws: WebSocket):
-    """WebSocket for pot real-time updates."""
+    """WebSocket stub — pot router was archived (10 Sep 2026). Accept
+    and immediately disconnect so clients don't hang on reconnect."""
     await pot_ws_manager.connect(ws)
     try:
-        await ws.send_json({"type": "pot_update", "data": await get_pot_data()})
+        await ws.send_json({"type": "pot_update", "data": None})
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:

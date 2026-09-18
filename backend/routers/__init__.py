@@ -1,20 +1,31 @@
 """Routers package — single import point for all API routers.
 
-ORPHAN ROUTER POLICY (16 May 2026):
-The following modules are imported (so the code remains intact for a future
-relaunch) but are DELIBERATELY NOT mounted in ALL_ROUTERS. Their endpoints
-will return 404 in production. Do not re-mount without product sign-off:
-  • journal_router         — /journal       (Trading Journal, parked)
-  • portfolio_router       — /portfolio     (Portfolio value, parked)
-  • reflections_router     — /reflections   (Reflections calc, parked)
-  • staking_router         — /staking + /exit-simulator (parked)
-  • trading_competitions_router — /competitions (parked)
+ARCHIVED ROUTERS (10 Sep 2026):
+The following router modules have been moved to /archived/backend/routers/
+along with their frontend surfaces. They are NOT imported here and their
+endpoints will return 404. Restore the files + re-add the import lines +
+list entries below to re-enable:
+  • betting        — Pug Pit coin-flip / P2P betting arena
+  • escrow         — Pug Pit escrow deposits + rake
+  • ledger         — Betting ledger + rake ledger
+  • showcase       — Skin showcase (parked with skin store)
+
+ORPHAN MODULES — retained in-tree but NOT mounted in ALL_ROUTERS:
+The router files stay because active production code imports specific
+functions from them; only the HTTP endpoints are unreachable:
+  • pot            — routes 404; scheduler.py calls draw_pot_winner()
+  • prize_pool     — routes 404; skins.py + scheduler.py call add_to_prize_pool / execute_prize_payout / get_or_create_prize_pool
+  • big_wins       — routes 404; pot.py calls record_big_win()
+  • journal        — /journal 404 (Trading Journal, parked)
+  • portfolio      — /portfolio 404 (Portfolio value, parked)
+  • reflections    — /reflections 404 (Reflections calc, parked)
+  • staking        — /staking + /exit-simulator 404 (parked)
+  • trading_competitions — /competitions 404 (parked)
 
 The AI Trading Bot stack (ai_trader / wallet_trades / social_trading /
 multichain_copy / runner_alerts / price_alerts / watchlist / simulator /
 checkout) remains mounted but dormant (no scheduler, no UI surface).
 """
-from routers.betting import router as betting_router
 from routers.auth import router as auth_router
 from routers.email_auth import router as email_auth_router
 from routers.email import router as email_router
@@ -23,19 +34,18 @@ from routers.skins import router as skins_router
 from routers.forum import router as forum_router
 from routers.messages import router as messages_router
 from routers.journal import router as journal_router  # noqa: F401 — orphan, see policy above
-from routers.showcase import router as showcase_router
 from routers.notifications import router as notifications_router
 from routers.reflections import router as reflections_router  # noqa: F401 — orphan
-from routers.pot import router as pot_router
+from routers.pot import router as pot_router  # noqa: F401 — orphan (functions used by scheduler)
+from routers.big_wins import router as big_wins_router  # noqa: F401 — orphan (functions used by pot.py)
 from routers.admin import router as admin_router
 from routers.newsletter import router as newsletter_router
 from routers.checkout import router as checkout_router
 from routers.governance import router as governance_router
 from routers.staking import router as staking_router  # noqa: F401 — orphan
 from routers.wallet import router as wallet_router
-from routers.escrow import router as escrow_router
 from routers.tokenomics import router as tokenomics_router
-from routers.prize_pool import router as prize_pool_router
+from routers.prize_pool import router as prize_pool_router  # noqa: F401 — orphan (functions used by skins/scheduler)
 from routers.profile import router as profile_router
 from routers.ai_suggestions import router as ai_suggestions_router
 from routers.badges import router as badges_router
@@ -53,9 +63,7 @@ from routers.push_notifications import router as push_notifications_router
 from routers.multichain_copy import router as multichain_copy_router
 from routers.runner_alerts import router as runner_alerts_router
 from routers.trading_competitions import router as trading_competitions_router  # noqa: F401 — orphan
-from routers.ledger import router as ledger_router
 from routers.price_alerts import router as price_alerts_router
-from routers.big_wins import router as big_wins_router
 from routers.arena_chat import router as arena_chat_router
 from routers.client_errors import router as client_errors_router
 from routers.analytics import router as analytics_router
@@ -64,21 +72,20 @@ from routers.companion import router as companion_router, admin_router as compan
 from utils.admin_auth import router as admin_auth_router
 
 # Orphan routers — imported above for code preservation, intentionally NOT
-# included in ALL_ROUTERS so requests to /journal, /portfolio, /reflections,
-# /staking, /exit-simulator and /competitions return 404 at the ingress.
+# included in ALL_ROUTERS so their user-facing endpoints return 404.
 ALL_ROUTERS = [
-    betting_router, auth_router, email_router, leaderboard_router,
+    auth_router, email_router, leaderboard_router,
     skins_router, forum_router, messages_router,
-    showcase_router, notifications_router, pot_router,
+    notifications_router,
     admin_router, newsletter_router, checkout_router, governance_router,
-    wallet_router, escrow_router, tokenomics_router,
-    prize_pool_router, profile_router, ai_suggestions_router, badges_router,
+    wallet_router, tokenomics_router,
+    profile_router, ai_suggestions_router, badges_router,
     wallet_trades_router, achievements_router, ai_chat_router,
     watchlist_router, pugburn_router, simulator_router,
     telegram_router, custodial_wallet_router, social_trading_router,
     push_notifications_router, multichain_copy_router,
-    runner_alerts_router, ledger_router,
-    price_alerts_router, big_wins_router, arena_chat_router,
+    runner_alerts_router,
+    price_alerts_router, arena_chat_router,
     client_errors_router,
     analytics_router,
     archive_router,

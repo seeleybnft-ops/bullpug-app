@@ -10,9 +10,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import RecentWinners from "@/components/RecentWinners";
 import MarketDashboard from "@/components/MarketDashboard";
-import JackpotTicker from "@/components/JackpotTicker";
 import LatestDropWidget from "@/components/LatestDropWidget";
-import CommunitySpotlight from "@/components/CommunitySpotlight";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -268,16 +266,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* COSMIC RUNNER JACKPOT — parked during private testing.
-          Imports retained so this block can be reinstated verbatim
-          when the Cosmic Runner game launches. */}
-      {false && <JackpotTicker />}
+      {/* COSMIC RUNNER JACKPOT + COMMUNITY SPOTLIGHT — archived on
+          10 Sep 2026. Files live in /archived/frontend/src/components/
+          (JackpotTicker.js, CommunitySpotlight.js). Restore imports
+          and add the render sites back here to reinstate. */}
 
       {/* TODAY'S BULLPUG DAILY DROP (auto-hides if no drop yet today) */}
       <LatestDropWidget />
-
-      {/* COMMUNITY SPOTLIGHT — parked during private testing period. */}
-      {false && <CommunitySpotlight />}
 
       {/* LORE */}
       <section className="py-24 md:py-32" data-testid="lore-section">
