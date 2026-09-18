@@ -23,11 +23,23 @@ graveyard.
 ## Reverse Move Convention
 
 Every archived file preserves its original path relative to `/app/`.
-Restoring is always `git mv archived/<same-path> <same-path>`. Example:
+The easy way to restore any feature is the one-liner:
 
 ```bash
-git mv archived/frontend/src/pages/BettingArena.js frontend/src/pages/BettingArena.js
+bin/restore-archived.sh --list                   # show restorable features
+bin/restore-archived.sh feature=<name> --dry-run # preview the moves
+bin/restore-archived.sh feature=<name>           # execute (uses `git mv`
+                                                 # when inside a git repo)
 ```
+
+The script moves every file back to its original path and prints the
+manual App.js / `routers/__init__.py` re-wire steps that still need a
+human touch. It never edits routing files on its own — that's a product
+call and should be committed explicitly.
+
+Manual equivalent (if you'd rather do it by hand): every archived file
+lives at `archived/<same-path>` and restores to `<same-path>`, e.g.
+`git mv archived/frontend/src/pages/BettingArena.js frontend/src/pages/BettingArena.js`.
 
 The imports and routes that used to reference the moved file have been
 commented out (not deleted) in `App.js`, `HomePage.js`, and

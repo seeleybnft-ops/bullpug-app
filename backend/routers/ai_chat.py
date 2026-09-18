@@ -2398,60 +2398,6 @@ async def get_daily_drop(
     }
 
 
-@router.get("/debug/drop-status")
-async def debug_drop_status(wallet: str):
-    """Temporary diagnostic endpoint for debugging why the daily-drop
-    endpoint is not being called for returning wallets in production.
-    Returns:
-      - `last_drop_at`  — created_at of the most recent drop for this wallet
-      - `today_utc`     — server's current UTC date
-      - `has_todays_drop` — bool, whether today's drop already exists
-      - `hours_since_last` — float, hours since the last drop was generated
-      - `drops_last_7d`  — total drops generated for this wallet in 7 days
-      - `emergent_llm_key_present` — bool, whether the LLM key is loaded
-    """
-    from datetime import datetime, timezone, timedelta
-
-    today = _today_utc()
-    wallet_clean = (wallet or "").strip()
-    if not wallet_clean:
-        return {"error": "wallet query param required"}
-
-    latest = await db.daily_drops.find_one(
-        {"user_key": wallet_clean},
-        {"_id": 0, "image_base64": 0},  # strip heavy field
-        sort=[("created_at", -1)],
-    )
-    today_drop = await db.daily_drops.find_one(
-        {"user_key": wallet_clean, "date_utc": today},
-        {"_id": 0, "image_base64": 0},
-    )
-    seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    count_7d = await db.daily_drops.count_documents({
-        "user_key": wallet_clean,
-        "created_at": {"$gte": seven_days_ago},
-    })
-
-    hours_since = None
-    if latest and latest.get("created_at"):
-        try:
-            last_dt = datetime.fromisoformat(latest["created_at"].replace("Z", "+00:00"))
-            hours_since = round((datetime.now(timezone.utc) - last_dt).total_seconds() / 3600, 2)
-        except Exception:
-            hours_since = None
-
-    return {
-        "wallet": wallet_clean,
-        "today_utc": today,
-        "has_todays_drop": bool(today_drop),
-        "today_drop": today_drop,  # meta only (image stripped)
-        "last_drop": latest,       # meta only (image stripped)
-        "hours_since_last": hours_since,
-        "drops_last_7d": count_7d,
-        "emergent_llm_key_present": bool(EMERGENT_LLM_KEY),
-    }
-
-
 # Admin wallets allowed to view the full daily-drop gallery
 _ADMIN_WALLETS = {
     "we2wLezPyv4Z9AmN5vJyWsE1ZNVBqvhTxaoZh9MhuoT",

@@ -108,7 +108,7 @@ def _build_message(wallet: str, nonce: str, issued_at: str, expires_at: str) -> 
         f"\n"
         f"URI: https://{SIWS_DOMAIN}\n"
         f"Version: 1\n"
-        f"Chain ID: mainnet-beta\n"
+        f"Chain ID: mainnet\n"
         f"Nonce: {nonce}\n"
         f"Issued At: {issued_at}\n"
         f"Expiration Time: {expires_at}"

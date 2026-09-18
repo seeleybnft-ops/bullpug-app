@@ -1,5 +1,26 @@
 # Bullpug - Memecoin Full-Stack Application
 
+## Feb 2026 — Pre-GitHub Cleanup: Debug Endpoint Removal + Restore Script + SIWS Fix
+
+Final three items before the Save-to-GitHub push.
+
+**1. Diagnostic endpoint removed**: `GET /api/ai/debug/drop-status` (lines 2401–2453 of `backend/routers/ai_chat.py`) was added during the daily-drop hydration bug hunt and is no longer needed. Now returns 404. Verified.
+
+**2. Restore script**: NEW `bin/restore-archived.sh` — one-liner restoration for any parked feature. Supports `--list`, `feature=<name>`, and `--dry-run`. Uses `git mv` inside a git repo, plain `mv` outside. Prints the remaining App.js / routers/__init__.py re-wire steps that must be applied manually. Registered features: `pug-pit`, `cosmic-runner`, `showcase`, `nft-gallery`, `trading-journal`. `archived/README.md` updated to point at the script; per-feature `git mv` blocks kept as manual fallback.
+
+**3. Admin SIWS "invalid formatting" fix**: Phantom rejected the admin sign-in message with *"The app's signature request cannot be shown due to invalid formatting."* Root cause: `backend/utils/admin_auth.py::_build_message` emitted `Chain ID: mainnet-beta`, which is NOT a valid SIWS Chain ID per Phantom's stricter SIWS spec (allowed values: `mainnet`, `testnet`, `devnet`, `localnet`, or CAIP-2 `solana:<...>`). Phantom detects the SIWS shape via `signMessage` and refuses to preview the message when validation fails. Fix: changed to `Chain ID: mainnet` in the message builder AND the footer chip in `frontend/src/components/AdminAuthGate.js`. Nothing in the archival cleanup touched admin auth — the bug pre-existed and was masked until Phantom tightened validation. Verified: `POST /api/admin-auth/nonce` returns a compliant message; `/api/archive/entries`, `/api/ai/gallery/recent`, `/api/admin-auth/me` all healthy after backend restart.
+
+Files touched:
+- MODIFIED: `backend/routers/ai_chat.py` (debug endpoint removed)
+- MODIFIED: `backend/utils/admin_auth.py` (Chain ID mainnet-beta → mainnet)
+- MODIFIED: `frontend/src/components/AdminAuthGate.js` (footer chip label)
+- MODIFIED: `archived/README.md` (points at restore script)
+- CREATED: `bin/restore-archived.sh` (chmod +x, tested with --list + --dry-run)
+
+Codebase is now ready for the Save-to-GitHub push.
+
+
+
 ## Feb 2026 — Phase C Close-out + Diagnostic Cleanup
 
 Housekeeping + Phase C dual-auth completion. Verified end-to-end via iteration_119 (backend 7/7 after merge fix, frontend 100%).
