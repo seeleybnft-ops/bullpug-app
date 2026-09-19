@@ -887,13 +887,25 @@ async def admin_stats() -> Dict:
         # Rank distribution (test wallets filtered)
         rank_docs = await db[RANKS_COLLECTION].find(
             {"wallet_address": _not_test},
-            {"rank": 1, "_id": 0},
+            {"rank": 1, "wallet_address": 1, "_id": 0},
         ).to_list(length=10000)
         rank_dist: Dict[str, int] = {"none": 0, RANK_SEEKER: 0,
                                      RANK_ARCHIVIST: 0, RANK_KEEPERS_CIRCLE: 0}
+        _known_ranks = set(rank_dist.keys())
+        real_rows = 0
         for r in rank_docs:
+            # Skip orphan rows with no wallet_address (legacy pathfinder
+            # fixtures produced null-wallet rank rows that would inflate
+            # total_wallets without ever appearing in the UI).
+            if not r.get("wallet_address"):
+                continue
             key = r.get("rank") or "none"
+            if key not in _known_ranks:
+                # Unknown rank value — count the wallet but don't create
+                # a phantom bucket the frontend can't render.
+                key = "none"
             rank_dist[key] = rank_dist.get(key, 0) + 1
+            real_rows += 1
 
         # Daily-active wallets — distinct wallets with a chat turn in the
         # last 24 hours. `chat_history` schema stores per-turn rows so a
@@ -913,7 +925,7 @@ async def admin_stats() -> Dict:
         return {
             "total_entries": TOTAL_ENTRIES,
             "grand_total_entries": GRAND_TOTAL_ENTRIES,
-            "total_wallets": len(rank_docs),
+            "total_wallets": real_rows,
             "entries": entries_out,
             "rank_distribution": rank_dist,
             "daily_active_wallets": daily_active,
