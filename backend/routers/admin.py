@@ -429,11 +429,29 @@ async def run_wallet_to_user_id_migration(
 
 @router.get("/auth/breakdown")
 async def get_auth_breakdown(wallet: str = Depends(require_admin_jwt)):
-    """Return { totals, last_24h, email_verification_rate }."""
+    """Return { totals, last_24h, email_verification_rate }.
+
+    Test-user fixtures (mailinator emails, `test_*` / `phaseb-*` /
+    `siwsprobe*` wallets from automated agents) are filtered so the
+    admin sees real-user counts only. See `utils.test_wallet_filter`
+    for the canonical patterns.
+    """
     from datetime import datetime, timezone, timedelta
+    from utils.test_wallet_filter import TEST_WALLET_REGEX, TEST_EMAIL_REGEX
+
+    _not_test_email = {"$not": {"$regex": TEST_EMAIL_REGEX, "$options": "i"}}
+    _not_test_wallet = {"$not": {"$regex": TEST_WALLET_REGEX}}
 
     async def _count(auth_type: str, since_iso: Optional[str] = None) -> int:
-        q = {"auth_type": auth_type, "merged_into": {"$exists": False}}
+        q: dict = {"auth_type": auth_type, "merged_into": {"$exists": False}}
+        # Filter test rows on the field appropriate to the auth_type.
+        # Email + linked rows carry an `email`; wallet rows carry
+        # `wallet_address`. Passing `$not $regex` on a null/missing
+        # field trivially matches, so this is safe to apply either way.
+        if auth_type == "wallet":
+            q["wallet_address"] = _not_test_wallet
+        else:
+            q["email"] = _not_test_email
         if since_iso:
             q["created_at"] = {"$gte": since_iso}
         return await db.users.count_documents(q)
@@ -451,9 +469,13 @@ async def get_auth_breakdown(wallet: str = Depends(require_admin_jwt)):
         "wallet": await _count("wallet", since),
         "linked": await _count("linked", since),
     }
-    otp_requested = await db.auth_otps.count_documents({"created_at": {"$gte": since}})
+    otp_requested = await db.auth_otps.count_documents({
+        "created_at": {"$gte": since},
+        "email": _not_test_email,
+    })
     otp_verified = await db.auth_otps.count_documents({
         "created_at": {"$gte": since},
+        "email": _not_test_email,
         "verified_at": {"$exists": True},
     })
     rate = round(otp_verified / otp_requested, 3) if otp_requested else 0.0
@@ -477,24 +499,34 @@ async def lookup_user(
     """Fuzzy-search users by email or wallet_address. Case-insensitive.
 
     Returns up to 20 matches. Sanitises the query so shell metacharacters
-    aren't interpreted as regex.
+    aren't interpreted as regex. Test-user fixtures are excluded so the
+    admin doesn't see mailinator + phaseb-* pollution when searching.
+    An admin can force-include them by prefixing the query with `test:`.
     """
     import re as _re
-    cleaned = (q or "").strip()
-    if not cleaned or len(cleaned) < 3:
+    from utils.test_wallet_filter import TEST_WALLET_REGEX, TEST_EMAIL_REGEX
+
+    raw = (q or "").strip()
+    include_test = False
+    if raw.lower().startswith("test:"):
+        include_test = True
+        raw = raw[5:].strip()
+    if not raw or len(raw) < 3:
         raise HTTPException(status_code=400, detail="Search must be at least 3 characters")
-    pattern = _re.escape(cleaned)
+    pattern = _re.escape(raw)
+
+    or_clause = {"$or": [
+        {"email": {"$regex": pattern, "$options": "i"}},
+        {"wallet_address": {"$regex": pattern, "$options": "i"}},
+        {"user_id": {"$regex": pattern, "$options": "i"}},
+    ]}
+    and_clauses = [{"merged_into": {"$exists": False}}, or_clause]
+    if not include_test:
+        and_clauses.append({"email": {"$not": {"$regex": TEST_EMAIL_REGEX, "$options": "i"}}})
+        and_clauses.append({"wallet_address": {"$not": {"$regex": TEST_WALLET_REGEX}}})
+
     rows = await db.users.find(
-        {
-            "$and": [
-                {"merged_into": {"$exists": False}},
-                {"$or": [
-                    {"email": {"$regex": pattern, "$options": "i"}},
-                    {"wallet_address": {"$regex": pattern, "$options": "i"}},
-                    {"user_id": {"$regex": pattern, "$options": "i"}},
-                ]},
-            ]
-        },
+        {"$and": and_clauses},
         {"_id": 0, "user_id": 1, "email": 1, "wallet_address": 1, "auth_type": 1, "created_at": 1},
     ).limit(20).to_list(20)
 
@@ -506,5 +538,5 @@ async def lookup_user(
             ]
         })
 
-    return {"matches": rows, "count": len(rows)}
+    return {"matches": rows, "count": len(rows), "test_included": include_test}
 

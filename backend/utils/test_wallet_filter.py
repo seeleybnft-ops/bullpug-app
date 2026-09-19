@@ -54,3 +54,32 @@ def is_test_wallet(addr: Optional[str]) -> bool:
 # this so a single `find({wallet: {"$not": {"$regex": TEST_WALLET_REGEX}}})`
 # excludes test rows at the DB level.
 TEST_WALLET_REGEX = _TEST_WALLET_RE.pattern
+
+
+# ── Email-side counterpart ──────────────────────────────────────────
+# Testing agents and smoke scripts use mailinator throwaway addresses
+# plus a small set of scripted prefixes. This regex lets the admin
+# analytics filter them out the same way `TEST_WALLET_REGEX` does for
+# wallets.
+
+_TEST_EMAIL_RE = re.compile(
+    r"("
+    r"@mailinator\.com$"                    # every mailinator address
+    r"|@example\.(com|org)$"                # RFC test domains
+    r"|^(phaseb|phasec|phased|test|Test|TEST|siwsprobe|reftest|arch[_-]?fresh)[_\-a-zA-Z0-9]*@"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_test_email(email: Optional[str]) -> bool:
+    """Return True if `email` matches any testing-fixture pattern."""
+    if not email:
+        return False
+    return bool(_TEST_EMAIL_RE.search(str(email).strip()))
+
+
+# Regex string for `$regex` filters. Anchored with the same intent as
+# `TEST_WALLET_REGEX`: embed via
+# `find({email: {"$not": {"$regex": TEST_EMAIL_REGEX, "$options": "i"}}})`.
+TEST_EMAIL_REGEX = _TEST_EMAIL_RE.pattern
