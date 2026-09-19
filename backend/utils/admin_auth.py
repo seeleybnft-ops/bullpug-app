@@ -46,7 +46,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 12
 NONCE_TTL_SECONDS = 600  # 10 min
 
-SIWS_DOMAIN = os.environ.get("SIWS_DOMAIN", "bullpug.app")
+SIWS_DOMAIN = os.environ.get("SIWS_DOMAIN", "bullpug.com")
 SIWS_STATEMENT = "Sign in as a Bullpug administrator. This signature is for authentication only and will not move any funds."
 
 # Comma-separated allow-list in .env, with the DISTRIBUTION_WALLET as a
