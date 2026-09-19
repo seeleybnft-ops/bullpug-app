@@ -112,7 +112,7 @@ export default function AdminAuthGate({ children, title = "Admin Console" }) {
               </div>
             )}
             <p className="text-[10px] text-slate-600 text-center mt-4 leading-relaxed">
-              Domain: bullpug.app · Chain: mainnet · Session: 12h
+              Domain: {typeof window !== "undefined" ? window.location.host : "bullpug.com"} · Chain: mainnet · Session: 12h
             </p>
           </>
         )}

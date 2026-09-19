@@ -31,7 +31,7 @@ from typing import Optional, List
 import base58
 import nacl.signing
 import nacl.exceptions
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
@@ -64,6 +64,7 @@ def _admin_wallets() -> List[str]:
 
 class NonceRequest(BaseModel):
     wallet: str = Field(..., min_length=20, max_length=64)
+    origin: Optional[str] = Field(None, max_length=256)
 
 
 class NonceResponse(BaseModel):
@@ -97,16 +98,18 @@ router = APIRouter(prefix="/admin-auth", tags=["admin-auth"])
 _bearer = HTTPBearer(auto_error=False)
 
 
-def _build_message(wallet: str, nonce: str, issued_at: str, expires_at: str) -> str:
+def _build_message(wallet: str, nonce: str, issued_at: str, expires_at: str, domain: str) -> str:
     """SIWx-style structured message. Whitespace is exact and reused for
-    verification — never re-construct on verify side."""
+    verification — never re-construct on verify side. `domain` MUST match
+    the requesting app's origin host or Phantom refuses to show the
+    signature prompt."""
     return (
-        f"{SIWS_DOMAIN} wants you to sign in with your Solana account:\n"
+        f"{domain} wants you to sign in with your Solana account:\n"
         f"{wallet}\n"
         f"\n"
         f"{SIWS_STATEMENT}\n"
         f"\n"
-        f"URI: https://{SIWS_DOMAIN}\n"
+        f"URI: https://{domain}\n"
         f"Version: 1\n"
         f"Chain ID: mainnet\n"
         f"Nonce: {nonce}\n"
@@ -115,8 +118,44 @@ def _build_message(wallet: str, nonce: str, issued_at: str, expires_at: str) -> 
     )
 
 
+def _origin_host(request: Request, body_origin: Optional[str] = None) -> str:
+    """Derive the requesting-app host (no scheme) exactly as Phantom will
+    see it via `window.location.host`. Precedence:
+      1. `origin` field in the request body (sent by the frontend, most
+         reliable — the browser knows its own host and it survives any
+         reverse-proxy header rewriting)
+      2. `Origin` request header
+      3. `Referer` request header
+      4. `SIWS_DOMAIN` env fallback
+    """
+    from urllib.parse import urlparse
+
+    def _parse(v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            return ""
+        try:
+            if "://" not in v:
+                v = "https://" + v
+            parsed = urlparse(v)
+            host = parsed.netloc or parsed.path
+            return host.strip("/")
+        except Exception:
+            return ""
+
+    for candidate in (
+        body_origin,
+        request.headers.get("origin"),
+        request.headers.get("referer"),
+    ):
+        host = _parse(candidate)
+        if host:
+            return host
+    return SIWS_DOMAIN
+
+
 @router.post("/nonce", response_model=NonceResponse)
-async def request_nonce(req: NonceRequest):
+async def request_nonce(req: NonceRequest, request: Request):
     """Issue a one-time nonce + a fully-baked SIWx message for the wallet
     to sign. The exact message string is stored server-side so the verify
     step doesn't need to re-construct it (which is the #1 source of
@@ -134,7 +173,8 @@ async def request_nonce(req: NonceRequest):
     expires = now + timedelta(seconds=NONCE_TTL_SECONDS)
     issued_at = now.isoformat().replace("+00:00", "Z")
     expires_at = expires.isoformat().replace("+00:00", "Z")
-    message = _build_message(req.wallet, nonce, issued_at, expires_at)
+    domain = _origin_host(request, req.origin)
+    message = _build_message(req.wallet, nonce, issued_at, expires_at, domain)
 
     await db.admin_auth_nonces.insert_one({
         "id": str(uuid.uuid4()),

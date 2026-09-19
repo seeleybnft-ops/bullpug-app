@@ -147,7 +147,10 @@ export default function UnifiedWalletButton() {
     setLinkStage('signing');
     setLinkError(null);
     try {
-      const nonceRes = await axios.post(`${API}/admin-auth/nonce`, { wallet: walletAddr });
+      const nonceRes = await axios.post(`${API}/admin-auth/nonce`, {
+        wallet: walletAddr,
+        origin: typeof window !== "undefined" ? window.location.host : undefined,
+      });
       const { message } = nonceRes.data;
       const encoded = new TextEncoder().encode(message);
       const sigBytes = await solanaSignMessage(encoded);

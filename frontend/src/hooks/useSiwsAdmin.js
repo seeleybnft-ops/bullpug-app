@@ -109,6 +109,7 @@ export function useSiwsAdmin() {
       // 1. Nonce + structured message
       const nonceResp = await axios.post(`${API}/admin-auth/nonce`, {
         wallet: publicKey.toBase58(),
+        origin: typeof window !== "undefined" ? window.location.host : undefined,
       });
       const message = nonceResp.data?.message;
       if (!message) throw new Error("No message returned from nonce endpoint");
