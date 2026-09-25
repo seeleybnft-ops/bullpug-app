@@ -712,7 +712,7 @@ async def record_unlock(
         "entry_tier": entry["tier"],
         "unlocked_at": now,
         "unlock_prompt": (unlock_prompt or "")[:400],
-        "tinkerpug_excerpt": (tinkerpug_excerpt or "")[:400],
+        "tinkerpug_excerpt": (tinkerpug_excerpt or "")[:2000],
         "image_base64": image_base64 or None,
         "image_mime": image_mime or None,
         "image_generated_at": now if image_base64 else None,
@@ -837,11 +837,13 @@ async def detect_and_record_unlock(
         )
         if not slug:
             return None
-        # Trim excerpt from the assistant's own response (first ~200 chars
-        # is what the Ledger card displays).
+        # Preserve the full Tinkerpug response so the LoreCardModal can
+        # display the complete moment that triggered the unlock. Bounded
+        # to 2000 chars (about 4× a typical Tinkerpug reply) so a
+        # runaway completion can't inflate a single unlock row.
         excerpt = (tinkerpug_response or "").strip()
         # Strip markdown bold/italic markers for a cleaner card excerpt.
-        excerpt = re.sub(r"[*_`]+", "", excerpt)[:220]
+        excerpt = re.sub(r"[*_`]+", "", excerpt)[:2000]
         # Slug-specific curated excerpts — for entries where the raw
         # conversational response is a poor Ledger memento, use the
         # canonical celebration text instead.
@@ -1087,7 +1089,9 @@ def _build_entry_prompt(entry: Dict) -> str:
     Uses the entry name + locked description so the generated image
     frames the subject the same way visitors are teased about it. The
     Bullpughan universe style guardrails come from the LLM system
-    message; here we just describe the SUBJECT.
+    message AND the mandatory `_BULLPUGHAN_STYLE_SUFFIX` below, which is
+    appended without exception to every lore-card prompt so the model
+    can never wander into human figures or off-canon aesthetics.
     """
     name = entry.get("name") or entry.get("slug")
     tease = entry.get("locked_desc") or ""
@@ -1095,8 +1099,22 @@ def _build_entry_prompt(entry: Dict) -> str:
         f"Archive entry: {name}. {tease} "
         "Cinematic hyperdetailed digital art, single cohesive scene, "
         "the Bullpug universe aesthetic. Do NOT include any text, "
-        "letters, words, captions, or typography anywhere in the image."
+        "letters, words, captions, or typography anywhere in the image. "
+        f"{_BULLPUGHAN_STYLE_SUFFIX}"
     ).strip()
+
+
+# Mandatory style suffix — appended to EVERY lore-card image prompt.
+# Bullpughans are pug-faced with dark ridged bull horns; humans are
+# strictly forbidden in the visual canon. Any deviation here causes the
+# Archive to fill with off-canon art, so this string is treated as
+# non-negotiable and never conditional.
+_BULLPUGHAN_STYLE_SUFFIX = (
+    "All characters must be pugs with dark ridged bull horns. No human "
+    "figures. Bullpughan universe aesthetic — cyberpunk neon, deep "
+    "indigo, cyan and magenta lighting. Characters are anthropomorphic "
+    "pugs with bull horns throughout."
+)
 
 
 async def _generate_entry_image(entry: Dict) -> Optional[Dict]:
