@@ -540,3 +540,29 @@ async def lookup_user(
 
     return {"matches": rows, "count": len(rows), "test_included": include_test}
 
+
+# ─── Archive lore-card image sweep ──────────────────────────────────
+# One-click regeneration of every lore-card thumbnail. Useful after a
+# prompt-tuning change (like the mandatory Bullpughan style suffix) so
+# admins don't have to click-regen 72 entries individually.
+
+@router.post("/archive/regenerate-all-images")
+async def admin_regenerate_all_lore_images(wallet: str = Depends(require_admin_jwt)):
+    """Kick off a background sweep that regenerates every non-special
+    lore-card image using the current prompt. Returns immediately with
+    the job envelope; poll `GET /archive/regenerate-all-images/status`
+    for progress. If a sweep is already running, returns that job's
+    state instead of starting a second one.
+    """
+    from services.archive_achievements import start_regen_all_entry_images
+    envelope = await start_regen_all_entry_images()
+    logger.info("admin regen-all-images kicked off by %s: job=%s", wallet, envelope.get("job_id"))
+    return envelope
+
+
+@router.get("/archive/regenerate-all-images/status")
+async def admin_regen_all_lore_images_status(wallet: str = Depends(require_admin_jwt)):
+    """Return the current or most-recent sweep job's progress."""
+    from services.archive_achievements import get_regen_status
+    return await get_regen_status()
+

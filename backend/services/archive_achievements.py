@@ -1244,3 +1244,126 @@ async def ensure_entry_image(slug: str) -> Optional[Dict]:
         if result:
             return {**result, "status": "pending"}
         return None
+
+
+# ── Admin sweep — regenerate every lore-card image ────────────────────
+# Called from `POST /api/admin/archive/regenerate-all-images`. Kicks off
+# a background task that walks MASTER_ENTRIES, generates a fresh image
+# for each non-special slug using the current `_build_entry_prompt`
+# (which includes the mandatory `_BULLPUGHAN_STYLE_SUFFIX`), and force-
+# replaces the cached visual_canon image via `visual_canon.admin_override`.
+#
+# Progress is persisted to `archive_regen_jobs` so the admin panel can
+# poll for status. Only one job runs at a time — a second POST while a
+# job is running is a no-op that returns the running job's state.
+
+_REGEN_JOB_COLLECTION = "archive_regen_jobs"
+_REGEN_LOCK: Optional["asyncio.Lock"] = None
+
+
+def _regen_lock() -> "asyncio.Lock":
+    """Lazy singleton so we don't create the lock at import time (which
+    would bind it to whichever event loop was current at import)."""
+    global _REGEN_LOCK
+    if _REGEN_LOCK is None:
+        import asyncio as _asyncio
+        _REGEN_LOCK = _asyncio.Lock()
+    return _REGEN_LOCK
+
+
+async def get_regen_status() -> Dict:
+    """Return the most recent regen-all-images job (or a placeholder)."""
+    doc = await db[_REGEN_JOB_COLLECTION].find_one(
+        {}, {"_id": 0}, sort=[("started_at", -1)]
+    )
+    if not doc:
+        return {"status": "idle", "total": 0, "completed": 0, "failed": 0}
+    return doc
+
+
+async def start_regen_all_entry_images() -> Dict:
+    """Kick off a background sweep that regenerates every lore-card image.
+
+    Returns the job envelope immediately (fire-and-forget task); the
+    frontend polls `get_regen_status()` to watch progress. If a job is
+    already running, returns that job's current state instead of
+    starting a second one.
+    """
+    import asyncio as _asyncio
+    import uuid as _uuid
+    from services import visual_canon
+
+    # Reject a second concurrent job.
+    running = await db[_REGEN_JOB_COLLECTION].find_one(
+        {"status": "running"}, {"_id": 0}
+    )
+    if running:
+        return running
+
+    # Only non-special slugs get an image.
+    slugs = [e["slug"] for e in MASTER_ENTRIES if e["slug"] not in _SPECIAL_SLUGS]
+    job_id = str(_uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    envelope = {
+        "job_id": job_id,
+        "status": "running",
+        "total": len(slugs),
+        "completed": 0,
+        "failed": 0,
+        "started_at": now,
+        "finished_at": None,
+        "last_slug": None,
+        "errors": [],
+    }
+    await db[_REGEN_JOB_COLLECTION].insert_one(dict(envelope))
+
+    async def _run():
+        lock = _regen_lock()
+        async with lock:
+            completed = 0
+            failed = 0
+            errors: List[str] = []
+            for slug in slugs:
+                entry = _BY_SLUG.get(slug)
+                if not entry:
+                    continue
+                try:
+                    result = await _generate_entry_image(entry)
+                    if not result:
+                        failed += 1
+                        errors.append(f"{slug}: generation returned None")
+                    else:
+                        # Force-replace the cached image regardless of
+                        # current status. `admin_override` is the only
+                        # canon write path that overwrites canon rows.
+                        await visual_canon.admin_override(
+                            subject_tag=slug,
+                            image_base64=result["image_base64"],
+                            image_mime=result["image_mime"],
+                        )
+                        completed += 1
+                except Exception as e:
+                    failed += 1
+                    errors.append(f"{slug}: {type(e).__name__}: {e}")
+                    logger.warning("regen sweep: %s failed: %s", slug, e)
+                # Persist progress every slug so the admin poll sees
+                # forward motion in real time.
+                await db[_REGEN_JOB_COLLECTION].update_one(
+                    {"job_id": job_id},
+                    {"$set": {
+                        "completed": completed,
+                        "failed": failed,
+                        "last_slug": slug,
+                        "errors": errors[-10:],  # last 10 only
+                    }},
+                )
+            await db[_REGEN_JOB_COLLECTION].update_one(
+                {"job_id": job_id},
+                {"$set": {
+                    "status": "done",
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+
+    _asyncio.create_task(_run())
+    return envelope

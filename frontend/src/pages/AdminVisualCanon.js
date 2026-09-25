@@ -11,7 +11,7 @@
  * Talks to /api/archive/admin/canon/* via the admin JWT.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, CheckCircle2, ArchiveIcon, Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { RefreshCw, CheckCircle2, ArchiveIcon, Upload, X, Loader2, Image as ImageIcon, Sparkles } from "lucide-react";
 import useSiwsAdmin from "@/hooks/useSiwsAdmin";
 
 const PAGE_SIZE = 24;
@@ -131,6 +131,49 @@ export default function AdminVisualCanon() {
 
   const canLoadMore = items.length < total;
 
+  // ── Regenerate-all-lore-images sweep ────────────────────────────
+  // Kicks off a background job; we poll every 3s while it's running so
+  // the admin sees live progress without a websocket.
+  const [regen, setRegen] = useState(null); // {status, total, completed, failed, last_slug, errors}
+  const [regenBusy, setRegenBusy] = useState(false);
+
+  const fetchRegenStatus = useCallback(async () => {
+    try {
+      const { data } = await authFetch("/admin/archive/regenerate-all-images/status");
+      setRegen(data);
+      return data;
+    } catch (e) {
+      // silent — status is a nice-to-have
+      return null;
+    }
+  }, [authFetch]);
+
+  // Initial status check on mount so a job started elsewhere is visible.
+  useEffect(() => { fetchRegenStatus(); }, [fetchRegenStatus]);
+
+  // Poll while a sweep is running.
+  useEffect(() => {
+    if (regen?.status !== "running") return;
+    const id = setInterval(() => { fetchRegenStatus(); }, 3000);
+    return () => clearInterval(id);
+  }, [regen?.status, fetchRegenStatus]);
+
+  const startRegenAll = async () => {
+    if (regen?.status === "running") return;
+    const total = 72; // MASTER_ENTRIES non-special count (72 unlockables, 2 special skipped)
+    if (!window.confirm(`Regenerate lore-card images for all ${total} entries?\n\nThis will call Gemini once per entry and takes several minutes. Existing images will be replaced.`)) return;
+    setRegenBusy(true);
+    setError(null);
+    try {
+      const { data } = await authFetch("/admin/archive/regenerate-all-images", { method: "POST" });
+      setRegen(data);
+    } catch (e) {
+      setError(e?.response?.data?.detail || e?.message || "Failed to start sweep");
+    } finally {
+      setRegenBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] px-4 pt-8 pb-16" data-testid="admin-visual-canon-page">
       <div className="max-w-7xl mx-auto">
@@ -185,6 +228,62 @@ export default function AdminVisualCanon() {
               </button>
             );
           })}
+        </div>
+
+        {/* Regenerate-all sweep card */}
+        <div
+          className="mb-6 rounded-xl p-4 flex items-center justify-between gap-4"
+          style={{ background: "rgba(0,255,163,0.04)", border: "1px solid rgba(0,255,163,0.18)" }}
+          data-testid="admin-canon-regen-all-card"
+        >
+          <div className="min-w-0">
+            <p
+              className="text-[10px] uppercase tracking-[0.28em] text-[#00FFA3]/80 mb-1 flex items-center gap-1.5"
+              style={{ fontFamily: "Orbitron, sans-serif" }}
+            >
+              <Sparkles size={11} />
+              Bulk regeneration
+            </p>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Regenerate every lore-card image with the current prompt (includes the mandatory Bullpughan style suffix — pug faces + dark ridged bull horns, no human figures).
+            </p>
+            {regen && regen.status !== "idle" && (
+              <p
+                className="text-[10px] mt-2 flex items-center gap-2"
+                style={{ color: regen.status === "running" ? "#00FFA3" : regen.failed > 0 ? "#F5D300" : "#94A3B8" }}
+                data-testid="admin-canon-regen-progress"
+              >
+                {regen.status === "running" && <Loader2 size={10} className="animate-spin" />}
+                <span>
+                  {regen.status === "running" ? "Running" : "Last run"} ·{" "}
+                  {regen.completed}/{regen.total} done
+                  {regen.failed > 0 && `, ${regen.failed} failed`}
+                  {regen.last_slug && ` · ${regen.last_slug}`}
+                </span>
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={startRegenAll}
+            disabled={regenBusy || regen?.status === "running"}
+            data-testid="admin-canon-regen-all-btn"
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+            style={{
+              background: regen?.status === "running" ? "rgba(0,255,163,0.15)" : "#00FFA3",
+              color: regen?.status === "running" ? "#00FFA3" : "#0a0a12",
+              fontFamily: "Orbitron, sans-serif",
+              border: "1px solid rgba(0,255,163,0.35)",
+            }}
+          >
+            {regen?.status === "running" ? (
+              <><Loader2 size={12} className="animate-spin" /> Sweeping…</>
+            ) : regenBusy ? (
+              <><Loader2 size={12} className="animate-spin" /> Starting…</>
+            ) : (
+              <><Sparkles size={12} /> Regenerate all</>
+            )}
+          </button>
         </div>
 
         {error && (
